@@ -164,6 +164,33 @@ add_task(async function test_TimelineIsOnePage() {
      "The plan says it checked all of the candidates");
 });
 
+// A timeline with more revisions than fit a marker each groups them by when
+// they landed (`unwrap`'s 579 over 11 years, in 2026), a group's marker
+// listing them and zooming into its time, where they have their own markers
+// (or smaller groups).
+add_task(async function test_TimelineGroups() {
+  await TestUtils.loadQuery("searchfox", "text-timeline:unwrap");
+  await waitForCondition(() => doc().querySelector(".history-timeline-svg"), "The chart is there");
+  const groups = [...doc().querySelectorAll(".history-timeline-group")];
+  ok(groups.length > 0, "Some markers are groups");
+  ok(doc().querySelector(".history-timeline-note")?.textContent.includes("click to zoom in"),
+     "which the note explains");
+  const biggest = groups.sort((a, b) => b.dataset.count - a.dataset.count)[0];
+  const count = Number(biggest.dataset.count);
+  ok(biggest.querySelector("title").textContent.includes(`${count} revisions`),
+     "A group's tooltip says how many revisions it has");
+  biggest.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  await waitForCondition(() => doc().querySelector(".history-timeline-zoom"), "Clicking it zooms in");
+  const markers = doc().querySelectorAll(".history-timeline-marker").length;
+  const grouped = [...doc().querySelectorAll(".history-timeline-group")]
+        .reduce((n, group) => n + Number(group.dataset.count), 0);
+  is(markers + grouped, count, "to its revisions");
+  doc().querySelector(".history-timeline-zoom-out").click();
+  await waitForCondition(() => !doc().querySelector(".history-timeline-zoom"), "Zooming out");
+  is(doc().querySelectorAll(".history-timeline-group").length, groups.length,
+     "goes back to the whole history's groups");
+});
+
 add_task(async function test_HistoryGrepIgnored() {
   // (A cut-off `until:` is text, which a history query says it ignored.)
   await TestUtils.loadQuery("searchfox", "text-history:structopt until");

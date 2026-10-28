@@ -6146,6 +6146,22 @@ textarea.monospace {
 .history-timeline-axis-label {
   font-size: smaller;
 }
+.history-timeline-zoom,
+.history-timeline-note {
+  margin: 0.3em 0;
+  font-size: smaller;
+}
+.history-timeline-group {
+  cursor: zoom-in;
+}
+.history-timeline-group circle {
+  stroke: var(--page-background);
+  stroke-width: 1.5;
+}
+.history-timeline-group:focus-visible circle {
+  stroke: currentColor;
+  stroke-width: 2;
+}
 .history-timeline-table caption {
   text-align: left;
   padding: 0.3em 0;

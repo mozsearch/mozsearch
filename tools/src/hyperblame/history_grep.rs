@@ -165,6 +165,10 @@ pub struct Timeline {
     /// "matches", "value" or "values" (see above).
     pub measure: String,
     pub series: Vec<TimelineSeries>,
+    /// For "values", how many revisions changed files' values but not which
+    /// values there are (ex: one file's call of a topic other files also
+    /// have), which aren't points (they're in the files' rows).
+    pub unchanged: usize,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -1222,6 +1226,7 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
         return Timeline {
             measure: "value".to_string(),
             series,
+            unchanged: 0,
         };
     }
 
@@ -1252,6 +1257,7 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
         state.values().map(|file| file.count.max(0) as f64).sum()
     };
     let mut line = TimelineSeries::default();
+    let mut unchanged = 0;
     for (index, (first, group)) in revisions.iter().enumerate() {
         // (A file's state before its first change is its `old`.)
         for change in group {
@@ -1291,8 +1297,11 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
             }
         }
         let after_values = distinct(&state);
-        // (Merges only where they changed the values.)
-        if values && group.iter().all(|c| c.merge) && after_values == before_values {
+        // (Only revisions changing which values there are.)
+        if values && after_values == before_values {
+            if !group.iter().all(|c| c.merge) {
+                unchanged += 1;
+            }
             continue;
         }
         let (value, added, removed) = if values {
@@ -1327,6 +1336,7 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
     Timeline {
         measure: if values { "values" } else { "matches" }.to_string(),
         series: vec![line],
+        unchanged,
     }
 }
 
@@ -1673,8 +1683,8 @@ mod tests {
         assert_eq!(line.points[1].removed, vec!["3"]);
 
         // (A switch's cases: how many distinct labels, with those added and
-        // removed; reordering isn't a change, and a file's other cases count
-        // from before its first change.)
+        // removed; reordering isn't a change, nor a point, and a file's other
+        // cases count from before its first change.)
         let re = r"case (\w+):";
         let changes = vec![
             change(
@@ -1708,12 +1718,12 @@ mod tests {
         assert_eq!(line.start, 2.0);
         assert_eq!(
             line.points.iter().map(|p| p.value).collect::<Vec<_>>(),
-            vec![3.0, 3.0, 2.0]
+            vec![3.0, 2.0]
         );
+        assert_eq!(timeline.unchanged, 1);
         assert_eq!(line.points[0].added, vec!["C"]);
-        assert!(line.points[1].added.is_empty() && line.points[1].removed.is_empty());
-        assert_eq!(line.points[2].added, vec!["D"]);
-        assert_eq!(line.points[2].removed, vec!["A", "B"]);
+        assert_eq!(line.points[1].added, vec!["D"]);
+        assert_eq!(line.points[1].removed, vec!["A", "B"]);
 
         // (Counts, over files.)
         let re = r"structopt";

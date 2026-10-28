@@ -57,6 +57,9 @@
       {%- when "values" %}how many distinct values the matches captured
       {%- else %}how many matches
       {%- endcase %}, from {{ series.start }}
+      {%- if grep.timeline.unchanged > 0 %}
+      ({{ grep.timeline.unchanged }} revision{% if grep.timeline.unchanged != 1 %}s{% endif %} which changed files' values, but not which values there are, {% if grep.timeline.unchanged != 1 %}are{% else %}is{% endif %} only in “By file”)
+      {%- endif %}
     </caption>
     <thead>
       <tr><th>Date</th><th>Revision</th><th>Then</th><th>Changes</th></tr>
