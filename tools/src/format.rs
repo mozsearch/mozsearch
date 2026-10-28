@@ -4833,6 +4833,35 @@ pub fn format_rendered(
         });
     }
 
+    // (In the view with its pull requests' changes, their facets and list are
+    // the panel's first section; see rendered_prs.liquid.)
+    let prs_globals = match &pr_view {
+        Some((spec_repo, summary, prs, imported)) => Some(rendered_prs_globals(
+            tree_name,
+            spec_repo,
+            summary.as_ref(),
+            prs,
+            (path, &view_path),
+            imported,
+        )?),
+        None => None,
+    };
+    if let Some(globals) = &prs_globals {
+        let mut html = vec![];
+        render_rendered_prs(globals, "panel", &mut html)?;
+        let html = String::from_utf8(html).map_err(|_| "Template problems")?;
+        if !html.trim().is_empty() {
+            panel.insert(
+                0,
+                PanelSection {
+                    name: String::new(),
+                    items: vec![],
+                    raw_items: vec![html],
+                },
+            );
+        }
+    }
+
     output::generate_header(&opt, writer)?;
     output::generate_breadcrumbs(&opt, writer, path, &[], false)?;
     output::generate_panel(&opt, writer, &panel, false)?;
@@ -4929,16 +4958,8 @@ pub fn format_rendered(
     if let Some(nav) = &page_nav {
         writeln!(writer, "{}", nav).unwrap();
     }
-    if let Some((spec_repo, summary, prs, imported)) = &pr_view {
-        write_rendered_prs_header(
-            tree_name,
-            spec_repo,
-            summary.as_ref(),
-            prs,
-            (path, &view_path),
-            imported,
-            writer,
-        )?;
+    if let Some(globals) = &prs_globals {
+        render_rendered_prs(globals, "header", writer)?;
         writeln!(writer, r#"<div class="sp-prs-view">"#).unwrap();
     }
     // (In the view with its pull requests' changes, with the page's lines,
@@ -5047,19 +5068,19 @@ pub fn format_rendered(
     output::generate_footer(&opt, tree_name, path, writer)
 }
 
-/// The list of the pull requests changing a spec's page, before it in its
-/// view with their changes (see `format_rendered`'s `with_prs`): with facets
-/// filtering them, and each's data, for spec-pr-view.js (see
-/// rendered_prs.liquid).
-fn write_rendered_prs_header(
+/// The pull requests changing a spec's page, in its view with their changes
+/// (see `format_rendered`'s `with_prs`), for rendered_prs.liquid: their list,
+/// in the panel, with facets filtering them, and each's data, for
+/// spec-pr-view.js, and which they are, before the page (see
+/// `render_rendered_prs`).
+fn rendered_prs_globals(
     tree_name: &str,
     spec_repo: &str,
     summary: Option<&crate::spec_prs::RepoSummary>,
     prs: &[crate::spec_prs::PrSummary],
     (source_path, view_path): (&str, &str),
     imported: &[String],
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+) -> Result<liquid::Object, &'static str> {
     use crate::spec_prs::{pr_facet_values, pr_facets, review_name};
     let entries: Vec<serde_json::Value> = prs
         .iter()
@@ -5115,7 +5136,7 @@ fn write_rendered_prs_header(
             })
         })
         .collect();
-    let globals = liquid::to_object(&json!({
+    liquid::to_object(&json!({
         "tree": tree_name,
         "spec_repo": spec_repo,
         "summary": summary.map(|summary| json!({
@@ -5125,7 +5146,21 @@ fn write_rendered_prs_header(
         "prs": entries,
         "facets": pr_facets(prs),
     }))
-    .map_err(|_| "Template problems")?;
+    .map_err(|_| "Template problems")
+}
+
+/// Render `part` of rendered_prs.liquid ("panel" or "header") with
+/// `rendered_prs_globals`.
+fn render_rendered_prs(
+    globals: &liquid::Object,
+    part: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let mut globals = globals.clone();
+    globals.insert(
+        "part".into(),
+        liquid::model::Value::scalar(part.to_string()),
+    );
     crate::templating::builder::build_and_parse_rendered_prs()
         .render_to(writer, &globals)
         .map_err(|_| "Template problems")
@@ -11665,6 +11700,85 @@ pub fn render_commit(
 
 #[cfg(test)]
 mod tests {
+    /// rendered_prs.liquid's parts (see `render_rendered_prs`): the panel's
+    /// facets and collapsible list, and the header's sentence, which a spec
+    /// without pull requests changing the page, or without its pull requests
+    /// synced, has, but not the panel's.
+    #[test]
+    fn test_rendered_prs_parts() {
+        let render = |globals: &serde_json::Value, part: &str| {
+            let mut out = vec![];
+            super::render_rendered_prs(&liquid::to_object(globals).unwrap(), part, &mut out)
+                .unwrap();
+            String::from_utf8(out).unwrap()
+        };
+        let pr = |number: u32| {
+            serde_json::json!({
+                "number": number,
+                "title": format!("Change {}", number),
+                "try_path": format!("/specs/try/gizmo/{}", number),
+                "facets": "{}",
+                "data": "{}",
+                "error": "",
+                "loads": true,
+            })
+        };
+        let globals = |prs: Vec<serde_json::Value>, synced: bool| {
+            serde_json::json!({
+                "tree": "specs",
+                "spec_repo": "gizmo",
+                "summary": synced.then(|| serde_json::json!({ "repo": "whatwg/gizmo", "synced": "2026-10-28 18:00 UTC" })),
+                "prs": prs,
+                "facets": [],
+            })
+        };
+
+        let two = globals(vec![pr(1), pr(2)], true);
+        let panel = render(&two, "panel");
+        assert!(
+            panel.contains(r#"<section class="facet-box" data-noun="pull request""#),
+            "{}",
+            panel
+        );
+        assert!(
+            panel.contains(r#"<details class="sp-pr-list-box" open>"#),
+            "{}",
+            panel
+        );
+        assert!(
+            panel.contains(r#"<span class="sp-pr-list-count">(2)</span>"#),
+            "{}",
+            panel
+        );
+        assert_eq!(panel.matches(r#"<li class="sp-pr-entry""#).count(), 2);
+        let header = render(&two, "header");
+        assert!(
+            header.contains("the navigation panel lists them"),
+            "{}",
+            header
+        );
+        assert!(
+            !header.contains("sp-pr-entry") && !header.contains("facet-box"),
+            "{}",
+            header
+        );
+
+        // (A long list is collapsed at first.)
+        let many = globals((1..=21).map(pr).collect(), true);
+        assert!(render(&many, "panel").contains(r#"<details class="sp-pr-list-box">"#));
+
+        for (sparse, says) in [
+            (
+                globals(vec![], true),
+                "None of whatwg/gizmo's open pull requests",
+            ),
+            (globals(vec![], false), "haven't been synced yet"),
+        ] {
+            assert_eq!(render(&sparse, "panel").trim(), "");
+            assert!(render(&sparse, "header").contains(says));
+        }
+    }
+
     #[test]
     fn test_annotate_spec_symbols() {
         let specs: crate::spec_analyze::SpecsConfig = toml::from_str(

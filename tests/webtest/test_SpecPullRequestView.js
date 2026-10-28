@@ -105,19 +105,61 @@ add_task(async function test_SpecPullRequestView() {
   ok(cards.every(each => each.querySelector(".sp-pr-card-header").getClientRects().length),
      "Every card has its pull request's header");
 
+  // The facets and the list are in the navigation panel (the fancy bar, if
+  // it's docked), the list's heading saying how many pull requests the
+  // filtering shows.
+  ok(doc().querySelector("#panel-content .facet-box") && doc().querySelector("#panel-content .sp-pr-list"),
+     "The facets and the list are in the panel");
+  ok(!doc().querySelector(".sp-prs-header .facet-box, .sp-prs-header .sp-pr-list"),
+     "rather than before the page");
+  const count = () => doc().querySelector(".sp-pr-list-count").textContent;
+  is(count(), "(2)", "The list's heading says how many pull requests it has");
+
   // Filtering the pull requests hides their changes.
   const value = [...doc().querySelectorAll('.facet[data-facet="review"] .facet-value')]
     .find(button => button.textContent.includes("Changes requested"));
   value.click();
   await waitForCondition(() => card.hidden, "Filtering hides the other pull request's change");
+  is(count(), "(1 of 2)", "and the list's heading says how many it shows");
   doc().querySelector(".facet-clear").click();
   await waitForCondition(() => !card.hidden, "and showing it again shows it");
+  is(count(), "(2)", "as its heading does");
 
   ok(doc().querySelector('#panel-rendered-prs[href="/specpr/rendered/gizmo/source"]'),
      "The panel goes to the view without them");
   await TestUtils.loadPath("/specpr/rendered/gizmo/source");
   ok(doc().querySelector('#panel-rendered-prs[href="/specpr/rendered-prs/gizmo/source"]'),
      "and from it to the view with them");
+});
+
+// The list of pull requests in the panel collapses (a long one at first),
+// which is remembered, while filtering and on the next page, until it's
+// expanded again.
+add_task(async function test_SpecPullRequestViewListCollapses() {
+  await prepare();
+  await loadView("gizmo/source");
+  const storage = frame.contentWindow.localStorage;
+  const storageKey = frame.contentWindow.storageKey("spPrListOpen");
+  storage.removeItem(storageKey);
+  await loadView("gizmo/source");
+  const box = () => doc().querySelector(".sp-pr-list-box");
+  const count = () => doc().querySelector(".sp-pr-list-count").textContent;
+  ok(box().open, "A short list is expanded at first");
+  box().querySelector("summary").click();
+  ok(!box().open, "Its heading collapses it");
+  await waitForCondition(() => storage.getItem(storageKey) == "false", "which is remembered");
+  [...doc().querySelectorAll('.facet[data-facet="review"] .facet-value')]
+    .find(button => button.textContent.includes("Changes requested")).click();
+  await waitForCondition(() => count() == "(1 of 2)", "Filtering");
+  ok(!box().open, "leaves it collapsed, its heading saying how many it shows");
+  await loadView("gizmo/source");
+  ok(!box().open, "and it's collapsed on the next page");
+  box().querySelector("summary").click();
+  ok(box().open, "until it's expanded");
+  await waitForCondition(() => storage.getItem(storageKey) == "true", "which is remembered too");
+  await loadView("gizmo/source");
+  ok(box().open, "on the next page");
+  storage.removeItem(storageKey);
 });
 
 add_task(async function test_SpecPullRequestViewBikeshed() {

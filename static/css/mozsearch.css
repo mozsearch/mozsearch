@@ -3396,6 +3396,38 @@ h2.sp-called-heading {
   font-size: smaller;
   opacity: 0.8;
 }
+/* In the navigation panel, under their facets: the list of the pull
+   requests, collapsible, with how many the filtering shows. */
+.sp-pr-list-box {
+  border-bottom: 1px solid var(--page-border-color);
+}
+/* (Rather than `#content details`'s indentation.) */
+#panel-content .sp-pr-list-box {
+  margin: 0;
+}
+.sp-pr-list-box > summary {
+  padding: 0.5rem;
+  cursor: pointer;
+}
+.panel .sp-pr-list-box > summary > h4 {
+  display: inline;
+  padding: 0;
+}
+.sp-pr-list-count {
+  font-weight: normal;
+  opacity: 0.8;
+}
+.panel .sp-pr-list {
+  margin: 0;
+  padding: 0 0.5rem 0.5rem 1.5rem;
+}
+.panel .sp-pr-entry {
+  margin: 0.3em 0;
+  overflow-wrap: anywhere;
+}
+.panel .sp-pr-entry .sp-pr-state {
+  display: block;
+}
 .sp-prs-view {
   display: flex;
   gap: 1.5em;

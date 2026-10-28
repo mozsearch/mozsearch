@@ -17,7 +17,9 @@
  * trunk's blocks with changes beside them are marked, and hovering over a
  * card outlines the ones
  * it changes.  Filtering the entries with the facets (see facets.js) hides
- * their cards.
+ * their cards.  The list is in the navigation panel, under the facets, and
+ * its heading says how many entries the filtering shows; collapsing or
+ * expanding it is remembered (see rendered_prs.liquid).
  *
  * An ecmarkup spec's page also lists the pull requests changing the files its
  * source imports, linking to those files' views with their changes (`imported`).
@@ -686,11 +688,35 @@
     }
   }
 
+  // The list's heading's count of the entries shown, and its collapsing or
+  // expanding, remembered when it's the reader's.
+  const listBox = document.querySelector(".sp-pr-list-box");
+  const listCount = listBox?.querySelector(".sp-pr-list-count");
+  const updateCount = () => {
+    if (listCount) {
+      const shown = entries.filter(entry => !entry.hidden).length;
+      listCount.textContent = shown == entries.length
+        ? `(${entries.length})` : `(${shown} of ${entries.length})`;
+    }
+  };
+  updateCount();
+  let toggling = false;
+  listBox?.querySelector("summary").addEventListener("click", () => {
+    toggling = true;
+  });
+  listBox?.addEventListener("toggle", () => {
+    if (toggling) {
+      toggling = false;
+      localStorage.setItem(storageKey("spPrListOpen"), listBox.open);
+    }
+  });
+
   // Filtering the entries hides their cards.
   new MutationObserver(() => {
     for (const card of cards) {
       card.element.hidden = card.entry.hidden;
     }
+    updateCount();
     schedule();
   }).observe(document.querySelector(".sp-pr-list"), {
     attributes: true,
