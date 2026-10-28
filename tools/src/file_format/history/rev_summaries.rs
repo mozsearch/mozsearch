@@ -24,7 +24,9 @@
 //! start of a history window, which adds every file, or a tree-wide reformat)
 //! only get totals, since listing every file would make the summary huge (ex:
 //! 3 GB for the start of an unscoped firefox-main window) while the per-file
-//! details are in the files-delta journals anyway.
+//! details are in the files-delta journals anyway.  Which of their files
+//! changed each token is in their token indexes, next to their summaries (see
+//! `rev_token_index`).
 
 use std::collections::BTreeMap;
 

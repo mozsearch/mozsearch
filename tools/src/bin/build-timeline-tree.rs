@@ -127,8 +127,10 @@ use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
 };
 use tools::file_format::history::rev_summaries::{
-    RevFileSummaryRecord, RevSummaryRecord, file_deltas_or_totals, rev_summary_path,
+    MAX_REV_SUMMARY_FILES, RevFileSummaryRecord, RevSummaryRecord, file_deltas_or_totals,
+    rev_summary_path,
 };
+use tools::file_format::history::rev_token_index::{self, rev_token_index_path};
 use tools::file_format::history::syntax_files::token_file_lines;
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::timeline_annotated::{
@@ -4438,6 +4440,24 @@ fn write_rev_summary(rev_summary_root: &Path, summary: &RevSummaryRecord) {
     fs::write(&path, serde_json::to_string(summary).unwrap()).unwrap();
 }
 
+/// Write the rev-summary of a revision with all of its file deltas: those, or
+/// for one changing too many files to list them, totals, and the index of the
+/// tokens its files changed (see `rev_token_index`).  (Here, on the writer's
+/// thread, rather than on the main thread.)
+fn write_new_rev_summary(rev_summary_root: &Path, mut summary: RevSummaryRecord) {
+    if summary.file_deltas.len() > MAX_REV_SUMMARY_FILES {
+        let index = rev_token_index::encode(rev_token_index::indexed_files(&summary.file_deltas));
+        let path = rev_summary_root.join(rev_token_index_path(&summary.source_rev));
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, index).unwrap();
+    }
+    let (file_deltas, file_totals) =
+        file_deltas_or_totals(std::mem::take(&mut summary.file_deltas));
+    summary.file_deltas = file_deltas;
+    summary.file_totals = file_totals;
+    write_rev_summary(rev_summary_root, &summary);
+}
+
 /// Record in the rev-summary of `backed_out_rev` that `backout_rev` backed it
 /// out.
 fn mark_rev_summary_backed_out(rev_summary_root: &Path, backed_out_rev: &str, backout_rev: &str) {
@@ -4482,7 +4502,7 @@ impl RevSummaryWriter {
         let thread = thread::spawn(move || {
             for job in received {
                 match job {
-                    RevSummaryJob::Write(summary) => write_rev_summary(&root, &summary),
+                    RevSummaryJob::Write(summary) => write_new_rev_summary(&root, *summary),
                     RevSummaryJob::MarkBackedOut(backed_out_rev, backout_rev) => {
                         mark_rev_summary_backed_out(&root, &backed_out_rev, &backout_rev)
                     }
@@ -4980,7 +5000,8 @@ fn main() {
             import_helper.phases.add(Phase::Finish, started);
         }
         import_helper.request_mark(rev_done);
-        let (file_deltas, file_totals) = file_deltas_or_totals(file_deltas);
+        // (Its file deltas become totals, if they're too many, as the
+        // rev-summary is written; see `write_new_rev_summary`.)
         unfinished.push_back(UnfinishedRevision {
             mark: rev_done,
             summary: RevSummaryRecord {
@@ -4998,7 +5019,7 @@ fn main() {
                 commit_date: data.commit_date.clone(),
                 unmapped_author: data.unmapped_author.clone(),
                 file_deltas,
-                file_totals,
+                file_totals: None,
                 backs_out: data.backed_out.clone(),
                 backed_out_by: vec![],
             },

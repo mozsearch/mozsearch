@@ -10,10 +10,12 @@
 //! The planner picks the cheapest of them by their journals' sizes (an
 //! `And`'s rarest, all of an `Or`'s), and each candidate revision's files
 //! where those tokens changed are checked by matching the pattern in the
-//! file's versions before and after the revision.  With `path:`, the files'
-//! every revision can be checked instead, from their `files-delta`
-//! journals, which also sees what the token journals don't (see below), and
-//! is how a pattern without a token to narrow it by is searched.
+//! file's versions before and after the revision (a revision changing too
+//! many files for its summary to list them has them in its token index; see
+//! `rev_token_index`).  With `path:`, the files' every revision can be
+//! checked instead, from their `files-delta` journals, which also sees what
+//! the token journals don't (see below), and is how a pattern without a token
+//! to narrow it by is searched.
 //!
 //! What the token journals can't see (and `git log -S` would):
 //! - merges (skipped, as `git log -S` does without `-m`);
@@ -43,6 +45,7 @@ use crate::abstract_server::{ErrorDetails, ErrorLayer, ServerError};
 use crate::cmd_pipeline::full_grep::{capture_names, compile, file_matches};
 use crate::commit_index::CommitPosition;
 use crate::file_format::history::rev_summaries::RevSummaryRecord;
+use crate::file_format::history::rev_token_index::RevTokenIndex;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
@@ -836,6 +839,7 @@ pub fn history_grep(
                 source,
                 &commit,
                 &summary,
+                &history.path,
                 &chosen_tokens,
                 use_files,
                 &path_ok,
@@ -1375,15 +1379,19 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
     }
 }
 
-/// The files of `commit` (summarized by `summary`) to check, with their
-/// paths before it if it moved them: with the token journals, those where
-/// one of `tokens` changed; with the files' journals, those `path_ok` takes.
-/// (A revision changing too many files for its summary to list them has its
-/// changed files from git.)
+/// The files of `commit` (summarized by `summary`, in the history at
+/// `history_path`) to check, with their paths before it if it moved them:
+/// with the token journals, those where one of `tokens` changed; with the
+/// files' journals, those `path_ok` takes.  (A revision changing too many
+/// files for its summary to list them has them from its index of the tokens
+/// its files changed, which may add a few files whose tokens share the
+/// tokens' hashes (see `rev_token_index`), or, if it has none, all of its
+/// changed files, from git.)
 fn revision_files(
     source: &Repository,
     commit: &git2::Commit,
     summary: &RevSummaryRecord,
+    history_path: &str,
     tokens: &BTreeSet<String>,
     use_files: bool,
     path_ok: &dyn Fn(&str) -> bool,
@@ -1392,6 +1400,20 @@ fn revision_files(
     if summary.file_deltas.is_empty() {
         if summary.file_totals.is_none() {
             return vec![];
+        }
+        let rev_summaries = Path::new(history_path).join("rev-summaries");
+        if let Some(index) = RevTokenIndex::open(&rev_summaries, &summary.source_rev) {
+            let files = if use_files {
+                index.all_files()
+            } else {
+                index.files_changing(tokens)
+            };
+            if let Ok(files) = files {
+                return files
+                    .into_iter()
+                    .filter(|(path, _)| path_ok(path))
+                    .collect();
+            }
         }
         let (Ok(new_tree), Some(old_tree)) = (
             commit.tree(),
@@ -1652,6 +1674,68 @@ mod tests {
         unordered.reverse();
         assert!(!landing_order(&mut unordered, &positions));
         assert_eq!(unordered[0].0, "land1");
+    }
+
+    #[test]
+    fn test_revision_files_from_token_index() {
+        // (A revision whose summary has totals: the files its index says
+        // changed the tokens, rather than all of its changed files.)
+        use crate::file_format::history::rev_token_index::{
+            IndexedFile, encode, rev_token_index_path,
+        };
+        let dir = std::env::temp_dir().join(format!("history-grep-index-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let repo = Repository::init(dir.join("source")).unwrap();
+        let signature = git2::Signature::now("t", "t@example.com").unwrap();
+        let tree = repo
+            .find_tree(repo.treebuilder(None).unwrap().write().unwrap())
+            .unwrap();
+        let oid = repo
+            .commit(None, &signature, &signature, "root", &tree, &[])
+            .unwrap();
+        let commit = repo.find_commit(oid).unwrap();
+        let rev = oid.to_string();
+        let index = encode(vec![
+            IndexedFile::new("a.js".into(), None, ["notifyObservers", "other"]),
+            IndexedFile::new("b.js".into(), Some("old/b.js".into()), ["NotifyObservers"]),
+            IndexedFile::new("c.md".into(), None, ["unrelated"]),
+        ]);
+        let path = dir.join("rev-summaries").join(rev_token_index_path(&rev));
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, index).unwrap();
+        let summary: RevSummaryRecord = serde_json::from_value(serde_json::json!({
+            "source_rev": rev, "syntax_rev": "", "timeline_rev": "", "message": "",
+            "iso_date": "", "unmapped_author": "", "file_deltas": {},
+            "file_totals": { "files": {} },
+        }))
+        .unwrap();
+        let history = dir.to_str().unwrap();
+        let tokens: BTreeSet<String> = ["notifyObservers", "NotifyObservers"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let files = |use_files, path_ok: &dyn Fn(&str) -> bool| {
+            revision_files(
+                &repo, &commit, &summary, history, &tokens, use_files, path_ok, None,
+            )
+        };
+        assert_eq!(
+            files(false, &|_| true),
+            vec![
+                ("a.js".to_string(), None),
+                ("b.js".to_string(), Some("old/b.js".to_string()))
+            ]
+        );
+        assert_eq!(
+            files(false, &|path| path != "a.js"),
+            vec![("b.js".to_string(), Some("old/b.js".to_string()))]
+        );
+        assert_eq!(files(true, &|_| true).len(), 3);
+        // (Without its index, its changed files from git: none, for a root
+        // commit.)
+        std::fs::remove_file(&path).unwrap();
+        assert!(files(false, &|_| true).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
