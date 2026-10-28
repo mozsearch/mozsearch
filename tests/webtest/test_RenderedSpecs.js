@@ -468,13 +468,24 @@ add_task(async function test_RenderedSpecContextMenu() {
   await waitForShown(menu, "A definition's click shows the context menu");
   ok(items().some(text => text.startsWith("Search for")), `with a search: ${items().join(", ")}`);
   ok(!items().some(text => text.startsWith("Go to definition")), "but no going to itself");
-  // (But anchoring the page's URL to it, without going to it.)
+  // (But anchoring the page's URL to it, without going to it, which hides
+  // the menu: its action failed after anchoring it, and so left the menu
+  // shown, and a second click went to the item's link's "#".)
   frame.contentWindow.notReloaded = true;
+  const errors = [];
+  frame.contentWindow.addEventListener("error", event => errors.push(event.message));
   const anchor = [...menu.querySelectorAll("a")].find(a => a.textContent.trim().startsWith("Anchor to"));
   is(anchor?.textContent.trim(), "Anchor to gadget", "and anchoring the page's URL to it");
   anchor.click();
   is(frame.contentWindow.location.hash, "#concept-gadget", "which anchoring does");
+  is(menu.style.display, "none", "hiding the menu");
+  anchor.click();
+  // (Going to the link's "#" would happen after the click.)
+  await new Promise(resolve => setTimeout(resolve, 500));
+  is(frame.contentWindow.location.hash, "#concept-gadget",
+     "and a second click on the item doesn't go to its link's #");
   ok(frame.contentWindow.notReloaded, "without reloading the page");
+  is(errors.join("\n"), "", "or errors");
   TestUtils.click(frame.contentDocument.body);
 
   const link = frame.contentDocument.querySelector('a[data-symbols="SPEC_example_concept@2Dwidget"]');

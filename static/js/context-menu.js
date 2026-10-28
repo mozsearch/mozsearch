@@ -302,13 +302,19 @@ class MenuItem {
     let link = li.appendChild(document.createElement("a"));
     link.setAttribute("role", "menuitem");
     if (this.action) {
+      // Every click is the action's, never a navigation to the link's "#"
+      // (which a second click on the item did when it heard only one, ex:
+      // when the first's action failed and so left the menu shown), but the
+      // action happens once, debouncing double clicks.
+      let acted = false;
       link.addEventListener("click", (evt) => {
         evt.preventDefault();
         evt.stopPropagation();
+        if (acted) {
+          return;
+        }
+        acted = true;
         this.action();
-      }, {
-        // Debounce by only letting us hear one click.
-        once: true
       });
       link.href = "#";
     } else if (this.href) {
@@ -1919,7 +1925,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
                 html: this.fmt("Anchor to <strong>_</strong>", renderedSpecToken.textContent.trim() || pretty),
                 action: () => {
                   history.pushState(history.state, "", `#${anchor}`);
-                  ContextMenu.hide();
+                  // (`this`, the menu: in this class, `ContextMenu` is the
+                  // class, which has no `hide`.)
+                  this.hide();
                 },
                 icon: "pin",
                 section: "jumps",

@@ -177,6 +177,37 @@ add_task(async function test_SpecPullRequestViewImported() {
 // Going to a definition on the page (ex: from the index of the terms the spec
 // defines) doesn't reload it, which would load its pull requests' changes
 // again, nor does going back (see search.js's popstate handler).
+// A definition's "Anchor to" in the view (see test_RenderedSpecContextMenu)
+// anchors the page's URL to it and hides the menu, which works again after,
+// without reloading the page (which would load its pull requests' changes
+// again), even if it's clicked twice.
+add_task(async function test_SpecPullRequestViewAnchorTo() {
+  await prepare();
+  await loadView("gizmo/bs/index.bs");
+  frame.contentWindow.notReloaded = true;
+  const errors = [];
+  frame.contentWindow.addEventListener("error", event => errors.push(event.message));
+  const menu = doc().querySelector("#context-menu");
+  const anchorItem = () => [...menu.querySelectorAll("a")].find(a => a.textContent.trim().startsWith("Anchor to"));
+  TestUtils.click(doc().querySelector('dfn[id="gear"]'));
+  await waitForShown(menu, "The definition's click shows the context menu");
+  const anchor = anchorItem();
+  is(anchor?.textContent.trim(), "Anchor to gear", "which can anchor the page's URL to it");
+  anchor.click();
+  is(frame.contentWindow.location.hash, "#gear", "which anchoring does");
+  is(menu.style.display, "none", "hiding the menu");
+  anchor.click();
+  await new Promise(resolve => setTimeout(resolve, 500));
+  is(frame.contentWindow.location.hash, "#gear", "and clicking it again doesn't go to its link's #");
+  ok(frame.contentWindow.notReloaded && doc().body.classList.contains("sp-prs-loaded"),
+     "without reloading the page");
+  TestUtils.click(doc().querySelector('dfn[id="gear"]'));
+  await waitForShown(menu, "The menu shows again");
+  ok(anchorItem(), "with the item");
+  is(errors.join("\n"), "", "without errors");
+  TestUtils.click(doc().body);
+});
+
 add_task(async function test_SpecPullRequestViewSamePageDefinition() {
   await prepare();
   await loadView("gizmo/bs/index.bs");
