@@ -240,6 +240,7 @@ mod tests {
                 before: 1,
                 after: 0,
                 removed_lines: vec!["Foo();".to_string()],
+                removed_line_counts: vec![1],
                 ..Default::default()
             }],
             ..Default::default()
@@ -259,12 +260,22 @@ mod tests {
             "{}",
             page
         );
+        assert!(page.contains("revisions 4–10, newest first"), "{}", page);
+        assert!(page.contains("a.cpp had 1 match before aaaaaaaaaaaa, and 0 after"));
         grep.tokens.clear();
         grep.files = vec!["a.cpp".to_string()];
-        grep.rows[0].added_values = vec![vec![Some("4.0".to_string())]];
+        // (A value once, with how many more of it.)
+        grep.rows[0].added_values =
+            vec![vec![Some("4.0".to_string())], vec![Some("5.0".to_string())]];
+        grep.rows[0].added_value_counts = vec![3, 1];
         let page = render(&grep);
         assert!(page.contains("of\n    1 file."), "{}", page);
-        assert!(page.contains("+ <code>4.0</code>"));
+        assert!(
+            page.contains("+ <code>4.0</code> <span class=\"history-grep-times\">×3</span>"),
+            "{}",
+            page
+        );
+        assert!(page.contains("+ <code>5.0</code></div>"), "{}", page);
         grep.unsupported = true;
         assert!(render(&grep).contains("no history"));
     }

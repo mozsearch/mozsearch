@@ -6116,6 +6116,14 @@ textarea.monospace {
 .history-grep-removed {
   background-color: var(--diff-minus-line-background);
 }
+.history-grep-count-header {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+.history-grep-times {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
 .history-grep-backout {
   opacity: 0.7;
 }

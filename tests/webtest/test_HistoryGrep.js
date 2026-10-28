@@ -31,6 +31,12 @@ add_task(async function test_TextHistory() {
      "with the line it removed");
   ok(rows().some(row => row.querySelector(".history-grep-count").textContent.startsWith("0 →")),
      "and the revisions which added it are there too");
+  ok(doc().querySelector(".history-grep-count-header")?.title.includes("not the whole tree"),
+     "The matches are the file's, as the column's tooltip says");
+  ok(cargo.querySelector(".history-grep-count").title.includes("tools/Cargo.toml had 1 match before"),
+     "and each count's");
+  ok(doc().querySelector(".history-grep-plan").textContent.includes("newest first"),
+     "The revisions are newest first");
 });
 
 add_task(async function test_ReHistoryValues() {

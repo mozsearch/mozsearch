@@ -30,7 +30,7 @@
     {%- if grep.timeline %}
     It checked all of them ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
     {%- else %}
-    This page checked revisions {{ grep.page_start | plus: 1 }}–{{ grep.page_end }}
+    This page checked revisions {{ grep.page_start | plus: 1 }}–{{ grep.page_end }}, newest first
     ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
     {%- endif %}
     {%- if grep.merges_skipped > 0 %} Merges are skipped ({{ grep.merges_skipped }}).{% endif %}
@@ -86,7 +86,7 @@
   {%- if grep.timeline %}<details class="history-grep-files"><summary>By file</summary>{% endif %}
   <table class="history-grep-table">
     <thead>
-      <tr><th>Date</th><th>Revision</th><th>File</th><th>Matches</th><th>Changes</th></tr>
+      <tr><th>Date</th><th>Revision</th><th>File</th><th class="history-grep-count-header" title="How many matches the file (not the whole tree) had before and after the revision">Matches</th><th>Changes</th></tr>
     </thead>
     <tbody>
       {%- for row in grep.rows %}
@@ -95,13 +95,14 @@
         <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ row.rev }}"><code>{{ row.rev | slice: 0, 12 }}</code></a> {{ row.header }}</td>
         <td><a href="/{{ tree }}/rev/{{ row.rev }}/{{ row.path | escape }}">{{ row.path | escape }}</a>
           {%- if row.old_path %} (from {{ row.old_path | escape }}){% endif %}</td>
-        <td class="history-grep-count">{{ row.before }} → {{ row.after }}</td>
+        <td class="history-grep-count" title="{{ row.path | escape }} had {{ row.before }} match{% if row.before != 1 %}es{% endif %} before {{ row.rev | slice: 0, 12 }}, and {{ row.after }} after">{{ row.before }} → {{ row.after }}</td>
         <td>
-          {%- for value in row.added_values %}<div class="history-grep-added">+ {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}</div>{% endfor -%}
-          {%- for value in row.removed_values %}<div class="history-grep-removed">− {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}</div>{% endfor -%}
+          {%- comment %}(Each distinct value or line once, with how many more of it, if more than one.){% endcomment %}
+          {%- for value in row.added_values %}{% assign n = row.added_value_counts[forloop.index0] %}<div class="history-grep-added">+ {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}{% if n > 1 %} <span class="history-grep-times">×{{ n }}</span>{% endif %}</div>{% endfor -%}
+          {%- for value in row.removed_values %}{% assign n = row.removed_value_counts[forloop.index0] %}<div class="history-grep-removed">− {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}{% if n > 1 %} <span class="history-grep-times">×{{ n }}</span>{% endif %}</div>{% endfor -%}
           {%- if row.added_values == empty and row.removed_values == empty %}
-          {%- for line in row.added_lines %}<div class="history-grep-added">+ <code>{{ line | escape }}</code></div>{% endfor -%}
-          {%- for line in row.removed_lines %}<div class="history-grep-removed">− <code>{{ line | escape }}</code></div>{% endfor -%}
+          {%- for line in row.added_lines %}{% assign n = row.added_line_counts[forloop.index0] %}<div class="history-grep-added">+ <code>{{ line | escape }}</code>{% if n > 1 %} <span class="history-grep-times">×{{ n }}</span>{% endif %}</div>{% endfor -%}
+          {%- for line in row.removed_lines %}{% assign n = row.removed_line_counts[forloop.index0] %}<div class="history-grep-removed">− <code>{{ line | escape }}</code>{% if n > 1 %} <span class="history-grep-times">×{{ n }}</span>{% endif %}</div>{% endfor -%}
           {%- endif %}
         </td>
       </tr>

@@ -217,16 +217,22 @@ pub struct HistoryGrepRow {
     pub path: String,
     /// The file's path before the revision, if it moved it.
     pub old_path: Option<String>,
-    /// How many matches the file had before and after.
+    /// How many matches the file had before and after (the file's, not the
+    /// tree's).
     pub before: usize,
     pub after: usize,
-    /// The matching lines it added and removed (the first few).
+    /// The matching lines it added and removed (the first few distinct ones),
+    /// and how many more of each (ex: 4 more calls with one topic).
     pub added_lines: Vec<String>,
+    pub added_line_counts: Vec<usize>,
     pub removed_lines: Vec<String>,
+    pub removed_line_counts: Vec<usize>,
     /// For a pattern with capture groups, the values it added and removed
-    /// (the first few).
+    /// (the first few distinct ones), and how many more of each.
     pub added_values: Vec<Vec<Option<String>>>,
+    pub added_value_counts: Vec<usize>,
     pub removed_values: Vec<Vec<Option<String>>>,
+    pub removed_value_counts: Vec<usize>,
 }
 
 fn bad_input(message: String) -> ServerError {
@@ -363,6 +369,21 @@ fn more_of<T: Ord + Clone>(a: &BTreeMap<T, usize>, b: &BTreeMap<T, usize>) -> Ve
         })
         .take(MAX_SHOWN)
         .collect()
+}
+
+/// What `a` has more of than `b` (the first `MAX_SHOWN` distinct items), and
+/// how many more of each.
+fn counted_more_of<T: Ord + Clone>(
+    a: &BTreeMap<T, usize>,
+    b: &BTreeMap<T, usize>,
+) -> (Vec<T>, Vec<usize>) {
+    a.iter()
+        .filter_map(|(item, &n)| {
+            let extra = n.saturating_sub(b.get(item).copied().unwrap_or(0));
+            (extra > 0).then(|| (item.clone(), extra))
+        })
+        .take(MAX_SHOWN)
+        .unzip()
 }
 
 /// A blob's size at `path` in `tree` (from its header), and its id.
@@ -984,20 +1005,34 @@ pub fn history_grep(
     result.rows = changes
         .iter()
         .filter(|change| !change.merge)
-        .map(|change| HistoryGrepRow {
-            rev: change.rev.clone(),
-            date: change.date.clone(),
-            committed: change.committed.clone(),
-            header: change.header.clone(),
-            backout: change.backout,
-            path: change.path.clone(),
-            old_path: change.old_path.clone(),
-            before: change.old.count,
-            after: change.new.count,
-            added_lines: more_of(&change.new.lines, &change.old.lines),
-            removed_lines: more_of(&change.old.lines, &change.new.lines),
-            added_values: more_of(&change.new.values, &change.old.values),
-            removed_values: more_of(&change.old.values, &change.new.values),
+        .map(|change| {
+            let (added_lines, added_line_counts) =
+                counted_more_of(&change.new.lines, &change.old.lines);
+            let (removed_lines, removed_line_counts) =
+                counted_more_of(&change.old.lines, &change.new.lines);
+            let (added_values, added_value_counts) =
+                counted_more_of(&change.new.values, &change.old.values);
+            let (removed_values, removed_value_counts) =
+                counted_more_of(&change.old.values, &change.new.values);
+            HistoryGrepRow {
+                rev: change.rev.clone(),
+                date: change.date.clone(),
+                committed: change.committed.clone(),
+                header: change.header.clone(),
+                backout: change.backout,
+                path: change.path.clone(),
+                old_path: change.old_path.clone(),
+                before: change.old.count,
+                after: change.new.count,
+                added_lines,
+                added_line_counts,
+                removed_lines,
+                removed_line_counts,
+                added_values,
+                added_value_counts,
+                removed_values,
+                removed_value_counts,
+            }
         })
         .collect();
     if args.timeline {
@@ -1507,6 +1542,17 @@ mod tests {
         // (A reordering is no change.)
         let swapped = found(&re, "int kMax = 4;\nint kMax = 3;\n", false);
         assert!(more_of(&swapped.values, &old.values).is_empty());
+        // (A row's values once each, with how many more: 3 more 5s and a 6.)
+        let more = found(
+            &re,
+            "kMax = 3; kMax = 5;\nkMax = 5;\nkMax = 6;\nkMax = 5;\nkMax = 5;\n",
+            false,
+        );
+        let value = |v: &str| vec![Some(v.to_string())];
+        assert_eq!(
+            counted_more_of(&more.values, &new.values),
+            (vec![value("5"), value("6")], vec![3, 1])
+        );
         assert_eq!(
             week_end((2026, 43, 43)),
             NaiveDate::from_ymd_opt(2026, 10, 25)
