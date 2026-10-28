@@ -252,6 +252,46 @@ pub struct FileSyntaxDelta {
     pub symbol_group: SymbolSyntaxDeltaGroup,
 }
 
+impl FileSyntaxDelta {
+    /// Merge `other`, another delta of the same file in the same revision,
+    /// into this one: a file rewritten in place is its removal and its
+    /// addition, whose summary (keyed by the file's path) is both of their
+    /// changes, as the one which isn't a removal (ex: `history_grep` checks it
+    /// for the tokens either changed).
+    pub fn merge(&mut self, other: &FileSyntaxDelta) {
+        if self.change == ChangeKind::Removed && other.change != ChangeKind::Removed {
+            self.change = other.change;
+            self.moved_from = other.moved_from.clone();
+            self.copied = other.copied;
+        }
+        for (context, theirs) in &other.symbol_group.symbol_deltas {
+            let Some(ours) = self.symbol_group.symbol_deltas.get_mut(context) else {
+                self.symbol_group
+                    .symbol_deltas
+                    .insert(context.clone(), theirs.clone());
+                continue;
+            };
+            if ours.change == ChangeKind::Removed && theirs.change != ChangeKind::Removed {
+                ours.change = theirs.change;
+                ours.evolved_from = theirs.evolved_from.clone();
+                ours.evolved_from_path = theirs.evolved_from_path.clone();
+            }
+            ours.evolved_into = ours.evolved_into.take().or(theirs.evolved_into.clone());
+            ours.evolved_into_path = ours
+                .evolved_into_path
+                .take()
+                .or(theirs.evolved_into_path.clone());
+            ours.token_totals.accumulate(&theirs.token_totals);
+            for (token, details) in &theirs.token_changes {
+                ours.token_changes
+                    .entry(token.clone())
+                    .or_default()
+                    .accumulate(details);
+            }
+        }
+    }
+}
+
 /// A set of 1-based token line numbers ("lineno" in `HyperTokenRef` terms)
 /// which serializes to a compact string like "1-5,8,10-12" in the spirit of
 /// IMAP UID sets.  Because tokens are minted with consecutive line numbers when
@@ -472,6 +512,50 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_merge_rewrite() {
+        // (A file rewritten in place: its removal, then its addition.)
+        let delta = |change, tokens: &[(&str, &str, u32)]| {
+            let mut group = SymbolSyntaxDeltaGroup::default();
+            for (context, token, n) in tokens {
+                let symbol = group
+                    .symbol_deltas
+                    .entry(context.to_string())
+                    .or_insert_with(|| SymbolSyntaxDelta::new(change));
+                let details = symbol.token_changes.entry(token.to_string()).or_default();
+                if change == ChangeKind::Removed {
+                    details.removed += n;
+                } else {
+                    details.added += n;
+                }
+            }
+            FileSyntaxDelta {
+                change,
+                moved_from: None,
+                copied: false,
+                symbol_group: group,
+            }
+        };
+        let mut removal = delta(ChangeKind::Removed, &[("%", "Old", 2), ("Gone", "gone", 1)]);
+        let addition = delta(ChangeKind::Added, &[("%", "New", 1), ("%", "Old", 1)]);
+        removal.merge(&addition);
+        assert_eq!(removal.change, ChangeKind::Added);
+        let file = &removal.symbol_group.symbol_deltas["%"];
+        assert_eq!(file.change, ChangeKind::Added);
+        assert_eq!(
+            (
+                file.token_changes["Old"].removed,
+                file.token_changes["Old"].added
+            ),
+            (2, 1)
+        );
+        assert_eq!(file.token_changes["New"].added, 1);
+        assert_eq!(
+            removal.symbol_group.symbol_deltas["Gone"].change,
+            ChangeKind::Removed
+        );
+    }
 
     #[test]
     fn test_record_deserialization_matches_derived() {

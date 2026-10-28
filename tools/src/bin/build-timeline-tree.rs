@@ -4020,12 +4020,18 @@ fn process_linear_revision(
             .as_ref()
             .or(change.old_path.as_ref())
             .unwrap();
-        summaries.insert(
-            summary_path.clone(),
-            RevFileSummaryRecord {
-                delta: change.delta.clone(),
-            },
-        );
+        // (A file rewritten in place is its removal and its addition, at the
+        // same path: both of their changes; see `FileSyntaxDelta::merge`.)
+        match summaries.entry(summary_path.clone()) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(RevFileSummaryRecord {
+                    delta: change.delta.clone(),
+                });
+            }
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().delta.merge(&change.delta)
+            }
+        }
         let Some(new_path) = &change.new_path else {
             continue;
         };
