@@ -16,7 +16,9 @@
  * Pages whose changes aren't rows give their own instead, as a function of
  * them (in the page's order, each's element and the elements it marks), in a
  * `change-nav-targets` event, without granularities (ex: a spec's rendered
- * page with its pull requests' changes beside it; see spec-pr-view.js).
+ * page with its pull requests' changes beside it; see spec-pr-view.js), and
+ * can make one of them the current one, where it is, with a `change-nav-go`
+ * event (whose detail is its element; ex: a card clicked).
  */
 (function () {
   const GRANULARITIES = [
@@ -116,7 +118,7 @@
   };
   const currentUnits = () => (targets ? targets() : (cached ??= units(granularity())));
 
-  function mark(index) {
+  function mark(index, scroll = true) {
     for (const row of document.querySelectorAll(".change-nav-current")) {
       row.classList.remove("change-nav-current");
     }
@@ -128,7 +130,9 @@
       for (const marked of [unit.element, ...unit.marked]) {
         marked.classList.add("change-nav-current");
       }
-      unit.element.scrollIntoView({ block: "center" });
+      if (scroll) {
+        unit.element.scrollIntoView({ block: "center" });
+      }
       return;
     }
     const all = rows();
@@ -267,6 +271,14 @@
     show();
     section.querySelector(".change-nav-granularity").hidden = true;
     updateStatus();
+  });
+  document.addEventListener("change-nav-go", event => {
+    const index = targets ? currentUnits().findIndex(unit => unit.element === event.detail) : -1;
+    if (index >= 0) {
+      current = index;
+      mark(current, false);
+      updateStatus();
+    }
   });
   document.addEventListener("stack-strip-drawn", event => {
     stackLines = new Set([...event.detail.lines, ...event.detail.scars].map(([line]) => `line-${line + 1}`));

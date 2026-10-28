@@ -91,6 +91,16 @@ add_task(async function test_SpecPullRequestView() {
      !conflict.classList.contains("change-nav-current"), "j again goes to the next one");
   key("k");
   ok(conflict.classList.contains("change-nav-current"), "and k back");
+  // (Clicking a card makes it the current change, which j and k go on from.)
+  card.scrollIntoView({ block: "center" });
+  card.querySelector(".sp-pr-card-note").click();
+  ok(card.classList.contains("change-nav-current") && sprocket.classList.contains("change-nav-current") &&
+     !conflict.classList.contains("change-nav-current"), "Clicking a card makes it the current change");
+  is(status(), "2 of 2 changes", "as the panel says");
+  key("k");
+  ok(conflict.classList.contains("change-nav-current"), "and k goes on from it");
+  ok(cards.every(each => each.querySelector(".sp-pr-card-header").getClientRects().length),
+     "Every card has its pull request's header");
 
   // Filtering the pull requests hides their changes.
   const value = [...doc().querySelectorAll('.facet[data-facet="review"] .facet-value')]

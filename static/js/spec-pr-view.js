@@ -13,10 +13,9 @@
  * `anchor` line (by the blocks' `data-rd-lines`): the page's blocks are
  * pushed down with spaces where the cards before them need the room, and the
  * cards beside the same block are stacked, as the algorithm view's citations
- * are (see side-cards.js).  A card has its pull request's header
- * when the card before it is another pull request's, or when the last one
- * with its header is more than a screen above.  The trunk's blocks with
- * changes beside them are marked, and hovering over a card outlines the ones
+ * are (see side-cards.js).  Each card has its pull request's header.  The
+ * trunk's blocks with changes beside them are marked, and hovering over a
+ * card outlines the ones
  * it changes.  Filtering the entries with the facets (see facets.js) hides
  * their cards.
  *
@@ -30,7 +29,8 @@
  * `data-rd-range`).
  *
  * The panel's "Changes" section (see change-nav.js) goes to the cards in
- * their order ("j" and "k").
+ * their order ("j" and "k"), from the one clicked, if any, which clicking
+ * makes its current one.
  *
  * A card's rendering is styled as the page's blocks are, and what it changes
  * of the trunk's blocks is highlighted, from a diff of their words (see
@@ -428,7 +428,6 @@
     column.append(element);
     const made = {
       element,
-      header,
       pr: pr.number,
       block,
       // (The blocks it changes, or the one it adds after.)
@@ -448,6 +447,14 @@
       }
       hovered = made;
       highlight();
+    });
+    // (Clicking it, but for its links or when selecting its text, makes it
+    // the change the panel's "Changes" section is at.)
+    element.addEventListener("click", event => {
+      if (event.target.closest("a, button, summary, input") || String(window.getSelection())) {
+        return;
+      }
+      document.dispatchEvent(new CustomEvent("change-nav-go", { detail: element }));
     });
     element.addEventListener("mouseleave", () => {
       for (const block of changed) {
@@ -599,8 +606,6 @@
         block.classList.add("sp-pr-marked");
       }
     }
-    let previous = null;
-    const headers = new Map();
     placeSideCards({
       doc,
       columns: [{ aside: column, cards: shown }],
@@ -608,16 +613,6 @@
       spaceClass: "sp-pr-space",
       spaceBefore,
       gap: () => 6,
-      beforePut: (card, at) => {
-        const lastHeader = headers.get(card.pr);
-        const header = previous !== card.pr || lastHeader === undefined ||
-          at - lastHeader > window.innerHeight;
-        card.header.hidden = !header;
-        if (header) {
-          headers.set(card.pr, at);
-        }
-        previous = card.pr;
-      },
     });
     highlight();
   }
