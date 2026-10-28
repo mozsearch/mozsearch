@@ -149,8 +149,13 @@ fn newest_detail(
     })
 }
 
-/// `newest_detail`'s event.
-fn newest_change(reader: &mut JournalReader, timeline_rev: Oid, path: &str) -> Option<FateEvent> {
+/// `newest_detail`'s event: the revision which moved or deleted `path`, if
+/// its newest record (as of the timeline's `timeline_rev`) is one.
+pub(crate) fn newest_change(
+    reader: &mut JournalReader,
+    timeline_rev: Oid,
+    path: &str,
+) -> Option<FateEvent> {
     newest_detail(reader, timeline_rev, path).map(|(event, _, _)| event)
 }
 

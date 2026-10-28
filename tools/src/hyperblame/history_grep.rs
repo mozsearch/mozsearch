@@ -33,7 +33,7 @@
 //! first, and says where the next one starts.  A timeline checks all of the
 //! candidates at once, within the limits' bytes, seconds and parses.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
 use chrono::{NaiveDate, Weekday};
@@ -50,6 +50,7 @@ use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
 use crate::file_format::token_names::NameMatch;
+use crate::hyperblame::file_fate;
 use crate::hyperblame::journals::JournalReader;
 use crate::hyperblame::segments;
 use crate::hyperblame::token_blame::TreeHistory;
@@ -334,7 +335,7 @@ fn week_end((year, week, _): (u16, u8, u8)) -> Option<NaiveDate> {
 
 /// What a file's version has of the pattern's matches: how many, their
 /// lines (trimmed), and their captured values.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct Found {
     count: usize,
     lines: BTreeMap<String, usize>,
@@ -985,7 +986,7 @@ pub fn history_grep(
                 continue;
             }
             changes.push(Change {
-                seq: index,
+                seq: 2 * index + 1,
                 merge,
                 rev: rev.clone(),
                 date: date.clone(),
@@ -1040,14 +1041,200 @@ pub fn history_grep(
         })
         .collect();
     if args.timeline {
+        // (With its files' moves and deletions which its candidates don't
+        // have.)
+        let (lifetimes, bytes) = lifetime_changes(
+            history,
+            source,
+            head.id(),
+            &changes,
+            &ordered,
+            &positions,
+            &in_window,
+            &re,
+            plan.spans_lines,
+        );
+        result.bytes += bytes;
+        changes.extend(lifetimes);
         result.timeline = Some(build_timeline(&changes, !result.capture_names.is_empty()));
     }
     Ok(result)
 }
 
+/// The most files whose moves and deletions `lifetime_changes` finds.
+const MAX_LIFETIME_PATHS: usize = 50_000;
+
+/// A file's matches in `tree` (none if it doesn't have it), and its size.
+fn found_in(
+    source: &Repository,
+    tree: Option<&Tree>,
+    path: &str,
+    re: &fancy_regex::Regex,
+    spans_lines: bool,
+) -> (Found, u64) {
+    match tree.and_then(|tree| blob_at(source, tree, path)) {
+        Some((oid, size)) => (found(re, &blob_text(source, oid), spans_lines), size),
+        None => (Found::default(), 0),
+    }
+}
+
+/// The changes of a timeline's files which its candidates don't have, and the
+/// bytes of the files' versions read for them: for each file its changes
+/// touch which the tip doesn't have (and each file one of those moved to,
+/// which the tip doesn't have either), the revision which moved or deleted
+/// it, from its future journal (see `file_fate`), as its end there (its
+/// matches there to none), and, if it moved, the start of the file it moved
+/// to (none to its matches there), but for those not in the timeline's time,
+/// or which one of the revision's changes already is.  Without them, a file
+/// moved by a revision whose change of it doesn't change its matches (ex:
+/// dom/activities/src/ActivityProxy.js, moved to dom/activities/ in 2014,
+/// whose "Activity:Success" its later removal there didn't remove from the
+/// old path) kept its matches for ever.  A revision which isn't a candidate
+/// goes between them, by when it landed (see `Change::seq`).
+#[allow(clippy::too_many_arguments)]
+fn lifetime_changes(
+    history: &TreeHistory,
+    source: &Repository,
+    timeline_head: Oid,
+    changes: &[Change],
+    ordered: &[(String, Option<NaiveDate>)],
+    positions: &HashMap<String, CommitPosition>,
+    in_window: &dyn Fn(Option<NaiveDate>) -> bool,
+    re: &fancy_regex::Regex,
+    spans_lines: bool,
+) -> (Vec<Change>, u64) {
+    let Ok(tip) = source.head().and_then(|head| head.peel_to_tree()) else {
+        return (vec![], 0);
+    };
+    let at_tip = |path: &str| tip.get_path(Path::new(path)).is_ok();
+    let existing: HashSet<(&str, &str)> = changes
+        .iter()
+        .map(|change| (change.rev.as_str(), change.path.as_str()))
+        .collect();
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut pending: Vec<String> = changes
+        .iter()
+        .flat_map(|change| [Some(&change.path), change.old_path.as_ref()])
+        .flatten()
+        .filter(|path| !at_tip(path))
+        .cloned()
+        .collect();
+    let mut reader = JournalReader::new(&history.timeline);
+    // (Each file's end, and its start where it moved: revision, path, the
+    // revision's tree to read it from, if it's the start.)
+    let mut events: Vec<(String, String, bool)> = vec![];
+    let mut dates: HashMap<String, String> = HashMap::new();
+    while let Some(path) = pending.pop() {
+        if !seen.insert(path.clone()) || seen.len() > MAX_LIFETIME_PATHS {
+            continue;
+        }
+        let Some(event) = file_fate::newest_change(&mut reader, timeline_head, &path) else {
+            continue;
+        };
+        if !in_window(parse_date(&event.date)) {
+            continue;
+        }
+        dates.insert(event.rev.clone(), event.date.chars().take(10).collect());
+        if !existing.contains(&(event.rev.as_str(), path.as_str())) {
+            events.push((event.rev.clone(), path.clone(), false));
+        }
+        if let Some(to) = event.moved_to {
+            if !existing.contains(&(event.rev.as_str(), to.as_str())) {
+                events.push((event.rev.clone(), to.clone(), true));
+            }
+            if !at_tip(&to) {
+                pending.push(to);
+            }
+        }
+    }
+
+    // (Where each revision goes: a candidate's place, or between them.)
+    let index: HashMap<&str, usize> = ordered
+        .iter()
+        .enumerate()
+        .map(|(i, (rev, _))| (rev.as_str(), i))
+        .collect();
+    let revs: BTreeSet<&str> = events.iter().map(|(rev, _, _)| rev.as_str()).collect();
+    let event_positions = history
+        .commit_index()
+        .map(|commits| commits.positions(revs.iter().copied()))
+        .unwrap_or_default();
+    let seq = |rev: &str| -> usize {
+        if let Some(&i) = index.get(rev) {
+            return 2 * i + 1;
+        }
+        let between = match (
+            event_positions.get(rev),
+            ordered.iter().all(|(r, _)| positions.contains_key(r)),
+        ) {
+            (Some(position), true) => {
+                ordered.partition_point(|(r, _)| positions[r].order_key() > position.order_key())
+            }
+            _ => {
+                let date = dates.get(rev).and_then(|date| parse_date(date));
+                ordered
+                    .partition_point(|(_, d)| d.is_some_and(|d| date.is_none_or(|date| d > date)))
+            }
+        };
+        2 * between
+    };
+
+    let mut bytes = 0;
+    let mut out = vec![];
+    for (rev, path, start) in events {
+        let Some(commit) = Oid::from_str(&rev)
+            .ok()
+            .and_then(|oid| source.find_commit(oid).ok())
+        else {
+            continue;
+        };
+        let (found, size) = if start {
+            found_in(source, commit.tree().ok().as_ref(), &path, re, spans_lines)
+        } else {
+            let parent = commit.parent(0).ok().and_then(|parent| parent.tree().ok());
+            found_in(source, parent.as_ref(), &path, re, spans_lines)
+        };
+        bytes += size;
+        if found.count == 0 {
+            continue;
+        }
+        let (old, new) = if start {
+            (Found::default(), found)
+        } else {
+            (found, Found::default())
+        };
+        let summary = read_rev_summary(&history.path, &rev);
+        let date = event_positions
+            .get(&rev)
+            .map(|position| position.landed.chars().take(10).collect())
+            .or_else(|| dates.get(&rev).cloned())
+            .unwrap_or_default();
+        out.push(Change {
+            seq: seq(&rev),
+            merge: false,
+            rev,
+            date,
+            committed: None,
+            header: summary
+                .as_ref()
+                .map(|summary| header_html(&summary.message))
+                .unwrap_or_default(),
+            backout: false,
+            backs_out: vec![],
+            path,
+            old_path: None,
+            old,
+            new,
+        });
+    }
+    (out, bytes)
+}
+
 /// A revision's change to a file's matches.
 struct Change {
-    /// Its place among the candidates, newest first (see `merge_sequences`).
+    /// Its place among the candidates, newest first (see `merge_sequences`):
+    /// twice their index, plus one, so that a revision between two of them
+    /// has the even number between (see `lifetime_changes`).
     seq: usize,
     /// Whether it's a merge's (from its first parent; only for timelines of
     /// values, which only show it if it changed them).
@@ -1585,7 +1772,7 @@ mod tests {
         let re = compile(re, false).unwrap();
         Change {
             // (Newer dates first, as the candidates are.)
-            seq: 99_999_999 - date.replace('-', "").parse::<usize>().unwrap(),
+            seq: 2 * (99_999_999 - date.replace('-', "").parse::<usize>().unwrap()) + 1,
             merge: false,
             rev: rev.to_string(),
             date: date.to_string(),
@@ -1662,7 +1849,7 @@ mod tests {
         assert_eq!(order, vec!["land3", "out2", "land2", "out1", "land1"]);
         // (So the values end with the last landing's.)
         for change in &mut changes {
-            change.seq = order.iter().position(|rev| *rev == change.rev).unwrap();
+            change.seq = 2 * order.iter().position(|rev| *rev == change.rev).unwrap() + 1;
         }
         let timeline = build_timeline(&changes, true);
         let last = timeline.series[0].points.last().unwrap();
