@@ -43,7 +43,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::abstract_server::{ErrorDetails, ErrorLayer, ServerError};
 use crate::cmd_pipeline::full_grep::{capture_names, compile, file_matches};
-use crate::commit_index::CommitPosition;
+use crate::commit_index::{CommitPosition, Join};
 use crate::file_format::history::rev_summaries::RevSummaryRecord;
 use crate::file_format::history::rev_token_index::RevTokenIndex;
 use crate::file_format::history::timeline_common::JournalVersionRef;
@@ -173,6 +173,10 @@ pub struct Timeline {
     /// values there are (ex: one file's call of a topic other files also
     /// have), which aren't points (they're in the files' rows).
     pub unchanged: usize,
+    /// How many of its files' changes were on side branches which the main
+    /// line didn't keep (see `discarded_by_merge`), which it leaves out
+    /// (they're in the files' rows).
+    pub discarded: usize,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -1044,6 +1048,26 @@ pub fn history_grep(
         })
         .collect();
     if args.timeline {
+        // (Without its side branches' changes which the main line didn't
+        // keep; see `discarded_by_merge`.)
+        let mut merges: HashMap<String, Option<(Oid, Oid, Oid)>> = HashMap::new();
+        let mut discarded = 0;
+        changes.retain(|change| {
+            let Some(Join::Merge { merge, parent }) = positions
+                .get(&change.rev)
+                .and_then(|position| position.join.as_ref())
+            else {
+                return true;
+            };
+            let trees = merges
+                .entry(format!("{}/{}", merge, parent))
+                .or_insert_with(|| merge_trees(source, merge, *parent));
+            let keep = !trees.is_some_and(|trees| discarded_by_merge(source, &trees, &change.path));
+            if !keep {
+                discarded += 1;
+            }
+            keep
+        });
         // (Its files: those its changes change, and the tip's others which
         // have its tokens (ex: split from another file, whose tokens moved,
         // which the token journals don't record), if the tip's files can be
@@ -1085,13 +1109,44 @@ pub fn history_grep(
                 end.insert(path.clone(), found);
             }
         }
-        result.timeline = Some(build_timeline(
-            &changes,
-            !result.capture_names.is_empty(),
-            &end,
-        ));
+        let mut timeline = build_timeline(&changes, !result.capture_names.is_empty(), &end);
+        timeline.discarded = discarded;
+        result.timeline = Some(timeline);
     }
     Ok(result)
+}
+
+/// The trees of a main line's merge (see `commit_index::Join`), its first
+/// parent and its `parent`th.
+fn merge_trees(source: &Repository, merge: &str, parent: usize) -> Option<(Oid, Oid, Oid)> {
+    let merge = source.find_commit(Oid::from_str(merge).ok()?).ok()?;
+    Some((
+        merge.tree_id(),
+        merge.parent(0).ok()?.tree_id(),
+        merge.parent(parent).ok()?.tree_id(),
+    ))
+}
+
+/// Whether a side branch's change of `path`, which a main line's merge (its
+/// `trees`: see `merge_trees`) brought in, didn't reach the main line: the
+/// merge has its first parent's version of the file (or doesn't have it, as
+/// its first parent doesn't), rather than the side branch's.  Ex: cvs2svn's
+/// creation of firefox's SOURCEFORGE_DIST branch, 288c53eb2b2e in 2005,
+/// deleting the 23,832 files the branch didn't have, which its merge,
+/// 1b8396d8c59c, kept (asuth: a drop from 58 topics to 8 in the re-timeline
+/// of notifyObservers' topics; "profile-before-change" and the like were never
+/// removed).
+fn discarded_by_merge(source: &Repository, trees: &(Oid, Oid, Oid), path: &str) -> bool {
+    let entry = |tree: Oid| {
+        source
+            .find_tree(tree)
+            .ok()?
+            .get_path(Path::new(path))
+            .ok()
+            .map(|entry| entry.id())
+    };
+    let (merged, first, side) = (entry(trees.0), entry(trees.1), entry(trees.2));
+    merged == first && merged != side
 }
 
 /// The tree at a timeline's end: the tip's, or, with `until`, the main
@@ -1567,6 +1622,7 @@ fn build_timeline(changes: &[Change], values: bool, end: &HashMap<String, Found>
             measure: "value".to_string(),
             series,
             unchanged: 0,
+            discarded: 0,
         };
     }
 
@@ -1690,6 +1746,7 @@ fn build_timeline(changes: &[Change], values: bool, end: &HashMap<String, Found>
         measure: if values { "values" } else { "matches" }.to_string(),
         series: vec![line],
         unchanged,
+        discarded: 0,
     }
 }
 
@@ -1982,6 +2039,7 @@ mod tests {
                     landed: format!("2014-02-12T{}:00Z", time),
                     base: false,
                     position: i as u64,
+                    join: None,
                 };
                 (change.rev.clone(), position)
             })
@@ -2109,6 +2167,61 @@ mod tests {
         assert_eq!(timeline.unchanged, 1, "the deletion");
         assert_eq!(line.points[3].added, vec!["5"]);
         assert_eq!(line.points[3].removed, vec!["4"]);
+    }
+
+    #[test]
+    fn test_discarded_by_merge() {
+        // (A side branch deleting a file, as a branch's creation does, merged
+        // into the main line keeping it; and one changing another, merged
+        // with its change.)
+        let dir = std::env::temp_dir().join(format!("history-grep-merge-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let repo = Repository::init(&dir).unwrap();
+        let signature = git2::Signature::now("t", "t@example.com").unwrap();
+        let tree = |files: &[(&str, &str)]| {
+            let mut builder = repo.treebuilder(None).unwrap();
+            for (name, text) in files {
+                let blob = repo.blob(text.as_bytes()).unwrap();
+                builder.insert(name, blob, 0o100644).unwrap();
+            }
+            builder.write().unwrap()
+        };
+        let commit = |tree: Oid, parents: &[Oid]| {
+            let parents: Vec<git2::Commit> = parents
+                .iter()
+                .map(|p| repo.find_commit(*p).unwrap())
+                .collect();
+            let parents: Vec<&git2::Commit> = parents.iter().collect();
+            repo.commit(
+                None,
+                &signature,
+                &signature,
+                "c",
+                &repo.find_tree(tree).unwrap(),
+                &parents,
+            )
+            .unwrap()
+        };
+        let base = commit(tree(&[("kept.js", "1"), ("changed.js", "1")]), &[]);
+        let side = commit(tree(&[("changed.js", "2")]), &[base]);
+        let main = commit(
+            tree(&[("kept.js", "1"), ("changed.js", "1"), ("new.js", "1")]),
+            &[base],
+        );
+        let merge = commit(
+            tree(&[("kept.js", "1"), ("changed.js", "2"), ("new.js", "1")]),
+            &[main, side],
+        );
+        let trees = merge_trees(&repo, &merge.to_string(), 1).unwrap();
+        assert!(
+            discarded_by_merge(&repo, &trees, "kept.js"),
+            "its deletion didn't reach the main line"
+        );
+        assert!(
+            !discarded_by_merge(&repo, &trees, "changed.js"),
+            "its change did"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

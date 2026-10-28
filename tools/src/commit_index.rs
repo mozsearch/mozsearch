@@ -19,8 +19,8 @@
 //! - `by-bug` has `BUG<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines and `by-phab` has
 //!   `DNNN<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines, sorted, so lookups can
 //!   bisect.  FLAGS is "b" for backouts (by their summary lines) or "-".
-//! - `by-rev` has `REV<TAB>LANDED<TAB>POSITION` lines, sorted, for each
-//!   commit's place in the history (see `CommitPosition`).  Commit dates
+//! - `by-rev` has `REV<TAB>LANDED<TAB>POSITION<TAB>JOIN` lines, sorted, for
+//!   each commit's place in the history (see `CommitPosition`).  Commit dates
 //!   aren't when commits landed, nor in their order: Mercurial had one date,
 //!   the author's, which git-cinnabar's commits have as their committer
 //!   dates, and which a patch kept when it landed weeks later or was relanded
@@ -30,7 +30,15 @@
 //!   latest of its and its ancestors' commit dates (or, for hg's commits with
 //!   a push dates file, see `UpdateOptions::push_dates`, their push dates),
 //!   and POSITION numbers the commits parents first, so that ordering by both
-//!   is topological, with dates which only go forward.
+//!   is topological, with dates which only go forward.  JOIN is "-" for a
+//!   commit on the main line (the head's first parents), or, for another, the
+//!   main line's merge which brought it in, the earliest of its descendants
+//!   there, and which of the merge's parents it's in (`MERGE/PARENT`), from
+//!   which a side branch's changes which the main line didn't keep can be
+//!   told (ex: cvs2svn's creation of firefox's SOURCEFORGE_DIST branch, in
+//!   2005, deleting the 23,832 files the branch didn't have, which its merge
+//!   kept; see `hyperblame::history_grep`), or "?" where the index doesn't
+//!   know (a try index's, whose heads aren't one line).
 //!
 //! Trees like try (or review), which process many unrelated heads based on
 //! other branches' revisions, accumulate their heads in one index, which
@@ -47,7 +55,7 @@
 //! (`backs_out` and `backed_out_by`), which the explore pages read (see
 //! `hyperblame::explore::mark_history_backouts`).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -59,7 +67,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 /// Bump this when the files' contents change so existing indexes get rebuilt.
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct State {
@@ -165,6 +173,41 @@ pub struct CommitPosition {
     pub base: bool,
     /// Its place among its index's commits, parents first.
     pub position: u64,
+    /// Whether it's on the main line, or else, which of the main line's
+    /// merges brought it in, if the index knows (see `by-rev`'s JOIN).
+    pub join: Option<Join>,
+}
+
+/// How a commit reached the main line (see `CommitPosition::join`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Join {
+    /// It's on it: one of the head's first parents.
+    Mainline,
+    /// It's in the `parent`th parent (from 0) of the main line's `merge`.
+    Merge { merge: String, parent: usize },
+}
+
+impl Join {
+    fn parse(field: &str) -> Option<Join> {
+        match field {
+            "-" => Some(Join::Mainline),
+            _ => {
+                let (merge, parent) = field.split_once('/')?;
+                Some(Join::Merge {
+                    merge: merge.to_string(),
+                    parent: parent.parse().ok()?,
+                })
+            }
+        }
+    }
+
+    fn field(join: Option<&Join>) -> String {
+        match join {
+            Some(Join::Mainline) => "-".to_string(),
+            Some(Join::Merge { merge, parent }) => format!("{}/{}", merge, parent),
+            None => "?".to_string(),
+        }
+    }
 }
 
 impl CommitPosition {
@@ -288,10 +331,11 @@ impl SortedLines {
 /// The `by-rev` fields of a line (see `SortedLines::find`).
 fn parse_position(fields: &[String], base: bool) -> Option<CommitPosition> {
     match fields {
-        [landed, position, ..] => Some(CommitPosition {
+        [landed, position, rest @ ..] => Some(CommitPosition {
             landed: landed.clone(),
             base,
             position: position.parse().ok()?,
+            join: rest.first().and_then(|field| Join::parse(field)),
         }),
         _ => None,
     }
@@ -315,6 +359,69 @@ fn write_lines(path: &Path, mut lines: Vec<String>) -> std::io::Result<()> {
     file.flush()?;
     drop(file);
     fs::rename(tmp, path)
+}
+
+/// The JOINs of `new` commits (parents first, with their POSITIONs; see
+/// `by-rev`): those of `head`'s first parents among them are the main line's,
+/// and each other's is the earliest (by POSITION) of the main line's merges
+/// which has it, through the merge's first parent which has it, from its
+/// children, children first.
+fn joins_of(
+    repo: &Repository,
+    head: Oid,
+    new: &[(Oid, i64, u64)],
+) -> Result<HashMap<Oid, Join>, String> {
+    let is_new: HashSet<Oid> = new.iter().map(|(oid, _, _)| *oid).collect();
+    let position: HashMap<Oid, u64> = new.iter().map(|(oid, _, at)| (*oid, *at)).collect();
+    let mut mainline: HashSet<Oid> = HashSet::new();
+    let mut at = Some(head);
+    while let Some(oid) = at.filter(|oid| is_new.contains(oid)) {
+        mainline.insert(oid);
+        at = repo
+            .find_commit(oid)
+            .map_err(|e| e.to_string())?
+            .parent_id(0)
+            .ok();
+    }
+    // (The merge's POSITION, the merge, and the parent.)
+    let mut joins: HashMap<Oid, (u64, Oid, usize)> = HashMap::new();
+    for (oid, _, _) in new.iter().rev() {
+        let commit = repo.find_commit(*oid).map_err(|e| e.to_string())?;
+        let own = if mainline.contains(oid) {
+            None
+        } else {
+            match joins.get(oid) {
+                Some(join) => Some(*join),
+                None => continue,
+            }
+        };
+        for (k, parent) in commit.parent_ids().enumerate() {
+            if !is_new.contains(&parent) || mainline.contains(&parent) {
+                continue;
+            }
+            let join = own.unwrap_or((position[oid], *oid, k));
+            if joins
+                .get(&parent)
+                .is_none_or(|existing| join.0 < existing.0)
+            {
+                joins.insert(parent, join);
+            }
+        }
+    }
+    let mut out: HashMap<Oid, Join> = mainline
+        .into_iter()
+        .map(|oid| (oid, Join::Mainline))
+        .collect();
+    for (oid, (_, merge, parent)) in joins {
+        out.insert(
+            oid,
+            Join::Merge {
+                merge: merge.to_string(),
+                parent,
+            },
+        );
+    }
+    Ok(out)
 }
 
 /// Update the commit index in `dir` with the history of `head` in `repo`,
@@ -372,7 +479,40 @@ fn update_with(
     };
     // (The processed commits' lines, sorted as written, for their landing
     // dates.)
-    let processed_revs = by_rev.len();
+    let mut processed_revs = by_rev.len();
+    // (The main line's processed commits keep their JOINs only if a processed
+    // head is where the new head's first parents reach them; else, ex: a
+    // head merged into another line as a side branch, it's rebuilt.)
+    if !options.accumulate && processed_revs > 0 {
+        let processed = |oid: Oid| {
+            let rev = oid.to_string();
+            let i = by_rev.partition_point(|line| line.as_str() < rev.as_str());
+            by_rev
+                .get(i)
+                .is_some_and(|line| line.starts_with(&format!("{}\t", rev)))
+        };
+        let mut at = repo.find_commit(head).map_err(|e| e.to_string())?;
+        while !processed(at.id()) {
+            match at.parent(0) {
+                Ok(parent) => at = parent,
+                Err(_) => break,
+            }
+        }
+        if processed(at.id()) && !state.heads.contains(&at.id().to_string()) {
+            state = State {
+                schema: SCHEMA_VERSION,
+                heads: vec![],
+                accumulate: options.accumulate,
+                read: options.read.clone(),
+                revs: 0,
+                push_dates: push_dates.clone(),
+            };
+            by_bug.clear();
+            by_phab.clear();
+            by_rev.clear();
+            processed_revs = 0;
+        }
+    }
 
     let mut walk = repo.revwalk().map_err(|e| e.to_string())?;
     // (Parents first, for their landing dates and positions.)
@@ -402,6 +542,8 @@ fn update_with(
         .as_deref()
         .map(crate::hyperblame::landing::PushDates::open);
     let mut landed: HashMap<Oid, i64> = HashMap::new();
+    // (The new commits, parents first, with their LANDED and POSITION.)
+    let mut new: Vec<(Oid, i64, u64)> = vec![];
     let mut count = 0;
     for oid in walk {
         let oid = oid.map_err(|e| e.to_string())?;
@@ -446,9 +588,23 @@ fn update_with(
             when = when.max(parent_landed);
         }
         landed.insert(oid, when);
-        by_rev.push(format!("{}\t{}\t{}", oid, iso_seconds(when), state.revs));
+        new.push((oid, when, state.revs));
         state.revs += 1;
         count += 1;
+    }
+    let joins = if options.accumulate {
+        HashMap::new()
+    } else {
+        joins_of(repo, head, &new)?
+    };
+    for (oid, when, position) in new {
+        by_rev.push(format!(
+            "{}\t{}\t{}\t{}",
+            oid,
+            iso_seconds(when),
+            position,
+            Join::field(joins.get(&oid))
+        ));
     }
 
     write_lines(&dir.join("by-bug"), by_bug).map_err(|e| e.to_string())?;
@@ -888,6 +1044,37 @@ mod tests {
         assert!(positions[&merge.to_string()].position > positions[&reland.to_string()].position);
         assert_eq!(positions[&merge.to_string()].landed, "1970-01-01T00:51:40Z");
         assert_eq!(positions[&side.to_string()].landed, "1970-01-01T00:41:40Z");
+        // (The main line's commits, and the side branch's merge.)
+        assert_eq!(positions[&reland.to_string()].join, Some(Join::Mainline));
+        assert_eq!(positions[&merge.to_string()].join, Some(Join::Mainline));
+        assert_eq!(
+            positions[&side.to_string()].join,
+            Some(Join::Merge {
+                merge: merge.to_string(),
+                parent: 1
+            })
+        );
+        // (An index of the side branch's head, updated to the merge, whose
+        // first parents don't reach it, is rebuilt, for its JOINs.)
+        update_branch(&repo, side, &root, "side", &plain).unwrap();
+        let side_index = CommitIndex::open_branch(&root, "side").unwrap();
+        let joins = |index: &CommitIndex, oid: Oid| {
+            index.positions([oid.to_string()].iter().map(String::as_str))[&oid.to_string()]
+                .join
+                .clone()
+        };
+        assert_eq!(joins(&side_index, side), Some(Join::Mainline));
+        assert_eq!(
+            update_branch(&repo, merge, &root, "side", &plain).unwrap(),
+            7
+        );
+        assert_eq!(
+            joins(&side_index, side),
+            Some(Join::Merge {
+                merge: merge.to_string(),
+                parent: 1
+            })
+        );
 
         // (A try index's commits come after its base's, which it reads
         // through to, and land after their parents there.)
