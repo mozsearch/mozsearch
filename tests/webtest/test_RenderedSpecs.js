@@ -468,6 +468,13 @@ add_task(async function test_RenderedSpecContextMenu() {
   await waitForShown(menu, "A definition's click shows the context menu");
   ok(items().some(text => text.startsWith("Search for")), `with a search: ${items().join(", ")}`);
   ok(!items().some(text => text.startsWith("Go to definition")), "but no going to itself");
+  // (But anchoring the page's URL to it, without going to it.)
+  frame.contentWindow.notReloaded = true;
+  const anchor = [...menu.querySelectorAll("a")].find(a => a.textContent.trim().startsWith("Anchor to"));
+  is(anchor?.textContent.trim(), "Anchor to gadget", "and anchoring the page's URL to it");
+  anchor.click();
+  is(frame.contentWindow.location.hash, "#concept-gadget", "which anchoring does");
+  ok(frame.contentWindow.notReloaded, "without reloading the page");
   TestUtils.click(frame.contentDocument.body);
 
   const link = frame.contentDocument.querySelector('a[data-symbols="SPEC_example_concept@2Dwidget"]');

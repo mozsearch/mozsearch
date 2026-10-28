@@ -1909,6 +1909,22 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
                 section: "jumps",
                 confidence,
               }));
+            } else if (renderedSpecToken.id) {
+              // (The definition itself, whose anchor the page's URL can have,
+              // as a link to it: with the history API, rather than going to
+              // it, which reloads nothing but scrolls; see search.js's
+              // popstate handler.)
+              const anchor = renderedSpecToken.id;
+              jumpMenuItems.push(new MenuItem({
+                html: this.fmt("Anchor to <strong>_</strong>", renderedSpecToken.textContent.trim() || pretty),
+                action: () => {
+                  history.pushState(history.state, "", `#${anchor}`);
+                  ContextMenu.hide();
+                },
+                icon: "pin",
+                section: "jumps",
+                confidence,
+              }));
             }
           } else if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({

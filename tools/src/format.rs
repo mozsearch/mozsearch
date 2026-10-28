@@ -5020,10 +5020,12 @@ pub fn format_rendered(
     if let Some(nav) = &page_nav {
         writeln!(writer, "{}", nav).unwrap();
         // Links to anchors that aren't on the page (ex: to the first page,
-        // from outside) go to their pages.
+        // from outside, or from the page, which only changes its fragment,
+        // and doesn't reload it; see search.js's popstate handler) go to
+        // their pages.
         writeln!(
             writer,
-            r#"<script>(() => {{ const id = decodeURIComponent(location.hash.slice(1)); if (id && !/^\d+$/.test(id) && !document.getElementById(id)) {{ location.replace({} + encodeURIComponent(id)); }} }})();</script>"#,
+            r#"<script>(() => {{ const go = () => {{ const id = decodeURIComponent(location.hash.slice(1)); if (id && !/^\d+$/.test(id) && !document.getElementById(id)) {{ location.replace({} + encodeURIComponent(id)); }} }}; go(); addEventListener("hashchange", go); }})();</script>"#,
             serde_json::to_string(&format!("{}/anchor/", view_base))
             .unwrap()
             .replace("</", "<\\/")

@@ -36,7 +36,9 @@
  * of the trunk's blocks is highlighted, from a diff of their words (see
  * `diffWords`): the words it adds in it (green), those the trunk has which
  * it removes in the trunk's blocks (red), and those replacing as many words
- * in both (yellow); the trunk's blocks a removal removes are red too.  (With
+ * in both (yellow); the trunk's blocks a removal removes are red too, and an
+ * addition's words are green: those it adds to the trunk's block, if it's
+ * that block with words added (see `insertion`), or else all of them.  (With
  * CSS custom highlights, which leave the page's elements as they are.)  The
  * trunk's highlights are those of the cards whose blocks no other shown card
  * changes, and of the card hovered over or gone to (with "j" and "k").
@@ -197,6 +199,42 @@
     if (!runs) {
       return null;
     }
+    // (A run only adding, or only removing, can be as far before as its
+    // items equal those after it (ex: `speculationrules", "`, `"speculationrules",`
+    // and `", "speculationrules`, added to a list): it's where it starts
+    // after a line's start, or else a space, if it can, or else where it is.)
+    const inRuns = [new Set(runs.flatMap(run => run.removed)), new Set(runs.flatMap(run => run.added))];
+    const texts = [trunk.text, theirs.text];
+    for (const run of runs) {
+      for (const [side, items, words] of [[0, run.removed, a], [1, run.added, b]]) {
+        if (!items.length || run[side ? "removed" : "added"].length) {
+          continue;
+        }
+        // (Its items are consecutive, and the one before is kept.)
+        const score = first => {
+          const gap = texts[side].slice(first > 0 ? words[first - 1].end : 0, words[first].start);
+          return gap.includes("\n") ? 2 : /\s/.test(gap) ? 1 : 0;
+        };
+        let first = items[0];
+        let best = first;
+        const n = items.length;
+        while (first > 0 && !inRuns[side].has(first - 1) && words[first - 1].text == words[first + n - 1].text) {
+          first--;
+          if (score(first) > score(best)) {
+            best = first;
+          }
+        }
+        if (best != items[0]) {
+          for (const item of items) {
+            inRuns[side].delete(item);
+          }
+          items.splice(0, n, ...Array.from({ length: n }, (_, i) => best + i));
+          for (const item of items) {
+            inRuns[side].add(item);
+          }
+        }
+      }
+    }
     const result = { removed: [], added: [], trunkChanged: [], cardChanged: [] };
     for (const { removed, added } of runs) {
       // (A run replacing as many words with as many others changes them.)
@@ -246,6 +284,18 @@
       range.setEnd(...at(end));
       return range;
     }).filter(range => !range.collapsed);
+  }
+
+  // What an addition's rendering `body` adds: if it's the trunk's `block` (the
+  // one at the line it adds after) with words added (ex: a value added to a
+  // list in a paragraph, which is its source's added line), those words;
+  // else (a block of its own) all of it.
+  function insertion(block, body) {
+    const diff = block ? diffWords([block], body) : null;
+    if (diff && !diff.removed.length && !diff.trunkChanged.length && diff.added.length) {
+      return diff;
+    }
+    return { removed: [], added: wholeRanges([body]), trunkChanged: [], cardChanged: [] };
   }
 
   // The whole text of `blocks`, as a range each.
@@ -439,8 +489,16 @@
       diff: !highlights || source ? null
         : kind == "remove" ? { removed: wholeRanges(outermost), added: [], trunkChanged: [], cardChanged: [] }
         : kind == "change" && body && outermost.length ? diffWords(outermost, body)
+        : kind == "insert" && body ? insertion(block, body)
         : null,
     };
+    // (A change of the blocks' markup, but not of their text: ex: a table
+    // cell's rowspan, for a row added below.)
+    const diff = made.diff;
+    if (kind == "change" && diff && !diff.added.length && !diff.removed.length &&
+        !diff.trunkChanged.length && !diff.cardChanged.length) {
+      note.textContent = note.textContent.replace(/:$/, " (its text is the same):");
+    }
     element.addEventListener("mouseenter", () => {
       for (const block of changed) {
         block.classList.add("sp-pr-changed");

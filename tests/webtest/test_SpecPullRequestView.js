@@ -52,6 +52,9 @@ add_task(async function test_SpecPullRequestView() {
   const card = cards.find(card => card.dataset.pr == "1");
   ok(card.querySelector(".sp-pr-card-body").textContent.includes("drip oil on it"),
      "with its version of the blocks it adds");
+  ok([...frame.contentWindow.CSS.highlights.get("sp-pr-added")]
+       .some(range => card.contains(range.startContainer) && range.toString().includes("drip oil on it")),
+     "highlighted as added");
   ok(card.querySelector(".sp-pr-card-header a").textContent.includes("#1"),
      "under its pull request's header");
   const sprocket = [...doc().querySelectorAll("#rendered-doc .rd-block")]
@@ -169,4 +172,27 @@ add_task(async function test_SpecPullRequestViewImported() {
     .find(block => block.textContent.includes("how fast a gizmo turns"));
   ok(gauge && Math.abs(card.getBoundingClientRect().top - gauge.getBoundingClientRect().top) < 2,
      "beside the block they add after");
+});
+
+// Going to a definition on the page (ex: from the index of the terms the spec
+// defines) doesn't reload it, which would load its pull requests' changes
+// again, nor does going back (see search.js's popstate handler).
+add_task(async function test_SpecPullRequestViewSamePageDefinition() {
+  await prepare();
+  await loadView("gizmo/bs/index.bs");
+  frame.contentWindow.notReloaded = true;
+  const menu = doc().querySelector("#context-menu");
+  TestUtils.click(doc().querySelector('.sp-index a[data-rendered-def="#gear"]'));
+  await waitForShown(menu, "The index's link's click shows the context menu");
+  const def = [...menu.querySelectorAll("a")].find(a => a.textContent.includes("Go to definition"));
+  is(def?.getAttribute("href"), "#gear", "which goes to the definition on the page");
+  def.click();
+  await waitForCondition(() => frame.contentWindow.location.hash == "#gear", "Going to it");
+  await new Promise(resolve => setTimeout(resolve, 500));
+  ok(frame.contentWindow.notReloaded && doc().body.classList.contains("sp-prs-loaded"),
+     "doesn't reload the page");
+  frame.contentWindow.history.back();
+  await waitForCondition(() => frame.contentWindow.location.hash != "#gear", "Going back");
+  await new Promise(resolve => setTimeout(resolve, 500));
+  ok(frame.contentWindow.notReloaded, "doesn't either");
 });

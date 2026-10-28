@@ -136,6 +136,25 @@ class QueryQuoting {
   }
 }
 
+// The URL, without its fragment, which the page's content is for: the page's,
+// and then the one the history API last set (ex: Dxr's `updateHistory`, a
+// diagram's query, a facet's), which the page's content was changed for, but
+// not a navigation to a fragment (ex: a link to a definition on the page),
+// which only scrolls; see Dxr's popstate handler.
+function withoutFragment(href) {
+  const url = new URL(href, document.location.href);
+  url.hash = "";
+  return url.href;
+}
+var contentUrl = withoutFragment(document.location.href);
+for (const method of ["pushState", "replaceState"]) {
+  const original = history[method].bind(history);
+  history[method] = (state, unused, url) => {
+    original(state, unused, url);
+    contentUrl = withoutFragment(document.location.href);
+  };
+}
+
 var Dxr = new (class Dxr {
   constructor() {
     let constants = document.getElementById("data");
@@ -202,19 +221,22 @@ var Dxr = new (class Dxr {
     // In order to mitigate the issue with simple approach,
     // we perform reload.
     window.addEventListener("popstate", event => {
-      // One exception where we don't want to perform reload is the
-      // "Go to ..." menu item, which can navigate to #lineno in the
-      // same document.
-      // Navigation to a document fragment also triggers a popstate event.
+      // The exceptions, where we don't want to reload, are navigations to a
+      // fragment of the document, which also trigger a popstate event: ex: the
+      // "Go to ..." menu item's to #lineno, or to a definition on the page (a
+      // rendered spec's, whose with-pull-requests view's reload would load
+      // all of their changes again), back and forward between them, and a
+      // link to a section.  (Reloading would also lose its scroll.)  They
+      // change only the fragment of the URL which the page's content is for
+      // (see `contentUrl`).
       //
-      // We detect it by the suppressNextPopState property, which is set
-      // by the "Go to ..." menu item's event handler.
-      //
-      // The timestamp is used to avoid getting confused by
-      // unrelated click events on the menu item.
+      // The "Go to ..." menu item's event handler also sets the
+      // suppressNextPopState property, whose timestamp is used to avoid
+      // getting confused by unrelated click events on the menu item.
       const suppressNextPopState = this.suppressNextPopState;
       this.suppressNextPopState = 0;
-      if (suppressNextPopState && suppressNextPopState > Date.now() - 1000) {
+      if ((suppressNextPopState && suppressNextPopState > Date.now() - 1000) ||
+          withoutFragment(document.location.href) == contentUrl) {
         ContextMenu.hide();
         return;
       }
