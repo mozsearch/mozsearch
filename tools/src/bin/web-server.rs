@@ -821,8 +821,10 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
 
         // A spec pull request's changes of a spec's rendered page, for its
         // view with them (`rendered-prs`), as
-        // `/{tree}/spec-pr-blocks/{spec}/{number}/{head}/{path}`, cached once
-        // they're final; see `format::spec_pr_blocks_json`.
+        // `/{tree}/spec-pr-blocks/{spec}/{number}/{head}/{path}`, with
+        // `?after=COMMIT` only those after one of its commits (ex: another's
+        // it's stacked on), cached once they're final; see
+        // `format::spec_pr_blocks_json`.
         "spec-pr-blocks" => {
             if path.len() < 6 || !tools::spec_prs::valid_spec(path[2]) {
                 return WebResponse::not_found();
@@ -831,8 +833,11 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 return WebResponse::not_found();
             };
             let file_path = path[5..].join("/");
-            match format::spec_pr_blocks_json(cfg, tree_name, path[2], number, path[4], &file_path)
-            {
+            let params = query_params(req.query);
+            let after = params.get("after").map(String::as_str);
+            match format::spec_pr_blocks_json(
+                cfg, tree_name, path[2], number, path[4], &file_path, after,
+            ) {
                 Ok((json, true)) => WebResponse::json(json.to_string()),
                 Ok((json, false)) => WebResponse::json(json.to_string()).uncached(),
                 Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),

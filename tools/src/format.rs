@@ -5068,11 +5068,82 @@ pub fn format_rendered(
     output::generate_footer(&opt, tree_name, path, writer)
 }
 
+/// What the view's entry of a pull request whose first commits are another's
+/// says (see `spec_prs::Containment`), before and after the other's link
+/// (ex: "Its first commit is #1940's; only its own changes are shown here.").
+fn containment_note(c: &crate::spec_prs::Containment) -> (String, String) {
+    use crate::spec_prs::ContainedHow;
+    let all_theirs = c.matched == c.own;
+    let one = c.matched == 1;
+    let mut before = match (all_theirs, one) {
+        (true, true) => "Its commit is ".to_string(),
+        (true, false) => "Its commits are ".to_string(),
+        (false, true) => "Its first commit is ".to_string(),
+        (false, false) => format!("Its first {} commits are ", c.matched),
+    };
+    before.push_str(match (c.how, one) {
+        (ContainedHow::Commits, _) => "",
+        (ContainedHow::Changes, true) => "a version of ",
+        (ContainedHow::Changes, false) => "versions of ",
+        (ContainedHow::Messages, true) => "an earlier version of ",
+        (ContainedHow::Messages, false) => "earlier versions of ",
+    });
+    let mut after = "'s".to_string();
+    if c.matched < c.of {
+        after.push_str(&match one {
+            true => format!(" first (of {})", c.of),
+            false => format!(" first {} (of {})", c.matched, c.of),
+        });
+    }
+    after.push_str(match (c.how, one) {
+        (ContainedHow::Commits, _) => "",
+        (ContainedHow::Changes, _) => ", with the same changes",
+        (ContainedHow::Messages, true) => ", by its message",
+        (ContainedHow::Messages, false) => ", by their messages",
+    });
+    after.push_str(match all_theirs {
+        true => "; it has no changes of its own.",
+        false => "; only its own changes are shown here.",
+    });
+    (before, after)
+}
+
+/// What the view's entry of a pull request whose commits others have first
+/// says (see `containment_note`), before and after their links.
+fn contained_by_note(containments: &[&crate::spec_prs::Containment]) -> (String, String) {
+    use crate::spec_prs::ContainedHow;
+    let some = containments.iter().any(|c| c.matched < c.of);
+    let versions = containments.iter().any(|c| c.how != ContainedHow::Commits);
+    (
+        format!(
+            "{}{} in ",
+            if some {
+                "Some of its commits"
+            } else {
+                "Its commits"
+            },
+            if versions {
+                " (or versions of them) are"
+            } else {
+                " are"
+            }
+        ),
+        match containments.len() {
+            1 => " too, which shows only its own changes.",
+            _ => " too, which show only their own changes.",
+        }
+        .to_string(),
+    )
+}
+
 /// The pull requests changing a spec's page, in its view with their changes
 /// (see `format_rendered`'s `with_prs`), for rendered_prs.liquid: their list,
 /// in the panel, with facets filtering them, and each's data, for
 /// spec-pr-view.js, and which they are, before the page (see
-/// `render_rendered_prs`).
+/// `render_rendered_prs`).  A pull request whose first commits are another's
+/// (ex: stacked on it; see `spec_prs::containments`, of all of the spec
+/// repository's pull requests) has only its own changes (see
+/// `spec_pr_blocks_json`'s `after`), and both entries say so.
 fn rendered_prs_globals(
     tree_name: &str,
     spec_repo: &str,
@@ -5082,10 +5153,23 @@ fn rendered_prs_globals(
     imported: &[String],
 ) -> Result<liquid::Object, &'static str> {
     use crate::spec_prs::{pr_facet_values, pr_facets, review_name};
+    let try_path_of = |number: u32| format!("/{}/try/{}/{}", tree_name, spec_repo, number);
+    let contained = summary
+        .map(|summary| crate::spec_prs::containments(&summary.prs))
+        .unwrap_or_default();
+    let mut contained_by: BTreeMap<u32, Vec<(u32, &crate::spec_prs::Containment)>> =
+        BTreeMap::new();
+    for (number, containment) in &contained {
+        contained_by
+            .entry(containment.number)
+            .or_default()
+            .push((*number, containment));
+    }
     let entries: Vec<serde_json::Value> = prs
         .iter()
         .map(|pr| {
-            let try_path = format!("/{}/try/{}/{}", tree_name, spec_repo, pr.number);
+            let try_path = try_path_of(pr.number);
+            let contains = contained.get(&pr.number);
             let data = json!({
                 "number": pr.number,
                 "title": pr.title,
@@ -5100,19 +5184,22 @@ fn rendered_prs_globals(
                     .replace('_', "-"),
                 "draft": pr.draft,
                 "try": try_path,
-                // (If it changes the page's source.)
+                // (If it changes the page's source; only its own changes, if
+                // its first commits are another's.)
                 "blocks": pr
                     .head
                     .as_ref()
                     .filter(|_| pr.files.iter().any(|file| file.path == source_path))
                     .map(|head| format!(
-                        "/{}/spec-pr-blocks/{}/{}/{}/{}",
+                        "/{}/spec-pr-blocks/{}/{}/{}/{}{}",
                         tree_name,
                         spec_repo,
                         pr.number,
                         head,
-                        url_encode_path(view_path)
+                        url_encode_path(view_path),
+                        contains.map_or(String::new(), |c| format!("?after={}", c.base))
                     )),
+                "contains": contains.map(|c| c.number),
                 // (The files the page's source imports which it changes, and
                 // their views with the pull requests' changes.)
                 "imported": pr
@@ -5133,6 +5220,31 @@ fn rendered_prs_globals(
                 "data": data.to_string(),
                 "error": pr.error.clone().unwrap_or_else(|| "Its head couldn't be fetched".to_string()),
                 "loads": pr.head.is_some(),
+                "contains": contains.map(|c| {
+                    let (before, after) = containment_note(c);
+                    json!({
+                        "number": c.number,
+                        "try_path": try_path_of(c.number),
+                        "before": before,
+                        "after": after,
+                    })
+                }),
+                "contained_by": contained_by.get(&pr.number).map(|list| {
+                    let (before, after) = contained_by_note(
+                        &list.iter().map(|(_, c)| *c).collect::<Vec<_>>(),
+                    );
+                    json!({
+                        "prs": list
+                            .iter()
+                            .map(|(number, _)| json!({
+                                "number": number,
+                                "try_path": try_path_of(*number),
+                            }))
+                            .collect::<Vec<_>>(),
+                        "before": before,
+                        "after": after,
+                    })
+                }),
             })
         })
         .collect();
@@ -5238,6 +5350,15 @@ fn trunk_page_lines(
 /// and adds (`removed` and `added`, and how many more there are) instead of
 /// HTML: its changes of the trunk's, or for "conflicts", of its base's, beside
 /// where the base's lines are in the trunk's.
+///
+/// With `after` (`?after=` in the URL), one of the pull request's commits
+/// (an ancestor of its head) whose changes are another pull request's (ex:
+/// it's stacked on the other; see `spec_prs::containments`), its changes are
+/// only those after it: from the trunk with that commit's changes merged (as
+/// its head's are), whose lines are placed where they are in the trunk's
+/// (`spec_prs::map_lines`), or for "conflicts", from that commit's version.
+/// If that commit's changes conflict with the trunk's, its changes are all
+/// of them, and `after_unused` says so.
 pub fn spec_pr_blocks_json(
     cfg: &Config,
     tree_name: &str,
@@ -5245,6 +5366,7 @@ pub fn spec_pr_blocks_json(
     number: u32,
     head: &str,
     path: &str,
+    after: Option<&str>,
 ) -> Result<(serde_json::Value, bool), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
@@ -5310,6 +5432,26 @@ pub fn spec_pr_blocks_json(
     let Ok(head_commit) = repo.find_commit(head_oid) else {
         return state("missing-head", None, false);
     };
+    let after = match after {
+        Some(after) => {
+            let oid = Oid::from_str(after)
+                .ok()
+                .filter(|_| after.len() == 40)
+                .ok_or("Not a revision")?;
+            if oid != head_oid && !repo.graph_descendant_of(head_oid, oid).unwrap_or(false) {
+                return Err("Not a commit of the pull request's");
+            }
+            Some(repo.find_commit(oid).map_err(|_| "Not a commit")?)
+        }
+        None => None,
+    };
+    // (All of its commits are the other's.)
+    if after.as_ref().is_some_and(|after| after.id() == head_oid) {
+        return state("ok", None, true).map(|(mut value, final_)| {
+            value["changes"] = json!([]);
+            (value, final_)
+        });
+    }
 
     // The pull request's changes merged with the tip's.
     let trunk_upstream = repo
@@ -5346,9 +5488,10 @@ pub fn spec_pr_blocks_json(
             })
         });
         if conflicting {
-            // (Its changes of its base's lines, beside where those lines are
-            // in the trunk's.)
-            let ours = read_commit_file(repo, &base, &upstream_path).unwrap_or_default();
+            // (Its changes of its base's lines, or after `after`, of that
+            // commit's, beside where those lines are in the trunk's.)
+            let ours = read_commit_file(repo, after.as_ref().unwrap_or(&base), &upstream_path)
+                .unwrap_or_default();
             let theirs = read_commit_file(repo, &head_commit, &upstream_path).unwrap_or_default();
             let to_trunk = crate::spec_prs::line_hunks(&ours, &trunk);
             return with_source(
@@ -5371,6 +5514,51 @@ pub fn spec_pr_blocks_json(
     };
     let Some(mut merged) = merged_file(&upstream_path) else {
         return state("removes-file", None, true);
+    };
+    // The version its changes are from: the trunk's, or after `after`, the
+    // trunk's with that commit's changes merged (as its head's are), whose
+    // lines are where `to_trunk` puts them in the trunk's, unless they
+    // conflict.
+    let after_text: Option<String> = after.as_ref().and_then(|after| {
+        let ancestor = repo
+            .merge_base(trunk_upstream.id(), after.id())
+            .and_then(|base| repo.find_commit(base))
+            .and_then(|base| base.tree())
+            .ok()?;
+        let index = repo
+            .merge_trees(&ancestor, &ours, &after.tree().ok()?, None)
+            .ok()?;
+        if index.has_conflicts() {
+            return None;
+        }
+        let entry = index.get_path(Path::new(&upstream_path), 0)?;
+        let blob = repo.find_blob(entry.id).ok()?;
+        Some(String::from_utf8_lossy(blob.content()).into_owned())
+    });
+    let after_unused = after.is_some() && after_text.is_none();
+    let to_trunk = after_text
+        .as_ref()
+        .map(|text| crate::spec_prs::line_hunks(text, &trunk));
+    let own_hunks = |merged: &str| -> Vec<crate::spec_prs::LineHunk> {
+        match (&after_text, &to_trunk) {
+            (Some(text), Some(to_trunk)) => crate::spec_prs::line_hunks(text, merged)
+                .into_iter()
+                .map(|hunk| crate::spec_prs::LineHunk {
+                    trunk: crate::spec_prs::map_lines(to_trunk, &hunk.trunk),
+                    merged: hunk.merged,
+                })
+                .collect(),
+            _ => crate::spec_prs::line_hunks(&trunk, merged),
+        }
+    };
+    let own_source_changes = |merged: &str| match (&after_text, &to_trunk) {
+        (Some(text), Some(to_trunk)) => crate::spec_prs::source_changes(
+            text,
+            merged,
+            |lines| crate::spec_prs::map_lines(to_trunk, lines),
+            trunk_lines,
+        ),
+        _ => crate::spec_prs::source_changes(&trunk, merged, |lines| lines.clone(), trunk_lines),
     };
 
     let spec_links = RenderedSpecLinks {
@@ -5403,7 +5591,7 @@ pub fn spec_pr_blocks_json(
             let near = |hunk: &crate::spec_prs::LineHunk| {
                 hunk.trunk.start <= lines.end && hunk.trunk.end >= lines.start
             };
-            let all = crate::spec_prs::line_hunks(&trunk, &merged);
+            let all = own_hunks(&merged);
             if !all.iter().any(near) {
                 return state("ok", None, true).map(|(mut value, final_)| {
                     value["changes"] = json!([]);
@@ -5431,13 +5619,12 @@ pub fn spec_pr_blocks_json(
                     "needs-import",
                     Some(message.to_string()),
                     false,
-                    crate::spec_prs::source_changes(
-                        &trunk,
-                        &merged,
-                        |lines| lines.clone(),
-                        trunk_lines,
-                    ),
+                    own_source_changes(&merged),
                 )
+                .map(|(mut value, final_)| {
+                    value["after_unused"] = json!(after_unused);
+                    (value, final_)
+                })
             };
             let imported = repo
                 .find_reference(&format!("refs/try/{}/{}", spec_repo, number))
@@ -5513,7 +5700,7 @@ pub fn spec_pr_blocks_json(
     let rendered = &rendered_spec.rendered;
     let block_lines = rendered_block_lines(rendered, &merged, &rendered_spec.range);
     let page_lines = rendered_range_lines(&merged, &rendered_spec.range);
-    let hunks = hunks.unwrap_or_else(|| crate::spec_prs::line_hunks(&trunk, &merged));
+    let hunks = hunks.unwrap_or_else(|| own_hunks(&merged));
     let changes: Vec<serde_json::Value> =
         crate::spec_prs::block_changes(&hunks, &block_lines, &page_lines, trunk_lines)
             .into_iter()
@@ -5543,6 +5730,7 @@ pub fn spec_pr_blocks_json(
             .collect();
     state("ok", None, true).map(|(mut value, final_)| {
         value["changes"] = json!(changes);
+        value["after_unused"] = json!(after_unused);
         (value, final_)
     })
 }
@@ -11777,6 +11965,80 @@ mod tests {
             assert_eq!(render(&sparse, "panel").trim(), "");
             assert!(render(&sparse, "header").contains(says));
         }
+
+        // (A pull request whose first commits are another's, and the other's.)
+        let mut stacked = pr(2);
+        stacked["contains"] = serde_json::json!({
+            "number": 1,
+            "try_path": "/specs/try/gizmo/1",
+            "before": "Its first commit is ",
+            "after": "'s; only its own changes are shown here.",
+        });
+        let mut base = pr(1);
+        base["contained_by"] = serde_json::json!({
+            "prs": [{ "number": 2, "try_path": "/specs/try/gizmo/2" }, { "number": 3, "try_path": "/specs/try/gizmo/3" }],
+            "before": "Its commits are in ",
+            "after": " too, which show only their own changes.",
+        });
+        let panel = render(&globals(vec![stacked, base], true), "panel");
+        assert!(
+            panel.contains(r#"<span class="sp-pr-note sp-pr-contains">Its first commit is <a href="/specs/try/gizmo/1">#1</a>&#39;s; only its own changes are shown here.</span>"#),
+            "{}",
+            panel
+        );
+        assert!(
+            panel.contains(r#"<span class="sp-pr-note sp-pr-contained">Its commits are in <a href="/specs/try/gizmo/2">#2</a> and <a href="/specs/try/gizmo/3">#3</a> too, which show only their own changes.</span>"#),
+            "{}",
+            panel
+        );
+    }
+
+    /// What the entries say about pull requests whose first commits are
+    /// others' (see `containment_note`), and others'.
+    #[test]
+    fn test_containment_notes() {
+        use crate::spec_prs::{ContainedHow, Containment};
+        let containment = |matched, of, own, how| Containment {
+            number: 1940,
+            matched,
+            of,
+            own,
+            base: "a".repeat(40),
+            how,
+        };
+        let note = |c: &Containment| {
+            let (before, after) = super::containment_note(c);
+            format!("{}#1940{}", before, after)
+        };
+        assert_eq!(
+            note(&containment(1, 1, 2, ContainedHow::Commits)),
+            "Its first commit is #1940's; only its own changes are shown here."
+        );
+        assert_eq!(
+            note(&containment(2, 2, 2, ContainedHow::Commits)),
+            "Its commits are #1940's; it has no changes of its own."
+        );
+        assert_eq!(
+            note(&containment(2, 3, 4, ContainedHow::Changes)),
+            "Its first 2 commits are versions of #1940's first 2 (of 3), with the same changes; only its own changes are shown here."
+        );
+        assert_eq!(
+            note(&containment(1, 2, 2, ContainedHow::Messages)),
+            "Its first commit is an earlier version of #1940's first (of 2), by its message; only its own changes are shown here."
+        );
+        let partial = containment(1, 2, 2, ContainedHow::Messages);
+        let full = containment(1, 1, 3, ContainedHow::Commits);
+        assert_eq!(
+            super::contained_by_note(&[&full]),
+            (
+                "Its commits are in ".to_string(),
+                " too, which shows only its own changes.".to_string()
+            )
+        );
+        assert_eq!(
+            super::contained_by_note(&[&full, &partial]).0,
+            "Some of its commits (or versions of them) are in "
+        );
     }
 
     #[test]

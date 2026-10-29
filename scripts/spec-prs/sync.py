@@ -7,7 +7,9 @@ through git (GitHub's `refs/pull/N/head`, into `refs/upstream-pr/SPEC/N`, as
 build-spec-pr does), and diffed from their merge bases with the trunk, for
 their files' hunks, the specs they're in (and which files are their sources),
 and the sections they change (the headings before their hunks, in the merge
-base's versions).  Not a history:
+base's versions), and their commits (with their patch ids and their messages'
+hashes, for finding the pull requests which have others' commits, ex: stacked
+on them; see tools/src/spec_prs.rs's `containments`).  Not a history:
 only the pull requests' current heads, written to OUT_DIR/SPEC.json, for the
 web server's pull request pages (see tools/src/spec_prs.rs).  A pull request
 whose head and trunk haven't changed keeps its summary.
@@ -26,6 +28,7 @@ review decisions only if it has at most MAX_REST_REVIEWS open pull requests.
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -52,8 +55,11 @@ MARKDOWN = re.compile(r"^(#{1,6})\s+(.*?)\s*(?:\{#([^}\s]+)\})?\s*$")
 # ecmarkup's imports (as tools/src/spec_analyze/ecmarkup.rs's `imports`).
 EMU_IMPORT = re.compile(r"""<emu-import\s+href=["']?([^"'\s>]+)["']?\s*(?:/>|>\s*</emu-import>)""")
 # The version of the pull requests' summaries' format: older ones are made
-# again (ex: without their files' specs for the files ecmarkup specs import).
-SUMMARY_VERSION = 2
+# again (ex: without their files' specs for the files ecmarkup specs import,
+# or their commits).
+SUMMARY_VERSION = 3
+# The most commits of a pull request which its summary lists (see `commits`).
+MAX_COMMITS = 250
 TAG = re.compile(r"<[^>]+>")
 # Bikeshed's autolinks in headings (ex: "Interface {{Node}}").
 AUTOLINK = re.compile(r"\{\{(.*?)\}\}|\[=(.*?)=\]|\[\[(.*?)\]\]|<<(.*?)>>|''(.*?)''")
@@ -118,6 +124,44 @@ def imported_files(forest, spec_dir, sources, trunk):
     return imported
 
 
+def commits(forest, merge_base, head):
+    """A pull request's commits since its merge base with the trunk, oldest
+    first: each's hash, its patch id (`git patch-id --stable`, which its
+    versions with the same changes have too, ex: rebased; none for a merge),
+    the hashes of its message (with its whitespace collapsed, which its
+    versions with other changes, ex: amended, may have too) and of its
+    author's email, and its subject, or None if it has more than
+    MAX_COMMITS."""
+    span = f"{merge_base}..{head}"
+    if int(git(forest, "rev-list", "--count", span).strip() or 0) > MAX_COMMITS:
+        return None
+    patches = git(forest, "log", "--reverse", "-p", "--no-merges", "--no-color",
+                  "--no-ext-diff", "--format=commit %H", span)
+    result = subprocess.run(["git", "-C", forest, "patch-id", "--stable"], input=patches,
+                            capture_output=True, text=True, errors="replace")
+    patch_ids = {}
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            patch_ids[parts[1]] = parts[0]
+    found = []
+    digest = lambda text: hashlib.sha1(text.encode()).hexdigest()[:16]
+    for record in git(forest, "log", "--reverse", "--format=%H%x00%ae%x00%B%x01",
+                      span).split("\x01"):
+        record = record.lstrip("\n")
+        if not record:
+            continue
+        sha, author, message = record.split("\x00", 2)
+        found.append({
+            "sha": sha,
+            "patch_id": patch_ids.get(sha),
+            "message": digest(" ".join(message.split())),
+            "author": digest(author.lower()),
+            "subject": message.strip().split("\n")[0][:200],
+        })
+    return found
+
+
 def summarize(forest, spec_dir, sources, imported, number, head, trunk):
     """A pull request's changes from its merge base with the trunk (upstream
     commits, whose paths are relative to the repository's directory in the
@@ -171,7 +215,8 @@ def summarize(forest, spec_dir, sources, imported, number, head, trunk):
                 if ident not in seen:
                     seen.add(ident)
                     file["sections"].append({"line": line, "id": ident, "title": title})
-    return {"merge_base": merge_base, "files": files, "specs": sorted(specs)}
+    return {"merge_base": merge_base, "files": files, "specs": sorted(specs),
+            "commits": commits(forest, merge_base, head)}
 
 
 def main():
@@ -290,7 +335,7 @@ def main():
                 pass
             elif old and old.get("head") == fetched and old.get("trunk") == trunk \
                     and "files" in old and old.get("version") == SUMMARY_VERSION:
-                summary.update({k: old[k] for k in ("merge_base", "files", "specs")})
+                summary.update({k: old[k] for k in ("merge_base", "files", "specs", "commits")})
             else:
                 try:
                     summary.update(summarize(args.forest, repo, sources.get(repo, []), imported,

@@ -41,10 +41,13 @@ add_task(async function test_SpecPullRequestView() {
   await prepare();
   await loadView("gizmo/source");
   const entries = [...doc().querySelectorAll(".sp-pr-entry")];
-  is(entries.map(entry => entry.dataset.path).join(","), "2,1",
+  // (7 and 8 too, whose first commits are 1's, and have no changes of their
+  // own to this page; see test_SpecPullRequestViewStacked.)
+  is(entries.map(entry => entry.dataset.path).join(","), "8,7,2,1",
      "The view lists the pull requests changing the spec");
-  is(entries[0].dataset.state, "conflicts", "saying which conflict with the trunk");
-  ok(entries[1].querySelector(".sp-pr-state").textContent.includes("1 change"),
+  const entry = number => entries.find(each => each.dataset.path == number);
+  is(entry("2").dataset.state, "conflicts", "saying which conflict with the trunk");
+  ok(entry("1").querySelector(".sp-pr-state").textContent.includes("1 change"),
      "and how many changes the others make");
 
   const cards = [...doc().querySelectorAll(".sp-pr-column .sp-pr-card")];
@@ -67,7 +70,7 @@ add_task(async function test_SpecPullRequestView() {
   // Pull request 2's changes conflict with the trunk's, so its card has its
   // changes of its base's source.
   const conflict = cards.find(card => card.dataset.pr == "2");
-  ok(entries[0].querySelector(".sp-pr-state").textContent.includes("1 change of its base's source"),
+  ok(entry("2").querySelector(".sp-pr-state").textContent.includes("1 change of its base's source"),
      "The conflicting pull request's entry says its changes of its base's source are beside the page");
   ok(conflict.querySelector(".sp-pr-card-note").textContent.includes("conflicting with the trunk's changes"),
      "whose card says they conflict");
@@ -113,17 +116,17 @@ add_task(async function test_SpecPullRequestView() {
   ok(!doc().querySelector(".sp-prs-header .facet-box, .sp-prs-header .sp-pr-list"),
      "rather than before the page");
   const count = () => doc().querySelector(".sp-pr-list-count").textContent;
-  is(count(), "(2)", "The list's heading says how many pull requests it has");
+  is(count(), "(4)", "The list's heading says how many pull requests it has");
 
   // Filtering the pull requests hides their changes.
   const value = [...doc().querySelectorAll('.facet[data-facet="review"] .facet-value')]
     .find(button => button.textContent.includes("Changes requested"));
   value.click();
   await waitForCondition(() => card.hidden, "Filtering hides the other pull request's change");
-  is(count(), "(1 of 2)", "and the list's heading says how many it shows");
+  is(count(), "(1 of 4)", "and the list's heading says how many it shows");
   doc().querySelector(".facet-clear").click();
   await waitForCondition(() => !card.hidden, "and showing it again shows it");
-  is(count(), "(2)", "as its heading does");
+  is(count(), "(4)", "as its heading does");
 
   ok(doc().querySelector('#panel-rendered-prs[href="/specpr/rendered/gizmo/source"]'),
      "The panel goes to the view without them");
@@ -150,7 +153,7 @@ add_task(async function test_SpecPullRequestViewListCollapses() {
   await waitForCondition(() => storage.getItem(storageKey) == "false", "which is remembered");
   [...doc().querySelectorAll('.facet[data-facet="review"] .facet-value')]
     .find(button => button.textContent.includes("Changes requested")).click();
-  await waitForCondition(() => count() == "(1 of 2)", "Filtering");
+  await waitForCondition(() => count() == "(1 of 4)", "Filtering");
   ok(!box().open, "leaves it collapsed, its heading saying how many it shows");
   await loadView("gizmo/source");
   ok(!box().open, "and it's collapsed on the next page");
@@ -160,6 +163,45 @@ add_task(async function test_SpecPullRequestViewListCollapses() {
   await loadView("gizmo/source");
   ok(box().open, "on the next page");
   storage.removeItem(storageKey);
+});
+
+// Pull requests whose first commits are another's (see the tools'
+// `spec_prs::containments`): 7 is stacked on 1 (its two commits and one
+// more), and 8 starts with an earlier version of 1's first commit (by its
+// message: the same, by the same author, with other words).  Their entries
+// say so, and 1's that they have its commits, and their cards have only their
+// own changes: none of the Wattsi spec's, which only 1's commits change, and
+// in the Bikeshed spec's source, their own lines but not 1's.
+add_task(async function test_SpecPullRequestViewStacked() {
+  await prepare();
+  await loadView("gizmo/source");
+  const entry = number => doc().querySelector(`.sp-pr-entry[data-path="${number}"]`);
+  const note = (number, kind) => entry(number)?.querySelector(`.sp-pr-${kind}`)?.textContent;
+  is(note(7, "contains"), "Its first 2 commits are #1's; only its own changes are shown here.",
+     "A stacked pull request's entry says which pull request's commits it starts with");
+  is(entry(7).querySelector(".sp-pr-contains a")?.getAttribute("href"), "/specpr/try/gizmo/1",
+     "linking to it");
+  ok(JSON.parse(entry(7).dataset.pr).blocks.includes("?after="),
+     "and its changes are only those after them");
+  is(note(8, "contains"),
+     "Its first commit is an earlier version of #1's first (of 2), by its message; only its own changes are shown here.",
+     "So does one which starts with an earlier version of its commit");
+  is(note(1, "contained"),
+     "Some of its commits (or versions of them) are in #7 and #8 too, which show only their own changes.",
+     "and the other's entry says which have its commits");
+  for (const number of [7, 8]) {
+    is(entry(number).querySelector(".sp-pr-state").textContent, "No changes on this page",
+       `#${number} has no changes of its own to the page 1's commits change`);
+    ok(!doc().querySelector(`.sp-pr-column .sp-pr-card[data-pr="${number}"]`), "and no cards");
+  }
+
+  await loadView("gizmo/bs/index.bs");
+  const card = number => doc().querySelector(`.sp-pr-column .sp-pr-card[data-pr="${number}"]`);
+  await waitForCondition(() => card(7) && card(8), "Their cards for the Bikeshed spec's changes");
+  ok(card(7).textContent.includes("ratchet") && !card(7).textContent.includes("cog"),
+     "The stacked pull request's card has its own change of the source, without 1's");
+  ok(card(8).textContent.includes("flywheel"), "and the other's, its own");
+  ok(card(1).textContent.includes("cog"), "which 1's card has");
 });
 
 add_task(async function test_SpecPullRequestViewBikeshed() {

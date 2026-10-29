@@ -3428,6 +3428,14 @@ h2.sp-called-heading {
 .panel .sp-pr-entry .sp-pr-state {
   display: block;
 }
+/* An entry's note that its first commits are another's, or that others have
+   its commits first (ex: stacked pull requests; see rendered_prs.liquid). */
+.sp-pr-note {
+  display: block;
+  font-size: smaller;
+  font-style: italic;
+  opacity: 0.8;
+}
 .sp-prs-view {
   display: flex;
   gap: 1.5em;

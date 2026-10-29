@@ -34,7 +34,7 @@ add_task(async function test_SpecPullRequestSummaries() {
   await synced();
   const cells = [...doc().querySelectorAll(".spec-prs-repos tbody tr:first-child td")]
     .map(cell => cell.textContent);
-  is(cells.slice(0, 6).join(","), "gizmo,6,1,1,4,1",
+  is(cells.slice(0, 6).join(","), "gizmo,8,1,1,6,1",
      "The specs' page lists the spec repository, with its open, approved, changes requested, by people who can review and draft pull requests");
   const status = await (await fetch("/specpr/spec-prs/sync-status", { cache: "no-store" })).json();
   is(status.state, "idle", "Its sync's status says it's done");
@@ -43,7 +43,7 @@ add_task(async function test_SpecPullRequestSummaries() {
   is(doc().querySelector(".spec-prs h2")?.textContent.startsWith("Pull requests of gizmo"), true,
      "The spec repository's page is titled by it");
   const prs = [...doc().querySelectorAll(".spec-pr")];
-  is(prs.map(pr => pr.dataset.path).join(","), "6,5,4,3,2,1", "and lists its pull requests, newest first");
+  is(prs.map(pr => pr.dataset.path).join(","), "8,7,6,5,4,3,2,1", "and lists its pull requests, newest first");
   const [first, second] = ["1", "2"].map(number => prs.find(pr => pr.dataset.path == number));
   const title = first.querySelector(".spec-pr-title");
   is(title?.getAttribute("href"), "/specpr/try/gizmo/1", "linking to their pages as try pushes");
@@ -66,7 +66,7 @@ add_task(async function test_SpecPullRequestSummaries() {
   value("review", "Approved").click();
   is(prs.filter(pr => !pr.hidden).map(pr => pr.dataset.path).join(","), "1",
      "Facets filter them by review decision");
-  is(doc().querySelector(".facet-status")?.textContent, "Showing 1 of 6 pull requests.",
+  is(doc().querySelector(".facet-status")?.textContent, "Showing 1 of 8 pull requests.",
      "counting pull requests");
   value("review", "Approved").click();
   value("author", "Other contributors").click();
@@ -76,5 +76,5 @@ add_task(async function test_SpecPullRequestSummaries() {
 
   // (And through the data API, which the web-server serves.)
   const api = await (await fetch("/specpr/api/v1/spec-prs?spec=gizmo", { cache: "no-store" })).json();
-  is(api[0]?.prs?.length, 6, "The data API has the summaries");
+  is(api[0]?.prs?.length, 8, "The data API has the summaries");
 });

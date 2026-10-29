@@ -1,0 +1,15 @@
+<pre class=metadata>
+Title: Gizmo Gears
+Shortname: gizmo-gears
+Level: none
+Status: UD
+URL: https://gizmo.example.org/gears/
+Editor: Searchfox, Mozilla
+Abstract: Gears, a Bikeshed spec in the gizmo repository, as csswg-drafts has many (see tests/specpr/setup).
+</pre>
+
+<h2 id=gears>Gears</h2>
+
+<p>A <dfn>gear</dfn> turns a gizmo.</p>
+
+<p>A <dfn>flywheel</dfn> stores a gizmo's spin.</p>

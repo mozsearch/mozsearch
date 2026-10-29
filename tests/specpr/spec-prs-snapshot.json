@@ -5,6 +5,30 @@
    "incomplete": false,
    "prs": [
     {
+     "association": "MEMBER",
+     "author": "a-member",
+     "base_ref": "main",
+     "draft": false,
+     "labels": [],
+     "number": 8,
+     "review": "REVIEW_REQUIRED",
+     "title": "Define flywheels",
+     "updated": "2025-04-18T12:00:00Z",
+     "url": "https://github.com/example/gizmo/pull/8"
+    },
+    {
+     "association": "MEMBER",
+     "author": "a-member",
+     "base_ref": "main",
+     "draft": false,
+     "labels": [],
+     "number": 7,
+     "review": "REVIEW_REQUIRED",
+     "title": "Define ratchets",
+     "updated": "2025-04-17T11:00:00Z",
+     "url": "https://github.com/example/gizmo/pull/7"
+    },
+    {
      "association": "CONTRIBUTOR",
      "author": "a-contributor",
      "base_ref": "main",

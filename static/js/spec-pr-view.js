@@ -13,7 +13,10 @@
  * `anchor` line (by the blocks' `data-rd-lines`): the page's blocks are
  * pushed down with spaces where the cards before them need the room, and the
  * cards beside the same block are stacked, as the algorithm view's citations
- * are (see side-cards.js).  Each card has its pull request's header.  The
+ * are (see side-cards.js).  A pull request whose first commits are another's
+ * (ex: stacked on it) has only its own changes (its `blocks` URL's `after`;
+ * see the tools' `spec_prs::containments`), unless the other's conflict with
+ * the trunk's (`after_unused`), which its entry's note then says.  Each card has its pull request's header.  The
  * trunk's blocks with changes beside them are marked, and hovering over a
  * card outlines the ones
  * it changes.  Filtering the entries with the facets (see facets.js) hides
@@ -632,6 +635,16 @@
         break;
       default:
         state.textContent = data.message || data.state;
+    }
+    // (Its first commits are another's, whose changes conflict with the
+    // trunk's, so its changes here are all of them; see the tools'
+    // `spec_pr_blocks_json`.)
+    const note = entry.querySelector(".sp-pr-contains");
+    const tail = note?.lastChild;
+    const own = "; only its own changes are shown here.";
+    if (data.after_unused && tail?.nodeType == Node.TEXT_NODE && tail.data.endsWith(own)) {
+      tail.data = tail.data.slice(0, -own.length) +
+        "; its changes here include theirs, which conflict with the trunk's.";
     }
   }
 

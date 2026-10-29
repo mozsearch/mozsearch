@@ -9,14 +9,19 @@ set -o pipefail # Check all commands in a pipeline
 # GitHub one, is made here from upstream/: trunk/N being its main branch's Nth
 # commit (its files, and N.message its message), and pulls/P/N its pull
 # request P's Nth commit, on top of the trunk's first, as `refs/pull/P/head`
-# (as GitHub has them), with forged authors and dates for stable SHAs.  Pull
+# (as GitHub has them), or with pulls/P/base, on top of that pull request's
+# head, with forged authors and dates for stable SHAs.  Pull
 # request 1 adds to the Wattsi spec in two commits (which merge with the
 # trunk's second commit), the second also adding to the Bikeshed spec, and
 # pull request 2 changes what the trunk's second commit changed (which
 # conflicts), and pull request 3 changes the Bikeshed spec (which only
 # test_SpecPullRequestView imports), pull requests 4 and 5 add files which
-# aren't specs (which only test_SpecPullRequestImports imports, together), and
-# pull request 6 changes the file the ecmarkup spec imports.
+# aren't specs (which only test_SpecPullRequestImports imports, together),
+# pull request 6 changes the file the ecmarkup spec imports, pull request 7 is
+# stacked on 1 (its commits and one more, changing the Bikeshed spec), and
+# pull request 8 starts with an earlier version of 1's first commit (its
+# message, with other words), then changes the Bikeshed spec (see
+# test_SpecPullRequestViewStacked).
 # The tree imports them as try pushes (see import-try).
 
 echo "Performing setup::upstream-repository step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
@@ -42,8 +47,12 @@ UP="$CONFIG_REPO/$TREE_NAME/upstream"
 commit "$UP/trunk/1" "2025-04-01T12:00+0000"
 TRUNK1=$(git rev-parse HEAD)
 commit "$UP/trunk/2" "2025-04-02T12:00+0000"
-for P in 1 2 3 4 5 6; do
-    git checkout -q --detach "$TRUNK1"
+for P in 1 2 3 4 5 6 7 8; do
+    if [ -f "$UP/pulls/$P/base" ]; then
+        git checkout -q --detach "refs/pull/$(cat "$UP/pulls/$P/base")/head"
+    else
+        git checkout -q --detach "$TRUNK1"
+    fi
     N=1
     while [ -d "$UP/pulls/$P/$N" ]; do
         commit "$UP/pulls/$P/$N" "2025-04-1${P}T1${N}:00+0000"

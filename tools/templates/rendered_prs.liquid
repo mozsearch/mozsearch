@@ -9,7 +9,9 @@
     has, or why it has none, and whose filtering hides their changes.  The
     list is collapsible, at first if it's long, and its heading says how many
     entries the filtering shows; collapsing or expanding it is remembered
-    (see spec-pr-view.js), and applied as it's parsed.
+    (see spec-pr-view.js), and applied as it's parsed.  An entry whose first
+    commits are another's (`contains`; ex: stacked on it) says so, and that
+    only its own changes are shown, and so does the other's (`contained_by`).
   - "header", before the page: which pull requests they are, as of when.
 {%- endcomment -%}
 {%- if part == "panel" %}
@@ -19,7 +21,9 @@
   <summary><h4>Pull requests <span class="sp-pr-list-count">({{ prs.size }})</span></h4></summary>
   <ul class="facet-items sp-pr-list">
     {%- for pr in prs %}
-    <li class="sp-pr-entry" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}" data-pr="{{ pr.data | escape }}"><a href="{{ pr.try_path }}">#{{ pr.number }} {{ pr.title | escape }}</a> <span class="sp-pr-state">{% if pr.loads %}Loading its changes…{% else %}{{ pr.error | escape }}{% endif %}</span></li>
+    <li class="sp-pr-entry" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}" data-pr="{{ pr.data | escape }}"><a href="{{ pr.try_path }}">#{{ pr.number }} {{ pr.title | escape }}</a> <span class="sp-pr-state">{% if pr.loads %}Loading its changes…{% else %}{{ pr.error | escape }}{% endif %}</span>
+      {%- if pr.contains %}<span class="sp-pr-note sp-pr-contains">{{ pr.contains.before | escape }}<a href="{{ pr.contains.try_path }}">#{{ pr.contains.number }}</a>{{ pr.contains.after | escape }}</span>{% endif %}
+      {%- if pr.contained_by %}<span class="sp-pr-note sp-pr-contained">{{ pr.contained_by.before | escape }}{% for other in pr.contained_by.prs %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="{{ other.try_path }}">#{{ other.number }}</a>{% endfor %}{{ pr.contained_by.after | escape }}</span>{% endif %}</li>
     {%- endfor %}
   </ul>
 </details>

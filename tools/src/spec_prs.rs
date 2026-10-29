@@ -108,6 +108,153 @@ pub struct PrSummary {
     /// Why it has no summary of its changes, if it doesn't.
     #[serde(default)]
     pub error: Option<String>,
+    /// Its commits since its merge base with the trunk, oldest first, unless
+    /// it has too many (see sync.py's `commits`), for finding the pull
+    /// requests which have others' commits (see `containments`).
+    #[serde(default)]
+    pub commits: Option<Vec<PrCommit>>,
+}
+
+/// One of a pull request's commits (see `PrSummary::commits`): its hash, its
+/// patch id (none for a merge), which its versions with the same changes
+/// have too (ex: rebased), the hashes of its message (whitespace collapsed),
+/// which its versions with other changes may have too (ex: amended), and of
+/// its author's email, and its subject.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct PrCommit {
+    pub sha: String,
+    #[serde(default)]
+    pub patch_id: Option<String>,
+    #[serde(default)]
+    pub message: String,
+    #[serde(default)]
+    pub author: String,
+    #[serde(default)]
+    pub subject: String,
+}
+
+/// How a pull request's commits are another's (see `Containment`), from the
+/// most to the least certain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ContainedHow {
+    /// The commits themselves.
+    Commits,
+    /// Versions of them with the same changes (patch ids), ex: rebased.
+    Changes,
+    /// Versions of them by the same author with the same messages, ex: an
+    /// earlier version of the other's, amended since.
+    Messages,
+}
+
+/// That a pull request's first commits are another's (ex: its branch is
+/// stacked on the other's), whose changes it leaves out of its own (see
+/// `format::spec_pr_blocks_json`'s `base`): the other pull request, how many
+/// of its commits (its first) they are, of how many, the last of them (its
+/// own commit, after which its own changes are), and how they're the
+/// other's (the least certain of them).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Containment {
+    pub number: u32,
+    pub matched: usize,
+    pub of: usize,
+    /// How many commits it has.
+    pub own: usize,
+    pub base: String,
+    pub how: ContainedHow,
+}
+
+/// How a commit is another's, if it is (see `ContainedHow`): the same
+/// commit, the same changes, or the same message by the same author.
+fn same_commit(theirs: &PrCommit, ours: &PrCommit) -> Option<ContainedHow> {
+    if theirs.sha == ours.sha {
+        Some(ContainedHow::Commits)
+    } else if theirs.patch_id.is_some() && theirs.patch_id == ours.patch_id {
+        Some(ContainedHow::Changes)
+    } else if !theirs.message.is_empty()
+        && theirs.message == ours.message
+        && !theirs.author.is_empty()
+        && theirs.author == ours.author
+    {
+        Some(ContainedHow::Messages)
+    } else {
+        None
+    }
+}
+
+/// The pull requests whose first commits are another's (see `Containment`),
+/// by number: those whose commits start with all of another's and have more
+/// (ex: stacked on it), and of two which start with the same commits and
+/// both have more, or have no others, the newer (by number), so that their
+/// changes are one's.  Of the others whose commits a pull request starts
+/// with, the one with the most of them (ex: the nearest of a stack's), then
+/// with all of its, then the most certainly, then the older.  (Pull requests
+/// with too many commits for their summaries have none of this.)
+pub fn containments(prs: &[PrSummary]) -> BTreeMap<u32, Containment> {
+    let lists: Vec<(u32, &[PrCommit])> = prs
+        .iter()
+        .filter_map(|pr| {
+            let commits = pr.commits.as_deref()?;
+            (!commits.is_empty()).then_some((pr.number, commits))
+        })
+        .collect();
+    let mut found = BTreeMap::new();
+    for &(number, commits) in &lists {
+        let mut best: Option<Containment> = None;
+        for &(other, other_commits) in &lists {
+            if other == number {
+                continue;
+            }
+            let mut matched = 0;
+            let mut how = ContainedHow::Commits;
+            for (theirs, ours) in other_commits.iter().zip(commits) {
+                let Some(this) = same_commit(theirs, ours) else {
+                    break;
+                };
+                how = how.max(this);
+                matched += 1;
+            }
+            if matched == 0 {
+                continue;
+            }
+            let contains = if matched == other_commits.len() && matched < commits.len() {
+                true
+            } else if matched == commits.len() && matched < other_commits.len() {
+                false
+            } else {
+                number > other
+            };
+            if !contains {
+                continue;
+            }
+            let candidate = Containment {
+                number: other,
+                matched,
+                of: other_commits.len(),
+                own: commits.len(),
+                base: commits[matched - 1].sha.clone(),
+                how,
+            };
+            let rank = |c: &Containment| {
+                (
+                    c.matched,
+                    c.matched == c.of,
+                    std::cmp::Reverse(c.how),
+                    std::cmp::Reverse(c.number),
+                )
+            };
+            if best
+                .as_ref()
+                .is_none_or(|best| rank(&candidate) > rank(best))
+            {
+                best = Some(candidate);
+            }
+        }
+        if let Some(best) = best {
+            found.insert(number, best);
+        }
+    }
+    found
 }
 
 /// What a pull request changes in a file: lines added and removed, its hunks
@@ -1117,7 +1264,119 @@ mod tests {
             }],
             specs: vec!["dom".to_string()],
             error: None,
+            commits: None,
         }
+    }
+
+    /// A pull request with commits: `sha` (a patch id and message of `p`
+    /// and `m` and the author `a`, or without them, `-`), its own unless
+    /// they're another's.
+    fn with_commits(number: u32, commits: &[(&str, &str, &str)]) -> PrSummary {
+        let mut summary = pr(number, None, "MEMBER", false);
+        summary.commits = Some(
+            commits
+                .iter()
+                .map(|(sha, patch_id, message)| PrCommit {
+                    sha: sha.to_string(),
+                    patch_id: (*patch_id != "-").then(|| patch_id.to_string()),
+                    message: message.to_string(),
+                    author: "a".to_string(),
+                    subject: String::new(),
+                })
+                .collect(),
+        );
+        summary
+    }
+
+    /// Pull requests whose commits start with others' (see `containments`):
+    /// stacked on them (by their commits, their changes' versions, or their
+    /// messages' earlier versions), the same commits, or sharing only their
+    /// first ones.
+    #[test]
+    fn test_containments() {
+        let found = |prs: &[PrSummary]| -> Vec<(u32, u32, usize, usize, String, ContainedHow)> {
+            containments(prs)
+                .into_iter()
+                .map(|(number, c)| (number, c.number, c.matched, c.of, c.base, c.how))
+                .collect()
+        };
+        use ContainedHow::*;
+        // (Stacked: #11's commits are #10's and one more.)
+        let a = with_commits(10, &[("a1", "p1", "m1"), ("a2", "p2", "m2")]);
+        let b = with_commits(
+            11,
+            &[("a1", "p1", "m1"), ("a2", "p2", "m2"), ("b1", "q1", "n1")],
+        );
+        assert_eq!(
+            found(&[a.clone(), b.clone()]),
+            vec![(11, 10, 2, 2, "a2".to_string(), Commits)]
+        );
+        // (Even if the stacked one is the older.)
+        let mut older = b.clone();
+        older.number = 9;
+        assert_eq!(
+            found(&[a.clone(), older]),
+            vec![(9, 10, 2, 2, "a2".to_string(), Commits)]
+        );
+        // (#10's commits rebased: the same changes.)
+        let rebased = with_commits(
+            11,
+            &[("x1", "p1", "m1"), ("x2", "p2", "m2"), ("b1", "q1", "n1")],
+        );
+        assert_eq!(
+            found(&[a.clone(), rebased]),
+            vec![(11, 10, 2, 2, "x2".to_string(), Changes)]
+        );
+        // (An earlier version of #10's second commit, amended since: its
+        // message, by the same author, but not by another.)
+        let amended = with_commits(
+            11,
+            &[("a1", "p1", "m1"), ("y2", "p9", "m2"), ("b1", "q1", "n1")],
+        );
+        assert_eq!(
+            found(&[a.clone(), amended.clone()]),
+            vec![(11, 10, 2, 2, "y2".to_string(), Messages)]
+        );
+        let mut by_another = amended.clone();
+        by_another.commits.as_mut().unwrap()[1].author = "b".to_string();
+        assert_eq!(
+            found(&[a.clone(), by_another]),
+            vec![(11, 10, 1, 2, "a1".to_string(), Commits)]
+        );
+        // (The same commits: the newer has none of its own.)
+        let same = with_commits(12, &[("a1", "p1", "m1"), ("a2", "p2", "m2")]);
+        assert_eq!(
+            found(&[a.clone(), same]),
+            vec![(12, 10, 2, 2, "a2".to_string(), Commits)]
+        );
+        // (Only their first commits in common: the newer leaves them out.)
+        let sibling = with_commits(13, &[("a1", "p1", "m1"), ("c2", "r2", "o2")]);
+        assert_eq!(
+            found(&[a.clone(), sibling]),
+            vec![(13, 10, 1, 2, "a1".to_string(), Commits)]
+        );
+        // (A stack of three: each leaves out the one it's on, the nearest.)
+        let top = with_commits(
+            14,
+            &[
+                ("a1", "p1", "m1"),
+                ("a2", "p2", "m2"),
+                ("b1", "q1", "n1"),
+                ("d1", "s1", "t1"),
+            ],
+        );
+        assert_eq!(
+            found(&[a.clone(), b.clone(), top]),
+            vec![
+                (11, 10, 2, 2, "a2".to_string(), Commits),
+                (14, 11, 3, 3, "b1".to_string(), Commits),
+            ]
+        );
+        // (Nothing in common, or no commits listed.)
+        let other = with_commits(15, &[("e1", "u1", "v1")]);
+        let mut unlisted = b.clone();
+        unlisted.commits = None;
+        assert_eq!(found(&[a.clone(), other, unlisted]), vec![]);
     }
 
     #[test]
