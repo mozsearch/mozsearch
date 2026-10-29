@@ -5141,6 +5141,68 @@ html.for-interactive-graph .query-result {
   stroke: var(--page-foreground);
 }
 
+/* Clusters (a prototype; see graph-clusters.js): boxes behind the blocks,
+   nested ones darker, with their names; an alone block's subsystem's tag;
+   edges between clusters, and stubs where edges leave or come into them or
+   are portals. */
+.interactive-graph-cluster {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--page-border-color);
+  border-radius: 10px;
+  background-color: color-mix(in srgb, var(--page-foreground) 3%, transparent);
+}
+.interactive-graph-cluster-tree {
+  border-width: 2px;
+  background-color: transparent;
+}
+.interactive-graph-cluster-class {
+  border-style: dashed;
+}
+.interactive-graph-cluster-group {
+  border-style: dotted;
+  background-color: transparent;
+}
+.interactive-graph-cluster-group > .interactive-graph-cluster-header {
+  font-weight: normal;
+  font-style: italic;
+}
+.interactive-graph-cluster-header {
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.interactive-graph-cluster-tree > .interactive-graph-cluster-header {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+.interactive-graph-block-tag {
+  padding: 0.1rem 0.5rem 0;
+  font-size: 0.7rem;
+  font-family: sans-serif;
+  opacity: 0.55;
+}
+.interactive-graph-cluster-edge {
+  opacity: 0.55;
+}
+.interactive-graph-stub {
+  stroke-width: 1.5px;
+}
+.interactive-graph-stub-count {
+  font: 10px sans-serif;
+  fill: var(--page-foreground);
+  opacity: 0.7;
+}
+.interactive-graph-stub-end {
+  fill: var(--page-background);
+  stroke: var(--page-foreground);
+  stroke-width: 1.2px;
+}
+
 .interactive-graph-edge-implementation {
   stroke-dasharray: 5px, 2px;
 }

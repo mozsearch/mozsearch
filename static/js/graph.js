@@ -15,6 +15,84 @@ function clamp(x, min, max) {
   return Math.max(min, Math.min(max, x));
 }
 
+// How far apart (in px) an edge's ends between adjacent rows may be for it
+// to be drawn straight instead (see `straightenPoints`).
+const STRAIGHTEN_PX = 40;
+
+/**
+ * Draw an edge's corners' points straight if they make a small jog between
+ * adjacent rows: an edge from `pred` down to `succ` whose route is down, a
+ * short way across and down again (four points) is moved to one end's x, if
+ * that's within the other end's block.  (As iongraph's "comb" passes
+ * straighten nearly straight edges.)
+ */
+function straightenPoints(points, pred, succ) {
+  if (points.length !== 4) {
+    return points;
+  }
+  const [start, turn, , end] = points;
+  // (Only down from one row to another, not across a row.)
+  if (!(start.y < turn.y && turn.y < end.y)) {
+    return points;
+  }
+  const dx = Math.abs(start.x - end.x);
+  if (dx === 0 || dx > STRAIGHTEN_PX) {
+    return points;
+  }
+  const within = (block, x) => block && x >= block.left + 6 && x <= block.left + block.width - 6;
+  let x = null;
+  if (within(succ, start.x)) {
+    x = start.x;
+  } else if (within(pred, end.x)) {
+    x = end.x;
+  }
+  if (x === null) {
+    return points;
+  }
+  return points.map(point => ({ x, y: point.y }));
+}
+
+/**
+ * The SVG path of an edge through its corners' points, with rounded
+ * corners (as graph.js's `createEdgeNodes` draws them).
+ */
+function roundedPath(points) {
+  const R = 64;
+  const T = 0.6;
+  const start = points[0];
+  let path = `M ${start.x} ${start.y} `;
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const next = points[i + 1];
+    let c0x = curr.x, c0y = curr.y;
+    let c3x = curr.x, c3y = curr.y;
+    if (curr.x < prev.x) {
+      c0x = Math.min(curr.x + R, (curr.x + prev.x) / 2);
+    } else if (curr.x > prev.x) {
+      c0x = Math.max(curr.x - R, (curr.x + prev.x) / 2);
+    } else {
+      c0y = Math.max(curr.y - R, (curr.y + prev.y) / 2);
+    }
+    if (next.x < curr.x) {
+      c3x = Math.max(curr.x - R, (curr.x + next.x) / 2);
+    } else if (next.x > curr.x) {
+      c3x = Math.min(curr.x + R, (curr.x + next.x) / 2);
+    } else {
+      c3y = Math.min(curr.y + R, (curr.y + next.y) / 2);
+    }
+    const c1x = curr.x * T + c0x * (1 - T);
+    const c1y = curr.y * T + c0y * (1 - T);
+    const c2x = curr.x * T + c3x * (1 - T);
+    const c2y = curr.y * T + c3y * (1 - T);
+    path += `L ${c0x} ${c0y} `;
+    path += `C ${c1x} ${c1y} ${c2x} ${c2y} ${c3x} ${c3y} `;
+  }
+  const end = points[points.length - 1];
+  path += `L ${end.x} ${end.y} `;
+  return path;
+}
+
 // Grid layout for the graph.
 //
 // This layout algorithm was heavily inspired by the iongraph layout algorithm.
@@ -432,6 +510,11 @@ class Graph {
   }
 
   render() {
+    // (Grouped in clusters, with graph-clusters.js; a prototype.)
+    if (this.options.clusterBy && typeof this.renderClustered == "function") {
+      this.renderClustered();
+      return;
+    }
     this.graphContainer.replaceChildren();
 
     this.resetBlockAndEdgeState();
@@ -975,6 +1058,14 @@ class Graph {
       if (this.options.renderBlock) {
         this.options.renderBlock(block, node);
       } else {
+        // (The cluster it's alone of, if it's been taken out of it; see
+        // graph-clusters.js.)
+        if (block.tag) {
+          const tag = document.createElement("div");
+          tag.classList.add("interactive-graph-block-tag");
+          tag.append(block.tag);
+          node.append(tag);
+        }
         for (const line of block.contents) {
           if (line.scope) {
             const box = document.createElement("div");
@@ -1372,49 +1463,10 @@ class Graph {
       y = y2;
       points.push({ x, y });
 
-      const R = 64;
-      const T = 0.6;
-
-      let path = "";
-
-      const start = points[0];
-      path += `M ${start.x} ${start.y} `;
-
-      for (let i = 1; i < points.length - 1; i++) {
-        const prev = points[i - 1];
-        const curr = points[i];
-        const next = points[i + 1];
-
-        let c0x = curr.x, c0y = curr.y;
-        let c3x = curr.x, c3y = curr.y;
-
-        if (curr.x < prev.x) {
-          c0x = Math.min(curr.x + R, (curr.x + prev.x) / 2);
-        } else if (curr.x > prev.x) {
-          c0x = Math.max(curr.x - R, (curr.x + prev.x) / 2);
-        } else {
-          c0y = Math.max(curr.y - R, (curr.y + prev.y) / 2);
-        }
-
-        if (next.x < curr.x) {
-          c3x = Math.max(curr.x - R, (curr.x + next.x) / 2);
-        } else if (next.x > curr.x) {
-          c3x = Math.min(curr.x + R, (curr.x + next.x) / 2);
-        } else {
-          c3y = Math.min(curr.y + R, (curr.y + next.y ) / 2);
-        }
-
-        const c1x = curr.x * T + c0x * (1 - T);
-        const c1y = curr.y * T + c0y * (1 - T);
-        const c2x = curr.x * T + c3x * (1 - T);
-        const c2y = curr.y * T + c3y * (1 - T);
-
-        path += `L ${c0x} ${c0y} `;
-        path += `C ${c1x} ${c1y} ${c2x} ${c2y} ${c3x} ${c3y} `;
-      }
-
-      const end = points[points.length - 1];
-      path += `L ${end.x} ${end.y} `;
+      const straight = straightenPoints(points, edge.pred, edge.succ);
+      const start = straight[0];
+      const end = straight[straight.length - 1];
+      const path = roundedPath(straight);
 
       const g = document.createElementNS(SVG_NS, "g");
       g.id = "Gide" + edge.id;
@@ -1795,9 +1847,13 @@ window.addEventListener("load", () => {
     }
   }
 
+  // (Grouped in clusters with `?clusters=1`, a prototype; see
+  // graph-clusters.js.)
+  const clustered = new URLSearchParams(location.search).get("clusters") &&
+        typeof defaultClusterBy == "function";
   window.interactiveGraphInstance = new Graph(
     document.querySelector("#interactive-graph-viewport"),
     document.querySelector("#interactive-graph-container"),
     GRAPH_INPUT[0], sources, targets,
-    GRAPH_EXTRA);
+    GRAPH_EXTRA, clustered ? { clusterBy: defaultClusterBy } : {});
 }, { once: true });
