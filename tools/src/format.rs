@@ -2191,7 +2191,9 @@ impl Citing {
 
 /// The citations of `sym` (its doc-uses, see `spec_analyze::citations`) in
 /// the code `citing` it, with their excerpts from the code's revisions (the
-/// trees' indexed ones, or a try push's head).  A WebIDL member reflecting
+/// trees' indexed ones, or a try push's head), but those in the files of the
+/// code's trees which they leave out (`excluded_citation_paths`, ex:
+/// firefox-disco's vendored tooling).  A WebIDL member reflecting
 /// the spec's definition (its doc-use, see `spec_analyze::bcd`) is followed
 /// by its C++ implementations (by its `impl` binding slots), up to their
 /// ends.
@@ -2237,7 +2239,17 @@ fn algorithm_citations(
             };
             object.peel_to_commit().ok()
         });
+        let excluded = cfg
+            .trees
+            .get(&tree)
+            .map_or(&[][..], |t| &t.paths.excluded_citation_paths[..]);
         for result in data.doc_uses.unwrap_or_default() {
+            if excluded
+                .iter()
+                .any(|prefix| result.path.starts_with(prefix.as_str()))
+            {
+                continue;
+            }
             let changed = delta.is_some_and(|delta| delta.change(&result.path).is_some());
             let lines: Vec<String> = match (git, &head) {
                 (Some(git), Some(head)) => read_commit_file(&git.repo, head, &result.path)

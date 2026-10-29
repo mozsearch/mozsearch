@@ -218,6 +218,16 @@ pub struct TreeConfigPaths {
     /// citations with the linked tree's `specs.toml` (for `SPEC_`).
     #[serde(default)]
     pub linked_trees: BTreeMap<String, String>,
+    /// Path prefixes of the tree's files whose citations of specs (ex:
+    /// firefox-disco's of wubspecs') the specs' algorithms' views leave out
+    /// (see `format::algorithm_citations`): code the product doesn't ship,
+    /// ex: firefox-disco's vendored build and test tooling
+    /// (`third_party/node/`, whose webpack has an HTML parser citing the
+    /// HTML Standard's tokenizer states), rather than its vendored libraries
+    /// implementing the specs (ex: `third_party/rust/encoding_rs/`).  Other
+    /// views (ex: searches) have them.
+    #[serde(default)]
+    pub excluded_citation_paths: Vec<String>,
     /// Where the tree's pages send searches: router.py's `/search` (the
     /// default), or the pipeline-server's `/query/default` (`"query"`); see
     /// `SearchEndpoint` and `search_url`.

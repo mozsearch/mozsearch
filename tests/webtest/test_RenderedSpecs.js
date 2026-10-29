@@ -290,6 +290,21 @@ add_task(async function test_AlgorithmExcerpts() {
   ok(poke2 && !poke2.querySelector(".sp-citation-head"), "rather than its file and function");
   ok(poke1?.querySelector(".sp-citation-after")?.textContent.includes("Frob(4);"),
      "and the one before it has them");
+
+  // (A vendored build tool's file citing it too, in a path the tests tree's
+  // algorithms' views leave out (its `excluded_citation_paths`, as
+  // firefox-disco's third_party/node/), has no card, but searches have it.)
+  const TOOL = "third_party/node/vendor/example-parser/tokenizer.js";
+  ok(![...frame.contentDocument.querySelectorAll("#sp-citations a")]
+       .some(a => a.getAttribute("href")?.includes(TOOL)),
+     "The view leaves out the citations in the paths it's told to");
+  const search = await (await fetch("/tests/search?q=symbol:SPEC_examplebs_poke&redirect=false", {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  })).json();
+  const paths = Object.entries(search).filter(([kind]) => !kind.startsWith("*"))
+    .flatMap(([, groups]) => Object.values(groups).flat().map(file => file.path));
+  ok(paths.includes(TOOL), `which searches have: ${JSON.stringify(paths)}`);
 });
 
 add_task(async function test_AlgorithmView() {
