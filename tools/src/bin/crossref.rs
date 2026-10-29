@@ -630,18 +630,30 @@ struct AllFilesAndDirs {
     all_dirs_paths: Vec<Ustr>,
 }
 
+/// The analysis files a list names, sorted, so that what crossref makes of
+/// them doesn't depend on the list's order: they're merged in its order, and
+/// the first of a symbol's structured records wins (as do other firsts, ex: a
+/// call's lines are its first file's), and the list was in the order `find`
+/// listed the files, which their file system gives (ex: the tests tree's
+/// `T_Foo`, `T_Base` and `_Z4funcv`, defined in several test files, some in
+/// Core/Templates and some in no subsystem, made that subsystem's internal
+/// calls 7, 9 or 12 depending on the order, so its roll-up's snapshot failed
+/// GitHub's CI now and then).
+fn read_analysis_list(path: &str) -> Vec<Ustr> {
+    let mut paths: Vec<Ustr> = BufReader::new(File::open(path).unwrap())
+        .lines()
+        .map(|x| ustr(&x.unwrap()))
+        .collect();
+    paths.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    paths
+}
+
 fn load_all_files_and_dirs(
     analysis_files_list_path: &String,
     index_path: &String,
 ) -> AllFilesAndDirs {
     // This is just the list of analysis files.
-    let analysis_filenames_file = analysis_files_list_path;
-
-    let analysis_relative_paths: Vec<Ustr> =
-        BufReader::new(File::open(analysis_filenames_file).unwrap())
-            .lines()
-            .map(|x| ustr(&x.unwrap()))
-            .collect();
+    let analysis_relative_paths = read_analysis_list(analysis_files_list_path);
 
     let all_files_list_path = format!("{}/all-files", index_path);
 
@@ -3524,11 +3536,7 @@ async fn crossref_subset(
     base_index: &str,
 ) {
     let tree_name = &cli.tree_name;
-    let analysis_relative_paths: Vec<Ustr> =
-        BufReader::new(File::open(&cli.analysis_files_list_path).unwrap())
-            .lines()
-            .map(|x| ustr(&x.unwrap()))
-            .collect();
+    let analysis_relative_paths = read_analysis_list(&cli.analysis_files_list_path);
     let ingestion = subset_ingestion(cfg, base_index, &analysis_relative_paths);
     // (Directories' subsystems as the tree's are, by its files.)
     let tree_paths: Vec<Ustr> = File::open(format!("{}/all-analysis-files", base_index))
