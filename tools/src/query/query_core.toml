@@ -325,6 +325,20 @@ args.rollup-guide = true
 command = "traverse"
 args.ignore-nodes = "$0"
 
+# The linked trees a diagram's traversal may reach (comma separated, or
+# repeated), ex: `tree:wubspecs` on a spec algorithm's diagram for only the
+# specs, and those it leaves out, `-tree:firefox-disco` (which chew_query
+# makes `not-tree`; see `Traverse::trees`).
+[term.tree]
+[[term.tree.group.graph-traverse]]
+command = "traverse"
+args.trees = "$0"
+
+[term.not-tree]
+[[term.not-tree.group.graph-traverse]]
+command = "traverse"
+args.exclude-trees = "$0"
+
 [term.context]
 [[term.context.group.display]]
 command = "augment-results"

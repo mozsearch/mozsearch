@@ -370,6 +370,11 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     // starting with a dash, ex: `-moz-appearance`, `--foo`, which the parser
     // takes as `moz-appearance` and `-foo`, negated.)
     let mut excluded: Vec<String> = vec![];
+    // (The linked trees a diagram may reach, `tree:`, and those it leaves
+    // out, `-tree:`, each as one term, of their values; see
+    // `Traverse::trees`.)
+    let mut trees: Vec<String> = vec![];
+    let mut excluded_trees: Vec<String> = vec![];
     // (The bare words (and other text: a negated word, a qualified name, a
     // word that isn't a term's), which are one phrase, in their order, as a
     // person's search's are (see `normalize`): several default terms gave
@@ -383,6 +388,9 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                     excluded.push(path_glob_transform(value))
                 }
                 Some("pathre") if !is_qualified_name(value) => excluded.push(value.clone()),
+                Some("tree") if !is_qualified_name(value) => {
+                    excluded_trees.extend(value.split(',').map(str::to_string))
+                }
                 None => bare.push(format!("-{}", value)),
                 Some(key) if !QUERY_CORE.term.contains_key(key) || is_qualified_name(value) => {
                     bare.push(format!("-{}:{}", key, value))
@@ -391,7 +399,7 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                     return Err(ServerError::StickyProblem(ErrorDetails {
                         layer: ErrorLayer::BadInput,
                         message: format!(
-                            "Only path: and pathre: terms can be negated (to leave out paths), not {}:",
+                            "Only path:, pathre: and tree: terms can be negated (to leave out paths or trees), not {}:",
                             key
                         ),
                     }));
@@ -405,6 +413,9 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 // the value `:Bar`), is text, even if `Foo` is a term's name
                 // (ex: `C::Foo`, `context::Bar`); see `is_qualified_name`.)
                 Some(key) if key == "default" => bare.push(value),
+                Some(key) if key == "tree" && !is_qualified_name(&value) => {
+                    trees.extend(value.split(',').map(str::to_string))
+                }
                 Some(key) if QUERY_CORE.term.contains_key(&key) && !is_qualified_name(&value) => {
                     builder.ingest_term(&key, &value)?;
                 }
@@ -418,6 +429,12 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     }
     if !bare.is_empty() {
         builder.ingest_term("default", &bare.join(" "))?;
+    }
+    if !trees.is_empty() {
+        builder.ingest_term("tree", &trees.join(","))?;
+    }
+    if !excluded_trees.is_empty() {
+        builder.ingest_term("not-tree", &excluded_trees.join(","))?;
     }
     // (Groups, not non-capturing ones, which livegrep's `-file:` can't
     // parse.)
@@ -826,6 +843,25 @@ mod tests {
         assert_eq!(values("-moz-appearance"), values("'-moz-appearance'"));
         assert_eq!(values("--foo"), values("'--foo'"));
         assert_eq!(values("-Foo::Bar"), values("'-Foo::Bar'"));
+    }
+
+    #[test]
+    fn test_tree_terms() {
+        // (A diagram's traversal's linked trees: those it may reach, and
+        // those it leaves out, each as one argument of their values.)
+        let groups: serde_json::Value = serde_json::from_str(&values(
+            "calls-to-sym:'SPEC_html_x' tree:wubspecs,webkit -tree:firefox-disco -tree:firefox-try",
+        ))
+        .unwrap();
+        let traverse = groups["graph-traverse"]["segments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|segment| segment["command"] == "traverse")
+            .unwrap();
+        let arg = |name: &str| traverse["args"]["named_args"][name][0].as_str().unwrap().to_string();
+        assert_eq!(arg("trees"), "wubspecs,webkit");
+        assert_eq!(arg("exclude-trees"), "firefox-disco,firefox-try");
     }
 
     #[test]

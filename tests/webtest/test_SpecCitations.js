@@ -168,3 +168,23 @@ add_task(async function test_linked_implementations_diagram() {
   ok(symInfo[linkedSym], "The linked tree's implementation has symbol info");
   is(symInfo[linkedSym]?.tree, "tests", "Its jumps are to the linked tree's files");
 });
+
+// A diagram's traversal reaches a linked tree's symbols (from the searchfox
+// tree, whose spec symbols are the tests tree's: the tests tree's code
+// citing the example spec's poke), unless a `-tree:` term leaves the tree
+// out, or a `tree:` term doesn't list it (see the tools' `Traverse::trees`).
+add_task(async function test_linked_tree_terms() {
+  const QUERY = "calls-to-sym:'SPEC_example_concept@2Dwidget@2Dpoke' depth:2 graph-format:mozsearch-interactive";
+  const linked = async query => {
+    await TestUtils.loadQuery("searchfox", query);
+    const win = frame.contentWindow;
+    // (Not the spec's symbol itself, whose definition is the tests tree's too.)
+    return (win.GRAPH_INPUT?.[0]?.nodes || [])
+      .map(node => (typeof node == "string" ? node : node.sym))
+      .filter(sym => !sym.startsWith("SPEC_") && win.SYM_INFO?.[sym]?.tree == "tests");
+  };
+  ok((await linked(QUERY)).length > 0, "The diagram has the tests tree's code citing the algorithm");
+  is((await linked(`${QUERY} -tree:tests`)).length, 0, "but not with -tree:tests");
+  is((await linked(`${QUERY} tree:webkit`)).length, 0, "nor with a tree: term which doesn't list it");
+  ok((await linked(`${QUERY} tree:tests`)).length > 0, "but with one which does");
+});

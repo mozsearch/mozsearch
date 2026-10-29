@@ -116,6 +116,37 @@ pub struct Traverse {
     /// so a path through a class's weak edges can be missed.)
     #[clap(long)]
     pub rollup_guide: bool,
+
+    /// The linked trees (see `TreeConfigPaths::linked_trees`) whose symbols
+    /// the traversal may reach, separated by commas (`tree:` terms), or all
+    /// of them if none: ex: `tree:wubspecs` on wubspecs' spec algorithms'
+    /// diagrams, for only the specs, without firefox-disco's implementations
+    /// of their algorithms (their citations; see `Callee::implements`), or
+    /// whichever other trees cite them.  (The traversal's own tree's symbols
+    /// are always in.)
+    #[clap(long, value_parser)]
+    pub trees: Option<String>,
+
+    /// The linked trees whose symbols the traversal leaves out, separated by
+    /// commas (`-tree:` terms; see `trees`).
+    #[clap(long, value_parser)]
+    pub exclude_trees: Option<String>,
+}
+
+impl Traverse {
+    /// Whether the traversal may reach the symbols of the tree whose hits
+    /// these are, if they're a linked tree's (see `trees` and
+    /// `exclude_trees`).
+    fn allows_tree(&self, tree: Option<Ustr>) -> bool {
+        let Some(tree) = tree else {
+            return true;
+        };
+        let listed = |list: &Option<String>| {
+            list.as_deref()
+                .is_some_and(|list| list.split(',').any(|name| name.trim() == tree.as_str()))
+        };
+        (self.trees.is_none() || listed(&self.trees)) && !listed(&self.exclude_trees)
+    }
 }
 
 /// The classes on paths from `sources`' to `targets'` (by their call
@@ -1473,6 +1504,10 @@ impl PipelineCommand for TraverseCommand {
                     if skip_tests && path_hits.path_kind == "test" {
                         continue;
                     }
+                    // (Nor those of the linked trees it leaves out.)
+                    if !self.args.allows_tree(path_hits.tree) {
+                        continue;
+                    }
                     for hit in &path_hits.lines {
                         if hit.contextsym.is_empty() {
                             continue;
@@ -1773,4 +1808,31 @@ fn test_split_ignore_nodes() {
         split_ignore_nodes("html navigate,Pair<A\\, B>::First,a\\\\b,"),
         vec!["html navigate", "Pair<A, B>::First", "a\\b"]
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    #[derive(Parser)]
+    struct Wrapper {
+        #[clap(flatten)]
+        traverse: super::Traverse,
+    }
+
+    /// The linked trees a traversal may reach (see `Traverse::trees`).
+    #[test]
+    fn test_allows_tree() {
+        let parse = |args: &[&str]| {
+            Wrapper::parse_from(std::iter::once("traverse").chain(args.iter().copied())).traverse
+        };
+        let tree = |name: &str| Some(ustr::ustr(name));
+        let all = parse(&[]);
+        assert!(all.allows_tree(None) && all.allows_tree(tree("firefox-disco")));
+        let specs = parse(&["--trees", "wubspecs,webkit"]);
+        assert!(specs.allows_tree(None) && specs.allows_tree(tree("webkit")));
+        assert!(!specs.allows_tree(tree("firefox-disco")));
+        let not = parse(&["--exclude-trees", "firefox-disco"]);
+        assert!(!not.allows_tree(tree("firefox-disco")) && not.allows_tree(tree("webkit")));
+    }
 }

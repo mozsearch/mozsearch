@@ -187,7 +187,7 @@ add_task(async function test_QueryExcludedPaths() {
 
   // (Other terms can't be negated; a negated word is text, with its dash.)
   await TestUtils.loadQuery("tests", "aWidget -calls-to:Poke");
-  ok(doc().body.textContent.includes("Only path: and pathre: terms can be negated"),
+  ok(doc().body.textContent.includes("Only path:, pathre: and tree: terms can be negated"),
      "Negating another term says it can't be");
 });
 

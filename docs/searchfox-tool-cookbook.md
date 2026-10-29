@@ -112,6 +112,13 @@ includes them.  Dataflow traces, slicings and taint audits leave out the same
 callers and field uses (`dataflow --include-tests`), and crossref's roll-ups
 test code's calls (see below).
 
+Traversals reach linked trees' symbols too (a tree's `linked_trees`, ex: from
+wubspecs' spec algorithms, firefox-disco's functions citing them, as their
+implementations).  `--trees` (the `tree:` query term, comma separated or
+repeated) lists the linked trees they may reach, ex: `tree:wubspecs` for only
+the specs, and `--exclude-trees` (`-tree:`) leaves trees out, ex:
+`-tree:firefox-disco`.  The traversal's own tree is always in.
+
 ### Graphing on a web-server shell
 
 ```
