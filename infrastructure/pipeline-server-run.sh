@@ -139,8 +139,8 @@ echo "pipeline-server address space limit: $(($PIPELINE_SERVER_VM_LIMIT_K / 1024
 # ulimit -v units are kilobytes
 ulimit -v $PIPELINE_SERVER_VM_LIMIT_K
 
-# Note that we do not currently wait for the pipeline-server and it does not
-# write to the STATUS_FILE.
+# (It doesn't write to the STATUS_FILE; web-server-run.sh's WAIT waits for it
+# to take connections instead.)
 nohup "${SUPERVISOR[@]}" \
     > $LOG_DIR/pipeline-server.log \
     2> $LOG_DIR/pipeline-server.err \

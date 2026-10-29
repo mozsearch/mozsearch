@@ -72,11 +72,13 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
   ok(links[3].getAttribute("href").includes("/js/with%20space.js"),
      "The space in the href should be escaped");
 
+  // (Waiting for the page's load, not just its URL, which changes before
+  // its contents are there.)
+  let loaded = TestUtils.waitForLoad();
   TestUtils.click(links[2]);
-
-  await waitForCondition(
-    () => frame.contentDocument.location.href.includes("/searchfox-line-blame/rev"),
-    "Navigates to the previous version");
+  await loaded;
+  ok(frame.contentDocument.location.href.includes("/searchfox-line-blame/rev"),
+     "Navigates to the previous version");
 
   // In order to avoid hard-coding the old version's hash, continue testing
   // the UI part of the old version page here.
@@ -125,11 +127,13 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
   ok(links[1].getAttribute("href").includes("/js/with%20space.js"),
      "The space in the href should be escaped");
 
+  // (Waiting for the page's load: its breadcrumbs were sometimes missing
+  // just after its URL changed.)
+  let loaded = TestUtils.waitForLoad();
   TestUtils.click(links[1]);
-
-  await waitForCondition(
-    () => frame.contentDocument.location.href.includes("/searchfox-line-blame/diff"),
-    "Navigates to the previous version");
+  await loaded;
+  ok(frame.contentDocument.location.href.includes("/searchfox-line-blame/diff"),
+     "Navigates to the previous version");
 
   // Test breadcrumbs.
   {
@@ -154,12 +158,13 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
 
     const changesetLink = panel.querySelector("#panel-vcs-changeset");
 
+    loaded = TestUtils.waitForLoad();
     TestUtils.click(changesetLink);
   }
 
-  await waitForCondition(
-    () => frame.contentDocument.location.href.includes("/searchfox-line-blame/commit"),
-    "Navigates to the changeset view");
+  await loaded;
+  ok(frame.contentDocument.location.href.includes("/searchfox-line-blame/commit"),
+     "Navigates to the changeset view");
 
   // Test file listing.
   {
