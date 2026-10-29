@@ -20,8 +20,14 @@
  * choice, rather than by path (see `fileOrderKey`).  The groups' headers'
  * context menu has the choices too.
  *
- * The selections, the grouping and the sorting go in the URL's query
- * (`facet-KEY=VALUE`, repeated, `group-by=KEY` and `sort-by=size`), so links
+ * A value can be left out instead (shift-click; see `toggleValue`): the items in
+ * any of a facet's left out values are hidden (ex: a subsystem, and so its
+ * nested subsystems), as well as those not in its selected values, if it
+ * has any.
+ *
+ * The selections, the left out values, the grouping and the sorting go in
+ * the URL's query (`facet-KEY=VALUE` and `-facet-KEY=VALUE`, as a query's
+ * negated terms are, repeated, `group-by=KEY` and `sort-by=size`), so links
  * reproduce the view.  The box of facets is collapsible, which we remember.
  *
  * Values with nested values have a button showing and hiding them (with
@@ -71,8 +77,15 @@
   const paths = someItems => new Set(someItems.map(item => item.path)).size;
   const allPaths = paths(items);
 
-  // The selected values, by facet.
+  // The selected values, and the left out ones, by facet.
   const selected = new Map();
+  const excluded = new Map();
+  const valuesOf = (map, facet) => {
+    if (!map.has(facet)) {
+      map.set(facet, new Set());
+    }
+    return map.get(facet);
+  };
 
   function matches(item, exceptFacet) {
     for (const [facet, values] of selected) {
@@ -81,7 +94,30 @@
         return false;
       }
     }
+    for (const [facet, values] of excluded) {
+      if (facet != exceptFacet && (item.facets[facet] || []).some(value => values.has(value))) {
+        return false;
+      }
+    }
     return true;
+  }
+
+  // A value's click: selecting it, or unselecting it if it's selected (or
+  // selecting it if it's left out); or with Shift, leaving it out, or not if
+  // it's left out (and leaving it out if it's selected).
+  function toggleValue(facet, value, shift) {
+    const included = valuesOf(selected, facet);
+    const left = valuesOf(excluded, facet);
+    if (shift) {
+      included.delete(value);
+      if (!left.delete(value)) {
+        left.add(value);
+      }
+    } else if (left.delete(value)) {
+      included.add(value);
+    } else if (!included.delete(value)) {
+      included.add(value);
+    }
   }
 
   function update() {
@@ -94,6 +130,11 @@
       count.textContent = n;
       button.classList.toggle("facet-empty", n == 0);
       button.setAttribute("aria-pressed", selected.get(facet)?.has(value) ? "true" : "false");
+      const left = excluded.get(facet)?.has(value);
+      button.classList.toggle("facet-excluded", !!left);
+      button.title = left
+        ? "Left out (click to show only these; shift-click to stop leaving them out)"
+        : "Click to show only these (and others selected); shift-click to leave them out";
     }
     for (const section of container.querySelectorAll(".facet-group")) {
       const shown = new Set([...section.querySelectorAll("[data-facets]")]
@@ -106,7 +147,7 @@
       }
     }
     const shown = paths(items.filter(item => !item.element.hidden));
-    const filtering = [...selected.values()].some(values => values.size);
+    const filtering = [...selected.values(), ...excluded.values()].some(values => values.size);
     status.textContent = filtering ? `Showing ${shown} of ${plural(allPaths)}.` : "";
     clear.classList.toggle("facet-inactive", !filtering);
     saveState();
@@ -169,13 +210,15 @@
   function saveState() {
     const params = new URLSearchParams(location.search);
     for (const key of [...params.keys()]) {
-      if (key.startsWith("facet-") || key == "group-by" || key == "sort-by") {
+      if (key.startsWith("facet-") || key.startsWith("-facet-") || key == "group-by" || key == "sort-by") {
         params.delete(key);
       }
     }
-    for (const [facet, values] of selected) {
-      for (const value of values) {
-        params.append(`facet-${facet}`, value);
+    for (const [prefix, map] of [["facet-", selected], ["-facet-", excluded]]) {
+      for (const [facet, values] of map) {
+        for (const value of values) {
+          params.append(`${prefix}${facet}`, value);
+        }
       }
     }
     if (groupBy && groupBy.value != defaultGroupBy) {
@@ -192,12 +235,10 @@
   function loadState() {
     const params = new URLSearchParams(location.search);
     for (const [key, value] of params) {
-      const facet = key.startsWith("facet-") && key.slice("facet-".length);
+      const left = key.startsWith("-facet-");
+      const facet = (left || key.startsWith("facet-")) && key.slice(left ? "-facet-".length : "facet-".length);
       if (facet && buttons.some(b => b.facet == facet && b.value == value)) {
-        if (!selected.has(facet)) {
-          selected.set(facet, new Set());
-        }
-        selected.get(facet).add(value);
+        valuesOf(left ? excluded : selected, facet).add(value);
       }
     }
     for (const [select, param] of [[groupBy, "group-by"], [sortBy, "sort-by"]]) {
@@ -244,7 +285,7 @@
 
   function revealSelected() {
     for (const { button, facet, value } of buttons) {
-      if (selected.get(facet)?.has(value)) {
+      if (selected.get(facet)?.has(value) || excluded.get(facet)?.has(value)) {
         reveal(button);
       }
     }
@@ -290,17 +331,11 @@
     }
     const button = event.target.closest(".facet-value");
     if (button) {
-      const facet = button.closest(".facet").dataset.facet;
-      if (!selected.has(facet)) {
-        selected.set(facet, new Set());
-      }
-      const values = selected.get(facet);
-      if (!values.delete(button.dataset.value)) {
-        values.add(button.dataset.value);
-      }
+      toggleValue(button.closest(".facet").dataset.facet, button.dataset.value, event.shiftKey);
       update();
     } else if (event.target.closest(".facet-clear")) {
       selected.clear();
+      excluded.clear();
       update();
     }
   });

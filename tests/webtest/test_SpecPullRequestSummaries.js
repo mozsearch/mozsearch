@@ -74,6 +74,36 @@ add_task(async function test_SpecPullRequestSummaries() {
      "and by whether their authors can review");
   doc().querySelector(".facet-clear").click();
 
+  // Shift-clicking a value leaves its pull requests out instead (see
+  // facets.js's `toggleValue`), and again, doesn't; clicking a left out value
+  // selects it, and shift-clicking a selected one leaves it out.  The URL
+  // says so (`-facet-review`), which reproduces it.
+  const shiftClick = button => button.dispatchEvent(
+    new frame.contentWindow.MouseEvent("click", { bubbles: true, shiftKey: true }));
+  const shown = () => [...doc().querySelectorAll(".spec-pr")].filter(pr => !pr.hidden)
+    .map(pr => pr.dataset.path).join(",");
+  const approved = () => value("review", "Approved");
+  shiftClick(approved());
+  is(shown(), "8,7,6,5,4,3,2", "Shift-clicking a value leaves its pull requests out");
+  ok(approved().classList.contains("facet-excluded"), "which the value shows");
+  is(doc().querySelector(".facet-status")?.textContent, "Showing 7 of 8 pull requests.",
+     "and the status counts");
+  is(new URL(frame.contentWindow.location.href).searchParams.get("-facet-review"),
+     approved().dataset.value, "as the URL says");
+  shiftClick(approved());
+  is(shown(), "8,7,6,5,4,3,2,1", "Shift-clicking it again doesn't leave them out");
+  ok(!approved().classList.contains("facet-excluded"), "anymore");
+  shiftClick(approved());
+  approved().click();
+  is(shown(), "1", "Clicking a left out value selects it");
+  shiftClick(approved());
+  is(shown(), "8,7,6,5,4,3,2", "and shift-clicking a selected one leaves it out");
+  await TestUtils.loadPath(frame.contentWindow.location.pathname + frame.contentWindow.location.search);
+  is(shown(), "8,7,6,5,4,3,2", "which the URL reproduces");
+  ok(approved().classList.contains("facet-excluded"), "showing the value left out");
+  doc().querySelector(".facet-clear").click();
+  is(shown(), "8,7,6,5,4,3,2,1", "Showing them all again shows them all");
+
   // (And through the data API, which the web-server serves.)
   const api = await (await fetch("/specpr/api/v1/spec-prs?spec=gizmo", { cache: "no-store" })).json();
   is(api[0]?.prs?.length, 8, "The data API has the summaries");

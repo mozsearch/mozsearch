@@ -4056,6 +4056,17 @@ html:not(.lens-changes) .query-recency {
   background-color: var(--line-highlight-background);
   border-color: currentColor;
 }
+/* A left out value (shift-click; see facets.js): struck through, with a
+   dashed border. */
+.facet-value.facet-excluded {
+  border-style: dashed;
+  border-color: currentColor;
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+.facet-value {
+  user-select: none;
+}
 /* The panel's "Changes" section (see change-nav.js): its count and choice of
    granularity, and the rows of the change it went to. */
 .change-nav-controls {
