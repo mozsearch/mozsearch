@@ -596,8 +596,15 @@ async fn handle_query(
         };
         if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
             results.inline_contexts();
-            // (A spec tree's files' lines go to their rendered views, if they
-            // have them; a linked tree's files' by that tree's.)
+            // (A spec tree's files' lines show their rendered blocks, if the
+            // index has their excerpts, and go to their rendered views, if
+            // they have them; a linked tree's files' by that tree's.)
+            let excerpts =
+                |file_tree: &str, path: &str, lines: &[u32]| match local_servers.get(file_tree) {
+                    Some(server) => server.spec_excerpts(path, lines),
+                    None => vec![None; lines.len()],
+                };
+            results.add_rendered_excerpts(&tree, rev.map(String::as_str), &excerpts);
             let rendered = |file_tree: &str, path: &str| {
                 local_servers
                     .get(file_tree)

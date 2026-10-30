@@ -3952,6 +3952,51 @@ h2.sp-called-heading {
 .query-line-number:hover {
   text-decoration: underline;
 }
+/* A result's line of a spec's source, as its block in the spec's rendered
+   view, styled as the view's blocks are (see `.rendered-doc`), its hits'
+   texts marked, with its source lines under it, collapsed (see
+   interface.rs's `add_rendered_excerpts`); a later result in the same block
+   says so. */
+.rd-excerpt {
+  display: flex;
+  align-items: baseline;
+}
+.rd-excerpt-block.rendered-doc {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 60em;
+  max-height: 20em;
+  margin: 0.2em 0;
+  padding: 0;
+  overflow: auto;
+}
+.rd-excerpt-block > .rd-block > :first-child {
+  margin-top: 0;
+}
+.rd-excerpt-block > .rd-block > :last-child {
+  margin-bottom: 0;
+}
+.rd-excerpt-note {
+  font-size: smaller;
+  font-style: italic;
+  opacity: 0.7;
+}
+mark.rd-excerpt-hit {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background-color: var(--query-hit-background);
+  color: inherit;
+}
+.rd-excerpt-source {
+  margin: 0 0 0.3em 8ex;
+  font-size: smaller;
+}
+.rd-excerpt-source > summary {
+  padding: 0 0.5rem;
+  opacity: 0.7;
+  cursor: pointer;
+}
 /* `/query/`'s excerpts' hits (a semantic result's token, or a text search's
    matches outside them), bold like `/search/`'s (and tinted, since
    definitions are bold anyway), and the search's other matches (ex: a class's

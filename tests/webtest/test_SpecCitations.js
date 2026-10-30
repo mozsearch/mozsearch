@@ -143,10 +143,11 @@ add_task(async function test_linked_query_results() {
   const links = [...content.querySelectorAll("a")].map(a => new URL(a.href).pathname + new URL(a.href).hash);
   ok(links.includes("/tests/source/specs/source"),
      "The linked tree's file links to its file");
-  // (A spec's source's lines go to its rendered view; see
-  // test_SpecResultLinks.)
-  ok(links.includes("/tests/rendered/specs/source/line/13"),
+  // (A spec's source's lines are their rendered blocks, linking to them in
+  // its rendered view, with their source lines; see test_SpecResultLinks.)
+  ok(links.some(link => /^\/tests\/rendered\/specs\/source(\/[\w-]+\.html)?#13$/.test(link)),
      "The linked tree's definition's line links to its line, in its spec's rendered view");
+  ok(links.includes("/tests/source/specs/source#13"), "and to its source line");
 });
 
 // The calls-to diagram of the example spec's poke algorithm in the searchfox

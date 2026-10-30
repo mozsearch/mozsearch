@@ -1839,6 +1839,179 @@ fn rendered_line_templates(tree_name: &str, tree_config: &TreeConfig) -> HashMap
     templates
 }
 
+/// The files of a tree with rendered views (see `rendered_line_template`),
+/// for the index's excerpts of them (see `spec_excerpt_blocks`).
+pub fn rendered_view_files(tree_name: &str, tree_config: &TreeConfig) -> Vec<String> {
+    let mut files: Vec<String> = rendered_line_templates(tree_name, tree_config)
+        .into_keys()
+        .collect();
+    files.sort();
+    files
+}
+
+/// A block of a spec's rendered view, for search results' excerpts (see
+/// `spec_excerpt`): its own lines of its file (1-based; see
+/// `rendered_docs::block_lines`), its page's name (none for the first, or
+/// the only one), and its HTML, whose links to anchors on its page are
+/// absolute (as on another page, ex: the results').
+#[derive(Debug, PartialEq)]
+pub struct ExcerptBlock {
+    pub first: u32,
+    pub last: u32,
+    pub page: Option<String>,
+    pub html: String,
+}
+
+lazy_static! {
+    /// An element's id attribute, in a rendered spec's HTML.
+    static ref ID_ATTRIBUTE: regex::Regex = regex::Regex::new(r#" id="[^"]*""#).unwrap();
+}
+
+/// The rendered blocks of the file at `path` of `tree_name` at the tip, on
+/// all of its view's pages, if it's a spec's source, or a file a spec
+/// includes or imports (see `rendered_line_template`), for the index's
+/// excerpts of them (see build-spec-excerpts).
+pub fn spec_excerpt_blocks(
+    tree_name: &str,
+    tree_config: &TreeConfig,
+    path: &str,
+) -> Result<Vec<ExcerptBlock>, &'static str> {
+    let specs = tree_specs(tree_name, tree_config).ok_or("Not a tree of specs")?;
+    let git = tree_config.get_git()?;
+    let tip = rendered_commit(git, None)?;
+    let read = |file: &str| read_commit_file(&git.repo, &tip, file);
+    // (As `format_rendered`'s.)
+    let (spec, main) = match spec_view(&specs, path) {
+        Some((spec, _, SpecView::Page(None))) => (spec, None),
+        Some(_) => return Err("Not a spec's source"),
+        None => match bikeshed_including_spec(tree_config, &specs, path)
+            .or_else(|| rendered_specs::ecmarkup::importing_spec(&specs, path, &read))
+        {
+            Some((spec, main)) => (spec, Some(main)),
+            None => return Err("Neither a spec's source nor a file a spec includes or imports"),
+        },
+    };
+    let source = read(path).ok_or("No such file")?;
+    let spec_links = RenderedSpecLinks {
+        tree_name,
+        rev: None,
+        prs_source: None,
+    };
+    let mut line_starts = vec![0];
+    line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
+    let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
+    let base = rendered_url(tree_name, None, path);
+    let render = |page: Option<&str>| {
+        render_spec_view(
+            tree_config,
+            &specs,
+            spec,
+            None,
+            &source,
+            path,
+            main.as_deref(),
+            page,
+            &spec_links,
+            &read,
+        )
+    };
+    let first = render(None)?;
+    // (A paged spec's other pages, each a render of its whole source.)
+    let names: Vec<String> = first
+        .pages
+        .iter()
+        .skip(1)
+        .filter_map(|page| page.name.clone())
+        .collect();
+    let mut rendered = vec![first];
+    for name in &names {
+        if let Ok(page) = render(Some(name)) {
+            rendered.push(page);
+        }
+    }
+    let mut blocks = vec![];
+    for page in &rendered {
+        let name = page.pages.get(page.page).and_then(|page| page.name.clone());
+        let url = rendered_specs::page_url(&base, name.as_deref());
+        let ranges =
+            rendered_docs::block_lines(&page.rendered.blocks, line_of, line_starts.len(), |_| {
+                false
+            });
+        for (block, lines) in page.rendered.blocks.iter().zip(ranges) {
+            let (Some(lines), Some(html)) = (
+                lines,
+                rendered_docs::block_html(&page.rendered.html, block.strip_at),
+            ) else {
+                continue;
+            };
+            // (Without its elements' ids, which the page with the excerpts
+            // has its own of, and may have the excerpt twice.)
+            let html = ID_ATTRIBUTE.replace_all(&html, "");
+            blocks.push(ExcerptBlock {
+                first: *lines.start() as u32 + 1,
+                last: *lines.end() as u32 + 1,
+                page: name.clone(),
+                html: html.replace(r##"href="#"##, &format!(r##"href="{}#"##, url)),
+            });
+        }
+    }
+    blocks.sort_by_key(|block| block.first);
+    Ok(blocks)
+}
+
+/// Where the index's excerpts of a file are (see build-spec-excerpts): a
+/// sorted `FIRST<TAB>LAST<TAB>PAGE<TAB>HTML` line per block (see
+/// `ExcerptBlock`; FIRST padded to 8 digits, PAGE "-" for the first, and
+/// HTML's tabs and line breaks as character references), for bisecting.
+pub fn spec_excerpts_path(tree_config: &TreeConfig, path: &str) -> std::path::PathBuf {
+    Path::new(&tree_config.paths.index_path).join(format!("spec-excerpts/{}.tsv", path))
+}
+
+/// An excerpt's line of the index's file (see `spec_excerpts_path`).
+pub fn excerpt_line(block: &ExcerptBlock) -> String {
+    format!(
+        "{:08}\t{}\t{}\t{}",
+        block.first,
+        block.last,
+        block.page.as_deref().unwrap_or("-"),
+        block
+            .html
+            .replace('\t', "&#9;")
+            .replace('\r', "&#13;")
+            .replace('\n', "&#10;")
+    )
+}
+
+/// The rendered blocks with `lines` of the file at `path` in the index's
+/// excerpts (see `spec_excerpt_blocks`), those it has: for each line, the
+/// URL of the line in its page, the block's first line, and its HTML, for
+/// search results (see `FlattenedResultsBundle::add_rendered_excerpts`).
+pub fn spec_excerpts(
+    tree_name: &str,
+    tree_config: &TreeConfig,
+    path: &str,
+    lines: &[u32],
+) -> Vec<Option<(String, u32, String)>> {
+    let excerpts = crate::commit_index::SortedLines::open(&spec_excerpts_path(tree_config, path));
+    let base = rendered_url(tree_name, None, path);
+    lines
+        .iter()
+        .map(|&line| {
+            let fields = excerpts.last_before(&format!("{:08}\t~", line))?;
+            let [first, last, page, html] = fields.as_slice() else {
+                return None;
+            };
+            let (first, last): (u32, u32) = (first.parse().ok()?, last.parse().ok()?);
+            if line < first || line > last {
+                return None;
+            }
+            let page = (page != "-").then_some(page.as_str());
+            let url = format!("{}#{}", rendered_specs::page_url(&base, page), line);
+            Some((url, first, html.clone()))
+        })
+        .collect()
+}
+
 /// The Bikeshed spec which includes the file at `path` (by the index's
 /// rendering of it), with its source's path.
 fn bikeshed_including_spec<'a>(
@@ -4712,6 +4885,66 @@ fn annotate_spec_symbols(
         .into_owned()
 }
 
+/// A spec's page (`page`, or the first) of its source at `path`, or the part
+/// of it in a file it includes or imports (at `path`, `main` being the
+/// spec's source), rendered as its view is (see `format_rendered`), from
+/// `source`, the file's text at the tip, or at a revision (`at`, whose
+/// Bikeshed rendering is a spec pull request's import's; see
+/// `bikeshed_rendering_path_at`).
+#[allow(clippy::too_many_arguments)]
+fn render_spec_view(
+    tree_config: &TreeConfig,
+    specs: &SpecsConfig,
+    spec: &SpecEntry,
+    at: Option<Oid>,
+    source: &str,
+    path: &str,
+    main: Option<&str>,
+    page: Option<&str>,
+    spec_links: &RenderedSpecLinks,
+    read: &dyn Fn(&str) -> Option<String>,
+) -> Result<rendered_specs::RenderedSpec, &'static str> {
+    match main {
+        Some(main) if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
+            let output = std::fs::read_to_string(bikeshed_rendering_path_at(tree_config, main, at))
+                .map_err(|_| BIKESHED_RENDERINGS)?;
+            rendered_specs::bikeshed::render_file(
+                &output, source, main, path, spec, specs, spec_links,
+            )
+        }
+        Some(main) => {
+            rendered_specs::ecmarkup::render_file(main, spec, specs, spec_links, read, path)
+        }
+        // (A ReSpec spec's references to other specs' terms link by the
+        // index's analysis, at the tip.)
+        None if spec.format == Some(crate::spec_analyze::SpecFormat::Respec) => {
+            let targets = if at.is_none() {
+                respec_index_targets(tree_config, path)
+            } else {
+                vec![]
+            };
+            rendered_specs::respec::render(
+                path,
+                spec,
+                specs,
+                spec_links,
+                read,
+                &crate::spec_analyze::xref::Terms::default(),
+                &targets,
+            )
+        }
+        // (Bikeshed's rendering is the index's, of the latest revision, or a
+        // spec pull request's import's, of its head.)
+        None if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
+            let output = std::fs::read_to_string(bikeshed_rendering_path_at(tree_config, path, at))
+                .map_err(|_| BIKESHED_RENDERINGS)?;
+            rendered_specs::bikeshed::render(&output, source, path, spec, specs, spec_links)
+        }
+        None => rendered_specs::render(spec, source, path, specs, spec_links, read, page),
+    }
+    .ok_or("No such page")
+}
+
 /// The rendered view of a document (Markdown or reStructuredText) or of a
 /// spec's source (see `rendered_specs`) at `path`, at the tip
 /// (`/{tree}/rendered/{path}`) or at the revision `rev`
@@ -4862,63 +5095,18 @@ pub fn format_rendered(
             prs_source: pr_view.is_some().then_some(path),
         };
         let specs = specs.as_deref().unwrap();
-        let rendered_spec = match &main {
-            Some(main) if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
-                let at = rev.is_some().then(|| commit.id());
-                let output =
-                    std::fs::read_to_string(bikeshed_rendering_path_at(tree_config, main, at))
-                        .map_err(|_| BIKESHED_RENDERINGS)?;
-                rendered_specs::bikeshed::render_file(
-                    &output,
-                    &source,
-                    main,
-                    path,
-                    spec,
-                    specs,
-                    &spec_links,
-                )
-            }
-            Some(main) => {
-                rendered_specs::ecmarkup::render_file(main, spec, specs, &spec_links, &read, path)
-            }
-            // (A ReSpec spec's references to other specs' terms link by the
-            // index's analysis, at the tip.)
-            None if spec.format == Some(crate::spec_analyze::SpecFormat::Respec) => {
-                let targets = if rev.is_none() {
-                    respec_index_targets(tree_config, path)
-                } else {
-                    vec![]
-                };
-                rendered_specs::respec::render(
-                    path,
-                    spec,
-                    specs,
-                    &spec_links,
-                    &read,
-                    &crate::spec_analyze::xref::Terms::default(),
-                    &targets,
-                )
-            }
-            // (Bikeshed's rendering is the index's, of the latest revision, or
-            // a spec pull request's import's, of its head.)
-            None if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
-                let at = rev.is_some().then(|| commit.id());
-                let output =
-                    std::fs::read_to_string(bikeshed_rendering_path_at(tree_config, path, at))
-                        .map_err(|_| BIKESHED_RENDERINGS)?;
-                rendered_specs::bikeshed::render(&output, &source, path, spec, specs, &spec_links)
-            }
-            None => rendered_specs::render(
-                spec,
-                &source,
-                path,
-                specs,
-                &spec_links,
-                &read,
-                page.as_deref(),
-            ),
-        }
-        .ok_or("No such page")?;
+        let rendered_spec = render_spec_view(
+            tree_config,
+            specs,
+            spec,
+            rev.is_some().then(|| commit.id()),
+            &source,
+            path,
+            main.as_deref(),
+            page.as_deref(),
+            &spec_links,
+            &read,
+        )?;
         spec_page = Some((rendered_spec.pages, rendered_spec.page, rendered_spec.range));
         rendered_spec.rendered
     } else if path.ends_with(".rst") {

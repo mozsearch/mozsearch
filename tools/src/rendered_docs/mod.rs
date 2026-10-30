@@ -950,11 +950,11 @@ pub fn block_html(html: &str, strip_at: usize) -> Option<String> {
         return Some(html[tag_start..end].to_string());
     }
     if tag.starts_with("<td") || tag.starts_with("<th") {
-        let row_start = before
-            .match_indices("<tr")
-            .map(|(i, _)| i)
-            .filter(|&i| before[i + 3..].starts_with(|c: char| c == '>' || c.is_ascii_whitespace()))
-            .last()?;
+        // (The nearest before it, from the end: a big table's rows' blocks
+        // would each scan the page from its start.)
+        let row_start = before.rmatch_indices("<tr").map(|(i, _)| i).find(|&i| {
+            before[i + 3..].starts_with(|c: char| c == '>' || c.is_ascii_whitespace())
+        })?;
         let end = element_end("tr", row_start)?;
         return Some(format!(
             r#"<table class="rd-row"><tbody>{}</tbody></table>"#,

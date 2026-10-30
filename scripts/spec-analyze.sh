@@ -56,6 +56,10 @@ if [ -f "$SPECS_TOML" ]; then
     # tools/src/rendered_specs, which the web server makes from it, and the
     # source listings' links to them.)
     cp "$SPECS_TOML" $INDEX_ROOT/specs.toml
+    # The excerpts of the specs' rendered views, for search results' lines in
+    # their sources (in spec-excerpts/; see build-spec-excerpts).
+    echo "Performing spec-analyze::excerpts step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+    build-spec-excerpts $CONFIG_FILE $TREE_NAME
     exit 0
 fi
 

@@ -755,7 +755,6 @@ impl FlattenedResultsBundle {
         if self.content_type != "text/html" {
             return;
         }
-        const LINE_NUMBER: &str = r#"<div role="cell" class="line-number" data-line-number=""#;
         for path_kind_group in &mut self.path_kind_results {
             for kind_group in &mut path_kind_group.kind_groups {
                 for file in &mut kind_group.by_file {
@@ -771,39 +770,199 @@ impl FlattenedResultsBundle {
                         None => rendered(file_tree, &file.file),
                     };
                     for span in &mut file.line_spans {
-                        let mut linked = String::with_capacity(span.contents.len() + 256);
-                        let mut rest = span.contents.as_str();
-                        while let Some(start) = rest.find(LINE_NUMBER) {
-                            let after = &rest[start + LINE_NUMBER.len()..];
-                            let digits = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(0);
-                            let Some(tail) = after[digits..].strip_prefix(r#""></div>"#) else {
-                                linked.push_str(&rest[..start + LINE_NUMBER.len()]);
-                                rest = after;
-                                continue;
-                            };
-                            let line = &after[..digits];
-                            linked.push_str(&rest[..start]);
-                            linked.push_str(&match &rendered_href {
-                                Some(template) => format!(
-                                    r#"<a role="cell" class="query-line-number query-line-rendered" href="{}" title="Line {} of the source, in the rendered view">{}</a>"#,
-                                    template.replace("{}", line),
-                                    line,
-                                    line
-                                ),
-                                None => format!(
-                                    r#"<a role="cell" class="query-line-number" href="{}#{}">{}</a>"#,
-                                    href, line, line
-                                ),
-                            });
-                            rest = tail;
-                        }
-                        linked.push_str(rest);
-                        span.contents = linked;
+                        span.contents = linked_rows(&span.contents, &|line| match &rendered_href {
+                            Some(template) => {
+                                rendered_line_link(&template.replace("{}", line), line)
+                            }
+                            None => format!(
+                                r#"<a role="cell" class="query-line-number" href="{}#{}">{}</a>"#,
+                                href, line, line
+                            ),
+                        });
                     }
                 }
             }
         }
     }
+
+    /// For HTML pages of the results, the lines of a spec tree's files which
+    /// the index has excerpts of (`excerpts`, of a file's tree and path and
+    /// its lines: for each, the URL of the line in its rendered view, its
+    /// block's first line, and the block's HTML, if it has it; see
+    /// `format::spec_excerpts`) show their rendered blocks, the line numbers
+    /// linking to the lines in the views, and their hits' texts highlighted
+    /// where the blocks have them (see `mark_texts`), with their source lines
+    /// under them, collapsed (whose line numbers link to the source listing).
+    /// A file's spans in a block it shows already say so.  (Not in a try
+    /// push's context, `rev`, whose files the excerpts aren't of.)  Before
+    /// `link_line_numbers`, which links the others' line numbers.
+    pub fn add_rendered_excerpts(
+        &mut self,
+        tree: &str,
+        rev: Option<&str>,
+        excerpts: &dyn Fn(&str, &str, &[u32]) -> Vec<Option<(String, u32, String)>>,
+    ) {
+        if self.content_type != "text/html" {
+            return;
+        }
+        for path_kind_group in &mut self.path_kind_results {
+            for kind_group in &mut path_kind_group.kind_groups {
+                for file in &mut kind_group.by_file {
+                    if rev.is_some() && file.tree.is_none() {
+                        continue;
+                    }
+                    let file_tree = file.tree.as_deref().unwrap_or(tree);
+                    let lines: Vec<u32> =
+                        file.line_spans.iter().map(|span| span.key_line).collect();
+                    let found = excerpts(file_tree, &file.file, &lines);
+                    let source = format!("/{}/source/{}", file_tree, url_encode_path(&file.file));
+                    let mut shown = HashSet::new();
+                    for (span, found) in file.line_spans.iter_mut().zip(found) {
+                        let Some((url, first, html)) = found else {
+                            continue;
+                        };
+                        if span.contents.is_empty() {
+                            continue;
+                        }
+                        let line = span.key_line.to_string();
+                        let link = rendered_line_link(&url, &line);
+                        let block = match shown.insert(first) {
+                            true => format!(
+                                r#"<div role="cell" class="rd-excerpt-block rendered-doc rendered-spec">{}</div>"#,
+                                mark_texts(&html, &span_hit_texts(span))
+                            ),
+                            false => r#"<div role="cell" class="rd-excerpt-note">In the rendered block above.</div>"#
+                                .to_string(),
+                        };
+                        let rows = linked_rows(&span.contents, &|line| {
+                            format!(
+                                r#"<a role="cell" class="query-line-number" href="{}#{}">{}</a>"#,
+                                source, line, line
+                            )
+                        });
+                        span.contents = format!(
+                            r#"<div role="row" class="rd-excerpt">{}{}</div><details class="rd-excerpt-source"><summary>Its source</summary>{}</details>"#,
+                            link, block, rows
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A row's line number cell's prefix (see `ingest_html_lines`), before its
+/// line number and `"></div>`.
+const LINE_NUMBER: &str = r#"<div role="cell" class="line-number" data-line-number=""#;
+
+/// `contents`' rows (see `ingest_html_lines`) with their line numbers' cells
+/// `link`'s HTML of their line numbers.
+fn linked_rows(contents: &str, link: &dyn Fn(&str) -> String) -> String {
+    let mut linked = String::with_capacity(contents.len() + 256);
+    let mut rest = contents;
+    while let Some(start) = rest.find(LINE_NUMBER) {
+        let after = &rest[start + LINE_NUMBER.len()..];
+        let digits = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(0);
+        let Some(tail) = after[digits..].strip_prefix(r#""></div>"#) else {
+            linked.push_str(&rest[..start + LINE_NUMBER.len()]);
+            rest = after;
+            continue;
+        };
+        linked.push_str(&rest[..start]);
+        linked.push_str(&link(&after[..digits]));
+        rest = tail;
+    }
+    linked.push_str(rest);
+    linked
+}
+
+/// A line number's link to its line in a rendered view.
+fn rendered_line_link(url: &str, line: &str) -> String {
+    format!(
+        r#"<a role="cell" class="query-line-number query-line-rendered" href="{}" title="Line {} of the source, in the rendered view">{}</a>"#,
+        url, line, line
+    )
+}
+
+/// The texts of a span's hits and the search's other matches, as its rows
+/// mark them (see `highlight::highlight_row`: on its key line, and a
+/// multi-line match's later lines).
+fn span_hit_texts(span: &FlattenedLineSpan) -> Vec<String> {
+    static MARK: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r#"<mark class="query-(?:hit|match)[^"]*">([^<]*)</mark>"#).unwrap()
+    });
+    let mut texts: Vec<String> = MARK
+        .captures_iter(&span.contents)
+        .map(|captures| {
+            captures[1]
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replace("&amp;", "&")
+                .trim()
+                .to_string()
+        })
+        .filter(|hit| hit.chars().count() >= 2)
+        .collect();
+    texts.sort();
+    texts.dedup();
+    texts
+}
+
+/// `html` with the occurrences of `texts` (ignoring ASCII case) in its text
+/// marked (`rd-excerpt-hit`), those within an element's text (not across
+/// elements' tags).
+fn mark_texts(html: &str, texts: &[String]) -> String {
+    if texts.is_empty() {
+        return html.to_string();
+    }
+    // (As the HTML has them, escaped.)
+    let needles: Vec<String> = texts
+        .iter()
+        .map(|text| {
+            text.replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
+                .to_ascii_lowercase()
+        })
+        .collect();
+    let mut out = String::with_capacity(html.len() + 64);
+    let mut rest = html;
+    while !rest.is_empty() {
+        // (A tag, as it is.)
+        if rest.starts_with('<') {
+            let end = rest.find('>').map_or(rest.len(), |i| i + 1);
+            out.push_str(&rest[..end]);
+            rest = &rest[end..];
+            continue;
+        }
+        let end = rest.find('<').unwrap_or(rest.len());
+        let text = &rest[..end];
+        let lower = text.to_ascii_lowercase();
+        let mut at = 0;
+        while at < text.len() {
+            let found = needles
+                .iter()
+                .filter_map(|needle| {
+                    lower[at..]
+                        .find(needle.as_str())
+                        .map(|i| (at + i, needle.len()))
+                })
+                .min();
+            let Some((start, len)) = found else {
+                break;
+            };
+            out.push_str(&text[at..start]);
+            out.push_str(r#"<mark class="rd-excerpt-hit">"#);
+            out.push_str(&text[start..start + len]);
+            out.push_str("</mark>");
+            at = start + len;
+        }
+        out.push_str(&text[at..]);
+        rest = &rest[end..];
+    }
+    out
 }
 
 #[derive(Serialize)]
@@ -1610,6 +1769,23 @@ impl ServerPipelineGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Rendered excerpts' helpers: rows' line numbers linked, and hits' texts
+    /// marked in the excerpts' text (not their tags, nor across them).
+    #[test]
+    fn test_excerpt_helpers() {
+        let rows = r#"<div role="row"><div role="cell" class="line-number" data-line-number="12"></div><code>a</code></div>"#;
+        assert_eq!(
+            linked_rows(rows, &|line| format!("<a>{}</a>", line)),
+            r#"<div role="row"><a>12</a><code>a</code></div>"#
+        );
+        let html = r#"<p>To <a href="/x#resolve">resolve a module specifier</a>, <b>Resolve</b> it &amp; more.</p>"#;
+        assert_eq!(
+            mark_texts(html, &["resolve".to_string(), "it & more".to_string()]),
+            r#"<p>To <a href="/x#resolve"><mark class="rd-excerpt-hit">resolve</mark> a module specifier</a>, <b><mark class="rd-excerpt-hit">Resolve</mark></b> <mark class="rd-excerpt-hit">it &amp; more</mark>.</p>"#
+        );
+        assert_eq!(mark_texts(html, &[]), html);
+    }
 
     #[test]
     fn test_inline_context() {

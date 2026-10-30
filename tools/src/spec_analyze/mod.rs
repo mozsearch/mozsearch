@@ -65,6 +65,14 @@ pub struct SpecsConfig {
     /// relative to.
     #[serde(skip)]
     pub dir: PathBuf,
+    /// The specs' URLs (their `rendered`, `aliases` and `old_urls`, without
+    /// their schemes), and the specs (by their index) whose they are and
+    /// whether they're old: for `url_target`, built when it's first used
+    /// (so the specs mustn't change after).  (Matching each of a rendered
+    /// spec's links against every spec's URLs took most of the HTML
+    /// Standard's page's rendering with wubspecs' specs.)
+    #[serde(skip)]
+    url_index: std::sync::OnceLock<HashMap<String, Vec<(usize, bool)>>>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
@@ -239,40 +247,50 @@ impl SpecsConfig {
         if anchor.is_empty() {
             return None;
         }
-        let page = page
-            .trim_start_matches("http:")
-            .trim_start_matches("https:");
-        // (The longest URL that matches, since specs can be under others,
-        // ex: CSP Embedded Enforcement under CSP.)
-        let matching = |url: &str| -> Option<usize> {
-            let url = url.trim_start_matches("http:").trim_start_matches("https:");
-            (page.starts_with(url) || format!("{}/", page) == url).then_some(url.len())
+        let without_scheme = |url: &str| -> String {
+            url.trim_start_matches("http:")
+                .trim_start_matches("https:")
+                .to_string()
         };
-        // (The longest match, and whether it's an old URL; a current one wins
-        // a tie.)
-        let (spec, (_, outdated)) = self
-            .specs
-            .iter()
-            .filter_map(|spec| {
-                let current = spec
-                    .rendered
+        let page = without_scheme(page);
+        let index = self.url_index.get_or_init(|| {
+            let mut index: HashMap<String, Vec<(usize, bool)>> = HashMap::new();
+            for (i, spec) in self.specs.iter().enumerate() {
+                for url in spec.rendered.iter().chain(&spec.aliases) {
+                    index
+                        .entry(without_scheme(url))
+                        .or_default()
+                        .push((i, false));
+                }
+                for url in &spec.old_urls {
+                    index
+                        .entry(without_scheme(url))
+                        .or_default()
+                        .push((i, true));
+                }
+            }
+            index
+        });
+        // The specs' URLs which the page's URL starts with (or which are it
+        // with a slash), the longest (since specs can be under others, ex:
+        // CSP Embedded Enforcement under CSP), and of those, a current URL
+        // rather than an old one, and of those, the last spec's.
+        let slashed = format!("{}/", page);
+        let prefixes = page
+            .char_indices()
+            .map(|(at, _)| &page[..at])
+            .chain([page.as_str(), slashed.as_str()]);
+        let (_, current, spec) = prefixes
+            .filter_map(|prefix| Some((prefix.len(), index.get(prefix)?)))
+            .flat_map(|(len, specs)| {
+                specs
                     .iter()
-                    .chain(&spec.aliases)
-                    .filter_map(|url| matching(url))
-                    .map(|len| (len, false));
-                let outdated = spec
-                    .old_urls
-                    .iter()
-                    .filter(|_| old)
-                    .filter_map(|url| matching(url))
-                    .map(|len| (len, true));
-                let best = current
-                    .chain(outdated)
-                    .max_by_key(|&(len, outdated)| (len, !outdated))?;
-                Some((spec, best))
+                    .map(move |&(spec, outdated)| (len, spec, outdated))
             })
-            .max_by_key(|&(_, (len, outdated))| (len, !outdated))?;
-        Some((spec, percent_decode(anchor), outdated))
+            .filter(|&(_, _, outdated)| old || !outdated)
+            .map(|(len, spec, outdated)| (len, !outdated, spec))
+            .max()?;
+        Some((&self.specs[spec], percent_decode(anchor), !current))
     }
 }
 

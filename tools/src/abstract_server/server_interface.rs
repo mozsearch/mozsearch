@@ -410,6 +410,13 @@ pub trait AbstractServer {
         None
     }
 
+    /// The rendered blocks with `lines` of the file at `path`, those the
+    /// index's excerpts have (see `format::spec_excerpts`), for search
+    /// results' lines in specs' sources.
+    fn spec_excerpts(&self, _path: &str, lines: &[u32]) -> Vec<Option<(String, u32, String)>> {
+        vec![None; lines.len()]
+    }
+
     /// The path kind and subsystem (ex: "Firefox/Sidebar") of the file at
     /// `path` in the indexed revision, if we know it, for faceting results
     /// (see `cmd_pipeline::facets::file_facets`).

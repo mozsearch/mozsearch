@@ -639,6 +639,16 @@ impl AbstractServer for LocalIndex {
         crate::format::rendered_line_template(&cfg, &self.tree_name, path)
     }
 
+    fn spec_excerpts(&self, path: &str, lines: &[u32]) -> Vec<Option<(String, u32, String)>> {
+        let cfg = self.tree_config_loaded();
+        match cfg.trees.get(&self.tree_name) {
+            Some(tree_config) => {
+                crate::format::spec_excerpts(&self.tree_name, tree_config, path, lines)
+            }
+            None => vec![None; lines.len()],
+        }
+    }
+
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.path_kinds.clone()
     }
