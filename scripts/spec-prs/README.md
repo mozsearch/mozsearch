@@ -88,15 +88,15 @@ They're published as `merged.json` beside `snapshot.json`.
 
 With the previous snapshot (the last one published), it asks only for the
 pull requests updated since each repository's newest: the 25 newest of 20
-repositories at a time (5 points of the 1,000 an hour the Action's token
-has), and then 100 at a time (a point), for those with more. So an hourly
-run of wubspecs' 391 repositories takes about 20 queries (100 points). A
-first run pages through every merged pull request: wubspecs' 52,281
-(2026-10-29; whatwg/html's 3,570, w3c/csswg-drafts' 2,648) take 768 queries,
-a point each, so about two hours' runs, since it stops after `--budget`
-seconds, or with fewer than `--reserve` points left (200, for the next run's
-open pull requests), and continues where it was the next hour (`cursor`).
-The snapshot is then about 2.8 MB.
+repositories at a time (5 points of GraphQL's hourly limit), and then 100 at
+a time (a point), for those with more. So an hourly run of wubspecs' 391
+repositories takes about 20 queries (100 points). A first run pages through
+every merged pull request: wubspecs' first (2026-10-30) took 768 queries, a
+point each, for 52,281 (whatwg/html's 3,570, w3c/csswg-drafts' 2,648), in 8.5
+minutes, after the open pull requests' snapshot, without reaching its
+reserve. It stops after `--budget` seconds, or with fewer than `--reserve`
+points left (200, for the next run's open pull requests), and continues
+where it was the next hour (`cursor`). The snapshot is 2.8 MB.
 
 The snapshot is about 60 bytes per pull request:
 
