@@ -5,7 +5,8 @@
 // (trydelta) goes to at once: a Bugzilla bug's and a Phabricator revision's
 // commits' explore pages, a GitHub commit's page (in another tree, the
 // searchfox tree, whose repository has it), and a try push's page from
-// Treeherder's (but not another repository's push, which is searched for).
+// Treeherder's (but not another repository's push, which is searched for);
+// and the route an hg commit goes to.
 
 function doc() {
   return frame.contentDocument;
@@ -32,4 +33,10 @@ add_task(async function test_DwimLinks() {
      "A try push on Treeherder goes to its page");
   is(await search("https://treeherder.mozilla.org/jobs?repo=autoland&revision=deadbeefdead"), "/trydelta/query/default",
      "but another repository's push is searched for");
+
+  // (The "hg-commit" rule's route, which nginx sends to the web server: the
+  // searchfox tree's repository isn't hg's, so it doesn't know the revision.)
+  const hg = await frame.contentWindow.fetch("/searchfox/hgcommit/deadbeefdead", { cache: "no-store" });
+  is(hg.status, 404, "An hg commit the tree doesn't have isn't found");
+  is(await hg.text(), "Not found", "by the web server, rather than nginx");
 });
