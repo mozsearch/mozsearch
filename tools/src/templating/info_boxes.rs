@@ -131,7 +131,9 @@ impl InfoBoxes {
                     error!("{} failed to render: {}", name, e);
                     String::new()
                 });
-                let rendered = RE_WHITESPACE_CLEANUP.replace_all(rendered.trim(), "\n").to_string();
+                let rendered = RE_WHITESPACE_CLEANUP
+                    .replace_all(rendered.trim(), "\n")
+                    .to_string();
                 (!rendered.is_empty()).then_some(rendered)
             })
             .collect()
@@ -169,6 +171,7 @@ mod tests {
             config_file: String::new(),
             query_limits: Default::default(),
             crash_reports_url: None,
+            bugzilla_url: None,
         };
         let boxes = InfoBoxes::load(&cfg);
         assert_eq!(boxes.names().collect::<Vec<_>>(), vec!["a", "b", "d", "e"]);

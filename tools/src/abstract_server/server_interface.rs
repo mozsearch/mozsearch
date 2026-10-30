@@ -804,6 +804,14 @@ pub trait AbstractServer {
         crate::crash_stack::fetch_crash_report(crate::crash_stack::CRASH_REPORTS_URL, id).await
     }
 
+    /// Bugzilla's REST API's response for `path` (ex:
+    /// "rest/bug/1915788/comment"; see `bug_comment::fetch_bugzilla`), from
+    /// bugzilla.mozilla.org, unless the config says where
+    /// (`Config::bugzilla_url`).
+    async fn bugzilla_json(&self, path: &str) -> Result<std::sync::Arc<Value>> {
+        crate::bug_comment::fetch_bugzilla(crate::bug_comment::BUGZILLA_URL, path).await
+    }
+
     /// For each line of the file at `path` in revision `rev` (line `l` at `l -
     /// 1`), its line in the indexed revision's version, if it's unchanged
     /// since (see `rev_lines::line_map`), or None if the tree's repository

@@ -442,10 +442,7 @@ pub async fn crash_stack(
         let path = frames[*i].function.as_ref().unwrap().path;
         requests.entry(path).or_default().extend(all);
     }
-    let rows = server
-        .fetch_html_lines(requests.into_iter().collect())
-        .await
-        .unwrap_or_default();
+    let rows = fetch_rows(server, requests).await;
     for (i, all, shown) in wanted {
         let frame = &mut frames[i];
         let path = frame.function.as_ref().unwrap().path;
@@ -474,8 +471,28 @@ pub async fn crash_stack(
     })
 }
 
+/// The rows of `requests`' files' lines (see
+/// `AbstractServer::fetch_html_lines`), all at once, or if that fails (ex:
+/// for a file the tree doesn't have), each file's that doesn't.
+pub(crate) async fn fetch_rows(
+    server: &(dyn AbstractServer + Send + Sync),
+    requests: BTreeMap<Ustr, BTreeSet<u32>>,
+) -> UstrMap<std::collections::HashMap<u32, crate::file_format::chunked_gzip::Row>> {
+    let requests: Vec<(Ustr, BTreeSet<u32>)> = requests.into_iter().collect();
+    if let Ok(rows) = server.fetch_html_lines(requests.clone()).await {
+        return rows;
+    }
+    let mut rows = UstrMap::default();
+    for request in requests {
+        if let Ok(found) = server.fetch_html_lines(vec![request]).await {
+            rows.extend(found);
+        }
+    }
+    rows
+}
+
 /// Runs of consecutive numbers.
-fn runs(numbers: impl Iterator<Item = u32>) -> Vec<Vec<u32>> {
+pub(crate) fn runs(numbers: impl Iterator<Item = u32>) -> Vec<Vec<u32>> {
     let mut runs: Vec<Vec<u32>> = vec![];
     for n in numbers {
         match runs.last_mut() {
@@ -972,10 +989,7 @@ pub async fn crash_report_stack(
     for (_, _, path, all, _) in &wanted {
         requests.entry(*path).or_default().extend(all);
     }
-    let rows = server
-        .fetch_html_lines(requests.into_iter().collect())
-        .await
-        .unwrap_or_default();
+    let rows = fetch_rows(server, requests).await;
     for (t, i, path, all, shown) in wanted {
         let Some(file_rows) = rows.get(&path) else {
             continue;

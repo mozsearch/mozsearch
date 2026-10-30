@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use super::cmd_augment_results::AugmentResults;
 use super::cmd_batch_render::BatchRender;
 use super::cmd_block_diagram::BlockDiagram;
+use super::cmd_bug_comment::BugComment;
 use super::cmd_cat_html::CatHtml;
 use super::cmd_compile_results::CompileResults;
 use super::cmd_crash_stack::CrashStack;
@@ -101,6 +102,7 @@ pub enum Command {
     Dataflow(Dataflow),
     BlockDiagram(BlockDiagram),
     CrashStack(CrashStack),
+    BugComment(BugComment),
     HistoryGrep(HistoryGrepCommandArgs),
     TokenHistory(TokenHistoryArgs),
     TokenNames(TokenNamesArgs),

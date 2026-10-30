@@ -360,7 +360,7 @@ mod tests {
                 "lookup:hg-commit:0123456789ab",
             ),
             (
-                "https://bugzilla.mozilla.org/show_bug.cgi?id=1517978#c4",
+                "https://bugzilla.mozilla.org/show_bug.cgi?id=1517978",
                 "lookup:explore-bug:1517978",
             ),
             (
@@ -375,6 +375,21 @@ mod tests {
         ] {
             assert_eq!(redirect(input).as_deref(), Some(lookup), "{}", input);
             assert!(target(input).unwrap().always, "{}", input);
+        }
+        // (A bug's comment is its view, at once.)
+        for input in [
+            "https://bugzilla.mozilla.org/show_bug.cgi?id=1915788#c20",
+            "https://bugzilla.mozilla.org/show_bug.cgi?id=1915788&foo=bar#c20",
+            "https://bugzilla.mozilla.org/1915788#c20",
+            "https://bugzil.la/1915788#c20",
+        ] {
+            assert_eq!(
+                redirect(input).as_deref(),
+                Some("/firefox-main/query/default?q=bug-comment%3A1915788%2F20"),
+                "{}",
+                input
+            );
+            assert!(target(input).unwrap().always);
         }
         // (WPT's pull requests are its syncs', and files on hg aren't commits.)
         assert!(

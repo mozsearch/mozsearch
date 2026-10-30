@@ -627,6 +627,14 @@ args.report = "$0"
 command = "crash-stack"
 args.threads = "$0"
 
+# A Bugzilla comment's blocks beside the code they link to ("1915788/20", or
+# "1915788" for its description; see bug_comment.rs), which the DWIM rule for
+# Bugzilla comments' URLs goes to.
+[term.bug-comment]
+[[term.bug-comment.group.bug-comment]]
+command = "bug-comment"
+args.positional = "$0"
+
 [term.text]
 [[term.text.group.text-search]]
 command = "search-text"
@@ -810,6 +818,9 @@ output = "result"
 output = "result"
 
 [group.crash]
+output = "result"
+
+[group.bug-comment]
 output = "result"
 
 [group.token-history]

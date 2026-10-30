@@ -17,7 +17,7 @@ async function search(input) {
 }
 
 add_task(async function test_DwimLinks() {
-  is(await search("https://bugzilla.mozilla.org/show_bug.cgi?id=1517978#c4"), "/trydelta/explore/bug/1517978",
+  is(await search("https://bugzilla.mozilla.org/show_bug.cgi?id=1517978"), "/trydelta/explore/bug/1517978",
      "A bug goes to its commits' explore page");
   is(await search("https://bugzil.la/1517978"), "/trydelta/explore/bug/1517978", "as does its short URL");
   is(await search("https://phabricator.services.mozilla.com/D123456"), "/trydelta/explore/phab/D123456",

@@ -5,6 +5,7 @@
   "default_tree": "tests",
 
   "crash_reports_url": "file://$MOZSEARCH_PATH/tests/crash-reports/{}.json",
+  "bugzilla_url": "file://$MOZSEARCH_PATH/tests/bugzilla",
 
   "trees": {
     "tests": {

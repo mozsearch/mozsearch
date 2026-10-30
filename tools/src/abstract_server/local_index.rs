@@ -481,6 +481,16 @@ impl AbstractServer for LocalIndex {
         crate::crash_stack::fetch_crash_report(&template, id).await
     }
 
+    async fn bugzilla_json(&self, path: &str) -> Result<std::sync::Arc<Value>> {
+        // (Not holding the config, which isn't Send, while fetching.)
+        let base = self
+            .tree_config_loaded()
+            .bugzilla_url
+            .clone()
+            .unwrap_or_else(|| crate::bug_comment::BUGZILLA_URL.to_string());
+        crate::bug_comment::fetch_bugzilla(&base, path).await
+    }
+
     async fn line_map(&self, rev: &str, path: &str) -> Result<Option<Vec<Option<u32>>>> {
         let cfg = self.tree_config_loaded();
         Ok(crate::format::rev_line_map(

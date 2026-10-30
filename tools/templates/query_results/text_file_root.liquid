@@ -20,6 +20,9 @@
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.crash-stack+html" %}
 {%- comment %}(The crash view; see crash_stack.rs.){% endcomment %}
     {{ results.TextFile.contents }}
+{% elsif results.TextFile.mime_type == "application/vnd.searchfox.bug-comment+html" %}
+{%- comment %}(A Bugzilla comment's view; see bug_comment.rs.){% endcomment %}
+    {{ results.TextFile.contents }}
 {% elsif results.TextFile.mime_type == "text/x-dot" %}
 <pre>{{ results.TextFile.contents | escape }}</pre>
 {% else %}

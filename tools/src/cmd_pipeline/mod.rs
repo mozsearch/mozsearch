@@ -15,6 +15,7 @@ mod cmd_batch_render;
 mod cmd_block_diagram;
 mod cmd_cat_html;
 mod cmd_compile_results;
+pub mod cmd_bug_comment;
 pub mod cmd_crash_stack;
 mod cmd_crossref_expand;
 mod cmd_crossref_lookup;

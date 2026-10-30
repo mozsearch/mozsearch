@@ -6013,6 +6013,45 @@ textarea.monospace {
   margin: 1.2em 1em 0.3em;
   font-size: 14px;
 }
+/* A Bugzilla comment's view (see bug_comment.rs), as the crash view: each of
+   its blocks (right) beside the excerpts of the code it links to (left). */
+.bug-comment-view {
+  --crash-columns: minmax(0, 1fr) minmax(18em, 34em);
+}
+.bug-comment-cards {
+  min-width: 0;
+}
+.bug-comment-card {
+  padding-left: 0.5em;
+  border-left: 3px solid var(--link-color);
+}
+.bug-comment-card + .bug-comment-card {
+  margin-top: 0.8em;
+}
+.bug-comment-as-linked {
+  margin-left: 0.5em;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.bug-comment-crash {
+  font-size: 13px;
+}
+.bug-comment-text {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.bug-comment-text > :first-child {
+  margin-top: 0;
+}
+.bug-comment-text ul,
+.bug-comment-text ol {
+  margin: 0;
+  padding-left: 1.5em;
+}
+.bug-comment-text pre {
+  overflow-x: auto;
+  font-size: 12px;
+}
 
 /* What a search was for, on the page it went to at once, as a DWIM rule says
    (see search.js's showSearched), with a link to its search. */

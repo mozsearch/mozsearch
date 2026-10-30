@@ -141,6 +141,11 @@ pub struct ConfigJson {
     /// tests' fixtures, `file://.../{}.json`.
     #[serde(default)]
     pub crash_reports_url: Option<String>,
+
+    /// Where Bugzilla is, if not bugzilla.mozilla.org
+    /// (`bug_comment::BUGZILLA_URL`): ex: tests' fixtures, `file://...`.
+    #[serde(default)]
+    pub bugzilla_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -575,6 +580,8 @@ pub struct Config {
     pub query_limits: crate::query_limits::QueryLimitsConfig,
     /// See `ConfigJson::crash_reports_url`.
     pub crash_reports_url: Option<String>,
+    /// See `ConfigJson::bugzilla_url`.
+    pub bugzilla_url: Option<String>,
 }
 
 impl Config {
@@ -889,6 +896,7 @@ pub fn load(
         config_file: config_path.to_string(),
         query_limits: config.query_limits,
         crash_reports_url: config.crash_reports_url,
+        bugzilla_url: config.bugzilla_url,
     }
 }
 

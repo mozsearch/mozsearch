@@ -1099,6 +1099,7 @@ pub fn remote_trees_config(
         config_file: String::new(),
         query_limits: Default::default(),
         crash_reports_url: None,
+        bugzilla_url: None,
     }
 }
 

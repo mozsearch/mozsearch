@@ -77,6 +77,8 @@ pub mod tree_sitter_support;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod blame;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod bug_comment;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod cinnabar;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod commit_index;

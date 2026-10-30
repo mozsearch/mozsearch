@@ -59,6 +59,13 @@ lookup = "hg-commit"
 go = "always"
 
 [[rule]]
+name = "bugzilla-comment"
+description = "A Bugzilla bug's comment: its blocks, beside the code they link to."
+pattern = '^https?://(?:bugzilla\.mozilla\.org/(?:show_bug\.cgi\?(?:\S*?&)?id=)?|bugzil\.la/)(?P<bug>\d+)(?:&[^#\s]*)?#c(?P<comment>\d+)$'
+redirect = "/{tree}/query/default?q=bug-comment%3A{bug}%2F{comment}"
+go = "always"
+
+[[rule]]
 name = "bugzilla-bug"
 description = "A Bugzilla bug: the commits which mention it, in this tree's history."
 pattern = '^https?://(?:bugzilla\.mozilla\.org/(?:show_bug\.cgi\?(?:\S*?&)?id=)?|bugzil\.la/)(?P<bug>\d+)(?:[&#]\S*)?$'

@@ -20,11 +20,11 @@ use crate::{
 
 use super::{
     cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand,
-    cmd_block_diagram::BlockDiagramCommand, cmd_crash_stack::CrashStackCommand,
-    cmd_dataflow::DataflowCommand, cmd_format_symbols::FormatSymbolsCommand,
-    cmd_fuse_crossrefs::FuseCrossrefsCommand, cmd_history_grep::HistoryGrepCommand,
-    cmd_history_journal::HistoryJournalCommand, cmd_jq::JQCommand,
-    cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand,
+    cmd_block_diagram::BlockDiagramCommand, cmd_bug_comment::BugCommentCommand,
+    cmd_crash_stack::CrashStackCommand, cmd_dataflow::DataflowCommand,
+    cmd_format_symbols::FormatSymbolsCommand, cmd_fuse_crossrefs::FuseCrossrefsCommand,
+    cmd_history_grep::HistoryGrepCommand, cmd_history_journal::HistoryJournalCommand,
+    cmd_jq::JQCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand,
     cmd_token_history::TokenHistoryCommand, cmd_token_names::TokenNamesCommand,
     cmd_token_timeline::TokenTimelineCommand, cmd_tokenize_source::TokenizeSourceCommand,
     cmd_traverse::TraverseCommand, cmd_webtest::WebtestCommand,
@@ -105,6 +105,7 @@ pub fn fab_command_from_opts(
         (Command::BlockDiagram(b), _) => Ok(Box::new(BlockDiagramCommand { args: b })),
 
         (Command::CrashStack(c), _) => Ok(Box::new(CrashStackCommand { args: c })),
+        (Command::BugComment(c), _) => Ok(Box::new(BugCommentCommand { args: c })),
 
         (Command::HistoryGrep(h), _) => Ok(Box::new(HistoryGrepCommand::new(h))),
         (Command::TokenHistory(t), _) => Ok(Box::new(TokenHistoryCommand { args: t })),

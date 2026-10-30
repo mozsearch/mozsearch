@@ -1,0 +1,13 @@
+{
+ "bugs": [
+  {
+   "id": 1234567,
+   "summary": "Fix the frobnicator",
+   "product": "Searchfox",
+   "component": "General",
+   "status": "NEW",
+   "resolution": ""
+  }
+ ],
+ "faults": []
+}

@@ -12097,6 +12097,7 @@ mod tests {
             config_file: String::new(),
             query_limits: Default::default(),
             crash_reports_url: None,
+            bugzilla_url: None,
         };
         let lookup = |tree: &str, kind: &str, captures: &[(&str, &str)]| {
             let capture = |name: &str| {
