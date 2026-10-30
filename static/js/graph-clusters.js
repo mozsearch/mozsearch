@@ -5,9 +5,9 @@
  * subsystem's segments, and their class; see `graphClusterPath`), and the
  * groups are laid out recursively, as ELK's hierarchical layouts are: each
  * cluster's contents (its blocks and its clusters, as blocks of their sizes)
- * with graph.js's own grid layout (in the spirit of iongraph's: predictable
- * rules rather than global optimization), then the cluster as one block in
- * its parent's.
+ * with graph.js's row layout (`RowLayout`, in the spirit of iongraph's:
+ * predictable rules rather than global optimization; or with `?layout=grid`,
+ * its grid layout), then the cluster as one block in its parent's.
  *
  * - A subsystem's cluster whose contents are loosely coupled (parts with no
  *   edges between them, or only one, a bridge) and which interact with
@@ -22,9 +22,9 @@
  *   stubs on both ends ("portals", whose tooltips say where they go): those
  *   closing cycles (as iongraph ignores loops' backedges), and those into an
  *   item which many others at its level call (ex: XPCOM's string helpers).
- * - Edges between rows whose ends are only a little apart are drawn
- *   straight (see graph.js's `straightenPoints`, which its unclustered
- *   layout uses too).
+ * - In the grid layout, edges between rows whose ends are only a little
+ *   apart are drawn straight (see graph.js's `straightenPoints`); the row
+ *   layout places their ports over each other where it can.
  */
 
 // The padding inside a cluster's box, and its header's height.
@@ -502,14 +502,15 @@ function markPortals(items, edges) {
 
 /**
  * Lay out `cluster`'s level (its child clusters first, recursively): its
- * items with edges in graph.js's grid layout, those without in rows under
- * them, setting each item's `relLeft` and `relTop` (from its content's
- * origin) and the cluster's `width` and `height` (with its box's padding
- * and header, but the root's).
+ * items with edges in graph.js's row layout (`RowLayout`), or its grid
+ * layout if `layout` is "grid", those without in rows under them, setting
+ * each item's `relLeft` and `relTop` (from its content's origin) and the
+ * cluster's `width` and `height` (with its box's padding and header, but the
+ * root's).
  */
-function layoutCluster(cluster) {
+function layoutCluster(cluster, layout) {
   for (const child of cluster.children) {
-    layoutCluster(child);
+    layoutCluster(child, layout);
   }
   if (cluster.kind !== "group") {
     groupFans(cluster);
@@ -529,6 +530,21 @@ function layoutCluster(cluster) {
   const linked = new Set(laidOut.flatMap(edge => [edge.pred, edge.succ]));
   const gridItems = items.filter(item => linked.has(item));
   const loose = items.filter(item => !linked.has(item));
+  let gridWidth = 0;
+  let gridHeight = 0;
+  cluster.rowLayout = null;
+  if (layout !== "grid") {
+    if (gridItems.length) {
+      // (Its margins room for the blocks' loops, on their left.)
+      cluster.rowLayout = new RowLayout(gridItems, laidOut, { margin: cluster.kind === "root" ? CROSS_MARGIN : 16 });
+      ({ x: gridWidth, y: gridHeight } = cluster.rowLayout.run());
+      for (const item of gridItems) {
+        item.relLeft = item.layoutLeft;
+        item.relTop = item.layoutTop;
+      }
+    }
+    return finishCluster(cluster, loose, gridWidth, gridHeight);
+  }
 
   // (graph.js's layout steps, over a context whose blocks are the items and
   // whose blocks' neighbors are their neighbors at this level.)
@@ -566,8 +582,6 @@ function layoutCluster(cluster) {
     };
     return edge.gridEdge;
   });
-  let gridWidth = 0;
-  let gridHeight = 0;
   if (context.blocks.length) {
     const methods = Graph.prototype;
     methods.calculateDepth.call(context);
@@ -592,7 +606,12 @@ function layoutCluster(cluster) {
     gridHeight = context.layout.getHeight();
   }
   cluster.context = context;
+  finishCluster(cluster, loose, gridWidth, gridHeight);
+}
 
+// The rest of `layoutCluster`: the `loose` items, in rows under its layout
+// (of `gridWidth` and `gridHeight`), and the cluster's size.
+function finishCluster(cluster, loose, gridWidth, gridHeight) {
   // The loose items, in rows under the grid.
   const area = loose.reduce((sum, item) => sum + (item.width + LOOSE_GAP) * (item.height + LOOSE_GAP), 0);
   const rowWidth = Math.max(gridWidth, LOOSE_ROW_MIN_WIDTH, Math.sqrt(area * 2),
@@ -708,7 +727,7 @@ Graph.prototype.renderClustered = function () {
     this.createBlockNode(block);
   }
   levelEdges(root, this.edges);
-  layoutCluster(root);
+  layoutCluster(root, this.options.layout);
   placeCluster(root, 0, 0);
   this.size = { x: root.width, y: root.height };
   createClusterNodes(this.graphContainer, root);
@@ -755,24 +774,33 @@ Graph.prototype.drawClusterEdges = function (root) {
         }
         continue;
       }
-      const grid = lifted.gridEdge;
-      const offset = point => ({ x: point[0] + cluster.originX, y: point[1] + cluster.originY });
-      const start = offset(context.layout.getPortPos(grid.pred, grid.predSide, grid.predDir, grid));
-      const end = offset(context.layout.getPortPos(grid.succ, grid.succSide, grid.succDir, grid));
-      let points = [start];
-      let { x, y } = start;
-      for (const [breadth, depth, target] of grid.path) {
-        if (target === "horz") {
-          y = context.layout.getHorzAt(breadth, depth, grid) + cluster.originY;
-        } else {
-          x = context.layout.getVertAt(breadth, depth, grid) + cluster.originX;
+      // (Its route, from its end in the upper row, and whether that's its
+      // succ's.)
+      let points, upward;
+      if (cluster.rowLayout) {
+        points = lifted.layoutPoints.map(point => ({ x: point.x + cluster.originX, y: point.y + cluster.originY }));
+        upward = lifted.upward;
+      } else {
+        const grid = lifted.gridEdge;
+        const offset = point => ({ x: point[0] + cluster.originX, y: point[1] + cluster.originY });
+        const start = offset(context.layout.getPortPos(grid.pred, grid.predSide, grid.predDir, grid));
+        const end = offset(context.layout.getPortPos(grid.succ, grid.succSide, grid.succDir, grid));
+        points = [start];
+        let { x, y } = start;
+        for (const [breadth, depth, target] of grid.path) {
+          if (target === "horz") {
+            y = context.layout.getHorzAt(breadth, depth, grid) + cluster.originY;
+          } else {
+            x = context.layout.getVertAt(breadth, depth, grid) + cluster.originX;
+          }
+          points.push({ x, y });
         }
-        points.push({ x, y });
+        points.push({ x: end.x, y });
+        points.push(end);
+        const blockOf = item => (isBlock(item) ? item : { left: item.left, width: item.width });
+        points = straightenPoints(points, blockOf(grid.pred.item), blockOf(grid.succ.item));
+        upward = grid.flipped;
       }
-      points.push({ x: end.x, y });
-      points.push(end);
-      const blockOf = item => (isBlock(item) ? item : { left: item.left, width: item.width });
-      points = straightenPoints(points, blockOf(grid.pred.item), blockOf(grid.succ.item));
       const direct = lifted.originals.length === 1 && isBlock(lifted.pred) && isBlock(lifted.succ);
       const g = direct ? groupOf(lifted.originals[0]) : svgElement("g", {}, "edge", "interactive-graph-cluster-edge-group");
       if (!direct) {
@@ -789,8 +817,9 @@ Graph.prototype.drawClusterEdges = function (root) {
         path.append(title);
       }
       g.append(path);
-      const headAt = grid.flipped ? points[0] : points[points.length - 1];
-      const dy = grid.flipped ? 1 : -1;
+      const headAt = upward ? points[0] : points[points.length - 1];
+      const before = points.length > 1 ? points[upward ? 1 : points.length - 2] : headAt;
+      const dy = before.y > headAt.y ? 1 : -1;
       g.append(svgElement("path", {
         d: `M ${headAt.x} ${headAt.y} L ${headAt.x - 3} ${headAt.y + 8 * dy} L ${headAt.x + 3} ${headAt.y + 8 * dy} Z`,
       }, "interactive-graph-edge-head"));

@@ -470,6 +470,433 @@ class GridLayout {
   }
 }
 
+// The gap between items in a row, and beside a long edge's dummy (see
+// `RowLayout`), and a dummy's width.
+const ROW_GAP = 24;
+const ROW_DUMMY_GAP = 8;
+const ROW_DUMMY_WIDTH = 2;
+// How many passes order the rows, and place their items, and how much a
+// long edge's dummies count for, when placing them, against the items.
+const ROW_ORDER_PASSES = 8;
+const ROW_PLACE_PASSES = 6;
+const ROW_DUMMY_WEIGHT = 4;
+// The space between a block's ports, and between the tracks of the gaps
+// between rows, and the gaps' margins (above and below their tracks).
+const PORT_SPACING = 8;
+const TRACK_GAP = CROSS_GAP;
+const TRACK_MARGIN = CROSS_MARGIN;
+
+// The median of `values` (the mean of the middle two, if they're even).
+function median(values) {
+  const sorted = values.slice().sort((a, b) => a - b);
+  const middle = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/**
+ * A layout of items in rows, each item as wide as it is, rather than in
+ * the grid's columns (`GridLayout`, whose columns are as wide as their widest
+ * items, and rows as tall as their tallest, so that a big item, ex: a
+ * cluster's box, see graph-clusters.js, stretches its row and its column),
+ * in the spirit of iongraph's (see the blog post on its web version, 2025):
+ *
+ * - The rows are graph.js's depths (see `Graph.calculateDepth`), and an edge
+ *   between rows which aren't adjacent has a dummy in each row between them,
+ *   which the next steps place like an item, so that it goes around the
+ *   items in the way, and straight if it can.
+ * - The rows' order is their items' neighbors' median positions, a few
+ *   passes down and up, keeping the order with the fewest crossings.
+ * - Each row's items are placed as near as they can be (in that order, apart
+ *   by their gaps) to their neighbors' median positions in the row above, or
+ *   below, which is a weighted isotonic regression (see `placeRow`), a fixed
+ *   number of passes down and up (as iongraph's are, rather than to a fixed
+ *   point), the dummies counting for more, which straightens long edges.
+ * - Each block's ports are on its top and bottom, each one as near as it can
+ *   be to the other end's (so an edge between blocks over each other is
+ *   straight), and each gap between rows has tracks for the edges' parts
+ *   across it, railroad style: those going right one way, those going left
+ *   another (in the orders in which they don't cross each other), and those
+ *   between blocks in the same row, which go down and back up, nearest it.
+ *
+ * `items` have a `width` and a `height`, and get a `layoutLeft` and a
+ * `layoutTop`; `edges` have a `pred` and a `succ` (items), and get their
+ * `layoutPoints` (corners, from the end in the upper row to the other) and
+ * whether they're drawn `upward` (from their succ to their pred).  The items
+ * are `margin` from the layout's edges.
+ */
+class RowLayout {
+  constructor(items, edges, { margin = CROSS_MARGIN } = {}) {
+    this.items = items;
+    this.edges = edges.filter(edge => edge.pred !== edge.succ);
+    this.margin = margin;
+  }
+
+  // Lay out the items and edges; returns the layout's size.
+  run() {
+    this.assignRows();
+    this.addDummies();
+    this.orderRows();
+    this.placeRows();
+    this.assignPorts();
+    this.assignTracks();
+    this.setPositions();
+    return this.size;
+  }
+
+  assignRows() {
+    this.nodes = this.items.map(item => ({
+      item, width: item.width, height: item.height, preds: [], succs: [], depth: -1,
+      ups: [], downs: [], upSegs: [], downSegs: [],
+    }));
+    this.nodeOf = new Map(this.nodes.map(node => [node.item, node]));
+    for (const edge of this.edges) {
+      const pred = this.nodeOf.get(edge.pred);
+      const succ = this.nodeOf.get(edge.succ);
+      pred.succs.push(succ);
+      succ.preds.push(pred);
+    }
+    const context = { blocks: this.nodes };
+    Graph.prototype.calculateDepth.call(context);
+    Graph.prototype.compressDepth.call(context);
+    const rows = 1 + Math.max(0, ...this.nodes.map(node => node.depth));
+    this.rows = Array.from({ length: rows }, () => []);
+    for (const node of this.nodes) {
+      this.rows[node.depth].push(node);
+    }
+  }
+
+  // Each edge's segments between adjacent rows, through its dummies.
+  addDummies() {
+    this.segments = [];
+    this.sameRow = [];
+    const link = (top, bottom, edge) => {
+      const segment = { top, bottom, edge, fromX: 0, toX: 0, track: -1 };
+      top.downs.push(bottom);
+      bottom.ups.push(top);
+      top.downSegs.push(segment);
+      bottom.upSegs.push(segment);
+      this.segments.push(segment);
+      return segment;
+    };
+    for (const edge of this.edges) {
+      let top = this.nodeOf.get(edge.pred);
+      let bottom = this.nodeOf.get(edge.succ);
+      edge.upward = top.depth > bottom.depth;
+      if (edge.upward) {
+        [top, bottom] = [bottom, top];
+      }
+      edge.rowSegments = [];
+      if (top.depth === bottom.depth) {
+        // (Down from the pred, along the gap under the row, and back up.)
+        const segment = { top, bottom, edge, fromX: 0, toX: 0, track: -1, sameRow: true };
+        top.downSegs.push(segment);
+        bottom.downSegs.push(segment);
+        this.sameRow.push(segment);
+        edge.rowSegments.push(segment);
+        continue;
+      }
+      let above = top;
+      for (let depth = top.depth + 1; depth < bottom.depth; depth++) {
+        const dummy = {
+          dummy: true, edge, width: ROW_DUMMY_WIDTH, height: 0, depth,
+          ups: [], downs: [], upSegs: [], downSegs: [],
+        };
+        this.rows[depth].push(dummy);
+        edge.rowSegments.push(link(above, dummy, edge));
+        above = dummy;
+      }
+      edge.rowSegments.push(link(above, bottom, edge));
+    }
+  }
+
+  indexRows() {
+    for (const row of this.rows) {
+      row.forEach((node, i) => { node.pos = i; });
+    }
+  }
+
+  // The crossings of the segments between adjacent rows.
+  crossings() {
+    let count = 0;
+    for (const row of this.rows) {
+      const segments = row.flatMap(node => node.downSegs.filter(segment => !segment.sameRow));
+      for (let i = 0; i < segments.length; i++) {
+        const a = segments[i];
+        for (let j = i + 1; j < segments.length; j++) {
+          const b = segments[j];
+          if ((a.top.pos - b.top.pos) * (a.bottom.pos - b.bottom.pos) < 0) {
+            count++;
+          }
+        }
+      }
+    }
+    return count;
+  }
+
+  orderRows() {
+    this.indexRows();
+    let best = this.rows.map(row => row.slice());
+    let fewest = this.crossings();
+    for (let pass = 0; pass < ROW_ORDER_PASSES && fewest > 0; pass++) {
+      const down = pass % 2 === 0;
+      for (let k = 1; k < this.rows.length; k++) {
+        const row = this.rows[down ? k : this.rows.length - 1 - k];
+        const key = new Map(row.map(node => {
+          const neighbors = down ? node.ups : node.downs;
+          return [node, neighbors.length ? median(neighbors.map(other => other.pos)) : node.pos];
+        }));
+        row.sort((a, b) => key.get(a) - key.get(b) || a.pos - b.pos);
+        row.forEach((node, i) => { node.pos = i; });
+      }
+      const count = this.crossings();
+      if (count < fewest) {
+        fewest = count;
+        best = this.rows.map(row => row.slice());
+      }
+    }
+    this.rows = best;
+    this.indexRows();
+  }
+
+  // How far apart the centers of adjacent nodes in a row must be.
+  separation(a, b) {
+    const gap = a.dummy || b.dummy ? ROW_DUMMY_GAP : ROW_GAP;
+    return a.width / 2 + gap + b.width / 2;
+  }
+
+  /**
+   * Place `row`'s nodes' centers (`x`) as near as they can be to `desired`
+   * (by `weights`, the least weighted squared distance), in their order and
+   * apart by their separations: with `y` the centers less their minimal
+   * offsets from the first, the `y`s must be in order, which pooling
+   * adjacent violators solves exactly.
+   */
+  placeRow(row, desired, weights) {
+    const offsets = [0];
+    for (let i = 1; i < row.length; i++) {
+      offsets.push(offsets[i - 1] + this.separation(row[i - 1], row[i]));
+    }
+    const pools = [];
+    for (let i = 0; i < row.length; i++) {
+      let pool = { sum: weights[i] * (desired[i] - offsets[i]), weight: weights[i], start: i, end: i };
+      while (pools.length && pools[pools.length - 1].sum / pools[pools.length - 1].weight > pool.sum / pool.weight) {
+        const before = pools.pop();
+        pool = { sum: before.sum + pool.sum, weight: before.weight + pool.weight, start: before.start, end: pool.end };
+      }
+      pools.push(pool);
+    }
+    for (const pool of pools) {
+      for (let i = pool.start; i <= pool.end; i++) {
+        row[i].x = pool.sum / pool.weight + offsets[i];
+      }
+    }
+  }
+
+  placeRows() {
+    for (const row of this.rows) {
+      let x = 0;
+      row.forEach((node, i) => {
+        x += i ? this.separation(row[i - 1], node) : node.width / 2;
+        node.x = x;
+      });
+    }
+    const passes = [];
+    for (let i = 0; i < ROW_PLACE_PASSES; i++) {
+      passes.push(true, false);
+    }
+    passes.push(true);
+    for (const down of passes) {
+      for (let k = 1; k < this.rows.length; k++) {
+        const row = this.rows[down ? k : this.rows.length - 1 - k];
+        const neighbors = row.map(node => (down ? node.ups : node.downs));
+        const desired = row.map((node, i) =>
+          (neighbors[i].length ? median(neighbors[i].map(other => other.x)) : node.x));
+        // (Nodes with no neighbors that way stay about where they are.)
+        const weights = row.map((node, i) =>
+          (node.dummy ? ROW_DUMMY_WEIGHT : 1) * (neighbors[i].length ? 1 : 0.1));
+        this.placeRow(row, desired, weights);
+      }
+    }
+    // (On whole pixels, which the gaps leave room for.)
+    const left = Math.min(...this.nodes.map(node => node.x - node.width / 2));
+    for (const row of this.rows) {
+      for (const node of row) {
+        node.x = Math.round(node.x + this.margin - left);
+      }
+    }
+  }
+
+  /**
+   * Place the ports of `node`'s side whose `ends` (each `{ desired, set }`)
+   * are those of its segments: in the order of their other ends, each as
+   * near as it can be to its other end's (`desired`), within the block,
+   * PORT_SPACING apart (or evenly, if they don't fit).
+   */
+  placePorts(node, ends) {
+    if (node.dummy) {
+      for (const end of ends) {
+        end.set(node.x);
+      }
+      return;
+    }
+    const low = node.x - node.width / 2 + PORT_MARGIN;
+    const high = node.x + node.width / 2 - PORT_MARGIN;
+    ends.sort((a, b) => a.desired - b.desired);
+    if (high <= low || (ends.length - 1) * PORT_SPACING > high - low) {
+      ends.forEach((end, i) => end.set(high <= low ? node.x : Math.round(low + (high - low) * (i + 0.5) / ends.length)));
+      return;
+    }
+    const xs = ends.map(end => clamp(end.desired, low, high));
+    for (let i = 1; i < xs.length; i++) {
+      xs[i] = Math.max(xs[i], xs[i - 1] + PORT_SPACING);
+    }
+    for (let i = xs.length - 1; i >= 0; i--) {
+      xs[i] = Math.min(xs[i], i === xs.length - 1 ? high : xs[i + 1] - PORT_SPACING);
+    }
+    ends.forEach((end, i) => end.set(Math.round(xs[i])));
+  }
+
+  // The ports, row by row from the top: a block's top ones as near as they
+  // can be to their segments' other ends' ports, its bottom ones to their
+  // other ends.
+  assignPorts() {
+    for (const row of this.rows) {
+      for (const node of row) {
+        this.placePorts(node, node.upSegs.map(segment => ({
+          desired: segment.fromX, set: x => { segment.toX = x; },
+        })));
+      }
+      for (const node of row) {
+        this.placePorts(node, node.downSegs.map(segment => {
+          const fromTop = segment.top === node;
+          const other = segment.sameRow ? (fromTop ? segment.bottom : segment.top) : segment.bottom;
+          return {
+            desired: other.x,
+            set: fromTop ? x => { segment.fromX = x; } : x => { segment.toX = x; },
+          };
+        }));
+      }
+    }
+  }
+
+  /**
+   * The tracks of each gap under a row, for its segments which aren't
+   * straight: those between blocks in the row nearest it, the shortest
+   * first, then those going right (the one starting furthest right first,
+   * which then doesn't cross the others), then those going left (the one
+   * starting furthest left first).  Each one's track is the one after those
+   * of the segments before it whose spans overlap its, so that they stay in
+   * that order, but tracks are shared by segments which don't overlap.
+   */
+  assignTracks() {
+    this.tracks = this.rows.map(() => 0);
+    for (const [depth, row] of this.rows.entries()) {
+      // (Those between blocks in the row are in both blocks' `downSegs`.)
+      const segments = row.flatMap(node => node.downSegs.filter(segment => segment.top === node));
+      const span = segment => [Math.min(segment.fromX, segment.toX), Math.max(segment.fromX, segment.toX)];
+      const groups = [
+        segments.filter(segment => segment.sameRow)
+          .sort((a, b) => (span(a)[1] - span(a)[0]) - (span(b)[1] - span(b)[0])),
+        segments.filter(segment => !segment.sameRow && segment.toX - segment.fromX >= 1)
+          .sort((a, b) => b.fromX - a.fromX),
+        segments.filter(segment => !segment.sameRow && segment.fromX - segment.toX >= 1)
+          .sort((a, b) => a.fromX - b.fromX),
+      ];
+      let base = 0;
+      for (const group of groups) {
+        const placed = [];
+        let count = 0;
+        for (const segment of group) {
+          const [low, high] = span(segment);
+          let track = 0;
+          for (const other of placed) {
+            const [otherLow, otherHigh] = span(other);
+            if (low < otherHigh + PORT_SPACING && otherLow < high + PORT_SPACING) {
+              track = Math.max(track, other.track - base + 1);
+            }
+          }
+          segment.track = base + track;
+          count = Math.max(count, track + 1);
+          placed.push(segment);
+        }
+        base += count;
+      }
+      this.tracks[depth] = base;
+    }
+  }
+
+  setPositions() {
+    // The rows' tops, and their gaps' (under them) heights.
+    const tops = [];
+    const heights = this.rows.map(row => Math.max(0, ...row.map(node => node.height)));
+    const gapHeight = depth => {
+      const tracks = this.tracks[depth];
+      if (depth === this.rows.length - 1 && tracks === 0) {
+        return 0;
+      }
+      return TRACK_MARGIN * 2 + Math.max(0, tracks - 1) * TRACK_GAP;
+    };
+    let y = this.margin;
+    for (const [depth] of this.rows.entries()) {
+      tops.push(y);
+      y += heights[depth] + gapHeight(depth);
+    }
+    const trackY = (depth, track) => {
+      const top = tops[depth] + heights[depth];
+      return this.tracks[depth] === 1
+        ? top + gapHeight(depth) / 2
+        : top + TRACK_MARGIN + track * TRACK_GAP;
+    };
+
+    for (const node of this.nodes) {
+      node.item.layoutLeft = node.x - node.width / 2;
+      node.item.layoutTop = tops[node.depth];
+    }
+    // A node's bottom (a dummy's, its row's), and its top.
+    const bottomOf = node => (node.dummy ? tops[node.depth] + heights[node.depth] : tops[node.depth] + node.height);
+    for (const edge of this.edges) {
+      const points = [];
+      const add = (x, y) => {
+        const last = points[points.length - 1];
+        if (!last || last.x !== x || last.y !== y) {
+          points.push({ x, y });
+        }
+      };
+      for (const segment of edge.rowSegments) {
+        const depth = segment.top.depth;
+        if (segment.sameRow) {
+          const across = trackY(depth, segment.track);
+          add(segment.fromX, bottomOf(segment.top));
+          add(segment.fromX, across);
+          add(segment.toX, across);
+          add(segment.toX, bottomOf(segment.bottom));
+          continue;
+        }
+        // (A straight segment's ends can be a little apart, ex: its ports'
+        // on blocks whose sides are; it's drawn at its upper end's.)
+        const x = points.length ? points[points.length - 1].x : segment.fromX;
+        add(x, bottomOf(segment.top));
+        if (segment.track >= 0) {
+          const across = trackY(depth, segment.track);
+          add(x, across);
+          add(segment.toX, across);
+        }
+        add(segment.track >= 0 ? segment.toX : x, tops[segment.bottom.depth]);
+      }
+      // (Without the corners which aren't, ex: through dummies.)
+      edge.layoutPoints = points.filter((point, i) => {
+        if (i === 0 || i === points.length - 1) {
+          return true;
+        }
+        const [before, after] = [points[i - 1], points[i + 1]];
+        return !((before.x === point.x && point.x === after.x) || (before.y === point.y && point.y === after.y));
+      });
+    }
+    const right = Math.max(0, ...this.nodes.map(node => node.x + node.width / 2));
+    this.size = { x: right + this.margin, y: y + this.margin };
+  }
+}
+
 // Construct a graph for the given input data.
 // The graph of `input` (its `nodes` and `edges`) in `container`, panned and
 // zoomed in `viewport`.  A node is a symbol, whose block shows its pretty
@@ -535,8 +962,22 @@ class Graph {
     this.blocks = allBlocks.filter(block => linked.has(block));
     this.isolatedBlocks = allBlocks.filter(block => !linked.has(block));
     let gridSize = { x: 0, y: 0 };
+    this.rowLayout = null;
     try {
-      if (this.blocks.length > 0) {
+      if (this.blocks.length > 0 && this.options.layout === "rows") {
+        // (In rows rather than the grid; see `RowLayout`.)
+        for (const block of this.blocks) {
+          this.createBlockNode(block);
+        }
+        this.rowLayout = new RowLayout(this.blocks, this.edges.filter(edge => !edge.loopback));
+        gridSize = this.rowLayout.run();
+        for (const block of this.blocks) {
+          block.left = block.layoutLeft;
+          block.top = block.layoutTop;
+          block.node.style.left = block.left + "px";
+          block.node.style.top = block.top + "px";
+        }
+      } else if (this.blocks.length > 0) {
         this.calculateDepth();
 
         this.compressDepth();
@@ -1489,33 +1930,41 @@ class Graph {
         continue;
       }
 
-      const [x1, y1] = this.layout.getPortPos(edge.pred, edge.predSide,
-                                            edge.predDir, edge);
-      const [x2, y2] = this.layout.getPortPos(edge.succ, edge.succSide,
-                                            edge.succDir, edge);
+      // (From its end in the upper row, and whether that's its succ's.)
+      let straight, upward;
+      if (this.rowLayout) {
+        straight = edge.layoutPoints;
+        upward = edge.upward;
+      } else {
+        const [x1, y1] = this.layout.getPortPos(edge.pred, edge.predSide,
+                                              edge.predDir, edge);
+        const [x2, y2] = this.layout.getPortPos(edge.succ, edge.succSide,
+                                              edge.succDir, edge);
 
-      let x = x1;
-      let y = y1;
+        let x = x1;
+        let y = y1;
 
-      const points = [];
-      points.push({ x, y });
+        const points = [];
+        points.push({ x, y });
 
-      for (const [breadth, depth, target] of edge.path) {
-        if (target === "horz") {
-          y = this.layout.getHorzAt(breadth, depth, edge);
-          points.push({ x, y });
-        } else if (target === "vert") {
-          x = this.layout.getVertAt(breadth, depth, edge);
-          points.push({ x, y });
+        for (const [breadth, depth, target] of edge.path) {
+          if (target === "horz") {
+            y = this.layout.getHorzAt(breadth, depth, edge);
+            points.push({ x, y });
+          } else if (target === "vert") {
+            x = this.layout.getVertAt(breadth, depth, edge);
+            points.push({ x, y });
+          }
         }
+
+        x = x2;
+        points.push({ x, y });
+        y = y2;
+        points.push({ x, y });
+
+        straight = straightenPoints(points, edge.pred, edge.succ);
+        upward = edge.flipped;
       }
-
-      x = x2;
-      points.push({ x, y });
-      y = y2;
-      points.push({ x, y });
-
-      const straight = straightenPoints(points, edge.pred, edge.succ);
       const start = straight[0];
       const end = straight[straight.length - 1];
       const path = roundedPath(straight);
@@ -1530,7 +1979,7 @@ class Graph {
       p.setAttribute("d", path);
       g.append(p);
 
-      let headOnStart = edge.flipped;
+      let headOnStart = upward;
       switch (edge.kind) {
         case "inheritance":
         case "composition":
@@ -1540,7 +1989,10 @@ class Graph {
       }
 
       const headPos = headOnStart ? start : end;
-      const dy = headOnStart ? 1 : -1;
+      // (Its head is on the side of its last part's, ex: under its end, for
+      // an edge between blocks in a row, which goes back up to its end.)
+      const before = straight.length > 1 ? straight[headOnStart ? 1 : straight.length - 2] : headPos;
+      const dy = before.y > headPos.y ? 1 : -1;
 
       let headPath = "";
       switch (edge.kind) {
@@ -1900,23 +2352,29 @@ window.addEventListener("load", () => {
   }
 
   // (Grouped in clusters with `?clusters=1`, a prototype; see
-  // graph-clusters.js.)
-  const clustered = new URLSearchParams(location.search).get("clusters") &&
-        typeof defaultClusterBy == "function";
+  // graph-clusters.js.  In rows, see `RowLayout`, or with `?layout=grid`, in
+  // the grid.)
+  const params = new URLSearchParams(location.search);
+  const clustered = params.get("clusters") && typeof defaultClusterBy == "function";
+  const layout = params.get("layout") || "rows";
   // The nodes the navigation panel's facets leave out (see facets.js and
   // query_results/graph_input.liquid), as they change.
   const facetItems = document.querySelector(".facet-items");
   const hiddenSyms = () => new Set(
     [...(facetItems?.querySelectorAll("[data-sym][hidden]") || [])].map(item => item.dataset.sym));
-  const options = { hiddenSyms: hiddenSyms() };
+  const options = { hiddenSyms: hiddenSyms(), layout };
   if (clustered) {
     options.clusterBy = defaultClusterBy;
-    // (Its facets' links to other queries keep it.)
-    for (const link of document.querySelectorAll("a.facet-action")) {
-      const url = new URL(link.href);
-      url.searchParams.set("clusters", "1");
-      link.href = url.href;
+  }
+  // (Its facets' links to other queries keep them.)
+  for (const link of document.querySelectorAll("a.facet-action")) {
+    const url = new URL(link.href);
+    for (const param of ["clusters", "layout"]) {
+      if (params.get(param)) {
+        url.searchParams.set(param, params.get(param));
+      }
     }
+    link.href = url.href;
   }
   const graph = window.interactiveGraphInstance = new Graph(
     document.querySelector("#interactive-graph-viewport"),
