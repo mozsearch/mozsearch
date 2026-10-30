@@ -37,8 +37,14 @@
 //! one writer at a time, and pushes based on the same new revisions would
 //! process them twice at once), but up to `WORKERS` spec pull requests'
 //! imports run at a time, mostly rendering and analyzing their specs, whose
-//! hooks take turns for their steps writing to the history and the source
-//! repo by locking the file `TRY_IMPORT_LOCK` (ex: with flock(1)).  The
+//! hooks take turns for their history steps by locking the file
+//! `TRY_IMPORT_LOCK` (ex: with flock(1); see
+//! scripts/import-try-push-batched.sh, which imports the histories of those
+//! waiting at once), and for their other steps writing to the source repo
+//! with locks of their own, ex: a spec pull request's forest commits (which
+//! write only its own refs, which the history steps don't; see the wubspecs
+//! config's import-try hook), so that they can make them while the history's
+//! is held, and wait for it together.  The
 //! queue only lives in memory: a restart of the server loses the waiting and
 //! running imports, but asking again resumes them (the history tools skip the
 //! revisions they've processed), and finished imports are in the repos.  At
@@ -81,14 +87,28 @@ pub const MAX_QUEUED_PULL_REQUESTS: usize = 500;
 pub const MAX_BATCH: usize = 500;
 /// How many imports can run at a time (only spec pull requests' run beside
 /// others; see the module's comment).  Spec pull requests' imports hold the
-/// history's lock for their history steps (on 2026-10-30, wubspecs' web
-/// server's 78 restored imports held it about 86% of the time with 4
-/// workers, about 1.7 s each, and a second more fetching from GitHub, since
-/// moved out of it), and then render and analyze unlocked (about 8 s each,
-/// using a core or two), so 6 keep it about as busy without their fetches,
-/// while the HTML Standard's, which hold it longer (its 1.5 million tokens),
-/// are bound by it anyway.
-pub const WORKERS: usize = 6;
+/// history's lock for their history steps, which import the histories of
+/// those waiting at once, and then render and analyze unlocked.  On
+/// 2026-10-30, with 6 workers on wubspecs' web server, whose hooks still made
+/// their forest commits holding the history's lock (so that few could wait
+/// for it together):
+/// - 78 restored imports of smaller specs' pull requests took 207 s: 2.6 s of
+///   history alone (1.2-1.6 s each in batches of 4 or 5), then about 11 s
+///   unlocked, using half a core or so and at most 4 GB.
+/// - The HTML Standard's 314 took 48 minutes, the lock busy 99% of the time:
+///   11.9 s of history alone, 7-8 s each in batches of 2-4 (its 1.5 million
+///   tokens, and many pull requests' many revisions), then about 25 s
+///   unlocked, using a core or so, 3.3 GB at the median and 15 GB at the
+///   99th percentile (19 GB at most).
+///
+/// With their forest commits beside the history steps, 10 workers don't wait
+/// for the lock for smaller specs.  The HTML Standard's, which the lock bounds
+/// whatever the workers, make batches of those waiting (while one batch's
+/// history runs, the others render, analyze and wait for the next), at about
+/// 7.5 s each, so about 39 minutes rather than 48 for those 314; and since
+/// they finish their history steps a batch at a time, a batch's worth (not
+/// all 10) render and analyze at once.
+pub const WORKERS: usize = 10;
 /// The most revisions an import processes (see import-try-push.sh), which
 /// includes those of its base which are newer than the tree's revision.
 pub const MAX_REVISIONS: usize = 2000;

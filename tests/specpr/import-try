@@ -24,11 +24,16 @@ if ! build-spec-pr --fetch-only "$SPECS_TOML" "$GIT_ROOT" "$NAME" > "$OUT"; then
     exit 1
 fi
 cat "$OUT"
-# (Its forest commits take turns with the other imports' steps writing to
-# the forest and the history; see TRY_IMPORT_LOCK in mozsearch's
-# tools/src/try_import.rs.  The steps say when it got the lock.)
-step wait-for-lock
-exec 9>"${TRY_IMPORT_LOCK:-$HISTORY_ROOT/try-imports/history.lock}"
+# (Its forest commits take turns with the other imports' forest commits, by
+# a lock of their own rather than the history's, TRY_IMPORT_LOCK (see
+# mozsearch's tools/src/try_import.rs), so that while a batch of imports
+# processes its history the others make theirs and wait for the next batch:
+# they only write new objects and the pull request's own refs, which the
+# history steps don't, and read refs which only the forest's update at
+# indexing changes; see mozsearch's tools/src/spec_forest.rs's
+# `pull_request_commits`.  The steps say when it got the lock.)
+step wait-for-forest
+exec 9>"$HISTORY_ROOT/try-imports/forest.lock"
 flock 9
 step forest-commits
 if ! build-spec-pr "$SPECS_TOML" "$GIT_ROOT" "$NAME" > "$OUT"; then
@@ -43,7 +48,7 @@ HEAD_REV=$(sed -n 's/^head: //p' "$OUT")
 
 # Its history, with the other imports waiting to import theirs, in one
 # history run (see mozsearch's scripts/import-try-push-batched.sh, which
-# takes the lock itself).
+# takes the history's lock).
 # (The tests' imports wait a few seconds for each other, so that those asked
 # for together, ex: test_SpecPullRequestImports', are imported together.)
 step history
