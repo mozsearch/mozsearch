@@ -1769,16 +1769,25 @@ fn bikeshed_including_spec<'a>(
     })
 }
 
-/// How a rendered spec links to the tree's other specs' rendered views, at
-/// the tip or at the revision.
+/// How a rendered spec links to the tree's specs' rendered views (its own
+/// pages' too), at the tip or at the revision; and in the view of a spec's
+/// source with its pull requests' changes (`prs_source`'s; see
+/// `format_rendered`'s `with_prs`), to its own pages in that view, so that
+/// its table of contents' and cross-references' links stay in it.
 struct RenderedSpecLinks<'a> {
     tree_name: &'a str,
     rev: Option<&'a str>,
+    prs_source: Option<&'a str>,
 }
 
 impl SpecLinks for RenderedSpecLinks<'_> {
     fn rendered_url(&self, path: &str) -> String {
-        rendered_url(self.tree_name, self.rev, path)
+        match self.prs_source {
+            Some(source) if source == path && self.rev.is_none() => {
+                format!("/{}/rendered-prs/{}", self.tree_name, url_encode_path(path))
+            }
+            _ => rendered_url(self.tree_name, self.rev, path),
+        }
     }
 
     fn algorithm_url(&self, sym: &str) -> Option<String> {
@@ -2596,6 +2605,7 @@ fn algorithm_section(
     let spec_links = RenderedSpecLinks {
         tree_name,
         rev: None,
+        prs_source: None,
     };
     // (A ReSpec spec's references to other specs' terms link by the index's
     // analysis, like its rendered view's.)
@@ -4751,6 +4761,7 @@ pub fn format_rendered(
         let spec_links = RenderedSpecLinks {
             tree_name,
             rev: page_rev.as_deref(),
+            prs_source: pr_view.is_some().then_some(path),
         };
         let specs = specs.as_deref().unwrap();
         let rendered_spec = match &main {
@@ -5450,6 +5461,7 @@ fn trunk_page_lines(
     let links = RenderedSpecLinks {
         tree_name,
         rev: None,
+        prs_source: None,
     };
     let lines = rendered_specs::render(spec, trunk, source_path, specs, &links, read, page)
         .filter(|rendered| rendered.file.is_none())
@@ -5698,9 +5710,12 @@ pub fn spec_pr_blocks_json(
         _ => crate::spec_prs::source_changes(&trunk, merged, |lines| lines.clone(), trunk_lines),
     };
 
+    // (Its rendering's links to the spec's pages stay in the view with its
+    // pull requests' changes, which shows it.)
     let spec_links = RenderedSpecLinks {
         tree_name,
         rev: None,
+        prs_source: Some(&source_path),
     };
     let prefix = format!("{}/", spec_repo);
     let read = |file: &str| match file.strip_prefix(&prefix) {
@@ -12174,6 +12189,35 @@ mod tests {
             None
         );
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A rendered spec's links to its own pages stay in the view with its
+    /// pull requests' changes (ex: the HTML Standard's table of contents'
+    /// links to its other pages), but not to other specs', nor at revisions.
+    #[test]
+    fn test_rendered_spec_links() {
+        use crate::rendered_specs::SpecLinks;
+        let links = |rev, prs_source| super::RenderedSpecLinks {
+            tree_name: "wubspecs",
+            rev,
+            prs_source,
+        };
+        assert_eq!(
+            links(None, Some("html/source")).rendered_url("html/source"),
+            "/wubspecs/rendered-prs/html/source"
+        );
+        assert_eq!(
+            links(None, Some("html/source")).rendered_url("dom/dom.bs"),
+            "/wubspecs/rendered/dom/dom.bs"
+        );
+        assert_eq!(
+            links(None, None).rendered_url("html/source"),
+            "/wubspecs/rendered/html/source"
+        );
+        assert_eq!(
+            links(Some("abc"), Some("html/source")).rendered_url("html/source"),
+            "/wubspecs/rev-rendered/abc/html/source"
+        );
     }
 
     /// rendered_prs.liquid's parts (see `render_rendered_prs`): the panel's

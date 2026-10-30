@@ -3497,6 +3497,66 @@ h2.sp-called-heading {
   font-size: smaller;
   opacity: 0.8;
 }
+/* A card's button hiding its pull request on the spec's pages, and in the
+   navigation panel, the list of those hidden, after the list of pull
+   requests, with buttons showing them again (see spec-pr-view.js's
+   `setHidden`); their entries in the list are hidden too. */
+.sp-pr-hide,
+.sp-pr-unhide {
+  padding: 0 0.4em;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: normal;
+  font-size: smaller;
+  cursor: pointer;
+}
+.sp-pr-hide {
+  opacity: 0.7;
+}
+.sp-pr-hide:hover,
+.sp-pr-hide:focus-visible {
+  opacity: 1;
+}
+.sp-pr-entry.sp-pr-entry-hidden {
+  display: none;
+}
+.sp-pr-hidden-box {
+  border-bottom: 1px solid var(--page-border-color);
+}
+#panel-content .sp-pr-hidden-box {
+  margin: 0;
+}
+.sp-pr-hidden-box > summary {
+  padding: 0.5rem;
+  cursor: pointer;
+}
+.panel .sp-pr-hidden-box > summary > h4 {
+  display: inline;
+  padding: 0;
+}
+.sp-pr-hidden-count {
+  font-weight: normal;
+  opacity: 0.8;
+}
+.sp-pr-hidden-note {
+  margin: 0 0.5rem 0.3em;
+  font-size: smaller;
+  opacity: 0.8;
+}
+.panel .sp-pr-hidden-list {
+  margin: 0;
+  padding: 0 0.5rem 0.3rem 1.5rem;
+}
+.sp-pr-hidden-entry {
+  margin: 0.3em 0;
+  overflow-wrap: anywhere;
+}
+.sp-pr-unhide-all {
+  margin: 0 0.5rem 0.5rem;
+}
 .sp-pr-card-body > .rd-block > :first-child {
   margin-top: 0.2em;
 }

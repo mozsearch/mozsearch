@@ -135,6 +135,52 @@ add_task(async function test_SpecPullRequestView() {
      "and from it to the view with them");
 });
 
+// A card's "Hide" hides its pull request's cards and entry, whatever the
+// facets' filtering, on the spec's pages (pull request 1 changes both the
+// Wattsi spec's page and the Bikeshed spec's), until the panel's list of
+// hidden pull requests shows it again (see spec-pr-view.js's `setHidden`).
+add_task(async function test_SpecPullRequestViewHide() {
+  await prepare();
+  const storage = frame.contentWindow.localStorage;
+  const hiddenKey = () => frame.contentWindow.storageKey("spPrHidden/specpr/gizmo");
+  storage.removeItem(hiddenKey());
+  await loadView("gizmo/source");
+  const card = number => doc().querySelector(`.sp-pr-column .sp-pr-card[data-pr="${number}"]`);
+  const entry = number => doc().querySelector(`.sp-pr-entry[data-path="${number}"]`);
+  const count = () => doc().querySelector(".sp-pr-list-count").textContent;
+  const hiddenBox = () => doc().querySelector(".sp-pr-hidden-box");
+  ok(!hiddenBox(), "Without hidden pull requests, the panel doesn't list them");
+
+  card(1).querySelector(".sp-pr-hide").click();
+  ok(card(1).hidden && !card(2).hidden, "A card's Hide hides its pull request's cards");
+  ok(!entry(1).getClientRects().length, "and its entry");
+  is(count(), "(3 of 4)", "which the list's heading counts");
+  ok(hiddenBox()?.querySelector('.sp-pr-hidden-entry[data-pr="1"]')?.textContent.startsWith("#1 "),
+     "The panel lists it as hidden");
+  ok(hiddenBox().compareDocumentPosition(doc().querySelector(".sp-pr-list-box")) & Node.DOCUMENT_POSITION_PRECEDING,
+     "after the list of pull requests");
+
+  // (Filtering, and clearing the filter, leave it hidden.)
+  [...doc().querySelectorAll('.facet[data-facet="review"] .facet-value')]
+    .find(button => button.textContent.includes("Changes requested")).click();
+  await waitForCondition(() => count() == "(1 of 4)", "Filtering");
+  doc().querySelector(".facet-clear").click();
+  await waitForCondition(() => count() == "(3 of 4)", "Clearing the filter");
+  ok(card(1).hidden && !card(2).hidden, "shows the others' cards, but not the hidden one's");
+
+  await loadView("gizmo/source");
+  ok(card(1)?.hidden && hiddenBox(), "It's hidden on the next page");
+  await loadView("gizmo/bs/index.bs");
+  await waitForCondition(() => card(1), "and on the spec's other pages");
+  ok(card(1).hidden, "too");
+
+  hiddenBox().querySelector('.sp-pr-hidden-entry[data-pr="1"] .sp-pr-unhide').click();
+  ok(!card(1).hidden && !hiddenBox(), "Its Show in the panel shows it again");
+  ok(storage.getItem(hiddenKey()) === null, "which is remembered");
+  await loadView("gizmo/source");
+  ok(!card(1).hidden, "on the next page");
+});
+
 // The list of pull requests in the panel collapses (a long one at first),
 // which is remembered, while filtering and on the next page, until it's
 // expanded again.

@@ -22,7 +22,10 @@
  * it changes.  Filtering the entries with the facets (see facets.js) hides
  * their cards.  The list is in the navigation panel, under the facets, and
  * its heading says how many entries the filtering shows; collapsing or
- * expanding it is remembered (see rendered_prs.liquid).
+ * expanding it is remembered (see rendered_prs.liquid).  A card's "Hide"
+ * hides its pull request (its cards and its entry) on the spec's pages,
+ * whatever the filtering, until the panel's list of the hidden pull requests,
+ * after the list, shows it again (see `setHidden`).
  *
  * An ecmarkup spec's page also lists the pull requests changing the files its
  * source imports, linking to those files' views with their changes (`imported`).
@@ -446,6 +449,15 @@
       github.textContent = "on GitHub";
       header.append(" ", github);
     }
+    // (Hiding its pull request, on the spec's pages; see `setHidden`.)
+    const hide = document.createElement("button");
+    hide.type = "button";
+    hide.className = "sp-pr-hide";
+    hide.textContent = "Hide";
+    hide.title = "Hide this pull request's changes on this spec's pages, whatever the filters " +
+      "(the panel's list of hidden pull requests shows them again)";
+    hide.addEventListener("click", () => setHidden(pr.number, pr.title, true));
+    header.append(" ", hide);
     const note = document.createElement("div");
     note.className = "sp-pr-card-note";
     const lines = group.filter(each => each.trunk).map(each => each.trunk);
@@ -534,10 +546,117 @@
   function addCards(entry, pr, changes, state) {
     for (const change of changes) {
       const made = card(pr, change, state);
-      made.element.hidden = entry.hidden;
       made.entry = entry;
+      made.element.hidden = !shownEntry(entry);
       cards.push(made);
     }
+  }
+
+  // ## Pull requests hidden by hand
+  //
+  // A card's "Hide" hides its pull request's cards and its entry on the
+  // spec's pages (remembered, for the tree's spec repository), after the
+  // facets' filtering, which doesn't show them again; the panel lists those
+  // hidden, after the list of pull requests, each with a button showing it
+  // again.
+  const [, treeName, , specRepo] = location.pathname.split("/");
+  const hiddenKey = storageKey(`spPrHidden/${treeName}/${specRepo}`);
+  // (Its numbers and titles.)
+  function readHidden() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(hiddenKey) || "{}");
+      return new Map(Object.entries(stored).map(([number, title]) => [Number(number), title]));
+    } catch (e) {
+      return new Map();
+    }
+  }
+  let hidden = readHidden();
+  const entryNumber = entry => Number(entry.dataset.path);
+  const shownEntry = entry => !entry.hidden && !hidden.has(entryNumber(entry));
+
+  function setHidden(number, title, hide) {
+    // (As another of the spec's pages may have left them.)
+    hidden = readHidden();
+    if (hide) {
+      hidden.set(number, title);
+    } else if (number === null) {
+      hidden.clear();
+    } else {
+      hidden.delete(number);
+    }
+    if (hidden.size) {
+      localStorage.setItem(hiddenKey, JSON.stringify(Object.fromEntries(hidden)));
+    } else {
+      localStorage.removeItem(hiddenKey);
+    }
+    applyHidden();
+  }
+
+  function applyHidden() {
+    for (const entry of entries) {
+      entry.classList.toggle("sp-pr-entry-hidden", hidden.has(entryNumber(entry)));
+    }
+    for (const card of cards) {
+      card.element.hidden = !shownEntry(card.entry);
+    }
+    updateCount();
+    renderHidden();
+    schedule();
+  }
+
+  // The panel's list of the hidden pull requests (those changing other pages
+  // of the spec too, which it says), after the list of pull requests.
+  let hiddenBox = null;
+  function renderHidden() {
+    if (!hidden.size) {
+      hiddenBox?.remove();
+      hiddenBox = null;
+      return;
+    }
+    if (!hiddenBox) {
+      hiddenBox = document.createElement("details");
+      hiddenBox.className = "sp-pr-hidden-box";
+      hiddenBox.open = true;
+      (document.querySelector(".sp-pr-list-box") || entries[0].closest("ul")).after(hiddenBox);
+    }
+    const summary = document.createElement("summary");
+    const heading = document.createElement("h4");
+    const count = document.createElement("span");
+    count.className = "sp-pr-hidden-count";
+    count.textContent = `(${hidden.size})`;
+    heading.append("Hidden pull requests ", count);
+    summary.append(heading);
+    const note = document.createElement("p");
+    note.className = "sp-pr-hidden-note";
+    note.textContent = "Hidden on this spec's pages, whatever the filters.";
+    const list = document.createElement("ul");
+    list.className = "facet-items sp-pr-hidden-list";
+    const onPage = new Set(entries.map(entryNumber));
+    for (const [number, title] of [...hidden].sort((a, b) => b[0] - a[0])) {
+      const item = document.createElement("li");
+      item.className = "sp-pr-hidden-entry";
+      item.dataset.pr = number;
+      const show = document.createElement("button");
+      show.type = "button";
+      show.className = "sp-pr-unhide";
+      show.textContent = "Show";
+      show.title = "Show its changes again";
+      show.addEventListener("click", () => setHidden(number, title, false));
+      item.append(`#${number} ${title}`, onPage.has(number) ? "" : " (not on this page)", " ", show);
+      list.append(item);
+    }
+    const parts = [summary, note, list];
+    if (hidden.size > 1) {
+      const all = document.createElement("button");
+      all.type = "button";
+      all.className = "sp-pr-unhide sp-pr-unhide-all";
+      all.textContent = "Show them all";
+      all.addEventListener("click", () => setHidden(null, null, false));
+      parts.push(all);
+    }
+    const open = hiddenBox.open;
+    hiddenBox.replaceChildren(...parts);
+    hiddenBox.open = open;
   }
 
   // Source changes beside the same block, as one.
@@ -707,7 +826,7 @@
   const listCount = listBox?.querySelector(".sp-pr-list-count");
   const updateCount = () => {
     if (listCount) {
-      const shown = entries.filter(entry => !entry.hidden).length;
+      const shown = entries.filter(shownEntry).length;
       listCount.textContent = shown == entries.length
         ? `(${entries.length})` : `(${shown} of ${entries.length})`;
     }
@@ -724,18 +843,15 @@
     }
   });
 
-  // Filtering the entries hides their cards.
-  new MutationObserver(() => {
-    for (const card of cards) {
-      card.element.hidden = card.entry.hidden;
-    }
-    updateCount();
-    schedule();
-  }).observe(document.querySelector(".sp-pr-list"), {
+  // Filtering the entries hides their cards (and those hidden by hand stay
+  // hidden).
+  new MutationObserver(applyHidden).observe(document.querySelector(".sp-pr-list"), {
     attributes: true,
     attributeFilter: ["hidden"],
     subtree: true,
   });
+  // (Those hidden on the spec's other pages are on this one too.)
+  applyHidden();
   // (The card gone to with "j" and "k" has its trunk's highlights.)
   new MutationObserver(highlight).observe(column, {
     attributes: true,
