@@ -394,6 +394,12 @@ pub struct GitData {
 
     /// The token-centric history, if the tree has one; see `history_path`.
     pub history: Option<TreeHistory>,
+
+    /// The merged pull requests of a forest's spec repositories (see
+    /// `crate::pull_requests`), from the history directory, when first asked
+    /// for; see `pull_requests`.
+    history_path: Option<String>,
+    pull_requests: std::sync::OnceLock<crate::pull_requests::PullRequests>,
 }
 
 /// How a tree's repo revisions map to blame commits and hg revisions (which
@@ -915,6 +921,8 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
         mailmap,
         blame_ignore,
         history,
+        history_path: paths.history_path.clone(),
+        pull_requests: Default::default(),
     })
 }
 
@@ -1132,6 +1140,15 @@ impl BlameIgnoreList {
 }
 
 impl GitData {
+    /// The merged pull requests of a forest's spec repositories (see
+    /// `crate::pull_requests`), loaded when first asked for.
+    pub fn pull_requests(&self) -> &crate::pull_requests::PullRequests {
+        self.pull_requests.get_or_init(|| match &self.history_path {
+            Some(history_path) => crate::pull_requests::PullRequests::load(history_path),
+            None => Default::default(),
+        })
+    }
+
     pub fn should_ignore_for_blame(&self, rev: &str) -> bool {
         // TODO: we might want to pull the commit message and check for
         // special annotations like "#skip-blame" or backouts as well.

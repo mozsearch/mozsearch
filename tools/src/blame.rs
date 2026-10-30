@@ -1,5 +1,5 @@
 use crate::file_format::config::{Config, GitData, TreeConfig};
-use crate::{git_ops, links};
+use crate::{git_ops, links, pull_requests};
 
 use serde_json::{Map, Value, json, to_string};
 use std::borrow::Cow;
@@ -94,7 +94,8 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
 
 /// What the blame popup shows about a commit: its header (with the author and
 /// date), and links to its parent (if it has only one), its full diff, and its
-/// Phabricator revision or pull request.
+/// Phabricator revision or pull request, and the issues that closes (for a
+/// forest's commits; see `pull_requests::commit_links`).
 pub fn commit_info_json(
     tree_config: &TreeConfig,
     git: &GitData,
@@ -137,6 +138,19 @@ pub fn commit_info_json(
         }
         if let Some(pr_link) = pr {
             obj.insert("pr".to_owned(), json!(pr_link));
+        }
+        // A forest's commit's pull request (unless its message's "Pull
+        // request:" line says), and the issues it closes.
+        let message = String::from_utf8_lossy(commit.message_bytes());
+        if let Some(links) = pull_requests::commit_links(&message, || git.pull_requests()) {
+            if let Some(pr_link) = links.pull_request
+                && !obj.contains_key("pr")
+            {
+                obj.insert("pr".to_owned(), json!(pr_link));
+            }
+            if !links.issues.is_empty() {
+                obj.insert("issues".to_owned(), json!(links.issues));
+            }
         }
 
         Ok(json!(obj))

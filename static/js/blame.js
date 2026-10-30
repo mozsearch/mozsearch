@@ -317,6 +317,27 @@ var BlamePopup = new (class BlamePopup {
    * Parse the removals of a strip's `data-rm-*` attribute, like
    * `parseTokenBlameEntries`.
    */
+  /**
+   * The links to a commit's pull request and the issues it closes (see
+   * `blame::commit_info_json`), the pull request's first, as [text, url]
+   * pairs: ex: "PR #13006", "issue #12951", or for another repository's,
+   * "issue w3c/hr-time#169".
+   */
+  reviewLinks(info) {
+    const links = [];
+    const repoOf = url => url.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\//)?.[1];
+    const repo = repoOf(info.pr || "") || repoOf(info.issues?.[0] || "");
+    if (info.pr) {
+      links.push([`PR #${info.pr.match(/\/([0-9]+)\/?$/)?.[1] || ""}`, info.pr]);
+    }
+    for (const issue of info.issues || []) {
+      const number = issue.match(/\/([0-9]+)\/?$/)?.[1] || "";
+      const other = repoOf(issue) != repo ? repoOf(issue) : "";
+      links.push([`issue ${other || ""}#${number}`, issue]);
+    }
+    return links;
+  }
+
   parseRemovals(attr, info) {
     if (!attr) {
       return [];
@@ -385,7 +406,10 @@ var BlamePopup = new (class BlamePopup {
     }
 
     const commitLinks = (info, rev, path) => {
-      let links = `Show <a href="/${tree}/diff/${rev}/${encodePath(path)}">diff</a>`;
+      // (Its pull request and closed issues first.)
+      let links = "Show " + this.reviewLinks(info)
+        .map(([name, url]) => `<a href="${encodeURI(url)}">${name}</a> or `).join("");
+      links += `<a href="/${tree}/diff/${rev}/${encodePath(path)}">diff</a>`;
       if (info.fulldiff) {
         links += ` or <a href="${encodeURI(info.fulldiff)}">full diff</a>`;
       }
@@ -396,14 +420,6 @@ var BlamePopup = new (class BlamePopup {
           name += " " + m[1];
         }
         links += ` or <a href="${encodeURI(info.phab)}">${name}</a>`;
-      }
-      if (info.pr) {
-        let name = "Pull request";
-        const m = info.pr.match(/\/([0-9]+)/);
-        if (m) {
-          name += " #" + m[1];
-        }
-        links += ` or <a href="${encodeURI(info.pr)}">${name}</a>`;
       }
       return links;
     };
@@ -513,7 +529,10 @@ var BlamePopup = new (class BlamePopup {
       rendered += json[i].header;
 
       let diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
-      rendered += `<br>Show <a href="${encodeURI(diffLink)}">annotated diff</a>`;
+      // (Its pull request and closed issues first.)
+      rendered += "<br>Show " + this.reviewLinks(json[i])
+        .map(([name, url]) => `<a href="${encodeURI(url)}">${name}</a> or `).join("");
+      rendered += `<a href="${encodeURI(diffLink)}">annotated diff</a>`;
 
       if (json[i].fulldiff) {
         rendered += ` or <a href="${encodeURI(json[i].fulldiff)}">full diff</a>`;
@@ -526,15 +545,6 @@ var BlamePopup = new (class BlamePopup {
           name += " " + m[1];
         }
         rendered += ` or <a href="${encodeURI(json[i].phab)}">${name}</a>`;
-      }
-
-      if (json[i].pr) {
-        let name = "Pull request";
-        const m = json[i].pr.match(/\/([0-9]+)/);
-        if (m) {
-          name += " #" + m[1];
-        }
-        rendered += ` or <a href="${encodeURI(json[i].pr)}">${name}</a>`;
       }
 
       if (json[i].parent) {

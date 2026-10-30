@@ -1231,12 +1231,13 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       links.append(a);
     };
     const [path, linenos] = byPath.entries().next().value;
+    // (Its pull request and the issues it closes first.)
+    for (const [name, url] of info ? BlamePopup.reviewLinks(info) : []) {
+      addLink(name, url);
+    }
     addLink("diff", `/${this.tree}/diff/${rev}/${this.encodePath(path)}`);
     if (info?.phab) {
       addLink(`Phabricator ${info.phab.match(/\/(D[0-9]+)/)?.[1] || "revision"}`, info.phab);
-    }
-    if (info?.pr) {
-      addLink(`Pull request #${info.pr.match(/\/([0-9]+)/)?.[1] || ""}`, info.pr);
     }
     if (info?.parent) {
       addLink("version before", this.revLink(info.parent, path), "deemphasize");

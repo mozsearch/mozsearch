@@ -117,6 +117,8 @@ pub mod logging;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod output;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod pull_requests;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod semantic_analyzer;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod sidecars;

@@ -70,3 +70,46 @@ repositories' 1,239 open pull requests.
 
 The snapshot is about 440 bytes per pull request: 540 KB for wubspecs' 85
 repositories' 1,239 open pull requests (2026-10-26).
+
+## Merged pull requests
+
+The blame popups link a forest's commit to its GitHub pull request and the
+issues that closes, before its diff (see tools/src/pull_requests.rs and
+`blame::commit_info_json`). Most spec repositories' commits don't say which
+pull request they are. WHATWG's squash merges' subjects don't have "(#N)",
+for example, though their messages often say what they fix ("Fixes #123.").
+So the Action also snapshots the merged pull requests of all of the tree's
+specs' GitHub repositories (merged.py): each one's number, its merge commit
+(for a squash merge, the squashed commit), and the issues it closes (GitHub's
+closing references, from the pull request's description or linked by hand).
+They're published as `merged.json` beside `snapshot.json`.
+
+    merged.py --specs SPECS_TOML --out merged.json --previous PREVIOUS_MERGED_JSON
+
+With the previous snapshot (the last one published), it asks only for the
+pull requests updated since each repository's newest: the 25 newest of 20
+repositories at a time (5 points of the 1,000 an hour the Action's token
+has), and then 100 at a time (a point), for those with more. So an hourly
+run of wubspecs' 391 repositories takes about 20 queries (100 points). A
+first run pages through every merged pull request: wubspecs' 52,281
+(2026-10-29; whatwg/html's 3,570, w3c/csswg-drafts' 2,648) take 768 queries,
+a point each, so about two hours' runs, since it stops after `--budget`
+seconds, or with fewer than `--reserve` points left (200, for the next run's
+open pull requests), and continues where it was the next hour (`cursor`).
+The snapshot is then about 2.8 MB.
+
+The snapshot is about 60 bytes per pull request:
+
+    {"taken": "...", "repos": {"whatwg/html": {"specs": ["html"],
+      "newest": "2026-10-29T...Z", "cursor": null,
+      "prs": [[13006, "57535533d504...", ["#12951", "w3c/hr-time#169"]], ...]}}}
+
+The tree's indexing downloads it into its history directory, as
+`pull-requests.json` (the config repo's `wubspecs/setup`), and a commit's
+pull request is the one whose merge commit is the commit's upstream commit
+(its `Upstream:` trailer's). Failing that, it's the one its subject names, as
+GitHub's merges' subjects do ("Fix it (#123)", "Merge pull request #123
+from ..."). Its issues are the pull request's closing references and those
+its message closes with GitHub's keywords ("Fixes #45", "closes
+whatwg/dom#6", "Fixes https://github.com/whatwg/html/issues/7"). Without the
+snapshot, only what the messages say is linked.

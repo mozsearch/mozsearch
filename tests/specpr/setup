@@ -85,3 +85,16 @@ $MOZSEARCH_PATH/scripts/build-history.py $GIT_ROOT $HISTORY_ROOT
 
 echo "Performing setup::build-commit-index step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 build-commit-index $GIT_ROOT $HISTORY_ROOT/commit-index
+
+echo "Performing setup::pull-requests step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+# The spec repository's merged pull requests, as the GitHub Action's snapshot
+# has them (see mozsearch's scripts/spec-prs/merged.py), for the blame popups'
+# links (see tools/src/pull_requests.rs): its repository standing for
+# example/gizmo on GitHub, whose pull request 9 is the trunk's second commit,
+# squashed, closing its issue 3 and other/widgets' issue 4 (see
+# test_PullRequestLinks).
+TRUNK2=$(git -C "$UPSTREAMS/gizmo" rev-parse main)
+cat > "$HISTORY_ROOT/pull-requests.json" <<EOF
+{"taken": "2025-04-03T00:00:00Z", "repos": {"example/gizmo": {"specs": ["gizmo"], "newest": "2025-04-02T12:00:00Z", "cursor": null, "prs": [[9, "$TRUNK2", ["#3", "other/widgets#4"]]]}}}
+EOF
