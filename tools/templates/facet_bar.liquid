@@ -7,7 +7,8 @@
   buttons showing all of them or only the biggest at the top; see
   facet_value.liquid), how many files each has, a button showing the elided
   ones, if any (see `FacetView::new`), and (if `group_by`) the choices of
-  grouping and of sorting (if `sort_by`) after them.  The items are files,
+  grouping and of sorting (if `sort_by`) after them.  And links beside a
+  facet's label, if it has any (see `FacetView::actions`).  The items are files,
   unless `noun` and `nouns` say otherwise (ex: "pull request").
 {%- endcomment -%}
 <section class="facet-box"{% if noun %} data-noun="{{ noun }}" data-nouns="{{ nouns }}"{% endif %}>
@@ -24,6 +25,7 @@
       <div class="facet" data-facet="{{ facet.key }}">
         <span class="facet-label">{{ facet.label | escape }}:
         {%- if facet.nested %} <span class="facet-label-buttons"><button type="button" class="facet-expand-all" title="Show all of the values, nested and elided">+</button><button type="button" class="facet-collapse-all" title="Show only the biggest values at the top">−</button></span>{% endif -%}
+        {%- if facet contains "actions" %}{% for action in facet.actions %} <a class="facet-action" href="{{ action.href | escape }}" title="{{ action.title | escape }}">{{ action.name | escape }}</a>{% endfor %}{% endif -%}
         </span>
         {%- for value in facet.values %}
         {%- include "facet_value.liquid" value: value %}

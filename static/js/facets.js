@@ -25,6 +25,10 @@
  * nested subsystems), as well as those not in its selected values, if it
  * has any.
  *
+ * The items can stand in for others, ex: a diagram's nodes (see
+ * query_results/graph_input.liquid), whose page then shows only those of the
+ * shown items, on their container's "facetschange" events (see graph.js).
+ *
  * The selections, the left out values, the grouping and the sorting go in
  * the URL's query (`facet-KEY=VALUE` and `-facet-KEY=VALUE`, as a query's
  * negated terms are, repeated, `group-by=KEY` and `sort-by=size`), so links
@@ -151,6 +155,9 @@
     status.textContent = filtering ? `Showing ${shown} of ${plural(allPaths)}.` : "";
     clear.classList.toggle("facet-inactive", !filtering);
     saveState();
+    // (For pages which show the items otherwise, ex: a diagram's nodes; see
+    // graph.js.)
+    container.dispatchEvent(new CustomEvent("facetschange"));
   }
 
   const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);

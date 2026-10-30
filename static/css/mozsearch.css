@@ -4163,6 +4163,14 @@ div[role=row].change-nav-current {
 .facet-label-buttons button + button {
   margin-left: 2px;
 }
+/* Links beside a facet's label (ex: a diagram's query traversing only its
+   tree; see `FacetView::actions`). */
+.facet-action {
+  margin-left: 0.5em;
+  font-weight: normal;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
 .facet-clear,
 :is(.facet-group-by, .facet-sort-by) select {
   font: inherit;
@@ -5009,16 +5017,17 @@ g.true-diag g.node polygon {
   margin-inline-start: 0.5rem;
 }
 
-#diagram-legend-pane {
-  margin-inline-start: 2rem;
+#diagram-legend-pane h5 {
+  margin: 0.5em 0 0.25em;
 }
 
 .diagram-legend {
-  margin-inline-start: 2rem;
+  margin-inline-start: 1rem;
   display: grid;
-  grid-template-columns: 8rem 1fr;
+  grid-template-columns: max-content 1fr;
   align-items: center;
-  gap: 2px;
+  column-gap: 1em;
+  row-gap: 2px;
 }
 
 .diagram-badge-tooltip {

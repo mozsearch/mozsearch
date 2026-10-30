@@ -499,7 +499,14 @@ class Graph {
     this.blocks = [];
     this.edges = [];
 
-    this.createBlocksAndEdges(input, sources, targets);
+    // (The input, and the nodes left out of it, for `setHidden`.)
+    this.input = input;
+    this.sources = sources;
+    this.targets = targets;
+    this.hiddenSyms = options.hiddenSyms || new Set();
+    this.removedPretties = new Set();
+
+    this.createBlocksAndEdges(this.shownInput(), sources, targets);
 
     this.render();
 
@@ -578,10 +585,46 @@ class Graph {
 
   // Lay out another input, keeping the pan and zoom.
   setInput(input, sources = [], targets = []) {
+    this.input = input;
+    this.sources = sources;
+    this.targets = targets;
     this.blocks = [];
     this.edges = [];
-    this.createBlocksAndEdges(input, sources, targets);
+    this.createBlocksAndEdges(this.shownInput(), sources, targets);
     this.render();
+  }
+
+  // The input without the nodes of `hiddenSyms` (and the edges with them).
+  shownInput() {
+    if (this.hiddenSyms.size == 0) {
+      return this.input;
+    }
+    const symOf = node => (typeof node === "string" ? node : node.sym);
+    const nodes = this.input.nodes.filter(node => !this.hiddenSyms.has(symOf(node)));
+    const shown = new Set(nodes.map(symOf));
+    const edges = this.input.edges.filter(edge => shown.has(edge.from) && shown.has(edge.to));
+    return { ...this.input, nodes, edges };
+  }
+
+  // Lay out the input without the nodes of `hiddenSyms` (ex: those whose
+  // facets' values the navigation panel's facets leave out; see
+  // query_results/graph_input.liquid), and those removed (see
+  // `removeNodeByPrettyName`), fitting it to the viewport.  (The nodes
+  // which are then unreachable stay, since the facets' counts are of the
+  // nodes they leave in.)
+  setHidden(hiddenSyms) {
+    this.hiddenSyms = hiddenSyms;
+    this.blocks = [];
+    this.edges = [];
+    this.createBlocksAndEdges(this.shownInput(), this.sources, this.targets);
+    for (const pretty of this.removedPretties) {
+      this.dropBlockByPrettyName(pretty);
+    }
+    if (this.removedPretties.size > 0) {
+      this.pruneUnreachableNodes();
+    }
+    this.render();
+    this.fitToViewport(1);
   }
 
   resetBlockAndEdgeState() {
@@ -596,9 +639,21 @@ class Graph {
   }
 
   removeNodeByPrettyName(prettyName) {
+    if (!this.dropBlockByPrettyName(prettyName)) {
+      return;
+    }
+    this.removedPretties.add(prettyName);
+
+    this.pruneUnreachableNodes();
+
+    this.render(false);
+  }
+
+  // Remove a block, and its edges; returns whether it was there.
+  dropBlockByPrettyName(prettyName) {
     const blockToRemove = this.blocks.find(b => b.pretty === prettyName);
     if (!blockToRemove) {
-      return;
+      return false;
     }
 
     const blockIdToRemove = blockToRemove.id;
@@ -613,10 +668,7 @@ class Graph {
       block.preds = block.preds.filter(p => p.id !== blockIdToRemove);
       block.succs = block.succs.filter(s => s.id !== blockIdToRemove);
     }
-
-    this.pruneUnreachableNodes();
-
-    this.render(false);
+    return true;
   }
 
   pruneUnreachableNodes() {
@@ -1851,9 +1903,25 @@ window.addEventListener("load", () => {
   // graph-clusters.js.)
   const clustered = new URLSearchParams(location.search).get("clusters") &&
         typeof defaultClusterBy == "function";
-  window.interactiveGraphInstance = new Graph(
+  // The nodes the navigation panel's facets leave out (see facets.js and
+  // query_results/graph_input.liquid), as they change.
+  const facetItems = document.querySelector(".facet-items");
+  const hiddenSyms = () => new Set(
+    [...(facetItems?.querySelectorAll("[data-sym][hidden]") || [])].map(item => item.dataset.sym));
+  const options = { hiddenSyms: hiddenSyms() };
+  if (clustered) {
+    options.clusterBy = defaultClusterBy;
+    // (Its facets' links to other queries keep it.)
+    for (const link of document.querySelectorAll("a.facet-action")) {
+      const url = new URL(link.href);
+      url.searchParams.set("clusters", "1");
+      link.href = url.href;
+    }
+  }
+  const graph = window.interactiveGraphInstance = new Graph(
     document.querySelector("#interactive-graph-viewport"),
     document.querySelector("#interactive-graph-container"),
     GRAPH_INPUT[0], sources, targets,
-    GRAPH_EXTRA, clustered ? { clusterBy: defaultClusterBy } : {});
+    GRAPH_EXTRA, options);
+  facetItems?.addEventListener("facetschange", () => graph.setHidden(hiddenSyms()));
 }, { once: true });

@@ -716,6 +716,7 @@ var Diagram = new (class Diagram {
     this.calculateOverload();
 
     this.addControl();
+    this.addLegend();
     this.addBadgeTooltips();
     this.addOverloadIcons();
     this.addEmptyHint();
@@ -940,22 +941,40 @@ var Diagram = new (class Diagram {
 
     optionsPane.append(apply);
     this.panel.append(optionsPane);
+  }
 
-    const legendPane = document.createElement("div");
+  /**
+   * The legend of the diagrams' badges (see `addBadgeTooltips`), in the
+   * navigation panel: the sections of `LABELS` with badges the page shows,
+   * with only those, if any.
+   */
+  addLegend() {
+    const shown = new Set([...document.querySelectorAll(`svg text[text-decoration="underline"]`)]
+      .map(text => text.textContent));
+    const sections = Object.entries(this.LABELS)
+      .map(([sectionLabel, section]) =>
+        [sectionLabel, Object.entries(section).filter(([label]) => shown.has(label))])
+      .filter(([, labels]) => labels.length > 0);
+    const content = document.querySelector("#panel-content");
+    if (sections.length == 0 || !content) {
+      return;
+    }
+
+    const legendPane = document.createElement("section");
     legendPane.id = "diagram-legend-pane";
 
-    const legendTitle = document.createElement("h3");
+    const legendTitle = document.createElement("h4");
     legendTitle.append("Legend");
     legendPane.append(legendTitle);
 
-    for (const [sectionLabel, section] of Object.entries(this.LABELS)) {
-      const legendTitle = document.createElement("h4");
-      legendTitle.append(sectionLabel);
-      legendPane.append(legendTitle);
+    for (const [sectionLabel, labels] of sections) {
+      const sectionTitle = document.createElement("h5");
+      sectionTitle.append(sectionLabel);
+      legendPane.append(sectionTitle);
 
       const legend = document.createElement("div");
       legend.classList.add("diagram-legend");
-      for (const [label, item] of Object.entries(section)) {
+      for (const [label, item] of labels) {
         const labelBox = document.createElement("span");
         labelBox.append(label);
         if (label.codePointAt(0) > 0x7f) {
@@ -970,7 +989,7 @@ var Diagram = new (class Diagram {
       legendPane.append(legend);
     }
 
-    this.panel.append(legendPane);
+    content.append(legendPane);
   }
 
   liftLimitFor(sym) {

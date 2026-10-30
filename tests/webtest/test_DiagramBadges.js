@@ -49,19 +49,17 @@ add_task(async function test_DiagramBadges_basic() {
 add_task(async function test_DiagramBadges_legend() {
   await TestUtils.loadQuery("tests", "class-diagram:'diagram_badges::C2' depth:4");
 
-  const toggle = frame.contentDocument.querySelector("#diagram-panel-toggle");
-  TestUtils.click(toggle);
-
-  const panel = frame.contentDocument.querySelector("#diagram-panel");
-  await waitForCondition(() => !panel.classList.contains("hidden"),
-                         "Panel is shown");
-
-  await waitForCondition(() => panel.querySelector("button"),
-                         "Apply button is shown");
-
-  const legend = frame.contentDocument.querySelector("#diagram-legend-pane");
+  // The legend is in the navigation panel, with only the badges the diagram
+  // shows.
+  const doc = frame.contentDocument;
+  const legend = doc.querySelector("#panel-content #diagram-legend-pane");
+  ok(legend, "The navigation panel has the legend");
   ok(legend.textContent.includes("\u{1f4aa}"),
      "Strong Pointer badge exists");
   ok(legend.textContent.includes("Strong pointer"),
      "Strong Pointer description exists");
+  ok(!legend.textContent.includes("GC reference"),
+     "but not the badges the diagram doesn't show");
+  ok(!doc.querySelector("#diagram-panel #diagram-legend-pane"),
+     "rather than in the diagram's controls");
 });

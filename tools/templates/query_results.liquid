@@ -16,6 +16,12 @@
     filter them.){% endcomment %}
     {%- if file_facets %}
     {% include 'navigation_panel.liquid' expanded: true, panel: null, panel_facets: file_facets.facets, panel_group_by: false, panel_sort_by: false, panel_lenses: file_facets.lenses %}
+    {%- comment %}(And with the facets of a client-side diagram's nodes, or
+    the legend of a diagram's badges, which search.js's `Diagram` adds.){% endcomment %}
+    {%- elsif graph_facets %}
+    {% include 'navigation_panel.liquid' expanded: true, panel: null, panel_facets: graph_facets.facets, panel_group_by: false, panel_sort_by: false, panel_noun: "node", panel_nouns: "nodes" %}
+    {%- elsif graph_badges %}
+    {% include 'navigation_panel.liquid' expanded: true, panel: null %}
     {%- else %}
     {% include 'navigation_panel.liquid' expanded: false, panel: null %}
     {%- endif %}

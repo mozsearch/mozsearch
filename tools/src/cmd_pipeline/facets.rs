@@ -3,7 +3,8 @@
 //! groups; see `ResultFacetRoot`.  Used by the "compile-results" pipeline
 //! command for `/query/` results, and by the `/explore/` pages and interdiff
 //! summaries (see `format::explore_facets`), whose files `file_facets`
-//! facets for facet_bar.liquid and facets.js, as for `/query/`'s results.
+//! facets for facet_bar.liquid and facets.js, as for `/query/`'s results;
+//! and client-side diagrams' nodes (see `graph_facets`).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
@@ -263,6 +264,8 @@ impl MaybeFacetGroup {
 /// A facet of a list of files (see `file_facets`), for facet_bar.liquid: its
 /// key (as facets.js and URLs name it), label, and values, whether any of them
 /// have nested values, and how many of them are elided (see `FacetView::new`).
+/// And links beside its label, if any (ex: a diagram's queries without its
+/// linked trees; see `graph_facets`).
 #[derive(Serialize)]
 pub struct FacetView {
     pub key: &'static str,
@@ -270,6 +273,16 @@ pub struct FacetView {
     pub values: Vec<FacetValueView>,
     pub nested: bool,
     pub more: u32,
+    pub actions: Vec<FacetAction>,
+}
+
+/// A link beside a facet's label (see `FacetView::actions`): its text, its
+/// tooltip, and where it goes.
+#[derive(Serialize)]
+pub struct FacetAction {
+    pub name: String,
+    pub title: String,
+    pub href: String,
 }
 
 /// How many of a facet's values show at first, and at most at each level of
@@ -389,6 +402,7 @@ impl FacetView {
             values,
             nested,
             more,
+            actions: vec![],
         }
     }
 }
@@ -1151,6 +1165,249 @@ pub fn file_facets(
     (facets, data)
 }
 
+/// A node of a diagram to facet (see `graph_facets`): its symbol, its pretty
+/// name (graph.js's blocks are the nodes with the same pretty name, ex: a
+/// function's overloads), the linked tree whose symbol it is, if it isn't the
+/// diagram's tree's, its subsystem (ex: "Core/DOM: Workers", or for a spec's
+/// symbol, its spec, ex: "html"), and its class's symbol, if it's in one
+/// (ex: "T_mozilla::dom::WorkerPrivate").
+pub struct GraphFacetNode {
+    pub sym: Ustr,
+    pub pretty: Ustr,
+    pub tree: Option<Ustr>,
+    pub subsystem: Option<Ustr>,
+    pub class: Option<Ustr>,
+}
+
+/// facets.js's data for a diagram's node (see query_results/graph_input.liquid):
+/// its symbol, the block it's in (its pretty name, which the counts are of),
+/// and the values of each facet it's in (with their ancestors), as JSON.
+#[derive(Serialize)]
+pub struct GraphNodeFacets {
+    pub sym: Ustr,
+    pub pretty: Ustr,
+    pub facets: String,
+}
+
+/// The facets of a diagram's nodes (see `graph_facets`), their data, and the
+/// linked trees they're in (biggest first).
+pub struct GraphFacets {
+    pub facets: Vec<FacetView>,
+    pub nodes: Vec<GraphNodeFacets>,
+    pub linked_trees: Vec<Ustr>,
+}
+
+/// The facets of a diagram's nodes (for the client-side diagrams, which leave
+/// out the nodes facets.js hides; see graph.js), as graph-clusters.js groups
+/// them: "Subsystem", hierarchical (ex: "Core", then "DOM: Workers"), under
+/// their trees if they're in several ("Tree and subsystem", the diagram's
+/// tree first, ex: wubspecs' specs, then firefox-disco's subsystems, for its
+/// implementations of their algorithms); and "Class", their classes.  The
+/// counts are of blocks (see `GraphFacetNode::pretty`).  The subsystems'
+/// facet is left out if none of its values would leave anything out, unless
+/// `keep_subsystems` (ex: for its links; see `FacetView::actions`).
+pub fn graph_facets(
+    own_tree: &str,
+    nodes: &[GraphFacetNode],
+    keep_subsystems: bool,
+) -> GraphFacets {
+    #[derive(Default)]
+    struct Level {
+        blocks: HashSet<Ustr>,
+        nested: BTreeMap<String, Level>,
+    }
+    let tree_of = |node: &GraphFacetNode| {
+        node.tree
+            .map_or_else(|| own_tree.to_string(), |tree| tree.to_string())
+    };
+    let trees: BTreeSet<String> = nodes.iter().map(tree_of).collect();
+    let several_trees = trees.len() > 1;
+    let total = nodes
+        .iter()
+        .map(|node| node.pretty)
+        .collect::<HashSet<_>>()
+        .len() as u32;
+
+    // Each node's subsystem's values (and their names), from the top: its
+    // tree, if there are several (ex: "firefox-disco/"), then its subsystem's
+    // segments (ex: "firefox-disco/Core", "firefox-disco/Core/DOM: Workers").
+    let subsystem_values = |node: &GraphFacetNode| -> Vec<(String, String)> {
+        let mut values = vec![];
+        let mut prefix = String::new();
+        if several_trees {
+            prefix = format!("{}/", tree_of(node));
+            values.push((prefix.clone(), tree_of(node)));
+        }
+        match node.subsystem {
+            Some(subsystem) => {
+                let mut full = String::new();
+                for segment in subsystem.split('/') {
+                    if !full.is_empty() {
+                        full.push('/');
+                    }
+                    full.push_str(segment);
+                    values.push((format!("{}{}", prefix, full), segment.to_string()));
+                }
+            }
+            None => values.push((
+                format!("{}{}", prefix, UNKNOWN_SUBSYSTEM),
+                "Unknown".to_string(),
+            )),
+        }
+        values
+    };
+    let mut root = Level::default();
+    let mut names: HashMap<String, String> = HashMap::new();
+    let mut memberships: HashMap<Ustr, BTreeMap<&'static str, BTreeSet<String>>> = HashMap::new();
+    for node in nodes {
+        let mut level = &mut root;
+        for (value, name) in subsystem_values(node) {
+            level = level.nested.entry(value.clone()).or_default();
+            level.blocks.insert(node.pretty);
+            memberships
+                .entry(node.sym)
+                .or_default()
+                .entry("subsystem")
+                .or_default()
+                .insert(value.clone());
+            names.insert(value, name);
+        }
+    }
+    fn views(
+        level: Level,
+        names: &HashMap<String, String>,
+        own_tree: &str,
+        trees_level: bool,
+        several_trees: bool,
+    ) -> Vec<FacetValueView> {
+        let mut values: Vec<FacetValueView> = level
+            .nested
+            .into_iter()
+            .map(|(value, nested)| {
+                let name = names.get(&value).cloned().unwrap_or_default();
+                let title = if trees_level && name == own_tree {
+                    format!("The diagram's tree's, {}'s", name)
+                } else if trees_level {
+                    format!("The linked tree {}'s", name)
+                } else if value.ends_with(UNKNOWN_SUBSYSTEM) {
+                    "Without subsystems".to_string()
+                } else {
+                    let subsystem = match several_trees {
+                        true => value
+                            .split_once('/')
+                            .map_or(value.as_str(), |(_, rest)| rest),
+                        false => value.as_str(),
+                    };
+                    subsystem.replacen('/', " :: ", 1)
+                };
+                FacetValueView {
+                    count: nested.blocks.len() as u32,
+                    values: views(nested, names, own_tree, false, several_trees),
+                    value,
+                    name,
+                    title,
+                    ..Default::default()
+                }
+            })
+            .collect();
+        // (The diagram's tree first, then the biggest, and those without
+        // subsystems last.)
+        values.sort_by(|a, b| {
+            let first = |value: &FacetValueView| trees_level && value.name == own_tree;
+            let last = |value: &FacetValueView| value.value.ends_with(UNKNOWN_SUBSYSTEM);
+            first(b)
+                .cmp(&first(a))
+                .then(last(a).cmp(&last(b)))
+                .then(b.count.cmp(&a.count))
+                .then_with(|| a.value.cmp(&b.value))
+        });
+        values
+    }
+    // Whether some value would leave something out.
+    fn splits(values: &[FacetValueView], total: u32) -> bool {
+        values
+            .iter()
+            .any(|value| value.count < total || splits(&value.values, total))
+    }
+    let mut facets = vec![];
+    let subsystems = views(root, &names, own_tree, several_trees, several_trees);
+    let linked_trees = match several_trees {
+        true => subsystems
+            .iter()
+            .filter(|value| value.name != own_tree)
+            .map(|value| ustr(&value.name))
+            .collect(),
+        false => vec![],
+    };
+    if keep_subsystems || splits(&subsystems, total) {
+        let label = match several_trees {
+            true => "Tree and subsystem",
+            false => "Subsystem",
+        };
+        facets.push(FacetView::new("subsystem", label.to_string(), subsystems));
+    }
+
+    // The classes, by their pretty names (their last parts, ex:
+    // "WorkerPrivate", unless several have the same).
+    let mut classes: BTreeMap<String, HashSet<Ustr>> = BTreeMap::new();
+    for node in nodes {
+        let Some(class) = node.class else {
+            continue;
+        };
+        let Some(class) = class.as_str().strip_prefix("T_") else {
+            continue;
+        };
+        classes
+            .entry(class.to_string())
+            .or_default()
+            .insert(node.pretty);
+        memberships
+            .entry(node.sym)
+            .or_default()
+            .entry("class")
+            .or_default()
+            .insert(class.to_string());
+    }
+    let short = |class: &str| class.rsplit("::").next().unwrap_or(class).to_string();
+    let mut shorts: HashMap<String, usize> = HashMap::new();
+    for class in classes.keys() {
+        *shorts.entry(short(class)).or_default() += 1;
+    }
+    let mut class_values: Vec<FacetValueView> = classes
+        .into_iter()
+        .map(|(class, blocks)| FacetValueView {
+            name: match shorts[&short(&class)] {
+                1 => short(&class),
+                _ => class.clone(),
+            },
+            title: class.clone(),
+            value: class,
+            count: blocks.len() as u32,
+            ..Default::default()
+        })
+        .collect();
+    class_values.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.value.cmp(&b.value)));
+    if !class_values.is_empty() {
+        facets.push(FacetView::new("class", "Class".to_string(), class_values));
+    }
+
+    let mut seen = HashSet::new();
+    let nodes = nodes
+        .iter()
+        .filter(|node| seen.insert(node.sym))
+        .map(|node| GraphNodeFacets {
+            sym: node.sym,
+            pretty: node.pretty,
+            facets: json!(memberships.remove(&node.sym).unwrap_or_default()).to_string(),
+        })
+        .collect();
+    GraphFacets {
+        facets,
+        nodes,
+        linked_trees,
+    }
+}
+
 /// The directory of the file at `path`, with its "/" (or "" at the top).
 fn dir_of(path: &str) -> &str {
     match path.rfind('/') {
@@ -1435,5 +1692,125 @@ mod tests {
         values.extend((0..6).map(|i| value(&format!("c{}", i), 5, 0)));
         let view = FacetView::new("subsystem", "Subsystem".to_string(), values);
         assert!(view.values.iter().all(|v| !v.expanded));
+    }
+
+    #[test]
+    fn test_graph_facets() {
+        let node = |sym: &str,
+                    pretty: &str,
+                    tree: Option<&str>,
+                    subsystem: Option<&str>,
+                    class: Option<&str>| {
+            GraphFacetNode {
+                sym: ustr(sym),
+                pretty: ustr(pretty),
+                tree: tree.map(ustr),
+                subsystem: subsystem.map(ustr),
+                class: class.map(ustr),
+            }
+        };
+        // A spec's algorithms, and a linked tree's implementations of them
+        // (two overloads, the same block, and another class's method of the
+        // same name).
+        let nodes = vec![
+            node("SPEC_a", "html a", None, Some("html"), None),
+            node("SPEC_b", "fetch b", None, Some("fetch"), None),
+            node(
+                "_Z1",
+                "mozilla::Loader::A",
+                Some("firefox"),
+                Some("Core/DOM: Workers"),
+                Some("T_mozilla::Loader"),
+            ),
+            node(
+                "_Z2",
+                "mozilla::Loader::A",
+                Some("firefox"),
+                Some("Core/DOM: Workers"),
+                Some("T_mozilla::Loader"),
+            ),
+            node(
+                "_Z3",
+                "js::Loader::B",
+                Some("firefox"),
+                Some("Core/JavaScript Engine"),
+                Some("T_js::Loader"),
+            ),
+            node(
+                "_Z4",
+                "js::Map::C",
+                Some("firefox"),
+                None,
+                Some("T_js::Map"),
+            ),
+        ];
+        let facets = graph_facets("specs", &nodes, false);
+        assert_eq!(facets.linked_trees, vec![ustr("firefox")]);
+        let keys: Vec<_> = facets
+            .facets
+            .iter()
+            .map(|f| (f.key, f.label.as_str()))
+            .collect();
+        assert_eq!(
+            keys,
+            vec![("subsystem", "Tree and subsystem"), ("class", "Class")]
+        );
+        let summary = |values: &[FacetValueView]| -> Vec<String> {
+            values
+                .iter()
+                .map(|v| format!("{} {} {}", v.value, v.name, v.count))
+                .collect()
+        };
+        let trees = &facets.facets[0].values;
+        // (The diagram's tree first, though it's smaller; the blocks counted.)
+        assert_eq!(summary(trees), vec!["specs/ specs 2", "firefox/ firefox 3"]);
+        assert_eq!(
+            summary(&trees[1].values),
+            vec!["firefox/Core Core 2", "firefox/? Unknown 1"],
+            "Those without subsystems last"
+        );
+        assert_eq!(
+            summary(&trees[1].values[0].values),
+            vec![
+                "firefox/Core/DOM: Workers DOM: Workers 1",
+                "firefox/Core/JavaScript Engine JavaScript Engine 1"
+            ]
+        );
+        assert_eq!(trees[1].values[0].values[0].title, "Core :: DOM: Workers");
+        assert_eq!(trees[1].title, "The linked tree firefox's");
+        // Classes by their last parts, unless several have the same.
+        assert_eq!(
+            summary(&facets.facets[1].values),
+            vec![
+                "js::Loader js::Loader 1",
+                "js::Map Map 1",
+                "mozilla::Loader mozilla::Loader 1"
+            ]
+        );
+        assert_eq!(facets.facets[1].values[1].title, "js::Map");
+        // Each node's values, with their ancestors.
+        let data: HashMap<_, _> = facets
+            .nodes
+            .iter()
+            .map(|n| (n.sym.as_str(), n.facets.as_str()))
+            .collect();
+        assert_eq!(
+            data["_Z1"],
+            r#"{"class":["mozilla::Loader"],"subsystem":["firefox/","firefox/Core","firefox/Core/DOM: Workers"]}"#
+        );
+        assert_eq!(data["SPEC_a"], r#"{"subsystem":["specs/","specs/html"]}"#);
+        assert_eq!(facets.nodes.len(), 6);
+
+        // One tree's: its subsystems at the top, and no facet of them if
+        // they'd leave nothing out, unless it's kept (for its links).
+        let one = vec![
+            node("_Z1", "A", None, Some("Core/DOM"), None),
+            node("_Z2", "B", None, Some("Core/DOM"), None),
+        ];
+        assert!(graph_facets("firefox", &one, false).facets.is_empty());
+        let kept = graph_facets("firefox", &one, true);
+        assert_eq!(kept.facets[0].label, "Subsystem");
+        assert_eq!(summary(&kept.facets[0].values), vec!["Core Core 2"]);
+        assert!(kept.linked_trees.is_empty());
     }
 }

@@ -1,4 +1,11 @@
 <script>var GRAPH_INPUT = {{ results.GraphInput.graphs | json }};</script>
+{%- comment %}(Its nodes' facets' values, which facets.js hides when they're
+filtered out, and graph.js then leaves them out; see `graph_facets`.){% endcomment %}
+{%- if graph_facets %}
+<div class="facet-items" hidden>
+{%- for node in graph_facets.nodes %}<span data-sym="{{ node.sym | escape }}" data-path="{{ node.pretty | escape }}" data-facets="{{ node.facets | escape }}"></span>{% endfor -%}
+</div>
+{%- endif %}
 {% include 'query_results/graph_panel.liquid'
    overloads_hit: results.GraphInput.overloads_hit,
    options: results.GraphInput.options %}

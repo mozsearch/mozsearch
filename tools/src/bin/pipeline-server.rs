@@ -26,8 +26,11 @@ use tools::{
     cmd_pipeline::{
         PipelineValues,
         builder::build_pipeline_graph,
-        facets::{CtxtraFacet, FacetFile, PathKinds, PpFacet, file_facets, last_changed_facet},
-        interface::FlattenedResultsBundle,
+        facets::{
+            CtxtraFacet, FacetAction, FacetFile, GraphFacetNode, PathKinds, PpFacet, file_facets,
+            graph_facets, last_changed_facet,
+        },
+        interface::{FlattenedResultsBundle, GraphInput},
     },
     data_api,
     file_format::config::{self, SearchEndpoint},
@@ -195,6 +198,104 @@ fn results_file_facets(
         Value::Null
     };
     json!({ "facets": facets, "files": data, "lenses": lenses })
+}
+
+/// The facets of a client-side diagram's nodes (see `graph_facets`), as
+/// `{"facets": [...], "nodes": [{sym, pretty, facets}]}`, for
+/// query_results/graph_input.liquid.  Beside the subsystems' facet's label,
+/// links to the query traversing only the diagram's tree, or without one of
+/// its linked trees, if it has their nodes (with the `tree:` and `-tree:`
+/// terms; since hiding them leaves the traversal's limits as they were), or
+/// if the query has those terms, with all of them (its own nodes can still
+/// be linked trees', ex: a spec's symbol, whose definition is).
+fn graph_facets_value(
+    tree: &str,
+    preset: &str,
+    query: &str,
+    rev: Option<&str>,
+    graphs: &GraphInput,
+) -> Value {
+    let nodes: Vec<GraphFacetNode> = graphs
+        .graphs
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|graph| graph["nodes"].as_array().into_iter().flatten())
+        .filter_map(|node| node.as_str().or_else(|| node["sym"].as_str()))
+        .filter_map(|sym| graphs.symbols.get(&ustr::ustr(sym)))
+        .map(|jumpref| GraphFacetNode {
+            sym: jumpref.sym,
+            pretty: jumpref.pretty,
+            tree: jumpref.tree,
+            subsystem: jumpref.meta.as_ref().and_then(|meta| meta.subsystem),
+            class: jumpref.meta.as_ref().and_then(|meta| meta.parent_sym),
+        })
+        .collect();
+    if nodes.is_empty() {
+        return Value::Null;
+    }
+
+    lazy_static::lazy_static! {
+        static ref TREE_TERMS: regex::Regex =
+            regex::Regex::new(r#"(?:^|\s)-?tree:(?:'[^']*'|"[^"]*"|\S+)"#).unwrap();
+    }
+    let others = TREE_TERMS.replace_all(query, "").trim().to_string();
+    let has_terms = others != query.trim();
+    let has_linked = nodes.iter().any(|node| node.tree.is_some());
+    let mut facets = graph_facets(tree, &nodes, has_linked || has_terms);
+    let href = |query: String| {
+        format!(
+            "/{}/query/{}?q={}{}",
+            tree,
+            preset,
+            urlencoding::encode(&query),
+            rev.map_or(String::new(), |rev| format!(
+                "&rev={}",
+                urlencoding::encode(rev)
+            )),
+        )
+    };
+    let mut actions = vec![];
+    if has_linked && !has_terms {
+        actions.push(FacetAction {
+            name: format!("only {}", tree),
+            title: format!(
+                "Traverse only {}'s symbols, not its linked trees' (with the tree: term)",
+                tree
+            ),
+            href: href(format!("{} tree:{}", others, tree)),
+        });
+        for linked in &facets.linked_trees {
+            actions.push(FacetAction {
+                name: format!("without {}", linked),
+                title: format!(
+                    "Traverse without {}'s symbols (with the -tree: term)",
+                    linked
+                ),
+                href: href(format!("{} -tree:{}", others, linked)),
+            });
+        }
+    }
+    if has_terms {
+        actions.push(FacetAction {
+            name: "all trees".to_string(),
+            title: "Traverse the linked trees' symbols too (without the query's tree: terms)"
+                .to_string(),
+            href: href(others),
+        });
+    }
+    if let Some(facet) = facets
+        .facets
+        .iter_mut()
+        .find(|facet| facet.key == "subsystem")
+    {
+        facet.actions = actions;
+    }
+    // (No box of facets without any.)
+    if facets.facets.is_empty() {
+        return Value::Null;
+    }
+    json!({ "facets": facets.facets, "nodes": facets.nodes })
 }
 
 /// The SYM_INFO (see `format::format_code`) of file-centric results: the
@@ -461,6 +562,21 @@ async fn handle_query(
             }
             _ => Value::Null,
         };
+        let graph_facets = match &result {
+            PipelineValues::GraphInput(graphs) => {
+                graph_facets_value(&tree, &preset, query, rev.map(String::as_str), graphs)
+            }
+            _ => Value::Null,
+        };
+        // (Whether a diagram has badges, which the legend in the navigation
+        // panel explains; see search.js's `Diagram.LABELS`.)
+        let graph_badges = match &result {
+            PipelineValues::GraphResultsBundle(grb) => grb
+                .graphs
+                .iter()
+                .any(|graph| graph.graph.contains(r#"text-decoration="underline""#)),
+            _ => false,
+        };
         if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
             results.inline_contexts();
             results.link_line_numbers(&tree, rev.map(String::as_str));
@@ -514,6 +630,8 @@ async fn handle_query(
             "debug": maybe_log,
             "SYM_INFO_STR": sym_info_str,
             "file_facets": file_facets,
+            "graph_facets": graph_facets,
+            "graph_badges": graph_badges,
             "too_expensive": too_expensive.clone().unwrap_or(Value::Null),
             "corrections": corrections,
         });
