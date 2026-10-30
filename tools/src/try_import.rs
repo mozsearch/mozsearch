@@ -74,13 +74,21 @@ pub const PRECOMPUTING: &str = "Precomputing its canvas and dataflow";
 /// The most try pushes' imports which can be waiting at a time.
 pub const MAX_QUEUED: usize = 8;
 /// The most spec pull requests' imports which can be waiting at a time.
-pub const MAX_QUEUED_PULL_REQUESTS: usize = 100;
-/// The most spec pull requests which can be asked for at once, less one (see
-/// `TryImports::request_all`).
-pub const MAX_BATCH: usize = 50;
+pub const MAX_QUEUED_PULL_REQUESTS: usize = 500;
+/// The most spec pull requests which can be asked for at once (see
+/// `TryImports::request_all`): all of a big spec's, ex: the HTML Standard's 315
+/// open pull requests (2026-10-30).
+pub const MAX_BATCH: usize = 500;
 /// How many imports can run at a time (only spec pull requests' run beside
-/// others; see the module's comment).
-pub const WORKERS: usize = 4;
+/// others; see the module's comment).  Spec pull requests' imports hold the
+/// history's lock for their history steps (on 2026-10-30, wubspecs' web
+/// server's 78 restored imports held it about 86% of the time with 4
+/// workers, about 1.7 s each, and a second more fetching from GitHub, since
+/// moved out of it), and then render and analyze unlocked (about 8 s each,
+/// using a core or two), so 6 keep it about as busy without their fetches,
+/// while the HTML Standard's, which hold it longer (its 1.5 million tokens),
+/// are bound by it anyway.
+pub const WORKERS: usize = 6;
 /// The most revisions an import processes (see import-try-push.sh), which
 /// includes those of its base which are newer than the tree's revision.
 pub const MAX_REVISIONS: usize = 2000;
@@ -616,8 +624,8 @@ impl TryImports {
     /// Ask for the spec pull requests `revs` (`SPEC/NUMBER`: those of a spec's
     /// summaries which aren't imported at their heads; see
     /// `spec_prs::pr_imports`) to be imported into the tree, all of them, as
-    /// `request` would each, or none: if there are `MAX_BATCH` or more, or not
-    /// enough room for them in the queue.  Returns how many it asked for (not
+    /// `request` would each, or none: if there are more than `MAX_BATCH`, or
+    /// not enough room for them in the queue.  Returns how many it asked for (not
     /// those waiting or running already).
     pub fn request_all(
         &self,
@@ -631,7 +639,7 @@ impl TryImports {
         if revs.iter().any(|rev| !is_pull_request(rev)) {
             return Err("Only spec pull requests are imported together");
         }
-        if revs.len() >= MAX_BATCH {
+        if revs.len() > MAX_BATCH {
             return Err("Too many pull requests to import at once; import them from their pages");
         }
         let revs: Vec<String> = revs

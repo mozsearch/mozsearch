@@ -51,7 +51,7 @@
     <p class="spec-prs-imports-status">{{ imports.current }} of its {{ imports.count }} pull request{% if imports.count != 1 %}s{% endif %} {% if imports.current == 1 %}is{% else %}are{% endif %} imported at {% if imports.current == 1 %}its head{% else %}their heads{% endif %}
       {%- if imports.pending > 0 %}, {{ imports.pending }} {% if imports.pending == 1 %}is{% else %}are{% endif %} waiting or importing{% endif %}
       {%- if imports.needed > 0 %}, and {{ imports.needed }} {% if imports.needed == 1 %}isn't{% else %}aren't{% endif %}{% endif %}.
-      <span class="spec-prs-import-limit"{% if imports.batch %} hidden{% endif %}>That's too many to import at once: filter them to fewer than {{ imports.max_batch }}, or import them from their pages.</span></p>
+      <span class="spec-prs-import-limit"{% if imports.batch %} hidden{% endif %}>That's too many to import at once: filter them to at most {{ imports.max_batch }}, or import them from their pages.</span></p>
     {%- if imports.needed > 0 %}
     <form method="post" action="{{ imports.import_url }}" class="spec-prs-import-form" data-max-batch="{{ imports.max_batch }}">
       <button type="submit" class="spec-prs-import-button"{% unless imports.batch %} hidden{% endunless %}>Import these pull requests</button>
@@ -148,8 +148,8 @@
     const shown = () => [...document.querySelectorAll('.spec-pr[data-needed="true"]')].filter(pr => !pr.hidden);
     const update = () => {
       const count = shown().length;
-      button.hidden = !count || count >= max;
-      limit.hidden = count < max;
+      button.hidden = !count || count > max;
+      limit.hidden = count <= max;
       button.textContent = count == 1 ? "Import this pull request" : `Import these ${count} pull requests`;
     };
     form.addEventListener("submit", () => {

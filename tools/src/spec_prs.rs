@@ -547,9 +547,39 @@ pub fn review_name(review: Option<&str>) -> &'static str {
     }
 }
 
+/// The "Updated" facet's values (see `pr_facets`): how long ago pull
+/// requests were last updated (by GitHub's `updatedAt`, which their commits,
+/// comments, reviews and labels update), as the "Last changed" facet's of
+/// lines are named (see `file_format::recency::LAST_CHANGED`): each a key, a
+/// name, a title, and the most days ago it's for.
+const UPDATED: [(&str, &str, &str, i64); 6] = [
+    ("week", "past week", "Updated under 1 week ago", 7),
+    ("month", "past month", "Updated 1-4 weeks ago", 28),
+    ("quarter", "past 3 months", "Updated 1-3 months ago", 91),
+    ("year", "past year", "Updated 3-12 months ago", 365),
+    ("years", "1-4 years", "Updated 1-4 years ago", 4 * 365),
+    ("older", "4+ years", "Updated over 4 years ago", i64::MAX),
+];
+
+/// The "Updated" value of a pull request updated at `updated` (RFC 3339, ex:
+/// "2026-10-29T12:00:00Z"), as of `now`: "unknown" if it doesn't say.
+fn updated_value(updated: Option<&str>, now: chrono::DateTime<chrono::Utc>) -> &'static str {
+    let Some(updated) = updated.and_then(|u| chrono::DateTime::parse_from_rfc3339(u).ok()) else {
+        return "unknown";
+    };
+    let days = (now - updated.with_timezone(&chrono::Utc)).num_days();
+    UPDATED
+        .iter()
+        .find(|(_, _, _, most)| days < *most)
+        .map_or("older", |(key, _, _, _)| key)
+}
+
 /// A pull request's values of the facets of a repository's pull requests
-/// (see `pr_facets`), by facet.
-pub fn pr_facet_values(pr: &PrSummary) -> BTreeMap<&'static str, Vec<String>> {
+/// (see `pr_facets`), by facet, as of `now` (for when it was updated).
+pub fn pr_facet_values(
+    pr: &PrSummary,
+    now: chrono::DateTime<chrono::Utc>,
+) -> BTreeMap<&'static str, Vec<String>> {
     let mut values = BTreeMap::new();
     values.insert(
         "review",
@@ -570,6 +600,10 @@ pub fn pr_facet_values(pr: &PrSummary) -> BTreeMap<&'static str, Vec<String>> {
         "draft",
         vec![if pr.draft { "draft" } else { "ready" }.to_string()],
     );
+    values.insert(
+        "updated",
+        vec![updated_value(pr.updated.as_deref(), now).to_string()],
+    );
     values.insert("label", pr.labels.clone());
     values.insert("spec", pr.specs.clone());
     let sections: BTreeSet<String> = pr
@@ -583,13 +617,14 @@ pub fn pr_facet_values(pr: &PrSummary) -> BTreeMap<&'static str, Vec<String>> {
 }
 
 /// The facets of a repository's pull requests: their review decisions,
-/// whether their authors can review, whether they're drafts, their labels,
-/// the specs they change (for repositories of several), and the sections they
-/// change (see `pr_facet_values`).
-pub fn pr_facets(prs: &[PrSummary]) -> Vec<FacetView> {
+/// whether their authors can review, whether they're drafts, how long ago
+/// they were updated (as of `now`; see `UPDATED`), their labels, the specs
+/// they change (for repositories of several), and the sections they change
+/// (see `pr_facet_values`).
+pub fn pr_facets(prs: &[PrSummary], now: chrono::DateTime<chrono::Utc>) -> Vec<FacetView> {
     let mut counts: HashMap<&'static str, BTreeMap<String, u32>> = HashMap::new();
     for pr in prs {
-        for (facet, values) in pr_facet_values(pr) {
+        for (facet, values) in pr_facet_values(pr, now) {
             for value in values {
                 *counts.entry(facet).or_default().entry(value).or_default() += 1;
             }
@@ -609,6 +644,16 @@ pub fn pr_facets(prs: &[PrSummary]) -> Vec<FacetView> {
                 "Other contributors".to_string(),
                 "Authored by other contributors".to_string(),
             ),
+            ("updated", "unknown") => (
+                "unknown".to_string(),
+                "When it was last updated isn't known".to_string(),
+            ),
+            ("updated", _) => UPDATED
+                .iter()
+                .find(|(key, _, _, _)| *key == value)
+                .map_or((value.to_string(), value.to_string()), |(_, name, title, _)| {
+                    (name.to_string(), title.to_string())
+                }),
             ("draft", "draft") => ("Drafts".to_string(), "Draft pull requests".to_string()),
             ("draft", _) => (
                 "Ready for review".to_string(),
@@ -621,6 +666,7 @@ pub fn pr_facets(prs: &[PrSummary]) -> Vec<FacetView> {
         ("review", "Review"),
         ("author", "Author"),
         ("draft", "Draft"),
+        ("updated", "Updated"),
         ("label", "Label"),
         ("spec", "Spec"),
         ("section", "Section"),
@@ -647,7 +693,17 @@ pub fn pr_facets(prs: &[PrSummary]) -> Vec<FacetView> {
                 }
             })
             .collect();
-        views.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name)));
+        // (The update times newest first, the others biggest first.)
+        let updated_order = |value: &str| {
+            UPDATED
+                .iter()
+                .position(|(key, _, _, _)| *key == value)
+                .unwrap_or(UPDATED.len())
+        };
+        match *key {
+            "updated" => views.sort_by_key(|view| updated_order(&view.value)),
+            _ => views.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name))),
+        }
         facets.push(FacetView::new(key, label.to_string(), views));
     }
     facets
@@ -1530,9 +1586,13 @@ mod tests {
             pr(2, Some("CHANGES_REQUESTED"), "CONTRIBUTOR", false),
             pr(3, None, "NONE", true),
         ];
-        let facets = pr_facets(&prs);
+        let now = chrono::DateTime::parse_from_rfc3339("2026-10-30T12:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let facets = pr_facets(&prs, now);
         let keys: Vec<&str> = facets.iter().map(|f| f.key).collect();
-        // (One spec, so no spec facet.)
+        // (One spec, so no spec facet; and all updated at once, so no
+        // update times' facet.)
         assert_eq!(keys, ["review", "author", "draft", "section"]);
         let author: Vec<(String, u32)> = facets[1]
             .values
@@ -1546,7 +1606,26 @@ mod tests {
                 ("Can review".to_string(), 1)
             ]
         );
-        assert_eq!(pr_facet_values(&prs[2])["review"], ["NONE"]);
+        assert_eq!(pr_facet_values(&prs[2], now)["review"], ["NONE"]);
+        // (How long ago they were updated, newest first.)
+        let mut prs = prs;
+        prs[0].updated = Some("2026-10-29T12:00:00Z".to_string());
+        prs[1].updated = Some("2026-08-30T12:00:00Z".to_string());
+        prs[2].updated = None;
+        let updated = pr_facets(&prs, now)
+            .into_iter()
+            .find(|facet| facet.key == "updated")
+            .unwrap();
+        assert_eq!(
+            updated
+                .values
+                .iter()
+                .map(|v| (v.name.as_str(), v.count))
+                .collect::<Vec<_>>(),
+            [("past week", 1), ("past 3 months", 1), ("unknown", 1)]
+        );
+        assert_eq!(updated_value(Some("2026-10-10T12:00:00Z"), now), "month");
+        assert_eq!(updated_value(Some("2020-10-02T12:00:00Z"), now), "older");
         assert!(can_review(Some("COLLABORATOR")) && !can_review(Some("FIRST_TIME_CONTRIBUTOR")));
     }
 }

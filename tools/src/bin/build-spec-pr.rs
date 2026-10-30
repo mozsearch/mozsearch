@@ -4,10 +4,12 @@
 // scripts/import-try-push.sh with what it prints).
 //
 // Usage:
-//   build-spec-pr [--fetch] SPECS_TOML FOREST_REPO SPEC/NUMBER
+//   build-spec-pr [--fetch | --fetch-only] SPECS_TOML FOREST_REPO SPEC/NUMBER
 //
 // With --fetch, the pull request's head (GitHub's `refs/pull/NUMBER/head`) is
-// fetched from the spec's repository first.  Prints:
+// fetched from the spec's repository first; with --fetch-only, it's only
+// fetched (which other imports' steps writing to the forest needn't wait for;
+// see `spec_forest::fetch_pull_request`).  Prints:
 //   base: the forest commit of the trunk commit it's based on
 //   stack: its commits' forest commits, oldest first
 //   head: its head's forest commit
@@ -22,12 +24,15 @@ use tools::spec_forest::{ForestConfig, fetch_pull_request, pull_request_commits}
 
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
-    let fetch = args.first().is_some_and(|arg| arg == "--fetch");
+    let fetch_only = args.first().is_some_and(|arg| arg == "--fetch-only");
+    let fetch = fetch_only || args.first().is_some_and(|arg| arg == "--fetch");
     if fetch {
         args.remove(0);
     }
     if args.len() != 3 {
-        eprintln!("Usage: build-spec-pr [--fetch] SPECS_TOML FOREST_REPO SPEC/NUMBER");
+        eprintln!(
+            "Usage: build-spec-pr [--fetch | --fetch-only] SPECS_TOML FOREST_REPO SPEC/NUMBER"
+        );
         exit(1);
     }
     let fail = |e: String| -> ! {
@@ -48,8 +53,14 @@ fn main() {
     if fetch {
         println!("Fetching pull request {} of {}", number, name);
         fetch_pull_request(forest, spec, number).unwrap_or_else(|e| fail(e));
+        if fetch_only {
+            return;
+        }
     }
-    println!("Making the forest commits of pull request {} of {}", number, name);
+    println!(
+        "Making the forest commits of pull request {} of {}",
+        number, name
+    );
     let commits = pull_request_commits(forest, spec, number).unwrap_or_else(|e| fail(e));
     let repo = Repository::open(forest).unwrap_or_else(|e| fail(e.to_string()));
     let rebased_ref = format!("refs/try-rebased/{}/{}", name, number);

@@ -5346,7 +5346,7 @@ fn rendered_prs_globals(
                 "number": pr.number,
                 "title": pr.title,
                 "try_path": try_path,
-                "facets": serde_json::to_string(&pr_facet_values(pr)).unwrap_or_default(),
+                "facets": serde_json::to_string(&pr_facet_values(pr, chrono::Utc::now())).unwrap_or_default(),
                 "data": data.to_string(),
                 "error": pr.error.clone().unwrap_or_else(|| "Its head couldn't be fetched".to_string()),
                 "loads": pr.head.is_some(),
@@ -5386,7 +5386,7 @@ fn rendered_prs_globals(
             "synced": summary.synced.get(..16).map_or(summary.synced.clone(), |minute| format!("{} UTC", minute.replace('T', " "))),
         })),
         "prs": entries,
-        "facets": pr_facets(prs),
+        "facets": pr_facets(prs, chrono::Utc::now()),
     }))
     .map_err(|_| "Template problems")
 }
@@ -11528,7 +11528,7 @@ fn utc_minute(iso: &str) -> String {
 /// GitHub page, what it changes (files and their sections, linking to them in
 /// the trunk's renderings), and its import's status (see
 /// `spec_prs::pr_imports`), with a button asking for the imports of those
-/// which need them, if there are fewer than `try_import::MAX_BATCH`, and
+/// which need them, if there are at most `try_import::MAX_BATCH`, and
 /// while some wait or run, polling their status (see
 /// `format_spec_pr_imports`).  Both have their syncs' status (with `notice`,
 /// ex: why one couldn't be asked for), a button asking for one, and while one
@@ -11629,7 +11629,7 @@ pub fn format_spec_prs(
                 "pending": pending,
                 "count": imports.len(),
                 "current": imports.iter().filter(|import| import.current).count(),
-                "batch": needed < crate::try_import::MAX_BATCH,
+                "batch": needed <= crate::try_import::MAX_BATCH,
                 "max_batch": crate::try_import::MAX_BATCH,
                 "import_url": format!("/{}/spec-prs/import?spec={}", tree_name, spec),
                 "status_url": format!("/{}/spec-prs/import-status?spec={}", tree_name, spec),
@@ -11686,7 +11686,7 @@ pub fn format_spec_prs(
                             .replace('_', "-"),
                         "updated": pr.updated.as_deref().map(utc_minute),
                         "try_path": format!("try/{}/{}", spec, pr.number),
-                        "facets": serde_json::to_string(&pr_facet_values(pr)).unwrap_or_default(),
+                        "facets": serde_json::to_string(&pr_facet_values(pr, chrono::Utc::now())).unwrap_or_default(),
                         "added": pr.files.iter().map(|file| file.added).sum::<u32>(),
                         "removed": pr.files.iter().map(|file| file.removed).sum::<u32>(),
                         "files": files,
@@ -11705,7 +11705,7 @@ pub fn format_spec_prs(
                 "snapshot": summary.snapshot.as_deref().map(utc_minute),
             });
             globals["prs"] = json!(prs);
-            globals["facets"] = json!(pr_facets(&summary.prs));
+            globals["facets"] = json!(pr_facets(&summary.prs, chrono::Utc::now()));
             format!("Pull requests of {}", summary.repo)
         }
     };

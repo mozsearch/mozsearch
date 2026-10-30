@@ -438,7 +438,10 @@ pub fn pull_request_ref(name: &str, number: u32) -> String {
 }
 
 /// Fetch a spec's pull request's head into `pull_request_ref`.  (GitHub's
-/// `refs/pull/<number>/head`, through git rather than its API.)
+/// `refs/pull/<number>/head`, through git rather than its API.)  Without
+/// writing FETCH_HEAD or running git's automatic maintenance, so that imports
+/// can fetch beside each other and beside an import's steps writing to the
+/// forest (whose objects and refs git takes concurrent writers of).
 pub fn fetch_pull_request(forest: &Path, spec: &SpecConfig, number: u32) -> Result<(), String> {
     let refspec = format!(
         "+refs/pull/{}/head:{}",
@@ -448,7 +451,15 @@ pub fn fetch_pull_request(forest: &Path, spec: &SpecConfig, number: u32) -> Resu
     let status = Command::new("git")
         .arg("-C")
         .arg(forest)
-        .args(["fetch", "--quiet", "--no-tags", spec.url(), &refspec])
+        .args([
+            "fetch",
+            "--quiet",
+            "--no-tags",
+            "--no-write-fetch-head",
+            "--no-auto-maintenance",
+            spec.url(),
+            &refspec,
+        ])
         .status()
         .map_err(|e| format!("Couldn't run git fetch: {}", e))?;
     if !status.success() {
