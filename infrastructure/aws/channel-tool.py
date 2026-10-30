@@ -221,7 +221,16 @@ class ChannelHelper:
             tg_health = self.elb.describe_target_health(TargetGroupArn=tgArn)
             for targetInfo in tg_health['TargetHealthDescriptions']:
                 targetId = targetInfo['Target']['Id']
-                inst = instances[targetId]
+                # A target we didn't list (ex: a terminated server, which has
+                # no security groups, while its deregistration drains after
+                # its replacement) or one being deregistered isn't the
+                # channel's active instance.
+                inst = instances.get(targetId)
+                if inst is None:
+                    continue
+                if targetInfo.get('TargetHealth', {}).get('State') == 'draining':
+                    inst['target_groups'].append(name + ' (draining)')
+                    continue
                 inst['role'] = 'active'
                 inst['target_groups'].append(name)
                 channel['activeInstanceId'] = targetId
