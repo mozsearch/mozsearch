@@ -8,26 +8,11 @@ set -o pipefail # Check all commands in a pipeline
 # already in the tree's source repo into the tree's token-centric history and
 # commit index, as the web server's try imports do (see tools/src/try_import.rs;
 # the tree's config repo hook fetches the push, ex: from hg's try repository,
-# and then runs this):
-# - The source repo's `try` branch (see `source_mapping::TRY_BRANCH`) is set to
-#   the push's head, and build-history.py processes it into the history repos'
-#   `try` branch, whose notes accumulate every imported push, reading through to
-#   the notes of the tree's branch so that only the push's own revisions are
-#   processed (and those of its base which the history doesn't have yet, ex:
-#   when it's based on a newer revision than the tree's, up to MAX_REVISIONS).
-# - The commit index's `try` branch accumulates the pushes' commits, reading
-#   through to the branch's index (see tools/src/commit_index.rs).
-# - The push's stack, its commits since it diverged from the trunk, oldest
-#   first, is written to HISTORY_ROOT/try-pushes/NAME, for its page: the hook's
-#   PUSH_REVS (ex: the try repository's draft ancestors of the head, which
-#   include the stack's commits earlier pushes had), or else the commits the
-#   branch doesn't have (which include its base's newer revisions, if any).
-#   Commits which only select try's tasks (only changing try_task_config.json,
-#   ex: "Tasks automatically selected.") are listed as "-REV", which the page
-#   leaves out.
-# - Last, `refs/try/NAME` is set to the head in the source repo, so that its
-#   existence means the push is imported (ex: NAME is its hg revision, or a
-#   spec's pull request's SPEC/NUMBER; see build-spec-pr).
+# and then runs this): a batch of one push for scripts/import-try-pushes.sh
+# (see it for what an import does), named NAME (ex: its hg revision, or a
+# spec's pull request's SPEC/NUMBER; see build-spec-pr), whose head is REV,
+# with PUSH_REVS, if set, its stack (ex: the try repository's draft ancestors
+# of the head).
 #
 # Usage: import-try-push.sh SOURCE_GIT HISTORY_ROOT BRANCH NAME REV MAX_REVISIONS [SYNTAX_ARGS...]
 # - BRANCH is the tree's `git_branch` (or HEAD, for the history repos' HEAD).
@@ -48,54 +33,8 @@ REV=$5
 MAX_REVISIONS=$6
 shift 6
 
-TRY_BRANCH=try
-
-HEAD_REV=$(git -C "$SOURCE_GIT" rev-parse --verify "$REV^{commit}")
-if [[ "$BRANCH" == "HEAD" ]]; then
-    SOURCE_REF=HEAD
-    # (The history repos' branch, as the tools name the notes of HEAD's.)
-    NOTES_BRANCH=$(git -C "$HISTORY_ROOT/timeline" symbolic-ref --short HEAD)
-else
-    SOURCE_REF="refs/heads/$BRANCH"
-    NOTES_BRANCH=$BRANCH
-fi
-
-# The revisions the push has which the branch doesn't, which includes those of
-# its base which are newer than the branch's head (the history has processed
-# the branch up to its head, at the tree's last indexing).
-NEW_REVISIONS=$(git -C "$SOURCE_GIT" rev-list --count "$HEAD_REV" --not "$SOURCE_REF")
-echo "The push has $NEW_REVISIONS revisions which $BRANCH doesn't."
-if (( NEW_REVISIONS > MAX_REVISIONS )); then
-    echo "ERROR: more than $MAX_REVISIONS revisions to process; the push's base may be too far ahead of the tree's revision."
-    exit 1
-fi
-
-git -C "$SOURCE_GIT" update-ref "refs/heads/$TRY_BRANCH" "$HEAD_REV"
-
-# (Its repacks run in the background, after it's done, rather than holding up
-# the import; see build-history.py's HISTORY_DETACHED_REPACKS.)
-BLAME_REF="refs/heads/$TRY_BRANCH" \
-    READ_NOTES_REFS="refs/notes/mozsearch-source-mapping-$NOTES_BRANCH" \
-    HISTORY_DETACHED_REPACKS=1 \
-    "$MOZSEARCH_PATH/scripts/build-history.py" "$SOURCE_GIT" "$HISTORY_ROOT" "$@"
-
-build-commit-index "$SOURCE_GIT" "$HISTORY_ROOT/commit-index" "refs/heads/$TRY_BRANCH" \
-    --accumulate --read "$BRANCH"
-
-# (A spec's pull request's NAME is SPEC/NUMBER, in its spec's directory.)
-mkdir -p "$(dirname "$HISTORY_ROOT/try-pushes/$NAME")"
-if [[ -n "${PUSH_REVS:-}" ]]; then
-    STACK=$(tr ' ' '\n' <<< "$PUSH_REVS" | grep .)
-else
-    STACK=$(git -C "$SOURCE_GIT" rev-list --reverse "$HEAD_REV" --not "$SOURCE_REF")
-fi
-for COMMIT in $STACK; do
-    if [[ "$(git -C "$SOURCE_GIT" diff-tree --no-commit-id --name-only -r "$COMMIT")" == "try_task_config.json" ]]; then
-        echo "-$COMMIT"
-    else
-        echo "$COMMIT"
-    fi
-done > "$HISTORY_ROOT/try-pushes/$NAME"
-
-git -C "$SOURCE_GIT" update-ref "refs/try/$NAME" "$HEAD_REV"
-echo "Imported $NAME as $HEAD_REV."
+BATCH=$(mktemp)
+trap 'rm -f "$BATCH"' EXIT
+echo "$NAME $REV ${PUSH_REVS:-}" > "$BATCH"
+"$MOZSEARCH_PATH/scripts/import-try-pushes.sh" "$SOURCE_GIT" "$HISTORY_ROOT" "$BRANCH" \
+    "$MAX_REVISIONS" "$BATCH" "$@"

@@ -4,6 +4,8 @@
 // Usage:
 //   build-timeline-tree SOURCE_REPO SYNTAX_REPO TIMELINE_REPO REV_SUMMARIES_DIR
 //
+// (`EXTRA_HEADS`, whitespace-separated source revisions, are heads processed in
+// the same run, besides `BLAME_REF`'s.)
 // The environment variables `BLAME_REF`, `COMMIT_LIMIT`, and `CINNABAR` (set to 0
 // to not ask git-cinnabar about the hg revisions in backout messages) are handled
 // the same as by `build-syntax-token-tree`.  `CONSOLIDATE=0` disables the
@@ -4689,6 +4691,33 @@ fn main() {
     let mut walk = syntax_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
     walk.push(syntax_head).unwrap();
+    // And the syntax commits of EXTRA_HEADS (whitespace-separated source
+    // revisions), heads processed in the same run as BLAME_REF's (ex: several
+    // spec pull requests' imports at once; see scripts/import-try-pushes.sh),
+    // those the syntax has processed (the rest are processed by a later run,
+    // ex: build-history.py's next chunk, when it pipelines the tools).
+    // (With them, the syntax repo's branch is the last syntax commit written,
+    // which needn't be BLAME_REF's head's, so that's looked up too.)
+    let source_repo_for_heads = Repository::open(&source_repo_path).unwrap();
+    let extra_heads = env::var("EXTRA_HEADS").unwrap_or_default();
+    let mut heads: Vec<&str> = extra_heads.split_whitespace().collect();
+    if !heads.is_empty() {
+        heads.push(&blame_ref);
+    }
+    for extra in heads {
+        let Ok(source_rev) = source_repo_for_heads
+            .revparse_single(extra)
+            .and_then(|object| object.peel_to_commit())
+            .map(|commit| commit.id())
+        else {
+            error!("EXTRA_HEADS' {} isn't a commit", extra);
+            std::process::exit(1);
+        };
+        match syntax_mapping.lookup(&syntax_repo, source_rev) {
+            Some(syntax_rev) => walk.push(syntax_rev).unwrap(),
+            None => info!("EXTRA_HEADS' {} isn't processed into the syntax yet", extra),
+        }
+    }
     let mut syntax_revs = walk
         .with_hide_callback(&mut hide_processed)
         .unwrap()

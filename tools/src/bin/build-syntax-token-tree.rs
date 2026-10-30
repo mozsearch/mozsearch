@@ -9,7 +9,9 @@
 //
 // See `hyperblame::history_config` for the optional history configuration and
 // `tools::cinnabar` for the old revision ("oldrevs") options, which match
-// build-blame's.  The environment variables `BLAME_REF`, `COMMIT_LIMIT`, and
+// build-blame's.  (`EXTRA_HEADS`, whitespace-separated revisions, are heads
+// processed in the same run, besides `BLAME_REF`'s.)  The environment
+// variables `BLAME_REF`, `COMMIT_LIMIT`, and
 // `CINNABAR` (set to 0 to not ask git-cinnabar for hg revisions) are handled
 // like build-blame.
 //
@@ -1866,6 +1868,16 @@ fn attributes_inherited_by(
     nearest.map(|(_, attrs)| attrs)
 }
 
+/// The heads of EXTRA_HEADS (whitespace-separated revisions), which a run
+/// processes besides BLAME_REF's (see scripts/import-try-pushes.sh).
+fn extra_heads() -> Vec<String> {
+    env::var("EXTRA_HEADS")
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(str::to_string)
+        .collect()
+}
+
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     // The syntax repo is ours and git fast-import already hashed what it wrote,
@@ -1941,6 +1953,20 @@ fn main() {
     let mut walk = git_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
     walk.push(head).unwrap();
+    // And the revisions of EXTRA_HEADS (whitespace-separated source
+    // revisions), heads processed in the same run as BLAME_REF's (ex: several
+    // spec pull requests' imports at once; see scripts/import-try-pushes.sh).
+    for extra in extra_heads() {
+        let oid = git_repo
+            .revparse_single(&extra)
+            .and_then(|object| object.peel_to_commit())
+            .unwrap_or_else(|e| {
+                error!("EXTRA_HEADS' {} isn't a commit: {}", extra, e);
+                std::process::exit(1);
+            })
+            .id();
+        walk.push(oid).unwrap();
+    }
     // If the history configuration has a start revision, we ignore its
     // ancestors.  Descendants of those ancestors which aren't descendants of the
     // start revision (ex: a merged branch which forked before the start) are
