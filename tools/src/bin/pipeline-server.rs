@@ -596,7 +596,14 @@ async fn handle_query(
         };
         if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
             results.inline_contexts();
-            results.link_line_numbers(&tree, rev.map(String::as_str));
+            // (A spec tree's files' lines go to their rendered views, if they
+            // have them; a linked tree's files' by that tree's.)
+            let rendered = |file_tree: &str, path: &str| {
+                local_servers
+                    .get(file_tree)
+                    .and_then(|server| server.rendered_line_template(path))
+            };
+            results.link_line_numbers(&tree, rev.map(String::as_str), &rendered);
             results.add_recency_cells();
         }
 

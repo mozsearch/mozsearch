@@ -1741,6 +1741,104 @@ pub fn spec_globals(
     .unwrap_or_default()
 }
 
+/// The URL of a line of the file at `path` in its rendered view, with "{}"
+/// for the line, if it's a spec tree's file with one, which search results'
+/// lines link to (see `FlattenedResultsBundle::link_line_numbers`): a spec's
+/// source (a paged spec's `/line/{}`, which `rendered_redirect` sends to the
+/// page with the line, else its view's `#{}`; see hyperblame.js's
+/// `showLineHash`), or a file a Bikeshed spec includes or an ecmarkup spec
+/// imports (its part's view's `#{}`).
+pub fn rendered_line_template(cfg: &Config, tree_name: &str, path: &str) -> Option<String> {
+    use std::sync::{Arc, LazyLock, Mutex};
+    // (Each tree's, worked out once: its files with rendered views, by path.)
+    static TEMPLATES: LazyLock<Mutex<HashMap<String, Arc<HashMap<String, String>>>>> =
+        LazyLock::new(Default::default);
+    let tree_config = cfg.trees.get(tree_name)?;
+    let cached = TEMPLATES.lock().unwrap().get(tree_name).cloned();
+    let templates = match cached {
+        Some(templates) => templates,
+        None => {
+            let templates = Arc::new(rendered_line_templates(tree_name, tree_config));
+            TEMPLATES
+                .lock()
+                .unwrap()
+                .insert(tree_name.to_string(), templates.clone());
+            templates
+        }
+    };
+    templates.get(path).cloned()
+}
+
+/// The files of a tree with rendered views, and their lines' URLs' templates
+/// (see `rendered_line_template`).
+fn rendered_line_templates(tree_name: &str, tree_config: &TreeConfig) -> HashMap<String, String> {
+    lazy_static! {
+        // (The elements with an included file's content have its `bs-pos`s;
+        // see `bikeshed_including_spec`.)
+        static ref BS_POS: regex::Regex = regex::Regex::new(r#" bs-pos="([^":]+):"#).unwrap();
+    }
+    let mut templates = HashMap::new();
+    let Some(specs) = tree_specs(tree_name, tree_config) else {
+        return templates;
+    };
+    let Ok(git) = tree_config.get_git() else {
+        return templates;
+    };
+    let Ok(tip) = rendered_commit(git, None) else {
+        return templates;
+    };
+    let read = |file: &str| read_commit_file(&git.repo, &tip, file);
+    for spec in &specs.specs {
+        let (Some(format), Some(source)) = (spec.format, spec.source_path()) else {
+            continue;
+        };
+        if !rendered_specs::has_rendered_view(format) {
+            continue;
+        }
+        let base = rendered_url(tree_name, None, &source);
+        templates.insert(
+            source.clone(),
+            match rendered_specs::is_paged(format) {
+                true => format!("{}/line/{{}}", base),
+                false => format!("{}#{{}}", base),
+            },
+        );
+        let parts: Vec<String> = match format {
+            crate::spec_analyze::SpecFormat::Bikeshed => {
+                let dir = Path::new(&source)
+                    .parent()
+                    .and_then(|dir| dir.to_str())
+                    .unwrap_or_default()
+                    .to_string();
+                std::fs::read_to_string(bikeshed_rendering_path(tree_config, &source))
+                    .map(|output| {
+                        BS_POS
+                            .captures_iter(&output)
+                            .map(|captures| match dir.as_str() {
+                                "" => captures[1].to_string(),
+                                dir => format!("{}/{}", dir, &captures[1]),
+                            })
+                            .filter(|part| *part != source)
+                            .collect::<BTreeSet<String>>()
+                            .into_iter()
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            }
+            crate::spec_analyze::SpecFormat::Ecmarkup => {
+                rendered_specs::ecmarkup::imported_files(&source, &read)
+            }
+            _ => vec![],
+        };
+        for part in parts {
+            templates
+                .entry(part.clone())
+                .or_insert_with(|| format!("{}#{{}}", rendered_url(tree_name, None, &part)));
+        }
+    }
+    templates
+}
+
 /// The Bikeshed spec which includes the file at `path` (by the index's
 /// rendering of it), with its source's path.
 fn bikeshed_including_spec<'a>(

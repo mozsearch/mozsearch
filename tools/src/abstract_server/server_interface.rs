@@ -403,6 +403,13 @@ pub trait AbstractServer {
     /// Return info about the latest commit, primarily for templating purposes.
     fn commit_info(&self) -> Result<Option<CommitInfo>>;
 
+    /// The URL of a line of the file at `path` in its rendered view, with
+    /// "{}" for the line, if it's a spec tree's file with one (see
+    /// `format::rendered_line_template`), which search results' lines link to.
+    fn rendered_line_template(&self, _path: &str) -> Option<String> {
+        None
+    }
+
     /// The path kind and subsystem (ex: "Firefox/Sidebar") of the file at
     /// `path` in the indexed revision, if we know it, for faceting results
     /// (see `cmd_pipeline::facets::file_facets`).

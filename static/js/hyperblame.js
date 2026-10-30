@@ -324,8 +324,10 @@ var RenderedBlocks = new (class RenderedBlocks {
    * Scroll to the block with the line of the page's hash, if it's a line
    * number (like source listings') rather than an element's id: the block
    * after the line's Sphinx target (`.rd-target`), if it has one, which the
-   * target labels, or else the block whose lines (see `lines`) have it, or
-   * else the next block.
+   * target labels, or else the innermost block whose lines (see `lines`)
+   * have it (ex: an algorithm's step, rather than the algorithm; search
+   * results' lines in specs' sources link here), or else the next block.  The
+   * panel's "Source listing" goes to the line too.
    */
   showLineHash() {
     const match = /^#(\d+)$/.exec(location.hash);
@@ -333,19 +335,29 @@ var RenderedBlocks = new (class RenderedBlocks {
       return;
     }
     const line = parseInt(match[1], 10);
+    const source = document.getElementById("panel-source-listing");
+    if (source) {
+      source.href = source.href.replace(/#.*$/, "") + `#${line}`;
+    }
     // (The blocks' strips, or their lines' markers if the page has no blame.)
     const marks = [...this.root.querySelectorAll("[data-rd-lines]")];
     const target = this.root.querySelector(`.rd-target[data-rd-line="${line}"]`);
+    const containing = marks.filter(mark => {
+      const lines = this.lines(mark);
+      return lines.length && lines[0] <= line && line <= lines[lines.length - 1];
+    });
     const mark = target
       ? marks.find(mark => {
         const block = this.blockOf(mark);
         return block.contains(target) ||
           target.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING;
       })
-      : marks.find(mark => {
-        const lines = this.lines(mark);
-        return lines.length && lines[lines.length - 1] >= line;
-      });
+      : containing.reduce((inner, mark) =>
+        (!inner || this.lines(mark).length <= this.lines(inner).length ? mark : inner), null) ||
+        marks.find(mark => {
+          const lines = this.lines(mark);
+          return lines.length && lines[lines.length - 1] >= line;
+        });
     if (!mark) {
       return;
     }

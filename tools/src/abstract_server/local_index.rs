@@ -634,6 +634,11 @@ impl AbstractServer for LocalIndex {
             .map(|info| (info.path_kind, info.subsystem))
     }
 
+    fn rendered_line_template(&self, path: &str) -> Option<String> {
+        let cfg = self.tree_config_loaded();
+        crate::format::rendered_line_template(&cfg, &self.tree_name, path)
+    }
+
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.path_kinds.clone()
     }

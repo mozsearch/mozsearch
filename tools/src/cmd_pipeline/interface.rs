@@ -741,8 +741,17 @@ impl FlattenedResultsBundle {
     /// `/search/`'s, rather than the source listings' line numbers (which
     /// code-highlighter.js would select, as if the page were the file).  In a
     /// try push's context (`rev`, the head of its rebased stack), they're the
-    /// head's lines.
-    pub fn link_line_numbers(&mut self, tree: &str, rev: Option<&str>) {
+    /// head's lines.  The lines of a spec tree's files with rendered views
+    /// (`rendered`, of a file's tree and path, its lines' URLs' template, with
+    /// "{}" for the line; see `format::rendered_line_template`), ex: a spec's
+    /// source, are their blocks in their rendered views, where the file's
+    /// heading still goes to the source listing.
+    pub fn link_line_numbers(
+        &mut self,
+        tree: &str,
+        rev: Option<&str>,
+        rendered: &dyn Fn(&str, &str) -> Option<String>,
+    ) {
         if self.content_type != "text/html" {
             return;
         }
@@ -757,6 +766,10 @@ impl FlattenedResultsBundle {
                         }
                         None => format!("/{}/source/{}", file_tree, url_encode_path(&file.file)),
                     };
+                    let rendered_href = match rev.filter(|_| file.tree.is_none()) {
+                        Some(_) => None,
+                        None => rendered(file_tree, &file.file),
+                    };
                     for span in &mut file.line_spans {
                         let mut linked = String::with_capacity(span.contents.len() + 256);
                         let mut rest = span.contents.as_str();
@@ -770,10 +783,18 @@ impl FlattenedResultsBundle {
                             };
                             let line = &after[..digits];
                             linked.push_str(&rest[..start]);
-                            linked.push_str(&format!(
-                                r#"<a role="cell" class="query-line-number" href="{}#{}">{}</a>"#,
-                                href, line, line
-                            ));
+                            linked.push_str(&match &rendered_href {
+                                Some(template) => format!(
+                                    r#"<a role="cell" class="query-line-number query-line-rendered" href="{}" title="Line {} of the source, in the rendered view">{}</a>"#,
+                                    template.replace("{}", line),
+                                    line,
+                                    line
+                                ),
+                                None => format!(
+                                    r#"<a role="cell" class="query-line-number" href="{}#{}">{}</a>"#,
+                                    href, line, line
+                                ),
+                            });
                             rest = tail;
                         }
                         linked.push_str(rest);
