@@ -12,9 +12,10 @@
 # already), and `[...]` left out where a capture in it didn't match.  A rule
 # with `exists` only applies if the tree has the path that capture names.  A
 # rule with `lookup` rather than `redirect` is where that lookup of its
-# captures says, if it finds anything, else it doesn't apply ("spec": a web
-# spec's URL's spec, in the tree or its `SPEC_` linked tree, whose rendered
-# view, at the URL's anchor, it is; see `format::spec_url_target`).
+# captures says, if it finds anything, else it doesn't apply (ex: "spec": a
+# web spec's URL's spec, in the tree or its `SPEC_` linked tree, whose
+# rendered view, at the URL's anchor, it is; see `format::dwim_lookup` for
+# them all).
 #
 # A rule with `go = "always"` goes there at once, without searching (when
 # what the search would find, ex: code citing the URL, isn't what one has the
@@ -27,6 +28,48 @@ name = "wpt-sync-pr"
 description = "A web-platform-tests pull request: its sync bugs."
 pattern = '^(?:https?://)?github\.com/web-platform-tests/wpt/pull/(?P<pr>\d+)(?:[/?#]\S*)?$'
 redirect = 'https://bugzilla.mozilla.org/buglist.cgi?quicksearch=%22Sync%20PR%20{pr}%22'
+go = "always"
+
+[[rule]]
+name = "spec-pr"
+description = "A spec repository's pull request on GitHub: its page as a try push (its import), in the tree of specs which has the spec."
+pattern = '^https?://github\.com/(?P<repo>[^/\s]+/[^/\s]+)/pull/(?P<number>\d+)(?:[/?#]\S*)?$'
+lookup = "spec-pr"
+go = "always"
+
+[[rule]]
+name = "treeherder-try"
+description = "A try push on Treeherder: its page (its import), in the tree importing this tree's try pushes."
+pattern = '^https?://treeherder\.mozilla\.org/(?:#/)?jobs\?(?P<params>\S+)$'
+lookup = "treeherder-try"
+go = "always"
+
+[[rule]]
+name = "commit"
+description = "A commit on GitHub: its page, in this tree (or another which has it)."
+pattern = '^https?://github\.com/[^/\s]+/[^/\s]+/commit/(?P<rev>[0-9a-f]{7,40})(?:[/?#]\S*)?$'
+lookup = "commit"
+go = "always"
+
+[[rule]]
+name = "hg-commit"
+description = "A commit on hg.mozilla.org: its page, in this tree."
+pattern = '^https?://hg(?:-edge)?\.mozilla\.org/[^?#\s]+?/(?:rev|raw-rev|diff|json-rev)/(?P<rev>[0-9a-f]{12,40})(?:[/?#]\S*)?$'
+lookup = "hg-commit"
+go = "always"
+
+[[rule]]
+name = "bugzilla-bug"
+description = "A Bugzilla bug: the commits which mention it, in this tree's history."
+pattern = '^https?://(?:bugzilla\.mozilla\.org/(?:show_bug\.cgi\?(?:\S*?&)?id=)?|bugzil\.la/)(?P<bug>\d+)(?:[&#]\S*)?$'
+lookup = "explore-bug"
+go = "always"
+
+[[rule]]
+name = "phabricator-revision"
+description = "A Phabricator revision: the commits which mention it, in this tree's history."
+pattern = '^https?://phabricator\.services\.mozilla\.com/(?P<rev>D\d+)(?:[/?#]\S*)?$'
+lookup = "explore-phab"
 go = "always"
 
 [[rule]]

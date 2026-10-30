@@ -585,8 +585,6 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         ));
     }
 
-    println!("DBG {:?} {} {}", path, tree_name, kind);
-
     // A tree's try pushes' pages are the tree's that imports them, if it
     // doesn't (see `try_import::importing_tree`).
     if matches!(&kind[..], "try" | "try-status")
@@ -1137,6 +1135,15 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             redirect_mapped_rev(tree_name, "old", path[2], "commit", "")
         }
 
+        // (An hg revision's commit; ex: the DWIM rule "hg-commit"'s.)
+        "hgcommit" => {
+            if path.len() < 3 {
+                return WebResponse::not_found();
+            }
+
+            redirect_mapped_rev(tree_name, "hg", path[2], "commit", "")
+        }
+
         // We don't have an "oldcommit-info" because this endpoint is only for
         // AJAX-y use by the current blame strip UI that fetches commit-info on
         // demand, and these links are considered mozsearch-internal and will
@@ -1416,14 +1423,8 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             let has_path = |path: &str| {
                 tree_server(tree_name).is_some_and(|server| server.file_facet_info(path).is_some())
             };
-            let lookup = |kind: &str, capture: &dyn Fn(&str) -> Option<String>| match kind {
-                "spec" => format::spec_url_target(
-                    cfg,
-                    tree_name,
-                    &capture("url")?,
-                    capture("anchor").as_deref(),
-                ),
-                _ => None,
+            let lookup = |kind: &str, capture: &dyn Fn(&str) -> Option<String>| {
+                format::dwim_lookup(cfg, tree_name, kind, capture)
             };
             if let Some(target) =
                 tools::query::dwim::dwim_target(tree_name, input, &has_path, &lookup)

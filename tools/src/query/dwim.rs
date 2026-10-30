@@ -229,17 +229,29 @@ mod tests {
     use super::*;
 
     /// The target, with a spec lookup of "https://example.spec.whatwg.org/"'s
-    /// URLs.
+    /// URLs, and the other lookups' kinds and captures (see
+    /// `format::dwim_lookup`), as "lookup:KIND:CAPTURE,...".
     fn target(input: &str) -> Option<DwimTarget> {
         let has_path = |path: &str| path.starts_with("dom/");
         let lookup = |kind: &str, capture: &dyn Fn(&str) -> Option<String>| {
+            if kind != "spec" {
+                let names: &[&str] = match kind {
+                    "spec-pr" => &["repo", "number"],
+                    "treeherder-try" => &["params"],
+                    "explore-bug" => &["bug"],
+                    _ => &["rev"],
+                };
+                let values: Vec<String> = names.iter().filter_map(|name| capture(name)).collect();
+                return Some(format!("lookup:{}:{}", kind, values.join(",")));
+            }
             let url = capture("url")?;
-            (kind == "spec" && url.starts_with("https://example.spec.whatwg.org/")).then(|| {
-                format!(
-                    "/specs/rendered/example.html{}",
-                    capture("anchor").map_or_else(String::new, |a| format!("#{}", a))
-                )
-            })
+            url.starts_with("https://example.spec.whatwg.org/")
+                .then(|| {
+                    format!(
+                        "/specs/rendered/example.html{}",
+                        capture("anchor").map_or_else(String::new, |a| format!("#{}", a))
+                    )
+                })
         };
         dwim_target("firefox-main", input, &has_path, &lookup)
     }
@@ -323,6 +335,57 @@ mod tests {
             target("bp-b40697bb-fa73-46e6-bcd3-0f1ce0261030")
                 .unwrap()
                 .always
+        );
+        // (Other tools' pages of commits, bugs, Phabricator revisions, spec
+        // repositories' pull requests and try pushes are the lookups'.)
+        for (input, lookup) in [
+            (
+                "https://github.com/whatwg/html/pull/13007",
+                "lookup:spec-pr:whatwg/html,13007",
+            ),
+            (
+                "https://github.com/whatwg/html/pull/13007/files#diff-1",
+                "lookup:spec-pr:whatwg/html,13007",
+            ),
+            (
+                "https://treeherder.mozilla.org/jobs?repo=try&revision=0123456789abcdef",
+                "lookup:treeherder-try:repo=try&revision=0123456789abcdef",
+            ),
+            (
+                "https://github.com/mozilla-firefox/firefox/commit/7af81fe47ac81825fa31f451dddfaeb736e109ba",
+                "lookup:commit:7af81fe47ac81825fa31f451dddfaeb736e109ba",
+            ),
+            (
+                "https://hg.mozilla.org/mozilla-central/rev/0123456789ab",
+                "lookup:hg-commit:0123456789ab",
+            ),
+            (
+                "https://bugzilla.mozilla.org/show_bug.cgi?id=1517978#c4",
+                "lookup:explore-bug:1517978",
+            ),
+            (
+                "https://bugzilla.mozilla.org/1517978",
+                "lookup:explore-bug:1517978",
+            ),
+            ("https://bugzil.la/1517978", "lookup:explore-bug:1517978"),
+            (
+                "https://phabricator.services.mozilla.com/D123456?id=789",
+                "lookup:explore-phab:D123456",
+            ),
+        ] {
+            assert_eq!(redirect(input).as_deref(), Some(lookup), "{}", input);
+            assert!(target(input).unwrap().always, "{}", input);
+        }
+        // (WPT's pull requests are its syncs', and files on hg aren't commits.)
+        assert!(
+            redirect("https://github.com/web-platform-tests/wpt/pull/47169")
+                .unwrap()
+                .starts_with("https://bugzilla")
+        );
+        assert_eq!(
+            redirect("https://hg.mozilla.org/mozilla-central/file/0123abcd/dom/base/Foo.cpp")
+                .as_deref(),
+            Some("/firefox-main/source/dom/base/Foo.cpp")
         );
         // (Paths the tree doesn't have are searched for.)
         assert_eq!(

@@ -1889,6 +1889,124 @@ pub fn spec_url_target(
     None
 }
 
+/// Where a DWIM lookup rule's lookup (see query/dwim.toml) says its input is,
+/// in the tree `tree_name` (or another), from the rule's captures:
+/// - "spec": a web spec's URL's rendered view (see `spec_url_target`);
+/// - "commit": a commit's page, in the tree (or its `SPEC_` linked tree, ex:
+///   a spec's upstream commit, whose forest commit it goes to), or another
+///   tree whose repository has it;
+/// - "hg-commit": an hg commit's page, in a tree with an hg repository (by
+///   its `hgcommit` route, which maps it);
+/// - "explore-bug" and "explore-phab": the explore page of the commits which
+///   mention a bug or a Phabricator revision, in a tree with a history;
+/// - "spec-pr": a spec repository's pull request's try push's page, in the
+///   tree (or its `SPEC_` linked tree) whose specs' repositories it's of;
+/// - "treeherder-try": a try push's page (from Treeherder's `repo=try` and
+///   `revision=` parameters), in a tree importing them (or whose sibling
+///   does; see `try_import::importing_tree`).
+pub fn dwim_lookup(
+    cfg: &Config,
+    tree_name: &str,
+    kind: &str,
+    capture: &dyn Fn(&str) -> Option<String>,
+) -> Option<String> {
+    let tree_config = cfg.trees.get(tree_name)?;
+    let with_specs = || {
+        std::iter::once(tree_name.to_string()).chain(
+            tree_config
+                .paths
+                .linked_trees
+                .get("SPEC_")
+                .filter(|linked| cfg.trees.contains_key(linked.as_str()))
+                .cloned(),
+        )
+    };
+    match kind {
+        "spec" => spec_url_target(
+            cfg,
+            tree_name,
+            &capture("url")?,
+            capture("anchor").as_deref(),
+        ),
+        "commit" => {
+            let rev = capture("rev")?;
+            let has = |tree: &str| {
+                let in_repo = cfg
+                    .trees
+                    .get(tree)
+                    .and_then(|tree| tree.get_git().ok())
+                    .is_some_and(|git| {
+                        git.repo
+                            .revparse_single(&rev)
+                            .and_then(|o| o.peel_to_commit())
+                            .is_ok()
+                    });
+                in_repo || forest_rev(cfg, tree, &rev).is_some()
+            };
+            let others = cfg
+                .trees
+                .keys()
+                .filter(|name| name.as_str() != tree_name)
+                .cloned();
+            with_specs()
+                .chain(others)
+                .find(|tree| has(tree))
+                .map(|tree| format!("/{}/commit/{}", tree, rev))
+        }
+        "hg-commit" => {
+            let rev = capture("rev")?;
+            tree_config.paths.hg_root.as_ref()?;
+            Some(format!("/{}/hgcommit/{}", tree_name, rev))
+        }
+        "explore-bug" | "explore-phab" => {
+            tree_config.get_git().ok()?.history.as_ref()?;
+            let (page, key) = match kind {
+                "explore-bug" => ("bug", capture("bug")?),
+                _ => ("phab", capture("rev")?),
+            };
+            Some(format!("/{}/explore/{}/{}", tree_name, page, key))
+        }
+        "spec-pr" => {
+            let repo = capture("repo")?.to_ascii_lowercase();
+            let number = capture("number")?;
+            for tree in with_specs() {
+                let specs = crate::try_import::spec_repos(cfg, &tree);
+                let spec = specs.iter().find(|spec| {
+                    spec.url
+                        .as_deref()
+                        .and_then(|url| url.strip_prefix("https://github.com/"))
+                        .map(|url| {
+                            url.trim_end_matches('/')
+                                .trim_end_matches(".git")
+                                .to_ascii_lowercase()
+                        })
+                        == Some(repo.clone())
+                });
+                if let Some(spec) = spec {
+                    return Some(format!("/{}/try/{}/{}", tree, spec.name, number));
+                }
+            }
+            None
+        }
+        "treeherder-try" => {
+            let params: HashMap<String, String> =
+                url::form_urlencoded::parse(capture("params")?.as_bytes())
+                    .into_owned()
+                    .collect();
+            if params.get("repo").map(String::as_str) != Some("try") {
+                return None;
+            }
+            let rev = crate::try_import::normalize_rev(params.get("revision")?)?;
+            let importing = crate::try_import::importing_tree(cfg, tree_name)
+                .unwrap_or_else(|| tree_name.to_string());
+            crate::try_import::hook(cfg, &importing)?;
+            crate::try_import::url_push(cfg, &importing, "hg", &rev)?;
+            Some(format!("/{}/try/hg/{}", tree_name, rev))
+        }
+        _ => None,
+    }
+}
+
 /// Where the view of an algorithm (see `format_algorithm`) is if the tree
 /// doesn't define it but a linked tree does (ex: from firefox-disco, for a
 /// `SPEC_` symbol, wubspecs').
@@ -11933,6 +12051,100 @@ pub fn render_commit(
 
 #[cfg(test)]
 mod tests {
+    /// The DWIM lookups without repositories (see `dwim_lookup`): a spec
+    /// repository's pull request is its try push's page in the tree of specs
+    /// with the spec (by its URL, ignoring case and ".git"), or its `SPEC_`
+    /// linked tree; none for other repositories, and none of the lookups
+    /// needing a history or try imports, for a tree without them.
+    #[test]
+    fn test_dwim_lookup() {
+        use crate::file_format::config::{Config, TreeConfig, TreeConfigPaths};
+        let dir = std::env::temp_dir().join(format!("dwim-lookup-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("specs.toml"),
+            "[[spec]]\nname = \"html\"\nurl = \"https://github.com/whatwg/html.git\"\n",
+        )
+        .unwrap();
+        // (The code tree's index, without specs.)
+        let code_dir = dir.join("code");
+        std::fs::create_dir_all(&code_dir).unwrap();
+        let tree = |dir: &std::path::Path, linked: Option<&str>| {
+            let mut settings = serde_json::json!({
+                "priority": 1, "on_error": "halt", "cache": "everything",
+                "index_path": dir.to_string_lossy(), "files_path": dir.to_string_lossy(),
+                "objdir_path": dir.to_string_lossy(),
+                "codesearch_path": "", "codesearch_port": 0,
+            });
+            if let Some(linked) = linked {
+                settings["linked_trees"] = serde_json::json!({ "SPEC_": linked });
+            }
+            TreeConfig {
+                paths: serde_json::from_value::<TreeConfigPaths>(settings).unwrap(),
+                git: None,
+            }
+        };
+        let mut trees = std::collections::BTreeMap::new();
+        trees.insert("dwim-specs".to_string(), tree(&dir, None));
+        trees.insert("dwim-code".to_string(), tree(&code_dir, Some("dwim-specs")));
+        let cfg = Config {
+            trees,
+            mozsearch_path: String::new(),
+            config_repo_path: dir.to_string_lossy().into_owned(),
+            url_map_path: None,
+            doc_trees_path: None,
+            tree_index_paths: Default::default(),
+            config_file: String::new(),
+            query_limits: Default::default(),
+            crash_reports_url: None,
+        };
+        let lookup = |tree: &str, kind: &str, captures: &[(&str, &str)]| {
+            let capture = |name: &str| {
+                captures
+                    .iter()
+                    .find(|(key, _)| *key == name)
+                    .map(|(_, value)| value.to_string())
+            };
+            super::dwim_lookup(&cfg, tree, kind, &capture)
+        };
+        let pr = [("repo", "WHATWG/html"), ("number", "13007")];
+        assert_eq!(
+            lookup("dwim-specs", "spec-pr", &pr).as_deref(),
+            Some("/dwim-specs/try/html/13007")
+        );
+        // (From a tree whose spec tree it is, ex: firefox-disco's wubspecs.)
+        assert_eq!(
+            lookup("dwim-code", "spec-pr", &pr).as_deref(),
+            Some("/dwim-specs/try/html/13007")
+        );
+        assert_eq!(
+            lookup(
+                "dwim-specs",
+                "spec-pr",
+                &[("repo", "mozilla/glean"), ("number", "1")]
+            ),
+            None
+        );
+        assert_eq!(lookup("dwim-specs", "explore-bug", &[("bug", "1")]), None);
+        assert_eq!(
+            lookup("dwim-specs", "hg-commit", &[("rev", "0123456789ab")]),
+            None
+        );
+        assert_eq!(
+            lookup(
+                "dwim-specs",
+                "treeherder-try",
+                &[("params", "repo=try&revision=0123456789ab")]
+            ),
+            None
+        );
+        assert_eq!(
+            lookup("dwim-specs", "commit", &[("rev", "0123456789ab")]),
+            None
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
     /// rendered_prs.liquid's parts (see `render_rendered_prs`): the panel's
     /// facets and collapsible list, and the header's sentence, which a spec
     /// without pull requests changing the page, or without its pull requests
