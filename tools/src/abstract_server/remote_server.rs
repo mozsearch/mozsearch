@@ -1098,6 +1098,7 @@ pub fn remote_trees_config(
         doc_trees_path: None,
         config_file: String::new(),
         query_limits: Default::default(),
+        crash_reports_url: None,
     }
 }
 

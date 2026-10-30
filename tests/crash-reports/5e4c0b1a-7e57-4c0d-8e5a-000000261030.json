@@ -1,0 +1,89 @@
+{
+ "_comment": "A crash report as crash-stats' ProcessedCrash API has it (trimmed), for test_CrashReport: its frames are in the searchfox tree's tools/src/blame.rs at an old revision, whose lines have moved (or changed) since.",
+ "uuid": "5e4c0b1a-7e57-4c0d-8e5a-000000261030",
+ "product": "Searchfox",
+ "version": "1.0a1",
+ "release_channel": "nightly",
+ "build": "20261030000000",
+ "os_pretty_version": "Linux",
+ "signature": "tools::blame::find_phab_rev | tools::blame::commit_header_patch",
+ "moz_crash_reason": "MOZ_RELEASE_ASSERT(phab_rev.is_some())",
+ "json_dump": {
+  "crash_info": {
+   "type": "SIGSEGV / SEGV_MAPERR",
+   "address": "0x0",
+   "crashing_thread": 0
+  },
+  "threads": [
+   {
+    "thread_name": "Main Thread",
+    "frames": [
+     {
+      "frame": 0,
+      "function": "tools::blame::find_phab_rev(core::str::Split<char>)",
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "line": 12,
+      "module": "searchfox-tool",
+      "module_offset": "0x0000000000012340",
+      "inlines": [
+       {
+        "function": "core::str::<impl str>::strip_prefix",
+        "file": "/rustc/90b35a6239c3d8bdabc530a6a0816f7ff89a0aaf/library/core/src/str/mod.rs",
+        "line": 2192
+       }
+      ]
+     },
+     {
+      "frame": 1,
+      "function": "tools::blame::commit_header_patch(git2::Commit const&)",
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "line": 79,
+      "module": "searchfox-tool",
+      "module_offset": "0x0000000000012400",
+      "inlines": [
+       {
+        "function": "tools::blame::commit_header_impl(git2::Commit const&, CommitHeaderResultKind)",
+        "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+        "line": 50
+       }
+      ]
+     },
+     {
+      "frame": 2,
+      "function": "tools::blame::get_commit_info",
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "line": 113,
+      "module": "searchfox-tool",
+      "module_offset": "0x0000000000012500"
+     },
+     {
+      "frame": 3,
+      "function": "tools::blame::LineData::deserialize",
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "line": 147,
+      "module": "searchfox-tool",
+      "module_offset": "0x0000000000012600"
+     },
+     {
+      "frame": 4,
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000029d90"
+     }
+    ]
+   },
+   {
+    "thread_name": "Worker",
+    "frames": [
+     {
+      "frame": 0,
+      "function": "tools::blame::LineData::serialize",
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "line": 169,
+      "module": "searchfox-tool",
+      "module_offset": "0x0000000000012700"
+     }
+    ]
+   }
+  ]
+ }
+}

@@ -797,6 +797,22 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The crash report `id` (crash-stats' processed crash; see
+    /// `crash_stack::crash_report_stack`), from crash-stats, unless the
+    /// config says where (`Config::crash_reports_url`).
+    async fn crash_report(&self, id: &str) -> Result<std::sync::Arc<Value>> {
+        crate::crash_stack::fetch_crash_report(crate::crash_stack::CRASH_REPORTS_URL, id).await
+    }
+
+    /// For each line of the file at `path` in revision `rev` (line `l` at `l -
+    /// 1`), its line in the indexed revision's version, if it's unchanged
+    /// since (see `rev_lines::line_map`), or None if the tree's repository
+    /// doesn't have the revision or the file.  (Unsupported by remote
+    /// servers.)
+    async fn line_map(&self, _rev: &str, _path: &str) -> Result<Option<Vec<Option<u32>>>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The tree's git revision for the revision `rev` of another kind: an hg
     /// revision (`kind` "hg"; ex: firefox's, by git-cinnabar's mapping) or a
     /// revision of the tree's old git repository ("old"; see

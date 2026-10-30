@@ -6772,6 +6772,39 @@ fn redirect_target<'a>(
 /// Whether a file (not a directory) is the same at a revision as at the
 /// tree's indexed revision, whose source listing then serves for it (see the
 /// web server's `/rev/` route).
+/// For each line of the file at `path` in revision `rev`, its line in the
+/// indexed revision's version (the repository's head's), if it's unchanged
+/// since (see `rev_lines::line_map`), or None if the tree's repository doesn't
+/// have the revision or the file (ex: a crash report's frame's; see
+/// `AbstractServer::line_map`).
+pub fn rev_line_map(
+    cfg: &Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+) -> Option<Vec<Option<u32>>> {
+    let git = cfg.trees.get(tree_name)?.get_git().ok()?;
+    let commit = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|o| o.peel_to_commit())
+        .ok()?;
+    let head = git.repo.head().and_then(|h| h.peel_to_commit()).ok()?;
+    let blob_at = |commit: git2::Oid| -> Option<Vec<u8>> {
+        let (repo, oid) = get_object_at(
+            OwnedOrBorrowed::Borrowed(&git.repo),
+            commit,
+            Path::new(path),
+        )
+        .ok()?;
+        let blob = repo.find_blob(oid).ok()?;
+        Some(blob.content().to_vec())
+    };
+    let old = blob_at(commit.id())?;
+    let new = blob_at(head.id()).unwrap_or_default();
+    Some(crate::rev_lines::line_map(&old, &new))
+}
+
 pub fn same_as_head(cfg: &Config, tree_name: &str, rev: &str, path: &str) -> bool {
     let Some(tree_config) = cfg.trees.get(tree_name) else {
         return false;

@@ -299,6 +299,31 @@ mod tests {
                 .as_deref(),
             Some("/firefox-main/query/default?q=crash-signature%3A%27Foo%3A%3ABar%27")
         );
+        // (A crash-stats report's stack: a query of its ID; with "all", every
+        // thread's; and Bugzilla's crash IDs, but not bare UUIDs, which could
+        // be interfaces'.)
+        let report =
+            "/firefox-main/query/default?q=crash-report%3Ab40697bb-fa73-46e6-bcd3-0f1ce0261030";
+        assert_eq!(
+            redirect("https://crash-stats.mozilla.org/report/index/b40697bb-fa73-46e6-bcd3-0f1ce0261030#tab-details")
+                .as_deref(),
+            Some(report)
+        );
+        assert_eq!(
+            redirect("bp-b40697bb-fa73-46e6-bcd3-0f1ce0261030").as_deref(),
+            Some(report)
+        );
+        assert_eq!(redirect("b40697bb-fa73-46e6-bcd3-0f1ce0261030"), None);
+        assert_eq!(
+            redirect("all https://crash-stats.mozilla.org/report/index/b40697bb-fa73-46e6-bcd3-0f1ce0261030")
+                .as_deref(),
+            Some(&*format!("{}%20crash-threads%3Aall", report))
+        );
+        assert!(
+            target("bp-b40697bb-fa73-46e6-bcd3-0f1ce0261030")
+                .unwrap()
+                .always
+        );
         // (Paths the tree doesn't have are searched for.)
         assert_eq!(
             redirect("https://github.com/x/y/blob/main/widget/Foo.cpp"),

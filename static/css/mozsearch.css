@@ -5979,6 +5979,40 @@ textarea.monospace {
 .crash-frame-where {
   margin-top: 0.3em;
 }
+/* A crash report's (see crash_stack.rs's `crash_report_stack`): its frames'
+   inlined calls (frames of their own, whose code's border is dashed), a
+   frame's module and offset, a line that changed since the build, its
+   MOZ_CRASH reason, and its other threads' headings. */
+.crash-frame-inlined .crash-code {
+  border-left-style: dashed;
+}
+.crash-frame-inline {
+  margin-right: 0.3em;
+  padding: 0 0.3em;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 3px;
+  color: color-mix(in srgb, currentColor 65%, transparent);
+  font-size: 11px;
+}
+.crash-frame-address {
+  margin-top: 0.2em;
+  color: color-mix(in srgb, currentColor 50%, transparent);
+  font-family: monospace;
+  font-size: 11px;
+}
+.crash-frame-changed {
+  color: #b54708;
+}
+.crash-frame-where code {
+  word-break: break-all;
+}
+.crash-reason code {
+  word-break: break-all;
+}
+.crash-thread-heading {
+  margin: 1.2em 1em 0.3em;
+  font-size: 14px;
+}
 
 /* What a search was for, on the page it went to at once, as a DWIM rule says
    (see search.js's showSearched), with a link to its search. */

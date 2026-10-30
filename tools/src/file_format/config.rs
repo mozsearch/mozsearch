@@ -135,6 +135,12 @@ pub struct ConfigJson {
     /// overrides of its default limits (see `query_limits`).
     #[serde(default)]
     pub query_limits: crate::query_limits::QueryLimitsConfig,
+
+    /// Where crash reports are (`{}` being a report's ID), if not
+    /// crash-stats' processed crashes (`crash_stack::CRASH_REPORTS_URL`): ex:
+    /// tests' fixtures, `file://.../{}.json`.
+    #[serde(default)]
+    pub crash_reports_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -567,6 +573,8 @@ pub struct Config {
     pub config_file: String,
     /// See `ConfigJson::query_limits`.
     pub query_limits: crate::query_limits::QueryLimitsConfig,
+    /// See `ConfigJson::crash_reports_url`.
+    pub crash_reports_url: Option<String>,
 }
 
 impl Config {
@@ -880,6 +888,7 @@ pub fn load(
         tree_index_paths,
         config_file: config_path.to_string(),
         query_limits: config.query_limits,
+        crash_reports_url: config.crash_reports_url,
     }
 }
 

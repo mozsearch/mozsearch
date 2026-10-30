@@ -859,7 +859,12 @@ mod tests {
             .iter()
             .find(|segment| segment["command"] == "traverse")
             .unwrap();
-        let arg = |name: &str| traverse["args"]["named_args"][name][0].as_str().unwrap().to_string();
+        let arg = |name: &str| {
+            traverse["args"]["named_args"][name][0]
+                .as_str()
+                .unwrap()
+                .to_string()
+        };
         assert_eq!(arg("trees"), "wubspecs,webkit");
         assert_eq!(arg("exclude-trees"), "firefox-disco,firefox-try");
     }
@@ -939,6 +944,26 @@ mod tests {
         );
         assert_eq!(segment["args"]["bool_args"][0], "case-sensitive");
         assert!(groups.get("text-search").is_none());
+    }
+
+    #[test]
+    fn test_crash_report() {
+        // (A crash report's ID, and which of its threads, as the DWIM rule for
+        // crash-stats reports' URLs makes them, are the crash-stack command's.)
+        let groups: serde_json::Value = serde_json::from_str(&values(
+            "crash-report:b40697bb-fa73-46e6-bcd3-0f1ce0261030 crash-threads:all",
+        ))
+        .unwrap();
+        let segment = &groups["crash"]["segments"][0];
+        assert_eq!(segment["command"], "crash-stack");
+        let arg = |name: &str| {
+            segment["args"]["named_args"][name][0]
+                .as_str()
+                .unwrap()
+                .to_string()
+        };
+        assert_eq!(arg("report"), "b40697bb-fa73-46e6-bcd3-0f1ce0261030");
+        assert_eq!(arg("threads"), "all");
     }
 
     #[test]

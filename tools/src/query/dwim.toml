@@ -51,6 +51,20 @@ redirect = '/{tree}/source/{path}[#{line}]'
 exists = "path"
 
 [[rule]]
+name = "crash-stats-report-all"
+description = "A crash-stats report, after \"all\": every thread's stack, beside its frames' code."
+pattern = '^all\s+https?://crash-stats\.mozilla\.org/report/index/(?:bp-)?(?P<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\S*$'
+redirect = "/{tree}/query/default?q=crash-report%3A{id}%20crash-threads%3Aall"
+go = "always"
+
+[[rule]]
+name = "crash-stats-report"
+description = "A crash-stats report (or its ID as Bugzilla has them, bp-..., since a bare UUID could be an interface's): its stack, beside its frames' code."
+pattern = '^(?:https?://crash-stats\.mozilla\.org/report/index/(?:bp-)?|bp-)(?P<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[/?#]\S*)?$'
+redirect = "/{tree}/query/default?q=crash-report%3A{id}"
+go = "always"
+
+[[rule]]
 name = "crash-stats-signature"
 description = "A crash-stats signature: its stack, beside its frames' code."
 pattern = '^https?://crash-stats\.mozilla\.org/signature/\?(?:\S*?&)?signature=(?P<signature>[^&#\s]+)\S*$'

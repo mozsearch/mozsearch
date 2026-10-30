@@ -471,6 +471,26 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn crash_report(&self, id: &str) -> Result<std::sync::Arc<Value>> {
+        // (Not holding the config, which isn't Send, while fetching.)
+        let template = self
+            .tree_config_loaded()
+            .crash_reports_url
+            .clone()
+            .unwrap_or_else(|| crate::crash_stack::CRASH_REPORTS_URL.to_string());
+        crate::crash_stack::fetch_crash_report(&template, id).await
+    }
+
+    async fn line_map(&self, rev: &str, path: &str) -> Result<Option<Vec<Option<u32>>>> {
+        let cfg = self.tree_config_loaded();
+        Ok(crate::format::rev_line_map(
+            &cfg,
+            &self.tree_name,
+            rev,
+            path,
+        ))
+    }
+
     async fn map_rev(&self, kind: &str, rev: &str) -> Result<Option<String>> {
         match kind {
             "hg" => {

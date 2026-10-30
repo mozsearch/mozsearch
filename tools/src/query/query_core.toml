@@ -614,6 +614,19 @@ args.format = "subway"
 command = "crash-stack"
 args.positional = "$0"
 
+# A crash report's stack beside its frames' code (crash-stats' reports, by
+# their IDs; see crash_stack.rs's `crash_report_stack`), which the DWIM rule for
+# crash-stats reports' URLs goes to; with `crash-threads:all`, every thread's.
+[term.crash-report]
+[[term.crash-report.group.crash]]
+command = "crash-stack"
+args.report = "$0"
+
+[term.crash-threads]
+[[term.crash-threads.group.crash]]
+command = "crash-stack"
+args.threads = "$0"
+
 [term.text]
 [[term.text.group.text-search]]
 command = "search-text"
