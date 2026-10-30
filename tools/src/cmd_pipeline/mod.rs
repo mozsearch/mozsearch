@@ -17,6 +17,7 @@ mod cmd_cat_html;
 mod cmd_compile_results;
 pub mod cmd_bug_comment;
 pub mod cmd_crash_stack;
+pub mod cmd_rev_at;
 mod cmd_crossref_expand;
 mod cmd_crossref_lookup;
 mod cmd_dataflow;

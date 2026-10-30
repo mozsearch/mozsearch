@@ -1958,6 +1958,13 @@ pub fn dwim_lookup(
             tree_config.paths.hg_root.as_ref()?;
             Some(format!("/{}/hgcommit/{}", tree_name, rev))
         }
+        // (The tree's files at its branch's head then, roughly; or else, ex:
+        // not a time, the query, which says why.)
+        "rev-at" => {
+            let time = capture("time")?;
+            let at = rev_at(cfg, tree_name, time.trim().trim_matches(['\'', '"'])).ok()??;
+            Some(format!("/{}/rev/{}/", tree_name, at.rev))
+        }
         "explore-bug" | "explore-phab" => {
             tree_config.get_git().ok()?.history.as_ref()?;
             let (page, key) = match kind {
@@ -9694,6 +9701,29 @@ pub fn render_explore_page(
         extras,
         writer,
     )
+}
+
+/// The head `tree_name`'s branch had at `time` (see
+/// `commit_index::parse_time`), roughly: its main line's last commit which had
+/// landed by then (see `CommitIndex::rev_at`).
+pub fn rev_at(
+    cfg: &Config,
+    tree_name: &str,
+    time: &str,
+) -> Result<Option<crate::commit_index::RevAt>, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
+    let index = git
+        .history
+        .as_ref()
+        .and_then(|history| {
+            CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
+        })
+        .ok_or("This tree has no commit index")?;
+    let time = crate::commit_index::parse_time(time)
+        .ok_or("Not a time (ex: 2024-08-30, 2024-08-30 07:26, or 2024-08-30T07:26:47Z)")?;
+    Ok(index.rev_at(&time))
 }
 
 /// The commits of an explore page (see `explore_page_data`): its keys (with

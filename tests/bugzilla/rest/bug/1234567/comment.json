@@ -19,6 +19,33 @@
      "creation_time": "2026-10-30T12:00:00Z",
      "text": "Looking at how `find_phab_rev` gets used:\n\n* https://searchfox.org/mozilla-central/rev/50df75fc5253890347bfac70037bc7ad42316862/tools/src/blame.rs#147 - this line moved since.\n* https://searchfox.org/mozilla-central/rev/50df75fc5253890347bfac70037bc7ad42316862/tools/src/blame.rs#112-113 - these lines changed since.\n* The [current version](https://searchfox.org/searchfox/source/tools/src/blame.rs#8-9) isn't a permalink.\n  * And https://searchfox.org/mozilla-central/source/dom/base/nsINode.cpp#10 isn't this tree's.\n\nIt crashed: https://crash-stats.mozilla.org/report/index/5e4c0b1a-7e57-4c0d-8e5a-000000261030\n\n```\n0  searchfox-tool  tools::blame::find_phab_rev  tools/src/blame.rs:12\n```\n",
      "raw_text": "Looking at how `find_phab_rev` gets used:\n\n* https://searchfox.org/mozilla-central/rev/50df75fc5253890347bfac70037bc7ad42316862/tools/src/blame.rs#147 - this line moved since.\n* https://searchfox.org/mozilla-central/rev/50df75fc5253890347bfac70037bc7ad42316862/tools/src/blame.rs#112-113 - these lines changed since.\n* The [current version](https://searchfox.org/searchfox/source/tools/src/blame.rs#8-9) isn't a permalink.\n  * And https://searchfox.org/mozilla-central/source/dom/base/nsINode.cpp#10 isn't this tree's.\n\nIt crashed: https://crash-stats.mozilla.org/report/index/5e4c0b1a-7e57-4c0d-8e5a-000000261030\n\n```\n0  searchfox-tool  tools::blame::find_phab_rev  tools/src/blame.rs:12\n```\n"
+    },
+    {
+     "id": 3,
+     "bug_id": 1234567,
+     "count": 2,
+     "creator": "someone@example.com",
+     "creation_time": "2026-10-30T13:00:00Z",
+     "text": "Crash report: https://crash-stats.mozilla.org/report/index/00000000-0000-4000-8000-000000991231\n\nTop 3 frames:\n```\n0  searchfox-tool  tools::blame::find_phab_rev(core::str::Split<char>)  tools/src/blame.rs:12\n1  searchfox-tool  tools::blame::commit_header_patch(git2::Commit const&)  tools/src/blame.rs:79\n2  libc.so.6  libc.so.6@0x29d90\n```\n",
+     "raw_text": "Crash report: https://crash-stats.mozilla.org/report/index/00000000-0000-4000-8000-000000991231\n\nTop 3 frames:\n```\n0  searchfox-tool  tools::blame::find_phab_rev(core::str::Split<char>)  tools/src/blame.rs:12\n1  searchfox-tool  tools::blame::commit_header_patch(git2::Commit const&)  tools/src/blame.rs:79\n2  libc.so.6  libc.so.6@0x29d90\n```\n"
+    },
+    {
+     "id": 4,
+     "bug_id": 1234567,
+     "count": 3,
+     "creator": "someone@example.com",
+     "creation_time": "2026-10-30T14:00:00Z",
+     "text": "Crash report: https://crash-stats.mozilla.org/report/index/00000000-0000-4000-8000-000000991231\n\nTop 3 frames:\n```\n0  libxul.so  rollup::Storage::Put(int)  rollup/storage.cpp:5\n1  libxul.so  rollup::Engine::Run()  rollup/engine.cpp:8\n2  libc.so.6  libc.so.6@0x29d90\n```\n",
+     "raw_text": "Crash report: https://crash-stats.mozilla.org/report/index/00000000-0000-4000-8000-000000991231\n\nTop 3 frames:\n```\n0  libxul.so  rollup::Storage::Put(int)  rollup/storage.cpp:5\n1  libxul.so  rollup::Engine::Run()  rollup/engine.cpp:8\n2  libc.so.6  libc.so.6@0x29d90\n```\n"
+    },
+    {
+     "id": 5,
+     "bug_id": 1234567,
+     "count": 4,
+     "creator": "reporter@example.com",
+     "creation_time": "2026-10-30T15:00:00Z",
+     "text": "(In reply to Sam Someone [:sam] from comment #1)\n> Looking at how `find_phab_rev` gets used:\n\nSee bug 1234567 comment 0; *this* isn't emphasis.\nhttps://searchfox.org/searchfox/source/tools/src/blame.rs#8\n",
+     "raw_text": "(In reply to Sam Someone [:sam] from comment #1)\n> Looking at how `find_phab_rev` gets used:\n\nSee bug 1234567 comment 0; *this* isn't emphasis.\nhttps://searchfox.org/searchfox/source/tools/src/blame.rs#8\n"
     }
    ]
   }

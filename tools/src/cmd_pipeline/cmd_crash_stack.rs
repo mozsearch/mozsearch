@@ -87,9 +87,17 @@ impl PipelineCommand for CrashStackCommand {
                         message: message.to_string(),
                     })
                 })?;
+                // (Frames whose lines couldn't be fetched, which they say,
+                // may be got if tried again.)
+                let transient = stack
+                    .frames
+                    .iter()
+                    .chain(stack.threads.iter().flat_map(|thread| &thread.frames))
+                    .any(|frame| frame.problem.is_some());
                 Ok(PipelineValues::TextFile(TextFile {
                     mime_type: CRASH_STACK_MIME.to_string(),
                     contents: String::from_utf8(html).unwrap_or_default(),
+                    transient,
                 }))
             }
         }

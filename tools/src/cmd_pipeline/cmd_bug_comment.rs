@@ -52,6 +52,7 @@ impl PipelineCommand for BugCommentCommand {
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: BUG_COMMENT_MIME.to_string(),
             contents: String::from_utf8(html).unwrap_or_default(),
+            transient: view.transient,
         }))
     }
 }

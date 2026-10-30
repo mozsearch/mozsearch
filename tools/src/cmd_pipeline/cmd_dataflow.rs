@@ -383,6 +383,7 @@ fn text(contents: String, mime: &str) -> Result<PipelineValues> {
     Ok(PipelineValues::TextFile(TextFile {
         mime_type: mime.to_string(),
         contents,
+        transient: false,
     }))
 }
 

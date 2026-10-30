@@ -140,6 +140,7 @@ impl PipelineCommand for CatHtmlCommand {
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: "text/html".to_string(),
             contents: norm_html_file(html_str),
+            transient: false,
         }))
     }
 }

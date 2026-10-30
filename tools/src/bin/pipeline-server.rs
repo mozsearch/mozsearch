@@ -473,6 +473,9 @@ async fn handle_query(
     // (A query too expensive for its tier is a 422, with the page saying
     // why, for a person; see `query_limits`.)
     let mut too_expensive = None;
+    // (A query which failed, for a person, is its page saying why, ex: a
+    // server it needed didn't answer; see `problem_status`.)
+    let mut problem: Option<ServerError> = None;
     let mut result = match run {
         Ok(result) => result,
         Err(ServerError::TooExpensive(refused)) => {
@@ -481,6 +484,11 @@ async fn handle_query(
                 return Ok(ServerError::TooExpensive(refused).into_response());
             }
             too_expensive = Some(refused.to_json());
+            PipelineValues::Void
+        }
+        Err(err) if make_html => {
+            println!("Failed {:?}: {}", query, err.message());
+            problem = Some(err);
             PipelineValues::Void
         }
         Err(err) => return Err(err),
@@ -513,6 +521,7 @@ async fn handle_query(
     });
     if make_html
         && too_expensive.is_none()
+        && problem.is_none()
         && let Some(target) = &dwim
         && finds_nothing(&result)
     {
@@ -521,10 +530,11 @@ async fn handle_query(
 
     // (Corrections of the typos of a query which found nothing, for a
     // person; see `tools::typos`.)
-    let corrections = match make_html && too_expensive.is_none() && finds_nothing(&result) {
-        true => server.typo_corrections(query).await.unwrap_or_default(),
-        false => vec![],
-    };
+    let corrections =
+        match make_html && too_expensive.is_none() && problem.is_none() && finds_nothing(&result) {
+            true => server.typo_corrections(query).await.unwrap_or_default(),
+            false => vec![],
+        };
 
     let logs = match logged_span {
         Some(lspan) => lspan.retrieve_serde_json().await,
@@ -535,6 +545,13 @@ async fn handle_query(
     // legible I found.
     let mut header_map = HeaderMap::new();
     header_map.insert(header::VARY, "Accept".parse().unwrap());
+    // (A page saying of problems which may go away isn't cached by nginx,
+    // which caches pages; ex: a view whose parts a server didn't answer for.)
+    let transient = problem.as_ref().is_some_and(ServerError::is_transient)
+        || matches!(&result, PipelineValues::TextFile(file) if file.transient);
+    if transient {
+        header_map.insert("X-Accel-Expires", "0".parse().unwrap());
+    }
 
     if make_html {
         let sym_info_str = match &result {
@@ -633,13 +650,18 @@ async fn handle_query(
             "graph_facets": graph_facets,
             "graph_badges": graph_badges,
             "too_expensive": too_expensive.clone().unwrap_or(Value::Null),
+            "problem": problem.as_ref().map_or(Value::Null, |problem| json!({
+                "message": problem.message(),
+                "transient": problem.is_transient(),
+            })),
             "corrections": corrections,
         });
 
         let output = templates.query_results.render(&globals)?;
-        let status = match too_expensive {
-            Some(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            None => StatusCode::OK,
+        let status = match (&too_expensive, &problem) {
+            (Some(_), _) => StatusCode::UNPROCESSABLE_ENTITY,
+            (None, Some(problem)) => problem_status(problem),
+            (None, None) => StatusCode::OK,
         };
         let mut response = (status, header_map, Html(output)).into_response();
         if let Some(charge) = charge {
@@ -660,6 +682,23 @@ async fn handle_query(
 /// it's a 429, to retry).
 static SLOW_LANE: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(1);
 const SLOW_LANE_WAIT: Duration = Duration::from_secs(60);
+
+/// The status of the page of a query which failed (see `handle_query`): a
+/// 400 for what it asked for (ex: a bug's comment which isn't there), a 503
+/// for what may go away (ex: a server it needed didn't answer), and a 500
+/// for the rest.
+fn problem_status(problem: &ServerError) -> StatusCode {
+    use tools::abstract_server::{ErrorDetails, ErrorLayer};
+    match problem {
+        ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::BadInput,
+            ..
+        }) => StatusCode::BAD_REQUEST,
+        ServerError::TransientProblem(_) => StatusCode::SERVICE_UNAVAILABLE,
+        ServerError::Unsupported => StatusCode::NOT_IMPLEMENTED,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
 
 /// Whether a query's results are none.
 fn finds_nothing(result: &PipelineValues) -> bool {

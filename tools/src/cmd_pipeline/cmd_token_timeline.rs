@@ -65,6 +65,7 @@ impl PipelineCommand for TokenTimelineCommand {
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: TOKEN_TIMELINE_MIME.to_string(),
             contents: model.to_string().replace('<', "\\u003c"),
+            transient: false,
         }))
     }
 }

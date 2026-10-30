@@ -63,7 +63,7 @@ pub struct CrashStack {
 }
 
 /// A frame of a crash's stack.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct CrashFrame {
     /// Its position, 0 for the innermost.
     pub index: usize,
@@ -92,10 +92,14 @@ pub struct CrashFrame {
     /// For a crash report's frame: where the report says it was.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<FrameSource>,
+    /// Why its excerpt's lines couldn't be fetched, if they couldn't, of a
+    /// file the tree has (see `row_problem`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub problem: Option<String>,
 }
 
 /// A frame's function in the tree.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct FrameFunction {
     pub sym: Ustr,
     pub pretty: Ustr,
@@ -105,7 +109,7 @@ pub struct FrameFunction {
 }
 
 /// A line of a frame's excerpt.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct FrameRow {
     pub line: u32,
     /// Its row's HTML (see `chunked_gzip::Row`).
@@ -401,6 +405,7 @@ pub async fn crash_stack(
             rows: vec![],
             address: None,
             source: None,
+            problem: None,
         });
     }
 
@@ -442,11 +447,12 @@ pub async fn crash_stack(
         let path = frames[*i].function.as_ref().unwrap().path;
         requests.entry(path).or_default().extend(all);
     }
-    let rows = fetch_rows(server, requests).await;
+    let (rows, failed) = fetch_rows(server, requests).await;
     for (i, all, shown) in wanted {
         let frame = &mut frames[i];
         let path = frame.function.as_ref().unwrap().path;
         let Some(file_rows) = rows.get(&path) else {
+            frame.problem = failed.get(&path).map(row_problem);
             continue;
         };
         for line in all {
@@ -471,24 +477,39 @@ pub async fn crash_stack(
     })
 }
 
+/// The rows of a file's lines, by their numbers.
+pub(crate) type FileRows = std::collections::HashMap<u32, crate::file_format::chunked_gzip::Row>;
+
 /// The rows of `requests`' files' lines (see
 /// `AbstractServer::fetch_html_lines`), all at once, or if that fails (ex:
-/// for a file the tree doesn't have), each file's that doesn't.
+/// for a file the tree doesn't have), each file's that doesn't; and the
+/// errors of the files whose rows couldn't be fetched.
 pub(crate) async fn fetch_rows(
     server: &(dyn AbstractServer + Send + Sync),
     requests: BTreeMap<Ustr, BTreeSet<u32>>,
-) -> UstrMap<std::collections::HashMap<u32, crate::file_format::chunked_gzip::Row>> {
+) -> (UstrMap<FileRows>, UstrMap<ServerError>) {
     let requests: Vec<(Ustr, BTreeSet<u32>)> = requests.into_iter().collect();
     if let Ok(rows) = server.fetch_html_lines(requests.clone()).await {
-        return rows;
+        return (rows, UstrMap::default());
     }
     let mut rows = UstrMap::default();
+    let mut failed = UstrMap::default();
     for request in requests {
-        if let Ok(found) = server.fetch_html_lines(vec![request]).await {
-            rows.extend(found);
+        let path = request.0;
+        match server.fetch_html_lines(vec![request]).await {
+            Ok(found) => rows.extend(found),
+            Err(err) => {
+                failed.insert(path, err);
+            }
         }
     }
-    rows
+    (rows, failed)
+}
+
+/// What an excerpt says when its file's lines couldn't be fetched (see
+/// `fetch_rows`).
+pub(crate) fn row_problem(err: &ServerError) -> String {
+    format!("Couldn't get its lines: {}", err.message())
 }
 
 /// Runs of consecutive numbers.
@@ -507,7 +528,7 @@ pub(crate) fn runs(numbers: impl Iterator<Item = u32>) -> Vec<Vec<u32>> {
 /// its ID, what crashed (ex: "Firefox 160.0a1 nightly, build 20261009095351,
 /// on macOS 14.6"), its signature, its MOZ_CRASH reason, its crash's type and
 /// address, and its threads (how many, and the crashing one).
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct CrashReport {
     pub id: String,
     pub product: String,
@@ -555,6 +576,11 @@ pub struct FrameSource {
     pub indexed_line: Option<u32>,
     pub changed: bool,
     pub unmapped: bool,
+    /// Whether `rev` is an estimate of the build's (ex: a Bugzilla comment's
+    /// frames' tree's head then, whose report isn't available; see
+    /// `bug_comment`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub estimated: bool,
 }
 
 /// Where crash-stats' processed crashes are (`{}` being a crash's ID),
@@ -603,10 +629,20 @@ pub async fn fetch_crash_report(
     if let Some(report) = recent {
         return Ok(report);
     }
+    // (crash-stats keeps reports for a while; one it doesn't have may have
+    // expired.  Its other failures may go away.)
+    let missing = || {
+        problem(format!(
+            "crash-stats doesn't have the crash report {} (it only keeps them for a while)",
+            id
+        ))
+    };
     let url = template.replace("{}", id);
     let text = match url.strip_prefix("file://") {
-        Some(path) => std::fs::read_to_string(path)
-            .map_err(|e| problem(format!("Couldn't read crash report {}: {}", id, e)))?,
+        Some(path) => std::fs::read_to_string(path).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => missing(),
+            _ => problem(format!("Couldn't read crash report {}: {}", id, e)),
+        })?,
         None => {
             let client = CLIENT.get_or_init(|| {
                 reqwest::Client::builder()
@@ -624,13 +660,12 @@ pub async fn fetch_crash_report(
                     .text()
                     .await
             };
-            fetched.await.map_err(|e| {
-                problem(match e.status() {
-                    Some(reqwest::StatusCode::NOT_FOUND) => {
-                        format!("crash-stats has no crash report {}", id)
-                    }
-                    _ => format!("Couldn't get crash report {} from crash-stats: {}", id, e),
-                })
+            fetched.await.map_err(|e| match e.status() {
+                Some(reqwest::StatusCode::NOT_FOUND) => missing(),
+                _ => ServerError::TransientProblem(ErrorDetails {
+                    layer: ErrorLayer::ServerLayer,
+                    message: format!("Couldn't get crash report {} from crash-stats: {}", id, e),
+                }),
             })?
         }
     };
@@ -774,13 +809,17 @@ fn repository_file(file: &str) -> Option<(String, String)> {
 }
 
 /// A function's name without its arguments (ex: "mozilla::Foo::Bar" for
-/// "mozilla::Foo::Bar(int, char const*) const"), as signatures have them.
-fn without_arguments(name: &str) -> &str {
+/// "mozilla::Foo::Bar(int, char const*) const"), as signatures have them
+/// (but for a call operator's, "operator()").
+pub(crate) fn without_arguments(name: &str) -> &str {
     let mut depth = 0;
     for (at, c) in name.char_indices() {
         match c {
             '<' => depth += 1,
             '>' if depth > 0 => depth -= 1,
+            '(' if depth == 0
+                && name[..at].ends_with("operator")
+                && name[at..].starts_with("()") => {}
             '(' if depth == 0 && at > 0 => return &name[..at],
             _ => {}
         }
@@ -806,6 +845,18 @@ pub async fn crash_report_stack(
 ) -> Result<CrashStack> {
     let report = server.crash_report(id).await?;
     let (summary, threads) = parse_report(id, &report);
+    Ok(report_threads_stack(server, summary, threads, all_threads).await)
+}
+
+/// The stack of a crash report's `threads` (see `crash_report_stack`; or of
+/// frames a Bugzilla comment lists, whose revision is estimated, see
+/// `bug_comment`).
+pub async fn report_threads_stack(
+    server: &(dyn AbstractServer + Send + Sync),
+    summary: CrashReport,
+    threads: Vec<ReportThread>,
+    all_threads: bool,
+) -> CrashStack {
     let (annotations, _) = parse_signature(&summary.signature);
     let crashing = summary
         .crashing_thread
@@ -875,6 +926,7 @@ pub async fn crash_report_stack(
                 rows: vec![],
                 address: frame.address,
                 source: Some(source),
+                problem: None,
             });
         }
         resolved.push((thread.thread, frames));
@@ -989,12 +1041,16 @@ pub async fn crash_report_stack(
     for (_, _, path, all, _) in &wanted {
         requests.entry(*path).or_default().extend(all);
     }
-    let rows = fetch_rows(server, requests).await;
+    let (rows, failed) = fetch_rows(server, requests).await;
     for (t, i, path, all, shown) in wanted {
+        let frame = &mut resolved[t].1[i];
         let Some(file_rows) = rows.get(&path) else {
+            // (Not of a file the tree doesn't have, which the frame says.)
+            if server.file_facet_info(&path).is_some() {
+                frame.problem = failed.get(&path).map(row_problem);
+            }
             continue;
         };
-        let frame = &mut resolved[t].1[i];
         for line in all {
             let Some(row) = file_rows.get(&line) else {
                 continue;
@@ -1020,13 +1076,13 @@ pub async fn crash_report_stack(
             });
         }
     }
-    Ok(CrashStack {
+    CrashStack {
         signature: summary.signature.clone(),
         annotations,
         frames,
         report: Some(summary),
         threads: others,
-    })
+    }
 }
 
 /// The SYM_INFO of the stack's excerpts' symbols (for their context menus).
@@ -1076,21 +1132,7 @@ pub fn render_crash_stack(
             stack.frames.len()
         )),
         Some(report) => {
-            let thread = match &report.crashing_thread {
-                Some(ThreadInfo {
-                    index,
-                    name: Some(name),
-                }) => format!("thread #{} ({})", index, escape(name)),
-                Some(ThreadInfo { index, name: None }) => format!("thread #{}", index),
-                None => "a thread".to_string(),
-            };
-            let what = match (&report.crash_type, &report.address) {
-                (Some(kind), Some(address)) => {
-                    format!("{} at {}", escape(kind), escape(address))
-                }
-                (Some(kind), None) => escape(kind),
-                _ => "It crashed".to_string(),
-            };
+            let (what, thread) = report_crashed(report);
             let in_tree = stack
                 .frames
                 .iter()
@@ -1221,10 +1263,33 @@ document.addEventListener("click", event => {{
     Ok(())
 }
 
-/// A frame's row of the crash view (see `render_crash_stack`), with its id:
-/// its code (its function's excerpt, or for a crash report's frame, its
-/// file's) and what it is.
-fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> String {
+/// How a crash report's crash was (ex: "SIGSEGV at 0x0"), and in which thread
+/// (ex: "thread #0 (GeckoMain)"), as HTML.
+pub(crate) fn report_crashed(report: &CrashReport) -> (String, String) {
+    use crate::rendered_docs::escape;
+    let thread = match &report.crashing_thread {
+        Some(ThreadInfo {
+            index,
+            name: Some(name),
+        }) => format!("thread #{} ({})", index, escape(name)),
+        Some(ThreadInfo { index, name: None }) => format!("thread #{}", index),
+        None => "a thread".to_string(),
+    };
+    let what = match (&report.crash_type, &report.address) {
+        (Some(kind), Some(address)) => {
+            format!("{} at {}", escape(kind), escape(address))
+        }
+        (Some(kind), None) => escape(kind),
+        _ => "It crashed".to_string(),
+    };
+    (what, thread)
+}
+
+/// A frame's row of the crash view (see `render_crash_stack`; and of a
+/// Bugzilla comment's frames, see `bug_comment`), with its id: its code (its
+/// function's excerpt, or for a crash report's frame, its file's) and what
+/// it is.
+pub(crate) fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> String {
     use crate::rendered_docs::escape;
     use crate::url_encode_path::url_encode_path;
 
@@ -1328,10 +1393,16 @@ fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> String {
             }
             Some(_) => "No source.".to_string(),
         };
-        html.push_str(&format!(
-            r#"<div class="crash-code-missing">{}</div>"#,
-            missing
-        ));
+        match &frame.problem {
+            Some(problem) => html.push_str(&format!(
+                r#"<div class="crash-code-missing view-problem">{}</div>"#,
+                escape(problem)
+            )),
+            None => html.push_str(&format!(
+                r#"<div class="crash-code-missing">{}</div>"#,
+                missing
+            )),
+        }
     }
     html.push_str("</div>");
 
@@ -1392,11 +1463,15 @@ fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> String {
         Some(source) => match (&source.path, source.line, &source.tree_rev) {
             (Some(path), Some(line), Some(tree_rev)) => {
                 let build = format!(
-                    r#"<a class="crash-frame-build" href="/{}/rev/{}/{}#{}">the build's revision</a>"#,
+                    r#"<a class="crash-frame-build" href="/{}/rev/{}/{}#{}">{}</a>"#,
                     escape(tree_name),
                     escape(tree_rev),
                     escape(&url_encode_path(path)),
-                    line
+                    line,
+                    match source.estimated {
+                        true => "the tree's revision then",
+                        false => "the build's revision",
+                    }
                 );
                 match source.indexed_line {
                     Some(_) if source.unmapped => format!(
@@ -1415,9 +1490,13 @@ fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> String {
             }
             (Some(path), Some(line), None) => {
                 format!(
-                    "At <code>{}:{}</code> at the build's revision.",
+                    "At <code>{}:{}</code> at {}.",
                     escape(path),
-                    line
+                    line,
+                    match source.estimated {
+                        true => "the tree's revision then",
+                        false => "the build's revision",
+                    }
                 )
             }
             (None, Some(line), _) => source.file.as_ref().map_or_else(String::new, |file| {
@@ -1596,6 +1675,10 @@ mod tests {
         assert_eq!(
             without_arguments("tools::blame::find_phab_rev"),
             "tools::blame::find_phab_rev"
+        );
+        assert_eq!(
+            without_arguments("mozilla::DefaultDelete<T>::operator()(mozilla::ipc::..."),
+            "mozilla::DefaultDelete<T>::operator()"
         );
         assert!(is_crash_id("b40697bb-fa73-46e6-bcd3-0f1ce0261030"));
         assert!(!is_crash_id("b40697bb-fa73-46e6-bcd3-0f1ce026103"));

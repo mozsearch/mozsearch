@@ -635,6 +635,14 @@ args.threads = "$0"
 command = "bug-comment"
 args.positional = "$0"
 
+# The head the tree's branch had at a time, roughly ("2024-08-30", or
+# "2024-08-30T07:26Z"; see cmd_rev_at.rs), which /search goes through to (see
+# dwim.toml's "rev-at").
+[term.rev-at]
+[[term.rev-at.group.rev-at]]
+command = "rev-at"
+args.positional = "$0"
+
 [term.text]
 [[term.text.group.text-search]]
 command = "search-text"
@@ -821,6 +829,9 @@ output = "result"
 output = "result"
 
 [group.bug-comment]
+output = "result"
+
+[group.rev-at]
 output = "result"
 
 [group.token-history]

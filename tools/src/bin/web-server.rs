@@ -425,14 +425,7 @@ fn redirect_mapped_rev(
 /// What a server's error says, for a page (the message of its reasons, ex:
 /// "Bad revision").
 fn server_error_message(err: &tools::abstract_server::ServerError) -> String {
-    use tools::abstract_server::ServerError;
-    match err {
-        ServerError::StickyProblem(details) | ServerError::TransientProblem(details) => {
-            details.message.clone()
-        }
-        ServerError::Unsupported => "Not available for this tree".to_string(),
-        ServerError::TooExpensive(refused) => refused.message(),
-    }
+    err.message()
 }
 
 /// A request's site's origin: its host (nginx's X-Forwarded-Host, else its

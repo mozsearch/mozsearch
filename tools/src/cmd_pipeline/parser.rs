@@ -22,6 +22,7 @@ use super::cmd_merge_analyses::MergeAnalyses;
 use super::cmd_normalize_unstable_data::NormalizeUnstableData;
 use super::cmd_query::Query;
 use super::cmd_render::Render;
+use super::cmd_rev_at::RevAt;
 use super::cmd_search::Search;
 use super::cmd_search_files::SearchFiles;
 use super::cmd_search_identifiers::SearchIdentifiers;
@@ -103,6 +104,7 @@ pub enum Command {
     BlockDiagram(BlockDiagram),
     CrashStack(CrashStack),
     BugComment(BugComment),
+    RevAt(RevAt),
     HistoryGrep(HistoryGrepCommandArgs),
     TokenHistory(TokenHistoryArgs),
     TokenNames(TokenNamesArgs),

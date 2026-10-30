@@ -924,6 +924,7 @@ impl PipelineCommand for BlockDiagramCommand {
                     &arcs,
                     unit,
                 ),
+                transient: false,
             }));
         }
         let mut graphs: Vec<NamedSymbolGraph> = vec![];

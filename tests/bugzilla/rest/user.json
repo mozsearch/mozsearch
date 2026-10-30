@@ -1,0 +1,17 @@
+{
+ "users": [
+  {
+   "id": 11,
+   "name": "reporter@example.com",
+   "nick": "rita",
+   "real_name": "Rita Reporter [:rita]"
+  },
+  {
+   "id": 12,
+   "name": "someone@example.com",
+   "nick": "sam",
+   "real_name": "Sam Someone [:sam]"
+  }
+ ],
+ "faults": []
+}

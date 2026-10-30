@@ -3570,7 +3570,8 @@ h2.sp-called-heading {
 /* A query in a try push's context (see query_results.liquid). */
 .query-try-context,
 .query-interpretation,
-.query-too-expensive {
+.query-too-expensive,
+.query-problem {
   margin: 0.5em 1rem;
   padding: 0.3em 0.6em;
   border-left: 3px solid var(--link-color);
@@ -3603,6 +3604,19 @@ h2.sp-called-heading {
 .query-too-expensive p,
 .query-too-expensive ul {
   margin: 0.3em 0;
+}
+/* A query which failed (see pipeline-server.rs's `problem_status`), and a
+   view's parts which did (ex: a Bugzilla comment's crash report which
+   crash-stats doesn't have any more; see bug_comment.rs). */
+.query-problem {
+  border-left-color: var(--test-results-bad);
+  background-color: var(--info-box-error-background);
+}
+.query-problem p {
+  margin: 0.3em 0;
+}
+.view-problem {
+  color: var(--stale-citation-color);
 }
 .explore-commit-list ol {
   margin: 0.3em 0;
@@ -6013,13 +6027,291 @@ textarea.monospace {
   margin: 1.2em 1em 0.3em;
   font-size: 14px;
 }
-/* A Bugzilla comment's view (see bug_comment.rs), as the crash view: each of
-   its blocks (right) beside the excerpts of the code it links to (left). */
+/* A Bugzilla comment's view (see bug_comment.rs), as the crash view: the
+   comment as Bugzilla shows it (its header, then its text, a row per block),
+   each of its blocks (left) beside the cards of what it links to (right). */
 .bug-comment-view {
-  --crash-columns: minmax(0, 1fr) minmax(18em, 34em);
+  --crash-columns: minmax(20em, 44em) minmax(0, 1fr);
+  /* Bugzilla's (bugzilla.mozilla.org's skins/standard/global.css and
+     extensions/BugModal/web/bug_modal.css, 2026-10-30): its fonts and colors,
+     light and dark. */
+  --bmo-font-family: "FiraGO", "Fira Sans", system-ui, sans-serif;
+  --bmo-monospace: "Menlo", "Noto Mono", monospace;
+  --bmo-text-color: rgb(40, 41, 42);
+  --bmo-text-background: rgb(250, 251, 252);
+  --bmo-header-background: rgb(240, 241, 242);
+  --bmo-region-border-color: rgb(210, 211, 212);
+  --bmo-region-shadow: 0 1px 4px rgba(40, 41, 42, .2);
+  --bmo-text-border-color: rgb(220, 221, 222);
+  --bmo-secondary-text-color: rgb(100, 101, 102);
+  --bmo-label-color: rgb(80, 81, 82);
+  --bmo-link-color: rgb(0, 108, 191);
+  --bmo-hovered-link-color: rgb(0, 94, 166);
+  --bmo-positive-color: rgb(40, 120, 40);
+  --bmo-grid-border-color: rgb(200, 201, 202);
+  --bmo-control-background: rgb(255, 255, 255);
+  --bmo-avatar-background: rgb(170, 171, 172);
+}
+@supports (color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  .bug-comment-view {
+    --bmo-text-color: rgb(210, 211, 212);
+    --bmo-text-background: rgb(40, 41, 42);
+    --bmo-header-background: rgb(50, 51, 52);
+    --bmo-region-border-color: rgb(20, 21, 22);
+    --bmo-region-shadow: 0 1px 4px rgba(10, 11, 12, .5);
+    --bmo-text-border-color: rgb(60, 61, 62);
+    --bmo-secondary-text-color: rgb(150, 151, 152);
+    --bmo-label-color: rgb(170, 171, 172);
+    --bmo-link-color: rgb(26, 168, 245);
+    --bmo-hovered-link-color: rgb(24, 151, 219);
+    --bmo-positive-color: rgb(42, 186, 39);
+    --bmo-grid-border-color: rgb(60, 61, 62);
+    --bmo-control-background: rgb(35, 36, 37);
+    --bmo-avatar-background: rgb(90, 91, 92);
+  }
+}
+}
+/* The bug, as Bugzilla's page's header. */
+.bug-comment-bug {
+  margin: 0.6em 1em 0.8em;
+  font-family: var(--bmo-font-family);
+  line-height: 1.25;
+}
+.bug-comment-bug-id,
+.bug-comment-bug-summary {
+  font-size: 20px;
+}
+.bug-comment-bug-id {
+  margin-right: 0.3em;
+  color: var(--bmo-link-color);
+  text-decoration: none;
+}
+.bug-comment-bug-about {
+  margin-top: 0.2em;
+  color: var(--bmo-label-color);
+  font-size: 13px;
+}
+.bug-comment-bug-status {
+  font-weight: bold;
+}
+.bug-comment-problems {
+  font-size: 13px;
+}
+/* The comment's rows: its blocks' cells touch, as one comment box, with
+   their rows' cards beside them. */
+.bug-comment-view .crash-frame {
+  padding: 0;
+  border-top: none;
+}
+.bug-comment-head,
+.bug-comment-blocks {
+  margin: 0 1em;
+}
+.bug-comment-head {
+  display: grid;
+  grid-template-columns: var(--crash-columns);
+  gap: 1.5em;
+}
+/* Its header, as Bugzilla's `change-head`: its author's avatar (their
+   initial; not their Gravatar, a request to another site), their name and
+   roles, and its number and when it was written. */
+.bmo-change-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--bmo-region-border-color);
+  border-bottom-color: var(--bmo-region-border-color);
+  border-radius: 0;
+  background-color: var(--bmo-header-background);
+  box-shadow: var(--bmo-region-shadow);
+  color: var(--bmo-text-color);
+  font: 13px/1.25 var(--bmo-font-family);
+}
+.bmo-avatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background-color: var(--bmo-avatar-background);
+  color: #fff;
+  font-weight: bold;
+  font-size: 16px;
+}
+.bmo-author {
+  color: inherit;
+  font-weight: bold;
+  text-decoration: none;
+}
+.bmo-role {
+  margin-left: 1em;
+  padding: 1px 4px;
+  border: 1px solid var(--bmo-positive-color);
+  border-radius: 4px;
+  color: var(--bmo-positive-color);
+  font-size: 11px;
+}
+.bmo-change-name,
+.bmo-change-time {
+  color: var(--bmo-label-color);
+  font-size: 12px;
+  text-decoration: none;
+}
+.bug-comment-notice {
+  align-self: end;
+  margin: 0;
+}
+/* Its text, as Bugzilla's `comment-text`, Markdown's as its `markdown-body`,
+   a cell per block. */
+.bug-comment-text {
+  min-width: 0;
+  padding: 0 12px;
+  border-right: 1px solid var(--bmo-region-border-color);
+  border-left: 1px solid var(--bmo-region-border-color);
+  background-color: var(--bmo-text-background);
+  color: var(--bmo-text-color);
+  font: 15px/1.5 var(--bmo-font-family);
+  overflow-wrap: break-word;
+}
+.bug-comment-block:first-child .bug-comment-text {
+  padding-top: 12px;
+}
+.bug-comment-block:last-child .bug-comment-text {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--bmo-region-border-color);
+  box-shadow: 0 3px 4px -2px rgba(40, 41, 42, .2);
+}
+.bug-comment-text a {
+  color: var(--bmo-link-color);
+  text-decoration: none;
+  font-variant-ligatures: none;
+}
+.bug-comment-text a:hover {
+  color: var(--bmo-hovered-link-color);
+  text-decoration: underline;
+}
+.bug-comment-text > * {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+.bug-comment-block:last-child .bug-comment-text > :last-child {
+  margin-bottom: 0;
+}
+/* (A list's items, but its last, are as close as Bugzilla's.) */
+.bug-comment-item .bug-comment-text > :last-child {
+  margin-bottom: .25em;
+}
+.markdown-body.bug-comment-text ul,
+.markdown-body.bug-comment-text ol {
+  padding-left: 2em;
+}
+.markdown-body.bug-comment-text ul ul,
+.markdown-body.bug-comment-text ul ol,
+.markdown-body.bug-comment-text ol ol,
+.markdown-body.bug-comment-text ol ul {
+  margin: 0;
+}
+.markdown-body.bug-comment-text li + li {
+  margin-top: .25em;
+}
+.markdown-body.bug-comment-text blockquote {
+  margin-left: 0;
+  margin-right: 0;
+  padding: 0 1em;
+  border-left: .25em solid var(--bmo-text-border-color);
+  color: var(--bmo-secondary-text-color);
+}
+.markdown-body.bug-comment-text h1,
+.markdown-body.bug-comment-text h2,
+.markdown-body.bug-comment-text h3,
+.markdown-body.bug-comment-text h4 {
+  font-weight: bold;
+  line-height: 1.25;
+}
+.markdown-body.bug-comment-text h1,
+.markdown-body.bug-comment-text h2 {
+  padding-bottom: .3em;
+  border-bottom: 1px solid var(--bmo-text-border-color);
+}
+.markdown-body.bug-comment-text h1 { font-size: 2em; }
+.markdown-body.bug-comment-text h2 { font-size: 1.5em; }
+.markdown-body.bug-comment-text h3 { font-size: 1.25em; }
+.markdown-body.bug-comment-text h4 { font-size: 1em; }
+.bug-comment-text code,
+.bug-comment-text pre {
+  font-family: var(--bmo-monospace);
+  font-size-adjust: .5;
+}
+.markdown-body.bug-comment-text code {
+  padding: .2em .4em;
+  border-radius: 3px;
+  background-color: var(--bmo-header-background);
+}
+.markdown-body.bug-comment-text pre {
+  overflow: auto;
+  max-height: 600px;
+  padding: 1em;
+  border-radius: 3px;
+  background-color: var(--bmo-header-background);
+  line-height: 1.45;
+}
+.markdown-body.bug-comment-text pre > code {
+  padding: 0;
+  background: transparent;
+  white-space: pre;
+}
+.markdown-body.bug-comment-text table {
+  display: inline-block;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+  border-top: 1px solid var(--bmo-grid-border-color);
+}
+.markdown-body.bug-comment-text tr {
+  border-bottom: 1px solid var(--bmo-grid-border-color);
+  background-color: var(--bmo-control-background);
+}
+.markdown-body.bug-comment-text th,
+.markdown-body.bug-comment-text td {
+  padding: 8px;
+}
+.markdown-body.bug-comment-text hr {
+  height: .25em;
+  margin: 24px 0;
+  border: 0;
+  background-color: var(--bmo-text-border-color);
+}
+/* (A plain text comment's, as Bugzilla shows them: in its monospace font,
+   its lines kept, its quoted lines as quotes.) */
+.bug-comment-text:not(.markdown-body) {
+  font-family: var(--bmo-monospace);
+  font-size-adjust: .5;
+  white-space: pre-wrap;
+}
+.bug-comment-text:not(.markdown-body) .quote {
+  display: inline-block;
+  width: 99%;
+  padding: 5px;
+  background-color: var(--bmo-header-background);
+  color: var(--bmo-secondary-text-color);
+}
+/* (Its block's cards, which hovering it outlines.) */
+.bug-comment-block:hover .bug-comment-text {
+  box-shadow: inset 3px 0 var(--bmo-link-color);
 }
 .bug-comment-cards {
   min-width: 0;
+  padding: 0.6em 0;
+}
+.bug-comment-block + .bug-comment-block .bug-comment-cards {
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+.bug-comment-block .bug-comment-cards:empty {
+  border-top: none;
 }
 .bug-comment-card {
   padding-left: 0.5em;
@@ -6033,24 +6325,31 @@ textarea.monospace {
   font-size: 11px;
   opacity: 0.7;
 }
-.bug-comment-crash {
+.bug-comment-crash,
+.bug-comment-frames {
   font-size: 13px;
 }
-.bug-comment-text {
-  font-size: 13px;
-  overflow-wrap: anywhere;
+.bug-comment-crash p {
+  margin: 0 0 0.4em;
 }
-.bug-comment-text > :first-child {
-  margin-top: 0;
+.bug-comment-crash code {
+  word-break: break-all;
 }
-.bug-comment-text ul,
-.bug-comment-text ol {
-  margin: 0;
-  padding-left: 1.5em;
+/* (A card's crash frames, a frame's name and where it was above its code.) */
+.bug-comment-card .crash-frame {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.2em;
+  padding: 0.4em 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
 }
-.bug-comment-text pre {
-  overflow-x: auto;
+.bug-comment-card .crash-frame-info {
   font-size: 12px;
+}
+/* (The card's border is its code's.) */
+.bug-comment-card .crash-code {
+  padding-left: 0;
+  border-left: none;
 }
 
 /* What a search was for, on the page it went to at once, as a DWIM rule says

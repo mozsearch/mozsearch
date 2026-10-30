@@ -491,6 +491,21 @@ impl AbstractServer for LocalIndex {
         crate::bug_comment::fetch_bugzilla(&base, path).await
     }
 
+    async fn bugzilla_page(&self, path: &str) -> Result<String> {
+        let base = self
+            .tree_config_loaded()
+            .bugzilla_url
+            .clone()
+            .unwrap_or_else(|| crate::bug_comment::BUGZILLA_URL.to_string());
+        crate::bug_comment::fetch_bugzilla_page(&base, path).await
+    }
+
+    async fn rev_at(&self, time: &str) -> Result<Option<crate::commit_index::RevAt>> {
+        let cfg = self.tree_config_loaded();
+        crate::format::rev_at(&cfg, &self.tree_name, time)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn line_map(&self, rev: &str, path: &str) -> Result<Option<Vec<Option<u32>>>> {
         let cfg = self.tree_config_loaded();
         Ok(crate::format::rev_line_map(

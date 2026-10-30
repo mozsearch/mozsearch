@@ -86,6 +86,26 @@ impl IntoResponse for ServerError {
     }
 }
 
+impl ServerError {
+    /// What it says, for a page (its details' message, ex: "Bug 1234567 has
+    /// no comment 9").
+    pub fn message(&self) -> String {
+        match self {
+            ServerError::StickyProblem(details) | ServerError::TransientProblem(details) => {
+                details.message.clone()
+            }
+            ServerError::Unsupported => "Not available for this tree".to_string(),
+            ServerError::TooExpensive(refused) => refused.message(),
+        }
+    }
+
+    /// Whether it may go away if tried again later (so that a page saying
+    /// it isn't cached).
+    pub fn is_transient(&self) -> bool {
+        matches!(self, ServerError::TransientProblem(_))
+    }
+}
+
 /// `fetch_html` needs to fetch from a number of parallel directories in the
 /// index directory, and this enum maps to those directories.
 #[derive(Debug, Eq, PartialEq)]
@@ -810,6 +830,20 @@ pub trait AbstractServer {
     /// (`Config::bugzilla_url`).
     async fn bugzilla_json(&self, path: &str) -> Result<std::sync::Arc<Value>> {
         crate::bug_comment::fetch_bugzilla(crate::bug_comment::BUGZILLA_URL, path).await
+    }
+
+    /// Bugzilla's page `path` (ex: "show_bug.cgi?id=1915788"; see
+    /// `bug_comment::fetch_bugzilla_page`), as `bugzilla_json`'s.
+    async fn bugzilla_page(&self, path: &str) -> Result<String> {
+        crate::bug_comment::fetch_bugzilla_page(crate::bug_comment::BUGZILLA_URL, path).await
+    }
+
+    /// The head the tree's branch had at `time` (see
+    /// `commit_index::parse_time`), roughly: its main line's last commit which
+    /// had landed by then (see `commit_index::CommitIndex::rev_at`), if it
+    /// had one.  (Unsupported by remote servers.)
+    async fn rev_at(&self, _time: &str) -> Result<Option<crate::commit_index::RevAt>> {
+        Err(ServerError::Unsupported)
     }
 
     /// For each line of the file at `path` in revision `rev` (line `l` at `l -

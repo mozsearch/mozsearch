@@ -39,6 +39,15 @@
 //!   2005, deleting the 23,832 files the branch didn't have, which its merge
 //!   kept; see `hyperblame::history_grep`), or "?" where the index doesn't
 //!   know (a try index's, whose heads aren't one line).
+//! - `by-landed` has `LANDED<TAB>POSITION<TAB>REV` lines (POSITION padded to
+//!   12 digits), sorted, for the main line's commits (`by-rev`'s with "-"
+//!   JOINs), so that the head the branch had at a time can be bisected for,
+//!   roughly: its last commit on the main line which had landed by then (see
+//!   `CommitIndex::rev_at`).  Roughly, since LANDED is when a commit first
+//!   landed anywhere: an hg revision's first push was usually to an
+//!   integration repo (ex: autoland), up to a day or so before
+//!   mozilla-central (and its nightly builds) had it, and a git commit's date
+//!   is its commit's.
 //!
 //! Trees like try (or review), which process many unrelated heads based on
 //! other branches' revisions, accumulate their heads in one index, which
@@ -326,6 +335,85 @@ impl SortedLines {
         }
         found
     }
+
+    /// The fields of the last line which sorts before `probe`, if any.
+    pub(crate) fn last_before(&self, probe: &str) -> Option<Vec<String>> {
+        let data = &self.mmap.as_ref()?[..];
+        let probe = probe.as_bytes();
+        let line_end = |start: usize| {
+            data[start..]
+                .iter()
+                .position(|&b| b == b'\n')
+                .map_or(data.len(), |i| start + i)
+        };
+        // (As `find`'s: every line starting before `low` sorts before the
+        // probe, and every line starting at or after `high` doesn't.)
+        let mut low = 0;
+        let mut high = data.len();
+        while low < high {
+            let mid = low + (high - low) / 2;
+            let start = data[low..mid]
+                .iter()
+                .rposition(|&b| b == b'\n')
+                .map_or(low, |i| low + i + 1);
+            let end = line_end(start);
+            if &data[start..end] < probe {
+                low = end + 1;
+            } else {
+                high = start;
+            }
+        }
+        // (The line ending just before `low`.)
+        let end = low.min(data.len()).checked_sub(1)?;
+        let end = match data[end] {
+            b'\n' => end,
+            _ => end + 1,
+        };
+        let start = data[..end]
+            .iter()
+            .rposition(|&b| b == b'\n')
+            .map_or(0, |i| i + 1);
+        (start < end).then(|| {
+            String::from_utf8_lossy(&data[start..end])
+                .split('\t')
+                .map(str::to_string)
+                .collect()
+        })
+    }
+}
+
+/// The head a branch had at a time, roughly (see `CommitIndex::rev_at`): its
+/// main line's last commit which had landed by then, and when it landed.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct RevAt {
+    pub rev: String,
+    pub landed: String,
+}
+
+/// A time (ex: "2024-08-30T07:26:47Z", "2024-08-30 07:26", or a day,
+/// "2024-08-30", meaning its end), in UTC unless it says, as `by-landed`'s
+/// dates are (ISO 8601, in UTC, to the second).
+pub fn parse_time(text: &str) -> Option<String> {
+    use chrono::{NaiveDate, NaiveDateTime, TimeZone, Utc};
+    let text = text.trim();
+    let text = text.strip_suffix(" UTC").unwrap_or(text);
+    let utc = |time: chrono::DateTime<Utc>| time.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    if let Ok(time) = chrono::DateTime::parse_from_rfc3339(text) {
+        return Some(utc(time.with_timezone(&Utc)));
+    }
+    let bare = text.strip_suffix('Z').unwrap_or(text);
+    for format in [
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M",
+    ] {
+        if let Ok(time) = NaiveDateTime::parse_from_str(bare, format) {
+            return Some(utc(Utc.from_utc_datetime(&time)));
+        }
+    }
+    let day = NaiveDate::parse_from_str(bare, "%Y-%m-%d").ok()?;
+    Some(utc(Utc.from_utc_datetime(&day.and_hms_opt(23, 59, 59)?)))
 }
 
 /// The `by-rev` fields of a line (see `SortedLines::find`).
@@ -607,9 +695,27 @@ fn update_with(
         ));
     }
 
+    // (The main line's commits by when they landed, from all of `by-rev`'s,
+    // since processed heads' JOINs may have been rebuilt.)
+    let by_landed: Vec<String> = by_rev
+        .iter()
+        .filter_map(
+            |line| match line.split('\t').collect::<Vec<_>>().as_slice() {
+                [rev, landed, position, "-", ..] => Some(format!(
+                    "{}\t{:012}\t{}",
+                    landed,
+                    position.parse::<u64>().ok()?,
+                    rev
+                )),
+                _ => None,
+            },
+        )
+        .collect();
+
     write_lines(&dir.join("by-bug"), by_bug).map_err(|e| e.to_string())?;
     write_lines(&dir.join("by-phab"), by_phab).map_err(|e| e.to_string())?;
     write_lines(&dir.join("by-rev"), by_rev).map_err(|e| e.to_string())?;
+    write_lines(&dir.join("by-landed"), by_landed).map_err(|e| e.to_string())?;
     // Only the new head matters from now on, since it includes the others it
     // was built on, unless we accumulate heads.
     if !options.accumulate {
@@ -704,6 +810,27 @@ impl CommitIndex {
     /// The branch of the index, if it's a branch's (see `open_branch`).
     pub fn branch(&self) -> Option<String> {
         dir_branch(&self.dir)
+    }
+
+    /// The head the branch had at `time` (as `parse_time`'s), roughly: its
+    /// main line's last commit which had landed by then (see `by-landed`),
+    /// here or in the indexes this reads through to (whose main line a try
+    /// index's heads are based on).
+    pub fn rev_at(&self, time: &str) -> Option<RevAt> {
+        let probe = format!("{}\t~", time);
+        std::iter::once(self)
+            .chain(self.bases.iter())
+            .filter_map(|index| {
+                let fields = SortedLines::open(&index.dir.join("by-landed")).last_before(&probe)?;
+                match fields.as_slice() {
+                    [landed, _, rev] => Some(RevAt {
+                        rev: rev.clone(),
+                        landed: landed.clone(),
+                    }),
+                    _ => None,
+                }
+            })
+            .max_by(|a, b| a.landed.cmp(&b.landed))
     }
 
     /// The other branches' indexes under the same `commit-index/` as this
@@ -1141,6 +1268,42 @@ mod tests {
             update_branch(&repo, merge, &root, "main", &with_pushes).unwrap(),
             0
         );
+
+        // (The head at a time: the main line's last commit which had landed
+        // by then, not the side branch's, nor before the first; the last of
+        // those landing together; and from a try index, its base's.)
+        let at = |index: &CommitIndex, time: &str| index.rev_at(time).map(|at| at.rev);
+        assert_eq!(at(&index, "1970-01-01T00:45:00Z"), Some(land.to_string()));
+        assert_eq!(at(&index, "1970-01-01T00:55:00Z"), Some(merge.to_string()));
+        assert_eq!(at(&index, "1970-01-01T00:10:00Z"), None);
+        assert_eq!(
+            index.rev_at("1970-01-01T00:50:30Z"),
+            Some(RevAt {
+                rev: out.to_string(),
+                landed: "1970-01-01T00:50:00Z".to_string()
+            })
+        );
+        assert_eq!(
+            at(&try_index, "1970-01-02T00:00:00Z"),
+            Some(merge.to_string())
+        );
+        assert_eq!(
+            parse_time("2024-08-30").as_deref(),
+            Some("2024-08-30T23:59:59Z")
+        );
+        assert_eq!(
+            parse_time("2024-08-30 07:26").as_deref(),
+            Some("2024-08-30T07:26:00Z")
+        );
+        assert_eq!(
+            parse_time("2024-08-30T00:26:47-07:00").as_deref(),
+            Some("2024-08-30T07:26:47Z")
+        );
+        assert_eq!(
+            parse_time("2024-08-30T07:26:47Z").as_deref(),
+            Some("2024-08-30T07:26:47Z")
+        );
+        assert_eq!(parse_time("yesterday"), None);
         fs::remove_dir_all(&dir).unwrap();
     }
 

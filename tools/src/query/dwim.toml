@@ -59,6 +59,13 @@ lookup = "hg-commit"
 go = "always"
 
 [[rule]]
+name = "rev-at"
+description = "The tree as it was at a time (ex: rev-at:2024-08-30, or rev-at:2024-08-30T07:26Z): its branch's head then, roughly."
+pattern = '^rev-at:\s*(?P<time>\S.*)$'
+lookup = "rev-at"
+go = "always"
+
+[[rule]]
 name = "bugzilla-comment"
 description = "A Bugzilla bug's comment: its blocks, beside the code they link to."
 pattern = '^https?://(?:bugzilla\.mozilla\.org/(?:show_bug\.cgi\?(?:\S*?&)?id=)?|bugzil\.la/)(?P<bug>\d+)(?:&[^#\s]*)?#c(?P<comment>\d+)$'

@@ -72,6 +72,16 @@
       {%- endif %}
     </div>
     {%- endif %}
+    {%- comment %}(A query which failed says why, ex: a server it needed
+    didn't answer, or a bug's comment which isn't there.){% endcomment %}
+    {%- if problem %}
+    <div class="query-problem" role="alert">
+      <p>{{ problem.message | escape }}</p>
+      {%- if problem.transient %}
+      <p>It may work if you try again later.</p>
+      {%- endif %}
+    </div>
+    {%- endif %}
     <div class="query-result">
       {% for result_pair in results %}
         {% case result_pair[0] %}

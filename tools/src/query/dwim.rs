@@ -239,6 +239,7 @@ mod tests {
                     "spec-pr" => &["repo", "number"],
                     "treeherder-try" => &["params"],
                     "explore-bug" => &["bug"],
+                    "rev-at" => &["time"],
                     _ => &["rev"],
                 };
                 let values: Vec<String> = names.iter().filter_map(|name| capture(name)).collect();
@@ -371,6 +372,11 @@ mod tests {
             (
                 "https://phabricator.services.mozilla.com/D123456?id=789",
                 "lookup:explore-phab:D123456",
+            ),
+            ("rev-at:2024-08-30", "lookup:rev-at:2024-08-30"),
+            (
+                "rev-at: 2024-08-30T07:26Z",
+                "lookup:rev-at:2024-08-30T07:26Z",
             ),
         ] {
             assert_eq!(redirect(input).as_deref(), Some(lookup), "{}", input);

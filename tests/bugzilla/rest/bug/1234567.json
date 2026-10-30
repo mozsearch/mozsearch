@@ -6,7 +6,9 @@
    "product": "Searchfox",
    "component": "General",
    "status": "NEW",
-   "resolution": ""
+   "resolution": "",
+   "creator": "reporter@example.com",
+   "assigned_to": "someone@example.com"
   }
  ],
  "faults": []

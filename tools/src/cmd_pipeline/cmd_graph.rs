@@ -414,6 +414,7 @@ impl PipelineCommand for GraphCommand {
             return Ok(PipelineValues::TextFile(TextFile {
                 mime_type: "text/x-dot".to_string(),
                 contents: raw_dot_str,
+                transient: false,
             }));
         }
 
@@ -505,6 +506,7 @@ impl PipelineCommand for GraphCommand {
                         .join("\n"),
                 },
                 mime_type,
+                transient: false,
             })),
         }
     }

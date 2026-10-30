@@ -1283,6 +1283,10 @@ pub struct HtmlExcerpts {
 pub struct TextFile {
     pub mime_type: String,
     pub contents: String,
+    /// Whether it says of problems which may go away if tried again (ex: a
+    /// server which didn't answer), so that it isn't cached.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub transient: bool,
 }
 
 /// A command that takes a single input and produces a single output.  At the
