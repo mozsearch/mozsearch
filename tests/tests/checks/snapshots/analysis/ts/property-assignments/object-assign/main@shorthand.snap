@@ -9,14 +9,14 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/shorthand
     "source": 1,
     "syntax": "def,field",
     "pretty": "field objectAssign::shorthand",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
     "type": "\"shorthand\""
   },
   {
     "loc": "00006:2-11",
     "structured": 1,
     "pretty": "objectAssign::shorthand",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
     "js_sym": "#shorthand",
     "type_pretty": "\"shorthand\"",
     "kind": "field",
@@ -39,14 +39,14 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/shorthand
     "target": 1,
     "kind": "def",
     "pretty": "objectAssign::shorthand",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.shorthand."
   },
   {
     "loc": "00019:13-22",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field objectAssign::shorthand",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
     "type": "\"shorthand\""
   },
   {
@@ -54,6 +54,6 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/shorthand
     "target": 1,
     "kind": "use",
     "pretty": "objectAssign::shorthand",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.shorthand."
   }
 ]

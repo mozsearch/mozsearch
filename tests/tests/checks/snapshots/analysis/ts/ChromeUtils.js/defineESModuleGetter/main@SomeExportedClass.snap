@@ -9,14 +9,14 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/SomeExportedC
     "source": 1,
     "syntax": "def,field",
     "pretty": "field obj::SomeExportedClass",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.SomeExportedClass.",
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.SomeExportedClass.",
     "type": "\"SomeExportedClass\""
   },
   {
     "loc": "00010:2-19",
     "structured": 1,
     "pretty": "obj::SomeExportedClass",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.SomeExportedClass.",
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.SomeExportedClass.",
     "js_sym": "#SomeExportedClass",
     "type_pretty": "\"SomeExportedClass\"",
     "kind": "field",
@@ -39,14 +39,14 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/SomeExportedC
     "target": 1,
     "kind": "def",
     "pretty": "obj::SomeExportedClass",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.SomeExportedClass."
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.SomeExportedClass."
   },
   {
     "loc": "00020:8-25",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field obj::SomeExportedClass",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.SomeExportedClass.",
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.SomeExportedClass.",
     "type": "\"SomeExportedClass\""
   },
   {
@@ -54,6 +54,6 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/SomeExportedC
     "target": 1,
     "kind": "use",
     "pretty": "obj::SomeExportedClass",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.SomeExportedClass."
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.SomeExportedClass."
   }
 ]

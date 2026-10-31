@@ -30,7 +30,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/attribute__json
           "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
         ],
         "ts_syms": [
-          "S_js_ts/src/bindings.d.ts/tsClass#tsAttribute."
+          "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsAttribute."
         ]
       },
       "relation": "Queried",
@@ -38,7 +38,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/attribute__json
       "overloads_hit": []
     },
     {
-      "symbol": "S_js_ts/src/bindings.d.ts/tsClass#tsAttribute.",
+      "symbol": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsAttribute.",
       "crossref_info": {
         "defs": [
           {
@@ -53,7 +53,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/attribute__json
                 ],
                 "line": "tsAttribute: string;",
                 "context": "tsClass",
-                "contextsym": "S_js_ts/src/bindings.d.ts/tsClass#"
+                "contextsym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#"
               }
             ]
           }
@@ -61,12 +61,12 @@ input_file: inputs/crossref/typescript/bindings.d.ts/attribute__json
         "meta": {
           "structured": 1,
           "pretty": "tsClass::tsAttribute",
-          "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsAttribute.",
+          "sym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsAttribute.",
           "js_sym": "#tsAttribute",
           "type_pretty": "string",
           "kind": "field",
           "subsystem": null,
-          "parentsym": "S_js_ts/src/bindings.d.ts/tsClass#",
+          "parentsym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#",
           "slotOwner": {
             "slotKind": "attribute",
             "slotLang": "js",

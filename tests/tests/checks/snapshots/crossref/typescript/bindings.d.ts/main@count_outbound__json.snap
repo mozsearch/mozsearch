@@ -6,7 +6,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/count_outbound__json
 {
   "symbol_crossref_infos": [
     {
-      "symbol": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstOutbound.",
+      "symbol": "S_js_test-ts/ts/src/bindings.d.ts/TsEnum#TsConstOutbound.",
       "crossref_info": {
         "defs": [
           {
@@ -29,12 +29,12 @@ input_file: inputs/crossref/typescript/bindings.d.ts/count_outbound__json
         "meta": {
           "structured": 1,
           "pretty": "TsEnum::TsConstOutbound",
-          "sym": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstOutbound.",
+          "sym": "S_js_test-ts/ts/src/bindings.d.ts/TsEnum#TsConstOutbound.",
           "js_sym": "#TsConstOutbound",
           "type_pretty": "(enum member) TsConstOutbound",
           "kind": "field",
           "subsystem": null,
-          "parentsym": "S_js_ts/src/bindings.d.ts/TsEnum#",
+          "parentsym": "S_js_test-ts/ts/src/bindings.d.ts/TsEnum#",
           "implKind": "impl",
           "sizeBytes": null,
           "alignmentBytes": null,

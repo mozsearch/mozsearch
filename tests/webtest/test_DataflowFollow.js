@@ -137,7 +137,7 @@ add_task(async function test_DataflowQueryJs() {
   // From JS's `input` through XPIDL's binding into the C++ implementation.
   await TestUtils.loadQuery(
     "tests",
-    "follow-forward:'S_js_ts/src/dataflow.js/viaXpcom().(input)' follow-at:'ts/src/dataflow.js#17'");
+    "follow-forward:'S_js_test-ts/ts/src/dataflow.js/viaXpcom().(input)' follow-at:'ts/src/dataflow.js#17'");
 
   const { model } = await tracedMap();
   const impl = model.cards.find(card => card.func == "DataflowParams::TestBoolean");

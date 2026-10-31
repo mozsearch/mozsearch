@@ -8,7 +8,7 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
     {
       "id": 0,
       "func": "viaXpcom",
-      "sym": "S_js_ts/src/dataflow.js/viaXpcom().",
+      "sym": "S_js_test-ts/ts/src/dataflow.js/viaXpcom().",
       "path": "ts/src/dataflow.js",
       "changed": false,
       "seed": true,
@@ -103,7 +103,7 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
     {
       "id": 2,
       "func": "describe",
-      "sym": "S_js_ts/src/dataflow.js/describe().",
+      "sym": "S_js_test-ts/ts/src/dataflow.js/describe().",
       "path": "ts/src/dataflow.js",
       "changed": false,
       "cluster": 1,
@@ -151,7 +151,7 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
     {
       "id": 3,
       "func": "pick",
-      "sym": "S_js_ts/src/dataflow.js/pick().",
+      "sym": "S_js_test-ts/ts/src/dataflow.js/pick().",
       "path": "ts/src/dataflow.js",
       "changed": false,
       "cluster": 1,
@@ -201,7 +201,7 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
       "family": 0,
       "parents": [],
       "syms": [
-        "S_js_ts/src/dataflow.js/viaXpcom().(input)",
+        "S_js_test-ts/ts/src/dataflow.js/viaXpcom().(input)",
         "V_d3ae7f85abd2b0a0_0",
         "V_d3ae7f85abd2b0a0_1"
       ]
@@ -253,11 +253,11 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
         1
       ],
       "syms": [
+        "S_js_test-ts/ts/src/dataflow.js/describe().(settings)",
+        "S_js_test-ts/ts/src/dataflow.js/pick().(fallback)",
+        "S_js_test-ts/ts/src/dataflow.js/pick().(flag)",
         "S_js_ts/src/dataflow.js/#0",
-        "S_js_ts/src/dataflow.js/#1",
-        "S_js_ts/src/dataflow.js/describe().(settings)",
-        "S_js_ts/src/dataflow.js/pick().(fallback)",
-        "S_js_ts/src/dataflow.js/pick().(flag)"
+        "S_js_ts/src/dataflow.js/#1"
       ]
     }
   ],

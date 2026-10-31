@@ -9,14 +9,14 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/prop
     "source": 1,
     "syntax": "def,field",
     "pretty": "field objectAssign::prop",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.prop.",
     "type": "\"prop\""
   },
   {
     "loc": "00005:2-6",
     "structured": 1,
     "pretty": "objectAssign::prop",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.prop.",
     "js_sym": "#prop",
     "type_pretty": "\"prop\"",
     "kind": "field",
@@ -39,14 +39,14 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/prop
     "target": 1,
     "kind": "def",
     "pretty": "objectAssign::prop",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.prop."
   },
   {
     "loc": "00018:13-17",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field objectAssign::prop",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.prop.",
     "type": "\"prop\""
   },
   {
@@ -54,6 +54,6 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/prop
     "target": 1,
     "kind": "use",
     "pretty": "objectAssign::prop",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.prop."
   }
 ]

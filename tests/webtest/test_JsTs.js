@@ -33,5 +33,5 @@ add_task(async function test_defineESModuleGetters() {
   is(searches.length, 1, "1 search is shown");
 
   is(searches[0].textContent, "Search for ChromeUtils::defineESModuleGetters", "Search names TypeScript symbol");
-  ok(searches[0].href.includes("/tests/search?q=symbol:S_js_ts%2Fsrc%2FChromeUtils.js%2FChromeUtils.defineESModuleGetters()."), "Search links to TypeScript symbol");
+  ok(searches[0].href.includes("/tests/search?q=symbol:S_js_test-ts%2Fts%2Fsrc%2FChromeUtils.js%2FChromeUtils.defineESModuleGetters()."), "Search links to TypeScript symbol");
 });

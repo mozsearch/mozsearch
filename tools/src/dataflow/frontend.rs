@@ -3314,7 +3314,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             .filter(|r| {
                 !r.syms.is_empty()
                     && r.has_syntax("method")
-                    && !r.sym().starts_with("S_jvm_kotlin/Function")
+                    && !is_kotlin_function_type(&r.sym())
                     && !r.sym().ends_with("#get().")
             })
             .take(1)
@@ -3467,10 +3467,29 @@ fn short(pretty: &str) -> &str {
     short_name(pretty)
 }
 
+/// Whether a JVM symbol is of Kotlin's function types (ex: `invoke` of a
+/// property of function type), with or without the SCIP package scip-java
+/// gives the standard library's symbols (ex:
+/// `S_jvm_maven/org.jetbrains.kotlin/kotlin-stdlib/kotlin/Function1#invoke().`).
+fn is_kotlin_function_type(sym: &str) -> bool {
+    sym.starts_with("S_jvm_kotlin/Function") || sym.contains("/kotlin/Function")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+
+    #[test]
+    fn test_kotlin_function_type() {
+        assert!(is_kotlin_function_type("S_jvm_kotlin/Function1#invoke()."));
+        assert!(is_kotlin_function_type(
+            "S_jvm_maven/org.jetbrains.kotlin/kotlin-stdlib/kotlin/Function1#invoke()."
+        ));
+        assert!(!is_kotlin_function_type(
+            "S_jvm_sample/Interface#someFunction()."
+        ));
+    }
 
     /// A source record for `needle` (the `nth` on its line) in `source`.
     fn rec(

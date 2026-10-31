@@ -6,7 +6,7 @@
 add_task(async function test_java_docs() {
   await TestUtils.loadPath("/tests/source/src/main/java/sample/JdkUser.java");
   const span = frame.contentDocument.querySelector(
-    `span[data-symbols="S_jvm_java/lang/Integer#MAX_VALUE."]`);
+    `span[data-symbols="S_jvm_jdk/java/lang/Integer#MAX_VALUE."]`);
   ok(span, "Integer.MAX_VALUE has its symbol");
   TestUtils.click(span);
   const menu = frame.contentDocument.querySelector("#context-menu");

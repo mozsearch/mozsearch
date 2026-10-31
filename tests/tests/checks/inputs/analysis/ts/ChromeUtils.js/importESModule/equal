@@ -1,1 +1,1 @@
-filter-analysis ts/src/ChromeUtils.js -s "S_js_assert.d.ts/\"assert\"/assert/equal()."
+filter-analysis ts/src/ChromeUtils.js -s "S_js_@types/node/assert.d.ts/\"assert\"/assert/equal()."

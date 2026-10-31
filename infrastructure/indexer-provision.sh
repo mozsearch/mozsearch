@@ -22,19 +22,6 @@ sudo apt-get install -y ninja-build
 # the update process.
 cargo install cargo-insta
 
-# Install a JDK and Coursier.
-# v17 is the version used on Firefox CI.
-sudo apt install -y openjdk-17-jdk
-curl -fL "https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz" | gzip -d > cs
-chmod +x cs
-./cs setup --yes
-# Coursier adds itself to the path from ~/.profile, but add it now too
-PATH="$PATH:$HOME/.local/share/coursier/bin"
-
-# Install scip-java
-cs install --contrib scip-java
-rm -rf ~/.cache/coursier
-
 # Install xpidl, webidl and ply
 PYMODULES=$HOME/pymodules
 mkdir "${PYMODULES}"

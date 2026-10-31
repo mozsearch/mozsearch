@@ -6,7 +6,7 @@ input_file: inputs/crossref/java/JdkUser.java/jdk_docs__json
 {
   "symbol_crossref_infos": [
     {
-      "symbol": "S_jvm_java/lang/Integer#MAX_VALUE.",
+      "symbol": "S_jvm_jdk/java/lang/Integer#MAX_VALUE.",
       "crossref_info": {
         "uses": [
           {
@@ -29,11 +29,11 @@ input_file: inputs/crossref/java/JdkUser.java/jdk_docs__json
         "meta": {
           "structured": 1,
           "pretty": "java::lang::Integer::MAX_VALUE",
-          "sym": "S_jvm_java/lang/Integer#MAX_VALUE.",
+          "sym": "S_jvm_jdk/java/lang/Integer#MAX_VALUE.",
           "type_pretty": null,
           "kind": "field",
           "subsystem": null,
-          "parentsym": "S_jvm_java/lang/Integer#",
+          "parentsym": "S_jvm_jdk/java/lang/Integer#",
           "implKind": "external",
           "sizeBytes": null,
           "alignmentBytes": null,
@@ -59,7 +59,7 @@ input_file: inputs/crossref/java/JdkUser.java/jdk_docs__json
       "overloads_hit": []
     },
     {
-      "symbol": "S_jvm_java/util/Map#Entry#",
+      "symbol": "S_jvm_jdk/java/util/Map#Entry#",
       "crossref_info": {
         "uses": [
           {
@@ -82,11 +82,11 @@ input_file: inputs/crossref/java/JdkUser.java/jdk_docs__json
         "meta": {
           "structured": 1,
           "pretty": "java::util::Map::Entry",
-          "sym": "S_jvm_java/util/Map#Entry#",
+          "sym": "S_jvm_jdk/java/util/Map#Entry#",
           "type_pretty": null,
           "kind": "class",
           "subsystem": null,
-          "parentsym": "S_jvm_java/util/Map#",
+          "parentsym": "S_jvm_jdk/java/util/Map#",
           "implKind": "external",
           "sizeBytes": null,
           "alignmentBytes": null,
@@ -117,7 +117,7 @@ input_file: inputs/crossref/java/JdkUser.java/jdk_docs__json
                 {
                   "from": "S_jvm_sample/JdkUser#describe().",
                   "fromPretty": "sample::JdkUser::describe",
-                  "to": "S_jvm_java/util/Map#Entry#getKey().",
+                  "to": "S_jvm_jdk/java/util/Map#Entry#getKey().",
                   "toPretty": "java::util::Map::Entry::getKey",
                   "count": 1
                 }

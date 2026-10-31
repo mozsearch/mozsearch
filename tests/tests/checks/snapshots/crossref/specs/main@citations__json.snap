@@ -257,7 +257,7 @@ input_file: inputs/crossref/specs/citations__json
                 ],
                 "line": "# https://example.spec.whatwg.org/#assemble",
                 "context": "spec_citations::assemble",
-                "contextsym": "S_py_spec_citations/assemble()."
+                "contextsym": "S_py_python/spec_citations/assemble()."
               },
               {
                 "lno": 8,
@@ -267,7 +267,7 @@ input_file: inputs/crossref/specs/citations__json
                 ],
                 "line": "# Step 1.",
                 "context": "spec_citations::assemble step 1",
-                "contextsym": "S_py_spec_citations/assemble()."
+                "contextsym": "S_py_python/spec_citations/assemble()."
               },
               {
                 "lno": 11,
@@ -277,7 +277,7 @@ input_file: inputs/crossref/specs/citations__json
                 ],
                 "line": "# Step 2.1. Poke it.",
                 "context": "spec_citations::assemble step 2.1",
-                "contextsym": "S_py_spec_citations/assemble()."
+                "contextsym": "S_py_python/spec_citations/assemble()."
               },
               {
                 "lno": 13,
@@ -287,7 +287,7 @@ input_file: inputs/crossref/specs/citations__json
                 ],
                 "line": "# Step 2.2.",
                 "context": "spec_citations::assemble step 2.2",
-                "contextsym": "S_py_spec_citations/assemble()."
+                "contextsym": "S_py_python/spec_citations/assemble()."
               }
             ]
           },

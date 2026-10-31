@@ -9,7 +9,7 @@ input_file: inputs/analysis/java/InlineObject.kt/method__json
     "structured": 1,
     "pretty": "someFunction",
     "sym": "S_jvm_src/main/kotlin/sample/InlineObject.kt/#2",
-    "type_pretty": null,
+    "type_pretty": "public open override fun someFunction(): Unit",
     "kind": "method",
     "subsystem": null,
     "parentsym": "S_jvm_src/main/kotlin/sample/InlineObject.kt/#0",

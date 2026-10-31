@@ -56,7 +56,7 @@ input_file: inputs/search-text/global/searchfox_plain__json
       ]
     },
     {
-      "file": "simple.rs",
+      "file": "simple_rust/simple.rs",
       "path_kind": "normal",
       "matches": [
         {

@@ -9,14 +9,14 @@ input_file: inputs/analysis/ts/property-assignments/object-define-property/prop
     "source": 1,
     "syntax": "def,field",
     "pretty": "field objectDefineProperty::prop",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop.",
     "type": "\"prop\""
   },
   {
     "loc": "00002:44-50",
     "structured": 1,
     "pretty": "objectDefineProperty::prop",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop.",
     "js_sym": "#prop",
     "type_pretty": "\"prop\"",
     "kind": "field",
@@ -39,14 +39,14 @@ input_file: inputs/analysis/ts/property-assignments/object-define-property/prop
     "target": 1,
     "kind": "def",
     "pretty": "objectDefineProperty::prop",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop."
   },
   {
     "loc": "00011:21-25",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field objectDefineProperty::prop",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop.",
     "type": "\"prop\""
   },
   {
@@ -54,6 +54,6 @@ input_file: inputs/analysis/ts/property-assignments/object-define-property/prop
     "target": 1,
     "kind": "use",
     "pretty": "objectDefineProperty::prop",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop."
   }
 ]

@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/java/JavaLibrary.java/multiple_implements__json
 ---
 {
   "symbol_crossref_infos": [
@@ -29,7 +30,7 @@ expression: "&to_value(scil).unwrap()"
           "structured": 1,
           "pretty": "sample::JavaLibrary::C",
           "sym": "S_jvm_sample/JavaLibrary#C#",
-          "type_pretty": "final class C",
+          "type_pretty": "final class C implements I0, I1",
           "kind": "class",
           "subsystem": null,
           "parentsym": "S_jvm_sample/JavaLibrary#",

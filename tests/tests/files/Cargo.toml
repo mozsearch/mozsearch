@@ -1,14 +1,6 @@
-[package]
-name = "files"
-version = "0.1.0"
-authors = ["Emilio Cobos Álvarez <emilio@crisal.io>"]
-build = "build.rs"
-edition = "2018"
+[workspace]
+resolver = "3"
+members = ["simple_rust", "uniffi-bindgen", "uniffied"]
 
-[lib]
-name = "simple"
-path = "simple.rs"
-doctest = false
-
-[dependencies]
-test_rust_dependency = { path = "./test_rust_dependency" }
+[workspace.dependencies]
+uniffi = { version = "0.32.2" }

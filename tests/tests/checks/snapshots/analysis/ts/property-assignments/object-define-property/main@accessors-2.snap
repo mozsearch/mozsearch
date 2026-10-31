@@ -9,14 +9,14 @@ input_file: inputs/analysis/ts/property-assignments/object-define-property/acces
     "source": 1,
     "syntax": "def,field",
     "pretty": "field objectDefineProperty::accessors",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors.",
     "type": "\"accessors\""
   },
   {
     "loc": "00003:44-55",
     "structured": 1,
     "pretty": "objectDefineProperty::accessors",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors.",
     "js_sym": "#accessors",
     "type_pretty": "\"accessors\"",
     "kind": "field",
@@ -39,14 +39,14 @@ input_file: inputs/analysis/ts/property-assignments/object-define-property/acces
     "target": 1,
     "kind": "def",
     "pretty": "objectDefineProperty::accessors",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors."
   },
   {
     "loc": "00012:21-30",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field objectDefineProperty::accessors",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors.",
     "type": "\"accessors\""
   },
   {
@@ -54,14 +54,14 @@ input_file: inputs/analysis/ts/property-assignments/object-define-property/acces
     "target": 1,
     "kind": "use",
     "pretty": "objectDefineProperty::accessors",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors."
   },
   {
     "loc": "00013:21-30",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field objectDefineProperty::accessors",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors.",
     "type": "\"accessors\""
   },
   {
@@ -69,6 +69,6 @@ input_file: inputs/analysis/ts/property-assignments/object-define-property/acces
     "target": 1,
     "kind": "use",
     "pretty": "objectDefineProperty::accessors",
-    "sym": "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-define-property.js/objectDefineProperty.accessors."
   }
 ]

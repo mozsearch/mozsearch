@@ -14,7 +14,7 @@ with Files("big_header.h", "big_cpp.cpp"):
 with Files("circle.svg", "tiger.svg"):
     BUG_COMPONENT = ("Data", "Images: SVG")
 
-with Files("overs.cpp", "simple.cpp", "simple.rs", "using.cpp", "test_rust_dependency/src/lib.rs"):
+with Files("overs.cpp", "simple.cpp", "simple_rust/simple.rs", "using.cpp", "simple_rust/test_rust_dependency/src/lib.rs"):
     BUG_COMPONENT = ("Core", "Simple")
 
 with Files(

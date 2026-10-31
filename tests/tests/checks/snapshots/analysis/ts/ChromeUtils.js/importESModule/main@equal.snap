@@ -9,13 +9,13 @@ input_file: inputs/analysis/ts/ChromeUtils.js/importESModule/equal
     "source": 1,
     "syntax": "use,method",
     "pretty": "method equal",
-    "sym": "S_js_assert.d.ts/\"assert\"/assert/equal()."
+    "sym": "S_js_@types/node/assert.d.ts/\"assert\"/assert/equal()."
   },
   {
     "loc": "00018:11-16",
     "target": 1,
     "kind": "use",
     "pretty": "equal",
-    "sym": "S_js_assert.d.ts/\"assert\"/assert/equal()."
+    "sym": "S_js_@types/node/assert.d.ts/\"assert\"/assert/equal()."
   }
 ]

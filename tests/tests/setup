@@ -49,10 +49,10 @@ HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
 HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
 codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report-python.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
 
-git add rust
+git add simple_rust
 export GIT_AUTHOR_DATE="2025-01-10T12:00+0100"
 export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
-git commit -m "Add rust directory"
+git commit -m "Add simple_rust directory"
 
 HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
 HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"

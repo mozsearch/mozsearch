@@ -48,6 +48,9 @@
             rich
           ];
 
+        scip-java = pkgs.callPackage ./nix/scip-java {};
+        scip-java-semanticdb = pkgs.callPackage ./nix/scip-java/semanticdb.nix {};
+
         scip-python = pkgs.callPackage ./nix/scip-python {};
 
         wasm-snip = pkgs.callPackage ./nix/wasm-snip {};
@@ -78,6 +81,13 @@
           inherit llvmPackages;
         };
 
+        gradle = pkgs.gradle-packages.mkGradle {
+          version = "9.8.2";
+          hash = "sha256-Ib1dot5JtkKQQHfzjA79x3eOkrPtCIk5LcphuX44lgc=";
+          defaultJava = pkgs.jdk17_headless;
+          updateScriptMajorVersion = "9";
+        };
+
         commonPackages = with pkgs; [
           livegrep
           mozsearch-tools
@@ -92,18 +102,21 @@
 
         indexerPackages = with pkgs; [
           rust-analyzer
+          scip-java
+          scip-java-semanticdb
           scip-python
           nodejs
           scip-typescript.packages.${system}.default
           mozsearch-clang-plugin
           mozsearch-wasm-css-analyzer
+          gradle
         ];
 
         serverPackages = with pkgs; [
         ];
       in {
         packages = {
-          inherit scip-python wasm-snip;
+          inherit scip-java scip-java-semanticdb scip-python wasm-snip;
           inherit mozsearch-git mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer mozsearch-router mozsearch-bikeshed;
 
           indexerPackages = pkgs.symlinkJoin {

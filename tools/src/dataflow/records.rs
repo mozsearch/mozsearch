@@ -55,6 +55,47 @@ pub fn short_name(pretty: &str) -> &str {
     pretty.rsplit('#').next().unwrap_or(pretty)
 }
 
+/// The type of a JVM value (an argument, field or local) named `name`, from
+/// its record's type, which scip-kotlinc and scip-javac give as its
+/// declaration (ex: "input: String", "private final val settings:
+/// DataflowSettings", "public static final int javaConst"), and SemanticDB's
+/// scip-java as its type (ex: "String", "int"), as it is.
+fn jvm_value_type(declaration: &str, name: &str) -> String {
+    let declaration = declaration.trim();
+    // (Kotlin's: `[modifiers] [val|var] name: Type`.)
+    if let Some((head, ty)) = declaration.split_once(": ")
+        && head.split_whitespace().last() == Some(name)
+    {
+        return ty.to_string();
+    }
+    // (Java's: `[modifiers] Type name`.)
+    let words: Vec<&str> = declaration.split_whitespace().collect();
+    if let [ty @ .., last] = &words[..]
+        && *last == name
+    {
+        let ty: Vec<&str> = ty
+            .iter()
+            .copied()
+            .skip_while(|word| {
+                matches!(
+                    *word,
+                    "public"
+                        | "protected"
+                        | "private"
+                        | "static"
+                        | "final"
+                        | "transient"
+                        | "volatile"
+                )
+            })
+            .collect();
+        if !ty.is_empty() {
+            return ty.join(" ");
+        }
+    }
+    declaration.to_string()
+}
+
 /// A target record (or the parts of one we use).
 #[derive(Clone, Debug, Default)]
 pub struct TargetRec {
@@ -107,16 +148,29 @@ impl FileRecords {
                     Some((_, rest)) => rest.to_string(),
                     None => pretty,
                 };
-                let syms = str_field(&obj, "sym")
+                let syms: Vec<Ustr> = str_field(&obj, "sym")
                     .split(',')
                     .filter(|s| !s.is_empty())
                     .map(ustr)
                     .collect();
-                let syntax = str_field(&obj, "syntax")
+                let syntax: Vec<String> = str_field(&obj, "syntax")
                     .split(',')
                     .filter(|s| !s.is_empty())
                     .map(|s| s.to_string())
                     .collect();
+                // (A JVM value's type, from its declaration; see
+                // `jvm_value_type`.)
+                let jvm_value = syms.first().is_some_and(|s| s.starts_with("S_jvm_"))
+                    && syntax
+                        .iter()
+                        .any(|s| matches!(s.as_str(), "arg" | "field" | "variable" | "local"));
+                let type_pretty = obj.get("type").and_then(|v| v.as_str()).map(|ty| {
+                    if jvm_value {
+                        jvm_value_type(ty, short_name(&pretty))
+                    } else {
+                        ty.to_string()
+                    }
+                });
                 let mut expansion_offsets = vec![];
                 if let Some(at) = obj.get("inExpansionAt").and_then(|v| v.as_object()) {
                     for (key, platforms) in at {
@@ -156,10 +210,7 @@ impl FileRecords {
                     syms,
                     pretty,
                     syntax,
-                    type_pretty: obj
-                        .get("type")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string()),
+                    type_pretty,
                     type_sym: obj.get("typesym").and_then(|v| v.as_str()).map(ustr),
                     in_expansion: !expansion_offsets.is_empty(),
                     expansion_offsets,
@@ -296,5 +347,39 @@ impl FileRecords {
                     && !r.in_expansion
             })
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_jvm_value_type() {
+        // (scip-kotlinc's and scip-javac's declarations.)
+        assert_eq!(jvm_value_type("input: String", "input"), "String");
+        assert_eq!(
+            jvm_value_type("private final val settings: DataflowSettings", "settings"),
+            "DataflowSettings"
+        );
+        assert_eq!(
+            jvm_value_type("local val trimmed: String", "trimmed"),
+            "String"
+        );
+        assert_eq!(
+            jvm_value_type("callback: (String) -> Unit", "callback"),
+            "(String) -> Unit"
+        );
+        assert_eq!(
+            jvm_value_type("public static final int javaConst", "javaConst"),
+            "int"
+        );
+        assert_eq!(
+            jvm_value_type("private final Map<String, Integer> counts", "counts"),
+            "Map<String, Integer>"
+        );
+        // (SemanticDB's types, as they are.)
+        assert_eq!(jvm_value_type("UrlSink", "sink"), "UrlSink");
+        assert_eq!(jvm_value_type("int", "javaField"), "int");
     }
 }
