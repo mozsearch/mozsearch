@@ -1187,6 +1187,20 @@ fn analyze_using_scip(
     // own (it was single-threaded: ~1.4 minutes for firefox-disco's
     // TypeScript), which give the symbols whose structured records they
     // emitted, so that what's leftover is emitted at the end.
+    //
+    // A path's analysis file is its last document's, as it was when each
+    // document wrote its path's file over the ones before: a SCIP index can
+    // have more than one document of a path (ex: firefox's
+    // toolkit/components/extensions/Extension.sys.mjs, in two of
+    // scip-typescript's projects), whose files, written at once, tore each
+    // other's lines.  (The earlier documents' structured records are then
+    // leftovers, unless another document emitted them.)
+    let mut last_of_path: std::collections::HashMap<&str, usize> = Default::default();
+    for (i, (doc, source)) in index.documents.iter().zip(&sources).enumerate() {
+        if source.is_some() {
+            last_of_path.insert(&doc.relative_path, i);
+        }
+    }
     let structured = &scip_symbol_to_structured;
     let analysis_root = &analysis_root;
     let lang = &lang;
@@ -1194,11 +1208,19 @@ fn analyze_using_scip(
         .documents
         .par_iter()
         .zip(sources.par_iter())
-        .map(|(doc, source)| {
+        .enumerate()
+        .map(|(i, (doc, source))| {
             let mut emitted = vec![];
             let Some(source_fname) = source else {
                 return emitted;
             };
+            if last_of_path.get(doc.relative_path.as_str()) != Some(&i) {
+                info!(
+                    "Skipping '{}', which a later document has too",
+                    doc.relative_path
+                );
+                return emitted;
+            }
             write_document_analysis(
                 doc,
                 source_fname,
