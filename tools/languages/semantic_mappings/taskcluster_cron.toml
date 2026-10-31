@@ -1,0 +1,80 @@
+# Taskcluster's cron jobs, in .cron.yml (see semantic_analyzer.rs): each job
+# (a `jobs` item, by its `name`) defines `TCCRON_<name>` (pretty
+# `cron::<name>`, callable, for diagrams), which is the context of the records
+# inside it: its decision task's `target-tasks-method` uses the target tasks
+# method (`TCTARGETS_<method>`; see taskcluster_target_tasks.toml), and its
+# `run-on-projects` use the projects (`TCPROJECT_<project>`; see
+# taskcluster_projects.toml), so that a task's callers through its target
+# tasks method include the cron jobs running it.  (By queries, since data
+# rules' scopes are entries with keys, not a sequence's items.)
+grammar = "yaml"
+paths = ["**/.cron.yml"]
+
+[[scopes]]
+name = "job"
+query = """
+(block_sequence_item
+  (block_node
+    (block_mapping
+      (block_mapping_pair
+        key: (flow_node (plain_scalar (string_scalar) @key))
+        value: (flow_node (plain_scalar (string_scalar) @name)))
+      (#eq? @key "name")))) @scope
+"""
+sym = "TCCRON_{{ name }}"
+pretty = "cron::{{ name }}"
+
+[[rules]]
+role = "def"
+query = """
+(block_sequence_item
+  (block_node
+    (block_mapping
+      (block_mapping_pair
+        key: (flow_node (plain_scalar (string_scalar) @key))
+        value: (flow_node (plain_scalar (string_scalar) @id)))
+      (#eq? @key "name"))))
+"""
+sym = "TCCRON_{{ id }}"
+pretty = "cron::{{ id }}"
+syntax_kind = "cron job"
+
+[rules.structured]
+kind = "task"
+impl_kind = "taskcluster"
+
+[[rules]]
+role = "use"
+query = """
+(block_mapping_pair
+  key: (flow_node (plain_scalar (string_scalar) @key))
+  value: (flow_node (plain_scalar (string_scalar) @id))
+  (#eq? @key "target-tasks-method"))
+"""
+sym = "TCTARGETS_{{ id }}"
+pretty = "target_tasks::{{ id }}"
+syntax_kind = "target tasks method"
+
+[[rules]]
+role = "use"
+query = """
+(block_mapping_pair
+  key: (flow_node (plain_scalar (string_scalar) @key))
+  value: (flow_node (flow_sequence (flow_node (plain_scalar (string_scalar) @id))))
+  (#eq? @key "run-on-projects"))
+"""
+sym = "TCPROJECT_{{ id }}"
+pretty = "project::{{ id }}"
+syntax_kind = "project"
+
+[[rules]]
+role = "use"
+query = """
+(block_mapping_pair
+  key: (flow_node (plain_scalar (string_scalar) @key))
+  value: (block_node (block_sequence (block_sequence_item (flow_node (plain_scalar (string_scalar) @id)))))
+  (#eq? @key "run-on-projects"))
+"""
+sym = "TCPROJECT_{{ id }}"
+pretty = "project::{{ id }}"
+syntax_kind = "project"

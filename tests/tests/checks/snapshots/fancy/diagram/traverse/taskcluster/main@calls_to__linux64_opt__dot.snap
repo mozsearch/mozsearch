@@ -1,0 +1,13 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/traverse/taskcluster/calls_to__linux64_opt__dot
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "TCTARGETS_package_nightly"[label="target_tasks::package_nightly"]
+  "TASK_package/linux64/opt"[label="package::linux64/opt"]
+  "TCTARGETS_package_nightly" -> "TASK_package/linux64/opt"
+  "TCCRON_package-nightly"[label="cron::package-nightly"]
+  "TCCRON_package-nightly" -> "TCTARGETS_package_nightly"
+}

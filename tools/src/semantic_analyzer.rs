@@ -187,6 +187,12 @@ pub struct QueryRule {
     /// `AnalysisTarget::slot`).
     #[serde(default)]
     pub slot: Option<BindingSlotKind>,
+    /// For definitions, their structured records' kind and implementation
+    /// kind, without bindings (ex: a taskcluster target tasks method's, which
+    /// diagrams go through as they're callable; see
+    /// `semantic_kind_is_callable`).
+    #[serde(default)]
+    pub structured: Option<StructuredRule>,
 }
 
 /// How a use names something in any file, which `Resolvables` finds once all
@@ -205,6 +211,15 @@ pub enum Resolve {
     /// own, or else the tree's, if all of the tree's constants of that name
     /// have the same value.  The rule's templates see its `value`.
     Constant,
+    /// The taskcluster task (with the use rule's `sym` as the prefix of its
+    /// symbol, ex: `TASK_`) whose label the use's text is, if just one's is:
+    /// a task `<kind>::<name>`'s label is `<kind>-<name>`, or for one of a
+    /// `tasks-from` file's (not its kind's kind.yml), also
+    /// `<kind>-<file>-<name>`, its file's name without `.yml` (as
+    /// gecko_taskgraph's source-test transforms name them; ex:
+    /// "source-test-file-metadata-bugzilla-components").  Ex: the task labels
+    /// a target tasks method returns.
+    TaskLabel,
 }
 
 /// Which scalar of a matched entry a data rule's records are at.
@@ -289,6 +304,7 @@ fn grammar_language(grammar: &str) -> Result<tree_sitter::Language, String> {
         "mozcpp" => Ok(tree_sitter_mozcpp::LANGUAGE.into()),
         "rust" => Ok(tree_sitter_rust::LANGUAGE.into()),
         "typescript" => Ok(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+        "python" => Ok(tree_sitter_python::LANGUAGE.into()),
         _ => Err(format!("Unknown grammar {}", grammar)),
     }
 }
@@ -314,6 +330,8 @@ struct CompiledRule {
     /// How its uses resolve, and the prefix of the symbols they resolve to.
     resolve: Option<(Resolve, String)>,
     slot: Option<BindingSlotKind>,
+    /// Its definitions' structured records' kind and implementation kind.
+    structured: Option<(String, String)>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -466,11 +484,13 @@ impl CompiledMapping {
                 .map(|rule| {
                     let sym = template(&rule.sym)?;
                     let resolve = match rule.resolve {
-                        Some(Resolve::DefPrefix) if rule.role == Role::Use => {
+                        Some(resolve @ (Resolve::DefPrefix | Resolve::TaskLabel))
+                            if rule.role == Role::Use =>
+                        {
                             let prefix = sym
                                 .render(&liquid::Object::new())
                                 .map_err(|e| e.to_string())?;
-                            Some((Resolve::DefPrefix, prefix))
+                            Some((resolve, prefix))
                         }
                         Some(Resolve::Constant) if rule.role == Role::Use => {
                             Some((Resolve::Constant, String::new()))
@@ -494,6 +514,20 @@ impl CompiledMapping {
                             .map_err(|e| format!("{}: regex: {}", name, e))?,
                         resolve,
                         slot: rule.slot,
+                        structured: match &rule.structured {
+                            Some(structured)
+                                if rule.role == Role::Def && structured.bindings.is_empty() =>
+                            {
+                                Some((structured.kind.clone(), structured.impl_kind.clone()))
+                            }
+                            Some(_) => {
+                                return Err(format!(
+                                    "{}: only definitions' query rules are structured, without bindings",
+                                    name
+                                ));
+                            }
+                            None => None,
+                        },
                     })
                 })
                 .collect::<Result<_, String>>()?,
@@ -1185,6 +1219,26 @@ fn name_words(text: &str) -> Vec<(Range<usize>, String)> {
     words
 }
 
+/// The labels of the definition with `pretty` in the file at `path`, if it's
+/// a taskcluster task's (`<kind>::<name>`, in its kind's directory; see
+/// `Resolve::TaskLabel`).
+fn task_labels(path: &str, pretty: &str) -> Vec<String> {
+    let Some((kind, name)) = pretty.split_once("::") else {
+        return vec![];
+    };
+    let Some((dir, file)) = path.rsplit_once('/') else {
+        return vec![];
+    };
+    if !dir.ends_with(&format!("/kinds/{}", kind)) || name.contains("::") {
+        return vec![];
+    }
+    let mut labels = vec![format!("{}-{}", kind, name)];
+    if let Some(stem) = file.strip_suffix(".yml").filter(|stem| *stem != "kind") {
+        labels.push(format!("{}-{}-{}", kind, stem, name));
+    }
+    labels
+}
+
 /// What uses in any file can name (see `Resolve`), from all of the files'
 /// analyses, for resolving the uses once all of the files are analyzed.
 #[derive(Default)]
@@ -1195,6 +1249,9 @@ pub struct Resolvables {
     defs: Vec<(Vec<String>, String, String)>,
     /// Constants by their grammars and names, with their files and values.
     constants: std::collections::HashMap<(String, String), Vec<(String, String)>>,
+    /// The definitions' labels, if they're tasks' (see `Resolve::TaskLabel`),
+    /// with their pretty names and symbols.
+    labels: std::collections::HashMap<String, Vec<(String, String)>>,
 }
 
 impl Resolvables {
@@ -1219,6 +1276,12 @@ impl Resolvables {
                     .any(|p| target.data.sym.starts_with(p.as_str()))
             {
                 self.add_def(&target.data.pretty, &target.data.sym);
+                for label in task_labels(path, &target.data.pretty) {
+                    let defs = self.labels.entry(label).or_default();
+                    if !defs.iter().any(|(_, sym)| *sym == target.data.sym) {
+                        defs.push((target.data.pretty.clone(), target.data.sym.clone()));
+                    }
+                }
             }
         }
         for constant in &analysis.constants {
@@ -1288,6 +1351,19 @@ impl Resolvables {
                     };
                     let (_, pretty, sym) = &self.defs[def];
                     (loc, pretty.clone(), sym.clone())
+                }
+                Resolve::TaskLabel => {
+                    let found: Vec<&(String, String)> = self
+                        .labels
+                        .get(using.text.trim())
+                        .into_iter()
+                        .flatten()
+                        .filter(|(_, sym)| sym.starts_with(&using.prefix))
+                        .collect();
+                    let [(pretty, sym)] = found[..] else {
+                        continue;
+                    };
+                    (using.loc, pretty.clone(), sym.clone())
                 }
                 Resolve::Constant => {
                     let name = using
@@ -1535,6 +1611,20 @@ fn query_records(
                     // (Only for definitions spanning lines.)
                     .filter(|range| range.end_lineno > range.start_lineno)
                     .unwrap_or_default();
+                if let Some((kind, impl_kind)) = &rule.structured {
+                    analysis.records.push(Record::Structured(
+                        loc,
+                        json!({
+                            "loc": loc,
+                            "structured": 1,
+                            "pretty": pretty,
+                            "sym": sym,
+                            "kind": kind,
+                            "implKind": impl_kind,
+                            "bindingSlots": [],
+                        }),
+                    ));
+                }
                 rule_records(
                     &mut analysis.records,
                     rule.role,
@@ -2527,6 +2617,155 @@ pretty = "{{ value }}"
         for key in ["key", "a", "c"] {
             assert!(syms.contains(&key.to_string()), "{:?}", syms);
         }
+    }
+
+    /// A target tasks method's task labels use their tasks (a kind.yml's, and
+    /// a source-test `tasks-from` file's, named with its file's name), in the
+    /// method's context, which a cron job uses as its `target-tasks-method`,
+    /// and their `run-on-projects` and the cron job's use the projects, which
+    /// attributes.py defines.
+    #[test]
+    fn test_taskcluster_target_tasks() {
+        let mappings = builtin_mappings().unwrap();
+        let files = [
+            (
+                "taskcluster/kinds/searchfox/kind.yml",
+                "\
+tasks:
+    linux64-searchfox/opt:
+        run-on-projects: [mozilla-central]
+",
+            ),
+            (
+                "taskcluster/kinds/source-test/file-metadata.yml",
+                "\
+bugzilla-components:
+    run-on-projects:
+        by-project:
+            try: []
+            default: [trunk]
+",
+            ),
+            (
+                "taskcluster/gecko_taskgraph/target_tasks.py",
+                r#"
+@register_target_task("searchfox_index")
+def target_tasks_searchfox(full_task_graph, parameters, graph_config):
+    """Select tasks required for indexing Firefox for Searchfox"""
+    print(f"{parameters['project']}")
+    return [
+        "searchfox-linux64-searchfox/opt",
+        "source-test-file-metadata-bugzilla-components",
+        "searchfox-linux64-searchfox/gone",
+    ]
+"#,
+            ),
+            (
+                ".cron.yml",
+                "\
+jobs:
+    - name: nightly-desktop
+      job:
+          type: decision-task
+          target-tasks-method: nightly_desktop
+    - name: searchfox-index
+      job:
+          type: decision-task
+          target-tasks-method: searchfox_index
+      run-on-projects: [mozilla-central]
+",
+            ),
+            (
+                "taskcluster/gecko_taskgraph/util/attributes.py",
+                r#"
+INTEGRATION_PROJECTS = {
+    "autoland",
+}
+TRUNK_PROJECTS = INTEGRATION_PROJECTS | {"mozilla-central"}
+PROJECT_RELEASE_BRANCHES: dict[str, bool] = {
+    "mozilla-beta": True,
+}
+RUN_ON_PROJECT_ALIASES = {
+    "trunk": lambda params: params["project"] in TRUNK_PROJECTS,
+}
+"#,
+            ),
+        ];
+        let mut resolvables = Resolvables::new(&mappings);
+        let mut analyses = vec![];
+        for (path, source) in files {
+            let applying: Vec<&CompiledMapping> =
+                mappings.iter().filter(|m| m.applies_to(path)).collect();
+            assert!(!applying.is_empty(), "{}", path);
+            let analysis = analyze_resolving(&applying, path, source).unwrap();
+            resolvables.add(path, &analysis);
+            analyses.push((path, analysis));
+        }
+        let mut targets: Vec<String> = vec![];
+        for (path, analysis) in &analyses {
+            let resolved = resolvables.resolve(path, &analysis.unresolved).unwrap();
+            for record in analysis.records.iter().chain(&resolved) {
+                match record {
+                    Record::Target(t) if !t.data.sym.starts_with("FILE_") => targets.push(format!(
+                        "{} {}:{} {:?} {} in {}",
+                        path,
+                        t.loc.lineno,
+                        t.loc.col_start,
+                        t.data.kind,
+                        t.data.sym,
+                        t.data.contextsym
+                    )),
+                    Record::Structured(_, value)
+                        if value["implKind"] == "taskcluster" && !path.contains("kinds/") =>
+                    {
+                        targets.push(format!(
+                            "{} structured {} {}",
+                            path, value["sym"], value["kind"]
+                        ))
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let has = |line: &str| targets.iter().any(|target| target == line);
+        for line in [
+            // (The method, and its labels' tasks, in its context; not the
+            // label of a task which isn't there, nor other strings.)
+            "taskcluster/gecko_taskgraph/target_tasks.py structured \"TCTARGETS_searchfox_index\" \"function\"",
+            "taskcluster/gecko_taskgraph/target_tasks.py 2:23 Def TCTARGETS_searchfox_index in ",
+            "taskcluster/gecko_taskgraph/target_tasks.py 7:9 Use TASK_searchfox/linux64-searchfox/opt in TCTARGETS_searchfox_index",
+            "taskcluster/gecko_taskgraph/target_tasks.py 8:9 Use TASK_source-test/bugzilla-components in TCTARGETS_searchfox_index",
+            // (The cron jobs, using their methods, and the projects.)
+            ".cron.yml structured \"TCCRON_searchfox-index\" \"task\"",
+            ".cron.yml 6:12 Def TCCRON_searchfox-index in ",
+            ".cron.yml 9:31 Use TCTARGETS_searchfox_index in TCCRON_searchfox-index",
+            ".cron.yml 5:31 Use TCTARGETS_nightly_desktop in TCCRON_nightly-desktop",
+            ".cron.yml 10:24 Use TCPROJECT_mozilla-central in TCCRON_searchfox-index",
+            // (The tasks' projects, keyed-by too.)
+            "taskcluster/kinds/searchfox/kind.yml 3:26 Use TCPROJECT_mozilla-central in TASK_searchfox/linux64-searchfox/opt",
+            "taskcluster/kinds/source-test/file-metadata.yml 5:22 Use TCPROJECT_trunk in TASK_source-test/bugzilla-components",
+            // (The projects' and aliases' definitions.)
+            "taskcluster/gecko_taskgraph/util/attributes.py 3:5 Def TCPROJECT_autoland in ",
+            "taskcluster/gecko_taskgraph/util/attributes.py 5:42 Def TCPROJECT_mozilla-central in ",
+            "taskcluster/gecko_taskgraph/util/attributes.py 7:5 Def TCPROJECT_mozilla-beta in ",
+            "taskcluster/gecko_taskgraph/util/attributes.py 10:5 Def TCPROJECT_trunk in ",
+        ] {
+            assert!(has(line), "{}\n{:#?}", line, targets);
+        }
+        assert!(
+            !targets
+                .iter()
+                .any(|target| target.contains("gone") || target.contains("project'")),
+            "{:#?}",
+            targets
+        );
+        assert!(
+            !targets.iter().any(
+                |target| target.contains("target_tasks.py") && target.contains("Use TCPROJECT")
+            ),
+            "{:#?}",
+            targets
+        );
     }
 
     #[test]

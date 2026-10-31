@@ -92,6 +92,22 @@ input_file: inputs/crossref/taskcluster/identifier__linux64_clang__json
       "crossref_info": {
         "uses": [
           {
+            "path": "taskcluster/gecko_taskgraph/target_tasks.py",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 18,
+                "bounds": [
+                  32,
+                  58
+                ],
+                "line": "return [\"package-linux64/opt\", \"toolchain-linux64-clang-19\"]",
+                "context": "target_tasks::package_nightly",
+                "contextsym": "TCTARGETS_package_nightly"
+              }
+            ]
+          },
+          {
             "path": "taskcluster/kinds/toolchain/clang.yml",
             "path_kind": "normal",
             "lines": [

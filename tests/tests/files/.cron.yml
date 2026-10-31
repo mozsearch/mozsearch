@@ -1,0 +1,22 @@
+# Cron jobs: decision tasks which run on a schedule, each scheduling the tasks
+# its target tasks method selects.
+---
+jobs:
+    - name: package-nightly
+      job:
+          type: decision-task
+          treeherder-symbol: Np
+          target-tasks-method: package_nightly
+      run-on-projects:
+          - mozilla-central
+      when:
+          - {hour: 10, minute: 0}
+
+    - name: nothing-weekly
+      job:
+          type: decision-task
+          treeherder-symbol: Nw
+          target-tasks-method: nothing
+      run-on-projects: [trunk]
+      when:
+          - {weekday: 'Monday', hour: 3, minute: 0}

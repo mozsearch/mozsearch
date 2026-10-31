@@ -8,6 +8,8 @@
 # - `docker-image: {in-tree: <name>}` uses `TASK_docker-image/<name>`.
 # - `worker-type` uses `TCWORKER_<worker-type>` (see taskcluster_config.toml),
 #   except keyed-by `default`s (the default worker).
+# - `run-on-projects` (or keyed-by ones) use `TCPROJECT_<project>` (see
+#   taskcluster_projects.toml).
 # - Runs link to their files: mozharness' configs
 #   (testing/mozharness/configs/) and scripts (testing/, or
 #   testing/mozharness/scripts/ for bare names), and toolchain scripts
@@ -134,6 +136,16 @@ role = "use"
 sym = "TCWORKER_{{ value }}"
 pretty = "{{ value }}"
 syntax_kind = "worker"
+
+## Projects
+
+[[data]]
+path = "**/run-on-projects/**/[]"
+at = "value"
+role = "use"
+sym = "TCPROJECT_{{ value }}"
+pretty = "project::{{ value }}"
+syntax_kind = "project"
 
 ## Runs' files
 

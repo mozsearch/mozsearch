@@ -1,0 +1,53 @@
+# The projects which taskcluster tasks and cron jobs run on (see
+# semantic_analyzer.rs): a taskgraph's util/attributes.py (ex:
+# gecko_taskgraph's) defines `TCPROJECT_<project>` (pretty
+# `project::<project>`) for each of the names `run-on-projects` can have:
+# RUN_ON_PROJECT_ALIASES' keys (ex: "trunk", whose lambdas say which projects
+# they're of), and the projects in its `*_PROJECTS` sets and
+# PROJECT_RELEASE_BRANCHES' keys (ex: "mozilla-central"), whose tasks'
+# `run-on-projects` (see taskcluster_tasks.toml) and cron jobs' (see
+# taskcluster_cron.toml) use them.  (An alias isn't expanded to its projects:
+# its uses are its own.)
+grammar = "python"
+paths = ["**/taskcluster/*_taskgraph/util/attributes.py"]
+contains = ["RUN_ON_PROJECT_ALIASES"]
+
+[[rules]]
+role = "def"
+query = """
+(assignment
+  left: (identifier) @var
+  right: (dictionary (pair key: (string (string_content) @id)))
+  (#eq? @var "RUN_ON_PROJECT_ALIASES"))
+"""
+sym = "TCPROJECT_{{ id }}"
+pretty = "project::{{ id }}"
+syntax_kind = "run-on-projects alias"
+
+[[rules]]
+role = "def"
+query = """
+(assignment
+  left: (identifier) @var
+  right: (dictionary (pair key: (string (string_content) @id)))
+  (#eq? @var "PROJECT_RELEASE_BRANCHES"))
+"""
+sym = "TCPROJECT_{{ id }}"
+pretty = "project::{{ id }}"
+syntax_kind = "project"
+
+[[rules]]
+role = "def"
+query = """
+(assignment
+  left: (identifier) @var
+  right: [
+    (set (string (string_content) @id))
+    (binary_operator (set (string (string_content) @id)))
+    (call arguments: (argument_list (set (string (string_content) @id))))
+  ]
+  (#match? @var "_PROJECTS$"))
+"""
+sym = "TCPROJECT_{{ id }}"
+pretty = "project::{{ id }}"
+syntax_kind = "project"

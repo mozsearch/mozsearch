@@ -8,4 +8,8 @@ digraph g {
   "TASK_package/linux64/opt"[label="package::linux64/opt"]
   "TASK_toolchain/linux64-clang"[label="toolchain::linux64-clang"]
   "TASK_package/linux64/opt" -> "TASK_toolchain/linux64-clang"
+  "TCTARGETS_package_nightly"[label="target_tasks::package_nightly"]
+  "TCTARGETS_package_nightly" -> "TASK_package/linux64/opt"
+  "TCCRON_package-nightly"[label="cron::package-nightly"]
+  "TCCRON_package-nightly" -> "TCTARGETS_package_nightly"
 }

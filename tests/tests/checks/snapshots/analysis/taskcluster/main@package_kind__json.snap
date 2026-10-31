@@ -99,5 +99,24 @@ input_file: inputs/analysis/taskcluster/package_kind__json
       "fetches",
       "fetch"
     ]
+  },
+  {
+    "loc": "00025:26-31",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "project project::trunk",
+    "sym": "TCPROJECT_trunk"
+  },
+  {
+    "loc": "00025:26-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "project::trunk",
+    "sym": "TCPROJECT_trunk",
+    "context": "package::linux64/opt",
+    "contextsym": "TASK_package/linux64/opt",
+    "ctxtra": [
+      "run-on-projects"
+    ]
   }
 ]

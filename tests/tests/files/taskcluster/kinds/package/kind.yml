@@ -22,3 +22,4 @@ tasks:
                 - linux64-clang
             fetch:
                 - clang
+        run-on-projects: [trunk]

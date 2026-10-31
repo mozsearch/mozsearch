@@ -1,0 +1,51 @@
+# Taskgraph's target tasks methods (see semantic_analyzer.rs): a taskgraph's
+# target_tasks.py (ex: gecko_taskgraph's) registers the functions which decision
+# tasks select their tasks with, by name (`@register_target_task("searchfox_index")`,
+# which .cron.yml's jobs name as their `target-tasks-method`; see
+# taskcluster_cron.toml), defining `TCTARGETS_<method>` (pretty
+# `target_tasks::<method>`, callable, for diagrams), which is the context of
+# the functions' records: their strings which are tasks' labels (ex:
+# "searchfox-linux64-searchfox/opt") use the tasks (`TASK_<kind>/<name>`, by
+# their labels; see `Resolve::TaskLabel`), so that a task's callers include
+# the methods selecting it, and theirs the cron jobs running them.
+grammar = "python"
+paths = ["**/taskcluster/*_taskgraph/target_tasks.py", "**/taskgraph/target_tasks.py"]
+contains = ["register_target_task"]
+
+[[scopes]]
+name = "method"
+query = """
+(decorated_definition
+  (decorator
+    (call
+      function: (identifier) @decorator
+      arguments: (argument_list . (string (string_content) @name))))
+  (#eq? @decorator "register_target_task")) @scope
+"""
+sym = "TCTARGETS_{{ name }}"
+pretty = "target_tasks::{{ name }}"
+
+[[rules]]
+role = "def"
+query = """
+(decorator
+  (call
+    function: (identifier) @decorator
+    arguments: (argument_list . (string (string_content) @id)))
+  (#eq? @decorator "register_target_task"))
+"""
+sym = "TCTARGETS_{{ id }}"
+pretty = "target_tasks::{{ id }}"
+syntax_kind = "target tasks method"
+
+[rules.structured]
+kind = "function"
+impl_kind = "taskcluster"
+
+[[rules]]
+role = "use"
+query = "(string (string_content) @id)"
+resolve = "task-label"
+sym = "TASK_"
+pretty = "{{ id }}"
+syntax_kind = "task"
