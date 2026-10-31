@@ -65,7 +65,10 @@ impl Bikeshed<'_> {
             .find_map(|n| self.blocks.get(&n))
     }
 
-    /// Text, as runs where it's in its block's lines verbatim (in order).
+    /// Text, as runs where it's in its block's lines (in order), verbatim
+    /// but for Bikeshed's typography and the source's entities (see
+    /// `find_text`).  (A line-ending dash, which Bikeshed joins to the next
+    /// line with a zero-width space, ends a run.)
     fn text(&self, out: &mut HtmlRenderer, node: usize) {
         let range = self.doc.nodes[node].range.clone();
         let text = decode_html(&self.doc.src[range]);
@@ -76,24 +79,85 @@ impl Bikeshed<'_> {
         };
         let mut cursors = self.cursors.borrow_mut();
         let cursor = cursors.entry(block.start).or_insert(block.start);
-        for piece in text.split_inclusive('\n') {
-            let content = piece.trim();
+        for piece in text.split_inclusive(['\n', '\u{200b}']) {
+            let content = piece.trim().trim_end_matches('\u{200b}').trim_end();
             let found = (!content.is_empty())
-                .then(|| self.source[*cursor..block.end].find(content))
+                .then(|| find_text(&self.source[*cursor..block.end], content))
                 .flatten();
             match found {
                 Some(at) => {
-                    let start = *cursor + at;
+                    let real = *cursor + at.start..*cursor + at.end;
                     let lead = piece.len() - piece.trim_start().len();
                     out.w.escaped(&piece[..lead]);
-                    out.w.text(content, Some(start..start + content.len()));
+                    out.w.text(content, Some(real.clone()));
                     out.w.escaped(&piece[lead + content.len()..]);
-                    *cursor = start + content.len();
+                    *cursor = real.end;
                 }
                 None => out.w.escaped(piece),
             }
         }
     }
+}
+
+/// How the source can spell a character of Bikeshed's output other than
+/// verbatim: Bikeshed's typography (an apostrophe in a word, or after an
+/// element, ex: "{{LockManager}}'s", is "’"; a line-ending "--" is "—"), and
+/// entities, which the output's text is decoded from.
+fn source_spellings(c: char) -> Option<&'static [&'static str]> {
+    Some(match c {
+        '’' => &["'", "&rsquo;", "&#8217;"],
+        '‘' => &["'", "&lsquo;", "&#8216;"],
+        '“' => &["\"", "&ldquo;", "&#8220;"],
+        '”' => &["\"", "&rdquo;", "&#8221;"],
+        '—' => &["--", "&mdash;", "&#8212;"],
+        '–' => &["&ndash;", "&#8211;"],
+        '…' => &["&hellip;", "&#8230;"],
+        '\u{a0}' => &["&nbsp;", "&#160;"],
+        '&' => &["&amp;", "&#38;"],
+        '<' => &["&lt;", "&#60;"],
+        '>' => &["&gt;", "&#62;"],
+        _ => return None,
+    })
+}
+
+/// Where a run of Bikeshed's output's text is first in `source` (its
+/// block's lines, from where the previous run was): verbatim, else with its
+/// characters which the source can spell otherwise (`source_spellings`)
+/// spelled either way (ex: "the lock’s" for "the lock's").
+fn find_text(source: &str, content: &str) -> Option<Range<usize>> {
+    if let Some(at) = source.find(content) {
+        return Some(at..at + content.len());
+    }
+    // (From each place of its part before its first such character.)
+    let lead = &content[..content.find(|c| source_spellings(c).is_some())?];
+    let rest = &content[lead.len()..];
+    let mut from = 0;
+    while let Some(at) = source[from..].find(lead).map(|at| from + at) {
+        if let Some(end) = match_spelled(source, at + lead.len(), rest) {
+            return Some(at..end);
+        }
+        from = at + source[at..].chars().next()?.len_utf8();
+    }
+    None
+}
+
+/// Where `text` ends if it's at `at` in `source`, its characters as
+/// `source_spellings` spells them or verbatim (after them, since "&" is
+/// also the start of "&amp;").
+fn match_spelled(source: &str, mut at: usize, text: &str) -> Option<usize> {
+    for c in text.chars() {
+        let here = &source[at..];
+        let mut buf = [0; 4];
+        let verbatim = &*c.encode_utf8(&mut buf);
+        let spelled = source_spellings(c)
+            .into_iter()
+            .flatten()
+            .copied()
+            .chain(std::iter::once(verbatim))
+            .find(|spelling| here.starts_with(spelling))?;
+        at += spelled.len();
+    }
+    Some(at)
 }
 
 impl Hooks for Bikeshed<'_> {
@@ -721,6 +785,43 @@ mod tests {
             "{}",
             r.html
         );
+    }
+
+    /// Text which Bikeshed's typography changed (ex: web-locks' "This is
+    /// known as the lock's [=waiting promise=]", whose run before the link
+    /// had no position, so the blame popup found only the link's line), or
+    /// which the source has as entities, still says where it is.
+    #[test]
+    fn test_typography_positions() {
+        let source = "* A promise. This is the lock's [=waiting promise=].\n* Returned by {{LockManager}}'s method --\n    settles &amp; more.\n";
+        let output = "<html><head><title>Example</title></head><body>\n<ul bs-pos=\"1\"><li bs-pos=\"1\">A promise. This is the lock’s <a href=\"#waiting\">waiting promise</a>.\n<li bs-pos=\"2\">Returned by <code><a href=\"#lm\">LockManager</a></code>’s method —\u{200b}settles &amp; more.</ul></body></html>";
+        let config: SpecsConfig = toml::from_str(
+            "[[spec]]\nname = \"example\"\nformat = \"bikeshed\"\nrendered = \"https://example.org/\"\n",
+        )
+        .unwrap();
+        let rendered = render(
+            output,
+            source,
+            "example/index.bs",
+            &config.specs[0],
+            &config,
+            &TestLinks,
+        )
+        .unwrap();
+        let html = &rendered.rendered.html;
+        for span in [
+            // (The apostrophe in a word, at its column, and the run's length.)
+            r#"<span data-l="1" data-c="2">A promise. This is the lock’s</span>"#,
+            // (After an element.)
+            r#"<span data-l="2" data-c="29" data-n="12">’s method —</span>"#,
+            // (The next line's part of a line-ending dash's, and an entity.)
+            r#"<span data-l="3" data-c="4" data-n="19">settles &amp; more.</span>"#,
+        ] {
+            assert!(html.contains(span), "{}\n{}", span, html);
+        }
+        assert_eq!(find_text("a--b", "a—b"), Some(0..4));
+        assert_eq!(find_text("x 'a' x", "‘a’"), Some(2..5));
+        assert_eq!(find_text("no", "n’o"), None);
     }
 
     #[test]
