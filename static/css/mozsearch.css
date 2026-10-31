@@ -6049,6 +6049,60 @@ textarea.monospace {
   padding-left: 0.5em;
   border-left: 3px solid var(--link-color);
 }
+/* Which code a view shows beside what it's of (a crash's frames, a Bugzilla
+   comment's blocks; see crash_stack.rs's `then_now_modes_html`): as it was
+   then, as it is now, or both side by side (the code now alone where
+   there's no code then). */
+.then-now-view[data-then-now="then"] .then-now > .now-code,
+.then-now-view[data-then-now="now"] .then-now > .then-code,
+.then-now-view[data-then-now="then"] .now-about,
+.then-now-view[data-then-now="now"] .then-about {
+  display: none;
+}
+.then-now-view[data-then-now="both"] .then-now {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1em;
+}
+.then-now-choice {
+  margin-top: 0.4em;
+}
+.then-now-modes {
+  display: inline-flex;
+}
+.then-now-modes button {
+  padding: 2px 10px;
+  border: 1px solid var(--link-color);
+  background: none;
+  color: var(--link-color);
+  font-size: 12px;
+  cursor: pointer;
+}
+.then-now-modes button + button {
+  border-left: none;
+}
+.then-now-modes button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.then-now-modes button:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.then-now-modes button[aria-pressed="true"] {
+  background-color: var(--link-color);
+  color: var(--page-background);
+}
+.then-now-about {
+  margin: 0.3em 0 0;
+  font-size: 12px;
+}
+.then-now-label {
+  margin-right: 0.2em;
+  font-weight: bold;
+}
+.then-code-heading {
+  margin-bottom: 0.2em;
+  font-size: 13px;
+}
 .crash-code-heading {
   margin-bottom: 0.2em;
   font-size: 13px;
@@ -6224,6 +6278,9 @@ textarea.monospace {
    initial; not their Gravatar, a request to another site), their name and
    roles, and its number and when it was written. */
 .bmo-change-head {
+  /* (At its row's bottom, on its text's first block, whatever the height of
+     the cards' notice beside it.) */
+  align-self: end;
   display: flex;
   gap: 8px;
   align-items: center;

@@ -7231,6 +7231,25 @@ pub fn rev_line_map(
     Some(crate::rev_lines::line_map(&old, &new))
 }
 
+/// The text of the file at `path` in the revision `rev` (see
+/// `AbstractServer::rev_text`), if the tree's repository has them.
+pub fn rev_text(cfg: &Config, tree_name: &str, rev: &str, path: &str) -> Option<String> {
+    let git = cfg.trees.get(tree_name)?.get_git().ok()?;
+    let commit = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|o| o.peel_to_commit())
+        .ok()?;
+    let (repo, oid) = get_object_at(
+        OwnedOrBorrowed::Borrowed(&git.repo),
+        commit.id(),
+        Path::new(path),
+    )
+    .ok()?;
+    let blob = repo.find_blob(oid).ok()?;
+    Some(git_ops::decode_bytes(blob.content().to_vec()))
+}
+
 pub fn same_as_head(cfg: &Config, tree_name: &str, rev: &str, path: &str) -> bool {
     let Some(tree_config) = cfg.trees.get(tree_name) else {
         return false;

@@ -96,6 +96,10 @@ pub struct CrashFrame {
     /// file the tree has (see `row_problem`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub problem: Option<String>,
+    /// For a crash report's frame of the tree's files: its code as it was
+    /// then, at the build's revision (or the estimate of it).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub then: Option<ThenExcerpt>,
 }
 
 /// A frame's function in the tree.
@@ -118,6 +122,172 @@ pub struct FrameRow {
     pub folded: bool,
     /// Whether it's believed to be where the frame was.
     pub crashing: bool,
+}
+
+/// The code as it was then, beside the code now (see `CrashFrame::then`, and
+/// `bug_comment::CodeExcerpt::then`): the file `path` at the tree's revision
+/// `rev`, why it's that revision, the excerpt's rows (the lines then, those
+/// where the frame was, or the linked ones, highlighted, and runs between
+/// folded), and why there are none, if there aren't.
+#[derive(Clone, Debug, Serialize)]
+pub struct ThenExcerpt {
+    pub rev: String,
+    pub path: String,
+    pub why: ThenWhy,
+    pub rows: Vec<FrameRow>,
+    pub problem: Option<String>,
+}
+
+/// Why the code then is at its revision: it's the crash report's build's
+/// (`Build`), or an estimate of it (`EstimatedBuild`: the tree's head when
+/// the crash was submitted, roughly); the link's (`Permalink`); or the
+/// tree's head when the comment linking to it was written, roughly
+/// (`CommentTime`), for a link without a revision, or with one the tree
+/// doesn't have (`unknown_rev`).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub enum ThenWhy {
+    Build,
+    EstimatedBuild,
+    Permalink,
+    CommentTime { unknown_rev: bool },
+}
+
+/// Files' lines at revisions, as a file's page at a revision formats them
+/// (its syntax, without analysis, which only the indexed revision has), each
+/// file at each revision formatted once, for the code then (see
+/// `ThenExcerpt`).
+#[derive(Default)]
+pub(crate) struct RevRows {
+    files: std::collections::HashMap<
+        (String, String),
+        std::result::Result<Option<std::sync::Arc<Vec<String>>>, String>,
+    >,
+}
+
+impl RevRows {
+    /// The formatted lines of the file at `path` in `rev`, if the tree's
+    /// repository has it, or why they couldn't be got (None for a server
+    /// which can't tell, ex: a remote one).
+    async fn lines(
+        &mut self,
+        server: &(dyn AbstractServer + Send + Sync),
+        rev: &str,
+        path: &str,
+    ) -> Option<std::result::Result<Option<std::sync::Arc<Vec<String>>>, String>> {
+        let key = (rev.to_string(), path.to_string());
+        if let Some(found) = self.files.get(&key) {
+            return Some(found.clone());
+        }
+        let found = match server.rev_text(rev, path).await {
+            Ok(Some(text)) => {
+                let lines = match crate::languages::select_formatting(path) {
+                    crate::languages::FormatAs::Binary => vec![],
+                    format => crate::format::format_code(
+                        None,
+                        &crate::file_format::jumpref::TreeJumprefs::default(),
+                        format,
+                        path,
+                        &text,
+                        &[],
+                    )
+                    .0
+                    .into_iter()
+                    .map(|line| line.line)
+                    .collect(),
+                };
+                Ok(Some(std::sync::Arc::new(lines)))
+            }
+            Ok(None) => Ok(None),
+            Err(ServerError::Unsupported) => return None,
+            Err(err) => Err(err.message()),
+        };
+        self.files.insert(key, found.clone());
+        Some(found)
+    }
+
+    /// The excerpt of the file at `path` in `rev` (see `ThenExcerpt`): its
+    /// lines `all`, `shown` unfolded, `marked` highlighted; None if the
+    /// server can't tell (ex: a remote one).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn excerpt(
+        &mut self,
+        server: &(dyn AbstractServer + Send + Sync),
+        rev: &str,
+        path: &str,
+        why: ThenWhy,
+        all: BTreeSet<u32>,
+        shown: &BTreeSet<u32>,
+        marked: &[u32],
+    ) -> Option<ThenExcerpt> {
+        let mut excerpt = ThenExcerpt {
+            rev: rev.to_string(),
+            path: path.to_string(),
+            why,
+            rows: vec![],
+            problem: None,
+        };
+        match self.lines(server, rev, path).await? {
+            Ok(Some(lines)) => {
+                for line in all {
+                    let Some(html) = lines.get(line as usize - 1) else {
+                        continue;
+                    };
+                    excerpt.rows.push(FrameRow {
+                        line,
+                        html: rev_row_html(line, html),
+                        folded: !shown.contains(&line),
+                        crashing: marked.contains(&line),
+                    });
+                }
+            }
+            Ok(None) => {
+                excerpt.problem =
+                    Some("This tree's repository doesn't have the file at that revision.".into())
+            }
+            Err(err) => excerpt.problem = Some(format!("Couldn't get its lines then: {}", err)),
+        }
+        Some(excerpt)
+    }
+}
+
+/// A row of a file's line `line` (whose code is `html`, as `format::format_code`
+/// formats it), as an excerpt's rows are (see `format::excerpt_row_html`).
+fn rev_row_html(line: u32, html: &str) -> String {
+    format!(
+        "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number\">\n\
+         <div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>\n\
+         <code role=\"cell\" class=\"source-line\">{}\n</code>\n\
+         </div>\n",
+        line, line, html
+    )
+}
+
+/// An excerpt's lines from `start` to `end`, and those of them shown (the
+/// others folded): `head` lines from its start, those within `context` of
+/// `marked`, and the runs of fewer than 3 between.
+pub(crate) fn excerpt_lines(
+    start: u32,
+    end: u32,
+    head: u32,
+    marked: &[u32],
+    context: u32,
+) -> (BTreeSet<u32>, BTreeSet<u32>) {
+    let all: BTreeSet<u32> = (start..=end).collect();
+    let mut shown: BTreeSet<u32> = (start..start + head)
+        .chain(
+            marked
+                .iter()
+                .flat_map(|line| line.saturating_sub(context).max(1)..=line + context),
+        )
+        .filter(|line| all.contains(line))
+        .collect();
+    let hidden: Vec<u32> = all.difference(&shown).copied().collect();
+    for run in runs(hidden.into_iter()) {
+        if run.len() < 3 {
+            shown.extend(run);
+        }
+    }
+    (all, shown)
 }
 
 /// Annotations that signatures start with (crash-stats' siggen's), and what
@@ -406,6 +576,7 @@ pub async fn crash_stack(
             address: None,
             source: None,
             problem: None,
+            then: None,
         });
     }
 
@@ -830,6 +1001,9 @@ pub(crate) fn without_arguments(name: &str) -> &str {
 /// How many lines around a crash report's other threads' frames' lines their
 /// excerpts show (whose functions aren't looked up).
 const THREAD_CONTEXT_LINES: u32 = 2;
+/// How far before a frame's line its function's start then can be, for its
+/// code then's excerpt to start there (folded between).
+const MAX_THEN_FUNCTION_LINES: u32 = 400;
 
 /// The stack of the crash report `id` (its crashing thread's, or with
 /// `all_threads`, every thread's; see the module's documentation), its
@@ -927,6 +1101,7 @@ pub async fn report_threads_stack(
                 address: frame.address,
                 source: Some(source),
                 problem: None,
+                then: None,
             });
         }
         resolved.push((thread.thread, frames));
@@ -1064,6 +1239,57 @@ pub async fn report_threads_stack(
         }
     }
 
+    // The code then: of a frame of the tree's files, at the build's revision
+    // (or its estimate), from its function's start then (if its definition's
+    // line is one unchanged since; folded between) to its line.
+    let mut rev_rows = RevRows::default();
+    for (thread, frames) in resolved.iter_mut() {
+        let context = match thread.index == crashing {
+            true => CONTEXT_LINES,
+            false => THREAD_CONTEXT_LINES,
+        };
+        for frame in frames.iter_mut() {
+            let Some(source) = &frame.source else {
+                continue;
+            };
+            let (Some(path), Some(rev), Some(line), Some(tree_rev)) =
+                (&source.path, &source.rev, source.line, &source.tree_rev)
+            else {
+                continue;
+            };
+            let map = maps
+                .get(&(rev.clone(), path.clone()))
+                .and_then(|map| map.as_ref())
+                .and_then(|(_, map)| map.as_ref());
+            let start = frame
+                .function
+                .as_ref()
+                .zip(map)
+                .and_then(|(function, map)| {
+                    let then = map.iter().position(|now| *now == Some(function.line))? as u32 + 1;
+                    (then <= line && line - then <= MAX_THEN_FUNCTION_LINES).then_some(then)
+                });
+            let (all, shown) = excerpt_lines(
+                start.unwrap_or(line.saturating_sub(context).max(1)),
+                line + context,
+                match start {
+                    Some(_) => HEAD_LINES,
+                    None => 0,
+                },
+                &[line],
+                context,
+            );
+            let why = match source.estimated {
+                true => ThenWhy::EstimatedBuild,
+                false => ThenWhy::Build,
+            };
+            let (tree_rev, path) = (tree_rev.clone(), path.clone());
+            frame.then = rev_rows
+                .excerpt(server, &tree_rev, &path, why, all, &shown, &[line])
+                .await;
+        }
+    }
+
     let mut frames = vec![];
     let mut others = vec![];
     for (thread, thread_frames) in resolved {
@@ -1120,8 +1346,19 @@ pub fn render_crash_stack(
     let query_url =
         |query: &str| format!("/{}/query/default?q={}", tree_name, url_encode_query(query));
     let found = stack.frames.iter().filter(|f| f.function.is_some()).count();
+    // (A report's frames of the tree's files have their code then, at the
+    // build's revision, which the view shows at first, or their code now, or
+    // both.)
+    let has_then = stack
+        .frames
+        .iter()
+        .chain(stack.threads.iter().flat_map(|thread| &thread.frames))
+        .any(|frame| frame.then.is_some());
     let mut html = String::new();
-    html.push_str(r#"<div class="crash-view">"#);
+    html.push_str(match has_then {
+        true => r#"<div class="crash-view then-now-view" data-then-now="then">"#,
+        false => r#"<div class="crash-view">"#,
+    });
     match &stack.report {
         None => html.push_str(&format!(
             r#"<div class="crash-notice"><p>The stack of the crash signature <a class="crash-signature" href="{}">{}</a>, innermost frame first: each frame beside its function's code in {}, with the lines it's believed to have been at (its calls of the frame above it) highlighted.  {} of its {} frames are functions in the tree.</p>"#,
@@ -1139,7 +1376,7 @@ pub fn render_crash_stack(
                 .filter(|f| f.source.as_ref().is_some_and(|s| s.tree_rev.is_some()))
                 .count();
             html.push_str(&format!(
-                r#"<div class="crash-notice"><p>The crash report <a class="crash-report-link" href="https://crash-stats.mozilla.org/report/index/{}">{}</a> ({}): {}, in {} of its {}.  Its crashing thread's stack, innermost frame first (with the calls inlined in a frame as frames of their own), each frame beside its code in {} at the indexed revision, with its line from the report highlighted.  {} of its {} frames are in the tree's files at the build's revision.</p>"#,
+                r#"<div class="crash-notice"><p>The crash report <a class="crash-report-link" href="https://crash-stats.mozilla.org/report/index/{}">{}</a> ({}): {}, in {} of its {}.  Its crashing thread's stack, innermost frame first (with the calls inlined in a frame as frames of their own), each frame beside its code in {}{}, with its line from the report highlighted.  {} of its {} frames are in the tree's files at the build's revision.</p>"#,
                 escape(&report.id),
                 escape(&report.id),
                 escape(&report.product),
@@ -1150,6 +1387,10 @@ pub fn render_crash_stack(
                     n => format!("{} threads", n),
                 },
                 escape(tree_name),
+                match has_then {
+                    true => ", as it was then (at the build's revision) or as it is now",
+                    false => " at the indexed revision",
+                },
                 in_tree,
                 stack.frames.len()
             ));
@@ -1188,6 +1429,15 @@ pub fn render_crash_stack(
                 html.push_str(&format!(
                     r#"<p class="crash-links">See {}.</p>"#,
                     links.join("; ")
+                ));
+            }
+            if has_then {
+                html.push_str(&then_now_modes_html(
+                    "Then: each frame's code as it was in the build which crashed, at the build's revision, its line from the report highlighted.",
+                    &format!(
+                        "Now: each frame's code in {} at the indexed revision, its line mapped from the build's revision (a line which has changed since isn't highlighted).",
+                        escape(tree_name)
+                    ),
                 ));
             }
         }
@@ -1254,10 +1504,14 @@ document.addEventListener("click", event => {{
   }}
   unfold.previousElementSibling.hidden = false;
   unfold.remove();
-}});</script>"#,
+}});{}</script>"#,
         serde_json::to_string(sym_info)
             .unwrap_or_else(|_| "{}".to_string())
-            .replace('<', "\\u003c")
+            .replace('<', "\\u003c"),
+        match has_then {
+            true => THEN_NOW_SCRIPT,
+            false => "",
+        }
     )
     .map_err(|_| "Write error")?;
     Ok(())
@@ -1285,6 +1539,137 @@ pub(crate) fn report_crashed(report: &CrashReport) -> (String, String) {
     (what, thread)
 }
 
+/// The label of the code now beside the code then (see `then_html`).
+pub(crate) const NOW_LABEL: &str = r#"<span class="then-now-label">Now</span> "#;
+
+/// An excerpt's rows (see `FrameRow`), their line numbers linked to `url`'s
+/// lines, the highlighted ones highlighted, and the folded ones shown on
+/// request.
+pub(crate) fn rows_html(tree_name: &str, rows: &[FrameRow], url: &str) -> String {
+    use crate::rendered_docs::escape;
+    let mut html = format!(
+        r#"<div class="file crash-rows" role="table" data-tree="{}" data-search="{}">"#,
+        escape(tree_name),
+        escape(&crate::file_format::config::search_url(tree_name))
+    );
+    let mut folded: Vec<&FrameRow> = vec![];
+    let flush = |run: &mut Vec<&FrameRow>, html: &mut String| {
+        if run.is_empty() {
+            return;
+        }
+        html.push_str(&format!(
+            r#"<div class="crash-fold" role="rowgroup" hidden>{}</div><button type="button" class="crash-unfold">Show {} more line{}</button>"#,
+            run.iter()
+                .map(|row| crate::format::excerpt_row_html(
+                    &row.html,
+                    row.line,
+                    url,
+                    "sp-citation-lineno",
+                    0,
+                    row.crashing.then_some("crash-line")
+                ))
+                .collect::<String>(),
+            run.len(),
+            if run.len() == 1 { "" } else { "s" }
+        ));
+        run.clear();
+    };
+    for row in rows {
+        if row.folded {
+            folded.push(row);
+            continue;
+        }
+        flush(&mut folded, &mut html);
+        html.push_str(&crate::format::excerpt_row_html(
+            &row.html,
+            row.line,
+            url,
+            "sp-citation-lineno",
+            0,
+            row.crashing.then_some("crash-line"),
+        ));
+    }
+    flush(&mut folded, &mut html);
+    html.push_str("</div>");
+    html
+}
+
+/// The code then (see `ThenExcerpt`), beside the code now: its heading (its
+/// file and lines then, `label`, linked to the file at its revision, the
+/// revision, and why it's that one), and its rows, or why there are none.
+pub(crate) fn then_html(tree_name: &str, then: &ThenExcerpt, label: &str) -> String {
+    use crate::rendered_docs::escape;
+    use crate::url_encode_path::url_encode_path;
+    let url = format!(
+        "/{}/rev/{}/{}",
+        tree_name,
+        then.rev,
+        url_encode_path(&then.path)
+    );
+    let anchor = then
+        .rows
+        .iter()
+        .find(|row| row.crashing)
+        .or(then.rows.first())
+        .map_or(1, |row| row.line);
+    let why = match then.why {
+        ThenWhy::Build => "the build's revision",
+        ThenWhy::EstimatedBuild => "the tree's revision then, an estimate of the build's",
+        ThenWhy::Permalink => "the link's revision",
+        ThenWhy::CommentTime { unknown_rev: false } => {
+            "the tree's head when the comment was written, roughly"
+        }
+        ThenWhy::CommentTime { unknown_rev: true } => {
+            "the tree's head when the comment was written, roughly (this tree doesn't have the link's revision)"
+        }
+    };
+    let mut html = format!(
+        r#"<div class="then-code"><div class="then-code-heading"><span class="then-now-label">Then</span> <a href="{}#{}">{}</a> at <a class="then-code-rev" href="/{}/rev/{}/">{}</a>, {}</div>"#,
+        escape(&url),
+        anchor,
+        escape(label),
+        escape(tree_name),
+        escape(&then.rev),
+        escape(&then.rev[..then.rev.len().min(12)]),
+        why
+    );
+    match &then.problem {
+        Some(problem) => html.push_str(&format!(
+            r#"<div class="crash-code-missing view-problem">{}</div>"#,
+            escape(problem)
+        )),
+        None => html.push_str(&rows_html(tree_name, &then.rows, &url)),
+    }
+    html.push_str("</div>");
+    html
+}
+
+/// The buttons choosing which code a view shows (see `THEN_NOW_SCRIPT`): the
+/// code then (as `then` says, as HTML), now (as `now` says), or both side by
+/// side; the view's root is a `then-now-view`, its `data-then-now` the mode,
+/// "then" at first.
+pub(crate) fn then_now_modes_html(then: &str, now: &str) -> String {
+    format!(
+        r#"<div class="then-now-choice"><div class="then-now-modes" role="group" aria-label="Which code to show"><button type="button" data-mode="then" aria-pressed="true">Then</button><button type="button" data-mode="now" aria-pressed="false">Now</button><button type="button" data-mode="both" aria-pressed="false">Then &amp; Now</button></div><p class="then-now-about then-about">{}</p><p class="then-now-about now-about">{}</p></div>"#,
+        then, now
+    )
+}
+
+/// The script of `then_now_modes_html`'s buttons.
+pub(crate) const THEN_NOW_SCRIPT: &str = r#"
+// (Which code the view shows beside what it's of: then, now, or both side by
+// side; see crash_stack.rs's `then_now_modes_html`.)
+document.addEventListener("click", event => {
+  const button = event.target.closest(".then-now-modes button[data-mode]");
+  if (!button) {
+    return;
+  }
+  button.closest(".then-now-view").dataset.thenNow = button.dataset.mode;
+  for (const other of button.parentElement.querySelectorAll("button")) {
+    other.setAttribute("aria-pressed", String(other == button));
+  }
+});"#;
+
 /// A frame's row of the crash view (see `render_crash_stack`; and of a
 /// Bugzilla comment's frames, see `bug_comment`), with its id: its code (its
 /// function's excerpt, or for a crash report's frame, its file's) and what
@@ -1305,8 +1690,18 @@ pub(crate) fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> Strin
         id
     ));
     // The code column: the excerpt of the function's file (or the frame's,
-    // for a report's), from its heading's line.
+    // for a report's), from its heading's line; for a report's frame of the
+    // tree's files, beside its code then (see `then_now_html`).
     html.push_str(r#"<div class="crash-code">"#);
+    match &frame.then {
+        Some(then) => {
+            let label = format!("{}:{}", then.path, source.and_then(|s| s.line).unwrap_or(1));
+            html.push_str(r#"<div class="then-now">"#);
+            html.push_str(&then_html(tree_name, then, &label));
+            html.push_str(r#"<div class="now-code">"#);
+        }
+        None => html.push_str(r#"<div class="now-code now-only">"#),
+    }
     let excerpt_path = frame
         .function
         .as_ref()
@@ -1323,56 +1718,17 @@ pub(crate) fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> Strin
             .or_else(|| frame.rows.first().map(|row| row.line))
             .unwrap_or(1);
         html.push_str(&format!(
-            r#"<div class="crash-code-heading"><a href="{}#{}">{}:{}</a></div>"#,
+            r#"<div class="crash-code-heading">{}<a href="{}#{}">{}:{}</a></div>"#,
+            match frame.then {
+                Some(_) => NOW_LABEL,
+                None => "",
+            },
             escape(&url),
             line,
             escape(&path),
             line
         ));
-        html.push_str(&format!(
-            r#"<div class="file crash-rows" role="table" data-tree="{}" data-search="{}">"#,
-            escape(tree_name),
-            escape(&crate::file_format::config::search_url(tree_name))
-        ));
-        let mut folded_run: Vec<&FrameRow> = vec![];
-        let flush = |run: &mut Vec<&FrameRow>, html: &mut String| {
-            if run.is_empty() {
-                return;
-            }
-            html.push_str(&format!(
-                r#"<div class="crash-fold" role="rowgroup" hidden>{}</div><button type="button" class="crash-unfold">Show {} more line{}</button>"#,
-                run.iter()
-                    .map(|row| crate::format::excerpt_row_html(
-                        &row.html,
-                        row.line,
-                        &url,
-                        "sp-citation-lineno",
-                        0,
-                        None
-                    ))
-                    .collect::<String>(),
-                run.len(),
-                if run.len() == 1 { "" } else { "s" }
-            ));
-            run.clear();
-        };
-        for row in &frame.rows {
-            if row.folded {
-                folded_run.push(row);
-                continue;
-            }
-            flush(&mut folded_run, &mut html);
-            html.push_str(&crate::format::excerpt_row_html(
-                &row.html,
-                row.line,
-                &url,
-                "sp-citation-lineno",
-                0,
-                row.crashing.then_some("crash-line"),
-            ));
-        }
-        flush(&mut folded_run, &mut html);
-        html.push_str("</div>");
+        html.push_str(&rows_html(tree_name, &frame.rows, &url));
     } else {
         let missing = match source {
             None => "Not a function in this tree.".to_string(),
@@ -1403,6 +1759,11 @@ pub(crate) fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> Strin
                 missing
             )),
         }
+    }
+    // (The code now's, and its pair's with the code then's.)
+    html.push_str("</div>");
+    if frame.then.is_some() {
+        html.push_str("</div>");
     }
     html.push_str("</div>");
 
@@ -1558,6 +1919,29 @@ fn url_encode_query(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_excerpt_lines() {
+        // (Its head and the lines around the marked ones are shown, and a run
+        // of fewer than 3 between them; 3 or more are folded.)
+        let (all, shown) = excerpt_lines(10, 30, 3, &[20, 28], 2);
+        assert_eq!(all, (10..=30).collect::<BTreeSet<u32>>());
+        assert_eq!(
+            shown.into_iter().collect::<Vec<u32>>(),
+            vec![10, 11, 12, 18, 19, 20, 21, 22, 26, 27, 28, 29, 30]
+        );
+        let (_, shown) = excerpt_lines(10, 30, 0, &[20, 25], 2);
+        assert!((18..=27).all(|line| shown.contains(&line)));
+        // (Not before line 1.)
+        let (all, shown) = excerpt_lines(1, 4, 0, &[1], 2);
+        assert_eq!(all.len(), 4);
+        assert_eq!(shown.into_iter().collect::<Vec<u32>>(), vec![1, 2, 3, 4]);
+        // (A row's line number cell, which `format::excerpt_row_html` links.)
+        assert!(
+            rev_row_html(7, "x")
+                .contains(r#"<div role="cell" class="line-number" data-line-number="7"></div>"#)
+        );
+    }
 
     #[test]
     fn test_parse_signature() {

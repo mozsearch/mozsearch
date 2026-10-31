@@ -58,11 +58,12 @@ add_task(async function test_BugComment() {
   const [changedCard] = cards(changed);
   is(note(changedCard), "Its lines have changed since.", "Lines which changed since say so");
   ok(/^tools\/src\/blame\.rs, near line \d+$/.test(heading(changedCard)), "and where they would be now");
-  is(changedCard.querySelectorAll(".crash-line").length, 0, "and aren't highlighted");
+  is(changedCard.querySelectorAll(".now-code .crash-line").length, 0, "and aren't highlighted now");
   ok(changedCard.querySelectorAll("[data-line-number]").length > 0, "but where they would be is shown");
 
   const [current, other] = cards(now);
-  is(note(current), "Not a permalink: its lines now.", "A link which isn't a permalink is to its lines now");
+  is(note(current), "Not a permalink, so its lines are those when the comment was written.",
+     "A link which isn't a permalink is to its lines when the comment was written");
   ok(highlighted(current).includes("fn find_phab_rev"), "which are highlighted");
   is(other?.querySelector(".crash-code-missing")?.textContent, "Not a file in this tree.",
      "A nested list's link is its item's, and a file the tree doesn't have says so");
@@ -93,6 +94,49 @@ add_task(async function test_BugComment() {
      "A bug's description is its comment 0");
   is(text(".bug-comment-link"), "Description", "which Bugzilla calls its description");
   is(text(".bmo-role"), "Reporter", "by its reporter");
+});
+
+add_task(async function test_BugCommentThenNow() {
+  // (Its code is as it was then at first: a permalink's lines as linked, at
+  // its revision; a link without one, at the tree's head when the comment
+  // was written; and the frames, at the build's revision; or now, or both
+  // side by side.)
+  await TestUtils.loadQuery("searchfox", "bug-comment:1234567/1");
+  const view = doc().querySelector(".then-now-view");
+  is(view?.dataset.thenNow, "then", "The view shows the code then at first");
+  is([...doc().querySelectorAll(".then-now-modes button")].map(button => button.textContent).join("|"),
+     "Then|Now|Then & Now", "and offers it now, or both");
+  const about = text(".then-about") || "";
+  ok(about.includes("each permalink at its revision") && about.includes("each link without a revision") &&
+     about.includes("a crash's frames at its build's revision"),
+     `saying what the code then is: ${about}`);
+
+  const shown = element => frame.contentWindow.getComputedStyle(element).display != "none";
+  const [, moved, changed, now, , frames] = blocks();
+  const [movedCard] = cards(moved);
+  const then = movedCard.querySelector(".then-code");
+  ok(then && shown(then) && !shown(movedCard.querySelector(".now-code")), "A permalink's card shows its code then");
+  ok(then.querySelector(".then-code-heading").textContent.includes("tools/src/blame.rs#147 at 50df75fc5253, the link's revision"),
+     "its lines as linked, at its revision");
+  ok(then.querySelector(".crash-line")?.textContent.includes("line.splitn(4, ':')"), "highlighted");
+  is(then.querySelector(".crash-line a")?.getAttribute("href"),
+     "/searchfox/rev/50df75fc5253890347bfac70037bc7ad42316862/tools/src/blame.rs#147",
+     "linked to the file then");
+  ok(cards(changed)[0].querySelector(".then-code .crash-line"), "Lines which changed since are highlighted then");
+  const [current, other] = cards(now);
+  ok(current.querySelector(".then-code-heading")?.textContent.includes("when the comment was written"),
+     "A link without a revision is at the tree's head when the comment was written");
+  ok(!other.querySelector(".then-code") && shown(other.querySelector(".now-code")),
+     "A card without code then shows its code now");
+  ok(cards(frames)[0].querySelector(".crash-frame .then-code-heading")?.textContent.includes("the build's revision"),
+     "A crash's frames are at the build's revision");
+
+  const [, nowButton, both] = doc().querySelectorAll(".then-now-modes button");
+  TestUtils.click(nowButton);
+  ok(!shown(then) && shown(movedCard.querySelector(".now-code")), "Now shows the code now");
+  TestUtils.click(both);
+  ok(shown(then) && shown(movedCard.querySelector(".now-code")), "Then & Now shows both");
+  is(frame.contentWindow.getComputedStyle(movedCard.querySelector(".then-now")).display, "grid", "side by side");
 });
 
 add_task(async function test_BugCommentPairs() {
@@ -183,7 +227,8 @@ add_task(async function test_BugCommentPlain() {
      "and it isn't Markdown");
   is(linking.querySelector("a.bmo-mention")?.getAttribute("href"),
      "https://bugzilla.mozilla.org/show_bug.cgi?id=1234567#c0", "as are bugs' comments");
-  is(note(cards(linking)[0]), "Not a permalink: its lines now.", "and its code links are excerpts");
+  is(note(cards(linking)[0]), "Not a permalink, so its lines are those when the comment was written.",
+     "and its code links are excerpts");
   is(text(".bmo-role"), "Reporter", "(by the bug's reporter)");
 });
 

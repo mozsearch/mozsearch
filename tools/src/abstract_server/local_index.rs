@@ -516,6 +516,11 @@ impl AbstractServer for LocalIndex {
         ))
     }
 
+    async fn rev_text(&self, rev: &str, path: &str) -> Result<Option<String>> {
+        let cfg = self.tree_config_loaded();
+        Ok(crate::format::rev_text(&cfg, &self.tree_name, rev, path))
+    }
+
     async fn map_rev(&self, kind: &str, rev: &str) -> Result<Option<String>> {
         match kind {
             "hg" => {

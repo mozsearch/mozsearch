@@ -45,7 +45,7 @@ use ustr::{Ustr, UstrMap, ustr};
 use crate::abstract_server::{
     AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, sym_info,
 };
-use crate::crash_stack::{CrashFrame, CrashReport};
+use crate::crash_stack::{CrashFrame, CrashReport, ThenExcerpt, ThenWhy};
 use crate::file_format::jumpref::JumprefData;
 use crate::rendered_docs::escape;
 
@@ -169,6 +169,10 @@ pub struct BugComment {
     pub time: Option<String>,
     pub markdown: bool,
     pub blocks: Vec<CommentBlock>,
+    /// The tree's head when the comment was written, roughly (see
+    /// `AbstractServer::rev_at`), which its links without revisions (or with
+    /// revisions the tree doesn't have) are of (see `LineMapping::Inferred`).
+    pub inferred: Option<crate::commit_index::RevAt>,
     /// What the view couldn't get besides its blocks' cards' (which they
     /// say), ex: the bug's summary.
     pub problems: Vec<String>,
@@ -237,7 +241,12 @@ pub enum LineMapping {
     /// Mapped from its revision (the tree's, ex: an old repository's
     /// revision's or an hg revision's git revision).
     Mapped { tree_rev: String },
-    /// Its lines are now's (it's not a permalink).
+    /// Mapped from the tree's head when the comment was written, roughly
+    /// (`BugComment::inferred`), since it's not a permalink, or its revision
+    /// isn't the tree's (`unknown_rev`).
+    Inferred { tree_rev: String, unknown_rev: bool },
+    /// Its lines are now's (it's not a permalink, and when the comment was
+    /// written isn't known here).
     Now,
     /// The tree's repository doesn't have its revision (or the file at it),
     /// so its lines are now's.
@@ -252,8 +261,8 @@ pub enum LineMapping {
 /// (those unchanged since), how many changed since, where its lines are now
 /// (the first and last; a changed line's where it would be, after the last
 /// line before it which didn't change), the excerpt's rows (see
-/// `crash_stack::FrameRow`), and why they couldn't be fetched, if they
-/// couldn't, of a file the tree has.
+/// `crash_stack::FrameRow`), why they couldn't be fetched, if they couldn't,
+/// of a file the tree has, and its code then.
 #[derive(Debug, Serialize)]
 pub struct CodeExcerpt {
     pub link: CodeLink,
@@ -263,6 +272,10 @@ pub struct CodeExcerpt {
     pub around: Option<(u32, u32)>,
     pub rows: Vec<crate::crash_stack::FrameRow>,
     pub problem: Option<String>,
+    /// Its code as it was then (its lines as linked, at the link's revision,
+    /// or the tree's head when the comment was written), if its lines are
+    /// mapped from a revision.
+    pub then: Option<ThenExcerpt>,
 }
 
 /// A frame a comment lists (see `listed_frames`): its number, its function's
@@ -701,15 +714,32 @@ const REPORT_FRAMES: usize = 10;
 
 /// A code link's lines in the indexed revision: its revision's lines mapped
 /// (trying it as the tree's revision, then as its old repository's, or as an
-/// hg revision), or its lines as they are, if it's not a permalink, or can't
-/// be mapped (see `LineMapping`); and for each of its lines, its line now,
-/// if it's unchanged.
+/// hg revision), or if it's not a permalink, or the tree doesn't have its
+/// revision, those of `inferred` (the tree's head when the comment was
+/// written, roughly), or else its lines as they are (see `LineMapping`); and
+/// for each of its lines, its line now, if it's unchanged.
 async fn map_link(
     server: &(dyn AbstractServer + Send + Sync),
     link: &CodeLink,
+    inferred: Option<&str>,
 ) -> (LineMapping, Option<Vec<Option<u32>>>) {
+    let from_inferred = async |unknown_rev: bool| {
+        let tree_rev = inferred?;
+        match server.line_map(tree_rev, &link.path).await {
+            Ok(Some(map)) => Some((
+                LineMapping::Inferred {
+                    tree_rev: tree_rev.to_string(),
+                    unknown_rev,
+                },
+                Some(map),
+            )),
+            _ => None,
+        }
+    };
     let Some(rev) = &link.rev else {
-        return (LineMapping::Now, None);
+        return from_inferred(false)
+            .await
+            .unwrap_or((LineMapping::Now, None));
     };
     let mut failure: Option<String> = None;
     let mut mapped = |result: Result<Option<String>>| match result {
@@ -736,7 +766,9 @@ async fn map_link(
     }
     match failure {
         Some(failure) => (LineMapping::Failed(failure), None),
-        None => (LineMapping::UnknownRev, None),
+        None => from_inferred(true)
+            .await
+            .unwrap_or((LineMapping::UnknownRev, None)),
     }
 }
 
@@ -992,6 +1024,18 @@ pub async fn bug_comment(
     }
     let listed_reports: BTreeSet<&String> = frames_reports.iter().flatten().collect();
 
+    // (The tree's head when the comment was written, roughly, which its code
+    // links without revisions, or with revisions the tree doesn't have, are
+    // of; see `LineMapping::Inferred`.)
+    let has_code_links = text_blocks
+        .iter()
+        .flat_map(|block| &block.urls)
+        .any(|url| code_link(url).is_some_and(|link| !link.lines.is_empty()));
+    let inferred = match (&time, has_code_links) {
+        (Some(time), true) => server.rev_at(time).await.ok().flatten(),
+        _ => None,
+    };
+
     // The blocks, and their cards: their code links' excerpts (once each,
     // at most MAX_CODE_LINKS), their crash reports, and their listed frames.
     let mut code_links = 0;
@@ -1036,7 +1080,8 @@ pub async fn bug_comment(
             code_links += 1;
             let key = (link.rev.clone(), link.rev_kind, link.path.clone());
             if !maps.contains_key(&key) {
-                let mapped = map_link(server, &link).await;
+                let mapped =
+                    map_link(server, &link, inferred.as_ref().map(|at| at.rev.as_str())).await;
                 if matches!(mapped.0, LineMapping::Failed(_)) {
                     problems.transient = true;
                 }
@@ -1081,6 +1126,7 @@ pub async fn bug_comment(
                 around: span,
                 rows: vec![],
                 problem: None,
+                then: None,
             }));
         }
         // (Its listed frames' code: its report's frames, or if the report
@@ -1216,6 +1262,44 @@ pub async fn bug_comment(
             });
         }
     }
+    // The code links' code then: their lines as linked, at the revision
+    // they're mapped from.
+    let mut rev_rows = crate::crash_stack::RevRows::default();
+    for card in blocks.iter_mut().flat_map(|block| block.cards.iter_mut()) {
+        let CommentCard::Code(excerpt) = card else {
+            continue;
+        };
+        let (tree_rev, why) = match &excerpt.mapping {
+            LineMapping::Mapped { tree_rev } => (tree_rev.clone(), ThenWhy::Permalink),
+            LineMapping::Inferred {
+                tree_rev,
+                unknown_rev,
+            } => (
+                tree_rev.clone(),
+                ThenWhy::CommentTime {
+                    unknown_rev: *unknown_rev,
+                },
+            ),
+            _ => continue,
+        };
+        let linked: Vec<u32> = excerpt
+            .link
+            .lines
+            .iter()
+            .flat_map(|&(start, end)| start..=end.min(start + MAX_EXCERPT_LINES))
+            .collect();
+        let (Some(&first), Some(&last)) = (linked.iter().min(), linked.iter().max()) else {
+            continue;
+        };
+        let start = first.saturating_sub(CONTEXT_LINES).max(1);
+        let end = (last + CONTEXT_LINES).min(start + MAX_EXCERPT_LINES);
+        let (all, shown) = crate::crash_stack::excerpt_lines(start, end, 0, &linked, CONTEXT_LINES);
+        let path = excerpt.link.path.clone();
+        excerpt.then = rev_rows
+            .excerpt(server, &tree_rev, &path, why, all, &shown, &linked)
+            .await;
+    }
+
     let frame_problems = blocks
         .iter()
         .flat_map(|block| &block.cards)
@@ -1240,6 +1324,7 @@ pub async fn bug_comment(
         time,
         markdown,
         blocks,
+        inferred,
         problems: problems.notes,
         transient: problems.transient,
     })
@@ -1305,8 +1390,27 @@ pub fn render_bug_comment(
 
     let bug_url = format!("{}/show_bug.cgi?id={}", BUGZILLA_URL, view.bug);
     let comment_url = format!("{}#c{}", bug_url, view.comment);
+    // (Why its code then is at its revisions: its cards' code links', and
+    // their crashes' frames'; the view shows the code then at first, or now,
+    // or both.)
+    let whys: Vec<&ThenWhy> = view
+        .blocks
+        .iter()
+        .flat_map(|block| &block.cards)
+        .flat_map(|card| match card {
+            CommentCard::Code(excerpt) => excerpt.then.iter().map(|then| &then.why).collect(),
+            CommentCard::Crash { frames, .. } | CommentCard::Frames { frames, .. } => frames
+                .iter()
+                .filter_map(|frame| frame.then.as_ref().map(|then| &then.why))
+                .collect::<Vec<_>>(),
+        })
+        .collect();
+    let has_then = !whys.is_empty();
     let mut html = String::new();
-    html.push_str(r#"<div class="crash-view bug-comment-view">"#);
+    html.push_str(match has_then {
+        true => r#"<div class="crash-view bug-comment-view then-now-view" data-then-now="then">"#,
+        false => r#"<div class="crash-view bug-comment-view">"#,
+    });
 
     // The bug.
     html.push_str(&format!(
@@ -1393,12 +1497,59 @@ pub fn render_bug_comment(
             escape(&shown_time(time))
         ))
     ));
-    html.push_str(&format!(
-        r#"<div class="crash-notice bug-comment-notice"><p>Beside each of its blocks, the code it links to in {} at the indexed revision ({} excerpt{}), with the linked lines highlighted (mapped from the links' revisions), and the code of the crashes it links to.</p></div></div>"#,
-        escape(tree_name),
-        excerpts,
-        if excerpts == 1 { "" } else { "s" }
-    ));
+    match has_then {
+        false => html.push_str(&format!(
+            r#"<div class="crash-notice bug-comment-notice"><p>Beside each of its blocks, the code it links to in {} at the indexed revision ({} excerpt{}), with the linked lines highlighted (mapped from the links' revisions), and the code of the crashes it links to.</p></div></div>"#,
+            escape(tree_name),
+            excerpts,
+            if excerpts == 1 { "" } else { "s" }
+        )),
+        true => {
+            // (What the code then is: the revisions, and why they're those.)
+            let mut then = vec![];
+            if whys.contains(&&ThenWhy::Permalink) {
+                then.push("each permalink at its revision".to_string());
+            }
+            let inferred =
+                |unknown_rev: bool| whys.contains(&&ThenWhy::CommentTime { unknown_rev });
+            if let Some(at) = view.inferred.as_ref().filter(|_| inferred(false) || inferred(true)) {
+                then.push(format!(
+                    r#"each link without a revision{} at {}'s head when the comment was written, <a class="then-inferred" href="/{}/rev/{}/">{}</a> (the last commit of its main line which had landed by then, at {}), roughly"#,
+                    match inferred(true) {
+                        true => " (or with one this tree doesn't have)",
+                        false => "",
+                    },
+                    escape(tree_name),
+                    escape(tree_name),
+                    escape(&at.rev),
+                    escape(&at.rev[..at.rev.len().min(12)]),
+                    escape(&shown_time(&at.landed))
+                ));
+            }
+            if whys.contains(&&ThenWhy::Build) {
+                then.push("a crash's frames at its build's revision".to_string());
+            }
+            if whys.contains(&&ThenWhy::EstimatedBuild) {
+                then.push("the frames of a crash whose report crash-stats doesn't have any more at the tree's head when it was submitted, roughly".to_string());
+            }
+            html.push_str(&format!(
+                r#"<div class="crash-notice bug-comment-notice"><p>Beside each of its blocks, the code it links to ({} excerpt{}), and the code of the crashes it links to, as it was then, or as it is now in {}, with the linked lines highlighted.</p>{}</div></div>"#,
+                excerpts,
+                if excerpts == 1 { "" } else { "s" },
+                escape(tree_name),
+                crate::crash_stack::then_now_modes_html(
+                    &format!(
+                        "Then: the code as it was when the comment linked to it: {}.",
+                        then.join("; ")
+                    ),
+                    &format!(
+                        "Now: the code in {} at the indexed revision, the linked lines (and the frames' lines) mapped from those revisions (those which have changed since aren't highlighted).",
+                        escape(tree_name)
+                    ),
+                )
+            ));
+        }
+    }
 
     // Its blocks, each beside its cards.
     let text_class = match view.markdown {
@@ -1518,6 +1669,7 @@ function fitProse() {{
 }}
 fitProse();
 window.addEventListener("resize", fitProse);
+{}
 // (The comment's time, as Bugzilla shows it: how long ago it was, its time in
 // its title.)
 for (const time of document.querySelectorAll(".bmo-change-time[datetime]")) {{
@@ -1529,7 +1681,11 @@ for (const time of document.querySelectorAll(".bmo-change-time[datetime]")) {{
 }}</script>"#,
         serde_json::to_string(sym_info)
             .unwrap_or_else(|_| "{}".to_string())
-            .replace('<', "\\u003c")
+            .replace('<', "\\u003c"),
+        match has_then {
+            true => crate::crash_stack::THEN_NOW_SCRIPT,
+            false => "",
+        }
     )
     .map_err(|_| "Write error")?;
     Ok(())
@@ -1601,7 +1757,7 @@ fn frames_card_html(
         String::from(r#"<div class="bug-comment-card bug-comment-frames" data-frames="">"#);
     let note = match from {
         FramesFrom::Report { .. } => {
-            "Its frames, from the crash report, each beside its code at the indexed revision, its line from the report highlighted (mapped from the build's revision).".to_string()
+            "Its frames, from the crash report, each beside its code, as it was then (at the build's revision) or is now (at the indexed revision, its line mapped from the build's), its line from the report highlighted.".to_string()
         }
         FramesFrom::Estimated { time, rev } => format!(
             r#"The crash report isn't available, so these are its frames' lines at {}'s head <a href="/{}/rev/{}/">{}</a>, as of {} (when the crash was submitted, by its ID, or else when the comment was written), roughly, which the build it crashed in was probably at or a little before: mapped to the indexed revision, as a report's would be from its build's."#,
@@ -1633,18 +1789,32 @@ fn frames_card_html(
     html
 }
 
-/// A code link's card: its heading (the file and its lines now, linked to the
-/// tree's, and the link as it was), what its lines are, and its excerpt (or
-/// why there's none).
+/// A code link's card: its code then, if it has it (see
+/// `crash_stack::then_html`), beside its code now: its heading (the file and
+/// its lines now, linked to the tree's, and the link as it was), what its
+/// lines are, and its excerpt (or why there's none).
 fn excerpt_html(tree_name: &str, excerpt: &CodeExcerpt, encoded_path: &str) -> String {
     let link = &excerpt.link;
     let url = format!("/{}/source/{}", tree_name, encoded_path);
     let linked: Vec<u32> = link.lines.iter().flat_map(|&(a, b)| a..=b).collect();
     let now = ranges(&excerpt.lines_now);
+    let then = ranges(&linked);
     let mut html = format!(
         r#"<div class="bug-comment-card" data-link="{}">"#,
         escape(&link.url)
     );
+    match &excerpt.then {
+        Some(then_excerpt) => {
+            html.push_str(r#"<div class="then-now">"#);
+            html.push_str(&crate::crash_stack::then_html(
+                tree_name,
+                then_excerpt,
+                &format!("{}#{}", link.path, then),
+            ));
+            html.push_str(r#"<div class="now-code">"#);
+        }
+        None => html.push_str(r#"<div class="now-code now-only">"#),
+    }
     // (Its lines now, or if they all changed since, near where they would
     // be.)
     let (anchor, shown) = match (excerpt.lines_now.first(), excerpt.around) {
@@ -1653,20 +1823,26 @@ fn excerpt_html(tree_name: &str, excerpt: &CodeExcerpt, encoded_path: &str) -> S
         (None, None) => (1, link.path.clone()),
     };
     html.push_str(&format!(
-        r#"<div class="crash-code-heading"><a href="{}#{}">{}</a> <a class="bug-comment-as-linked" href="{}">as linked</a></div>"#,
+        r#"<div class="crash-code-heading">{}<a href="{}#{}">{}</a> <a class="bug-comment-as-linked" href="{}">as linked</a></div>"#,
+        match excerpt.then {
+            Some(_) => crate::crash_stack::NOW_LABEL,
+            None => "",
+        },
         escape(&url),
         anchor,
         escape(&shown),
         escape(&link.url)
     ));
-    let then = ranges(&linked);
-    let note = match &excerpt.mapping {
-        LineMapping::Mapped { .. } if excerpt.changed == linked.len() => {
-            r#"<span class="crash-frame-changed">Its lines have changed since.</span>"#.to_string()
-        }
-        LineMapping::Mapped { .. } if excerpt.changed > 0 => format!(
-            r#"<span class="crash-frame-changed">{} of its {} lines changed since</span>{}."#,
-            excerpt.changed,
+    let changed_note = |lead: &str| match excerpt.changed {
+        changed if changed == linked.len() => format!(
+            r#"{}<span class="crash-frame-changed">{} lines have changed since.</span>"#,
+            lead,
+            if lead.is_empty() { "Its" } else { "its" }
+        ),
+        changed => format!(
+            r#"{}<span class="crash-frame-changed">{} of its {} lines changed since</span>{}."#,
+            lead,
+            changed,
             linked.len(),
             if now != then {
                 format!(" (lines {} then)", escape(&then))
@@ -1674,10 +1850,26 @@ fn excerpt_html(tree_name: &str, excerpt: &CodeExcerpt, encoded_path: &str) -> S
                 String::new()
             }
         ),
+    };
+    let note = match &excerpt.mapping {
+        LineMapping::Mapped { .. } if excerpt.changed > 0 => changed_note(""),
         LineMapping::Mapped { .. } if now != then => {
             format!("Lines {} at its revision.", escape(&then))
         }
         LineMapping::Mapped { .. } => String::new(),
+        LineMapping::Inferred { unknown_rev, .. } => {
+            let lead = match unknown_rev {
+                false => "Not a permalink, so its lines are those when the comment was written",
+                true => {
+                    "This tree doesn't have its revision, so its lines are those when the comment was written"
+                }
+            };
+            match excerpt.changed {
+                0 if now != then => format!("{} (lines {}).", lead, escape(&then)),
+                0 => format!("{}.", lead),
+                _ => changed_note(&format!("{}: ", lead)),
+            }
+        }
         LineMapping::Now => "Not a permalink: its lines now.".to_string(),
         LineMapping::UnknownRev => {
             "This tree doesn't have its revision: its line numbers, now.".to_string()
@@ -1700,46 +1892,19 @@ fn excerpt_html(tree_name: &str, excerpt: &CodeExcerpt, encoded_path: &str) -> S
             ),
             None => r#"<div class="crash-code-missing">Not a file in this tree.</div>"#.to_string(),
         });
-        html.push_str("</div>");
-        return html;
-    }
-    html.push_str(&format!(
-        r#"<div class="file crash-rows" role="table" data-tree="{}" data-search="{}">"#,
-        escape(tree_name),
-        escape(&crate::file_format::config::search_url(tree_name))
-    ));
-    let mut folded: Vec<&crate::crash_stack::FrameRow> = vec![];
-    let flush = |run: &mut Vec<&crate::crash_stack::FrameRow>, html: &mut String| {
-        if run.is_empty() {
-            return;
-        }
-        html.push_str(&format!(
-            r#"<div class="crash-fold" role="rowgroup" hidden>{}</div><button type="button" class="crash-unfold">Show {} more line{}</button>"#,
-            run.iter()
-                .map(|row| crate::format::excerpt_row_html(&row.html, row.line, &url, "sp-citation-lineno", 0, None))
-                .collect::<String>(),
-            run.len(),
-            if run.len() == 1 { "" } else { "s" }
-        ));
-        run.clear();
-    };
-    for row in &excerpt.rows {
-        if row.folded {
-            folded.push(row);
-            continue;
-        }
-        flush(&mut folded, &mut html);
-        html.push_str(&crate::format::excerpt_row_html(
-            &row.html,
-            row.line,
+    } else {
+        html.push_str(&crate::crash_stack::rows_html(
+            tree_name,
+            &excerpt.rows,
             &url,
-            "sp-citation-lineno",
-            0,
-            row.crashing.then_some("crash-line"),
         ));
     }
-    flush(&mut folded, &mut html);
-    html.push_str("</div></div>");
+    // (The code now's, its pair's with the code then's, and the card's.)
+    html.push_str("</div>");
+    if excerpt.then.is_some() {
+        html.push_str("</div>");
+    }
+    html.push_str("</div>");
     html
 }
 

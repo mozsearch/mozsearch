@@ -51,7 +51,7 @@ add_task(async function test_CrashReport() {
      "and the frame its line");
 
   ok(where(info).includes("which has changed since"), "A line which changed since the build says so");
-  is(info.querySelectorAll(".crash-line").length, 0, "and isn't highlighted");
+  is(info.querySelectorAll(".now-code .crash-line").length, 0, "and isn't highlighted now");
 
   ok(crashText(deserialize).includes("line.splitn(4, ':')"), "A line which moved since is mapped");
   ok(/^At line 147 at the build's revision, which is line \d+ now\.$/.test(where(deserialize)),
@@ -70,6 +70,42 @@ add_task(async function test_CrashReport() {
   ok(crashText(worker).includes('format!("{}:{}:{}:", self.rev, self.path, self.lineno)'),
      "with its frames' lines");
   ok(doc().querySelector("a.crash-crashing-thread"), "and links back to the crashing thread's only");
+});
+
+add_task(async function test_CrashReportThenNow() {
+  // (A frame of the tree's files has its code as it was in the build which
+  // crashed, at the build's revision, which the view shows at first; or its
+  // code now; or both side by side.)
+  await TestUtils.loadQuery("searchfox", `crash-report:${ID}`);
+  const view = doc().querySelector(".then-now-view");
+  is(view?.dataset.thenNow, "then", "The view shows the code then at first");
+  is([...doc().querySelectorAll(".then-now-modes button")].map(button => button.textContent).join("|"),
+     "Then|Now|Then & Now", "and offers it now, or both");
+  ok(doc().querySelector(".then-about")?.textContent.includes("at the build's revision"),
+     "saying what the code then is");
+  const [strip, find, , , info] = frames();
+  const shown = element => frame.contentWindow.getComputedStyle(element).display != "none";
+  const then = info.querySelector(".then-code");
+  ok(then && shown(then) && !shown(info.querySelector(".now-code")), "A frame shows its code then");
+  ok(then.querySelector(".then-code-heading").textContent.includes(`at ${REV.slice(0, 12)}, the build's revision`),
+     "at the build's revision");
+  ok(then.querySelector(".crash-line a")?.getAttribute("href").startsWith(`/searchfox/rev/${REV}/tools/src/blame.rs#`),
+     "its line highlighted, linked to the file then");
+  ok(!strip.querySelector(".then-code") && shown(strip.querySelector(".now-code")),
+     "A frame which isn't the tree's code says so");
+  ok(find.querySelector(".then-code .crash-line")?.textContent.includes("line.strip_prefix(PREFIX)"),
+     "A frame's line then is highlighted");
+
+  const [then_, now, both] = doc().querySelectorAll(".then-now-modes button");
+  TestUtils.click(now);
+  is(view.dataset.thenNow, "now", "Now");
+  ok(!shown(then) && shown(info.querySelector(".now-code")), "shows the code now");
+  is(now.getAttribute("aria-pressed"), "true", "its button pressed");
+  TestUtils.click(both);
+  ok(shown(then) && shown(info.querySelector(".now-code")), "Then & Now shows both");
+  is(frame.contentWindow.getComputedStyle(info.querySelector(".then-now")).display, "grid", "side by side");
+  TestUtils.click(then_);
+  ok(shown(then) && !shown(info.querySelector(".now-code")), "and Then the code then again");
 });
 
 add_task(async function test_CrashReportDwim() {

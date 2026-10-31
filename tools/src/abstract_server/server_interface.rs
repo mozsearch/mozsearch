@@ -869,6 +869,14 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The text of the file at `path` in revision `rev`, or None if the
+    /// tree's repository doesn't have the revision or the file (ex: for the
+    /// code as it was then beside a Bugzilla comment or a crash's frames; see
+    /// `crash_stack::RevRows`).  (Unsupported by remote servers.)
+    async fn rev_text(&self, _rev: &str, _path: &str) -> Result<Option<String>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The tree's git revision for the revision `rev` of another kind: an hg
     /// revision (`kind` "hg"; ex: firefox's, by git-cinnabar's mapping) or a
     /// revision of the tree's old git repository ("old"; see
