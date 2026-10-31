@@ -1416,8 +1416,10 @@ pub fn render_bug_comment(
             },
             b
         ));
+        // (Its text sticks below the page's header while its cards scroll by;
+        // see the script below.)
         html.push_str(&format!(
-            r#"<div class="{}">{}</div>"#,
+            r#"<div class="{}"><div class="bug-comment-prose">{}</div></div>"#,
             text_class, block.html
         ));
         html.push_str(r#"<div class="bug-comment-cards">"#);
@@ -1464,6 +1466,58 @@ document.addEventListener("click", event => {{
   unfold.previousElementSibling.hidden = false;
   unfold.remove();
 }});
+// (A card and what in its block's text it's of are marked while either is
+// hovered, to tell which is which: a code link's card, its link; a crash
+// report's, its report's links; listed frames', their code block.)
+let paired = [];
+function cardOf(section, card) {{
+  const links = [...section.querySelectorAll(".bug-comment-text a[href]")];
+  if (card.dataset.link !== undefined) {{
+    return links.filter(link => link.getAttribute("href") == card.dataset.link);
+  }}
+  if (card.dataset.crash) {{
+    return links.filter(link => link.getAttribute("href").includes(card.dataset.crash));
+  }}
+  if (card.dataset.frames !== undefined) {{
+    return [...section.querySelectorAll(".bug-comment-text pre")];
+  }}
+  return [];
+}}
+document.addEventListener("mouseover", event => {{
+  const section = event.target.closest(".bug-comment-block");
+  const card = event.target.closest(".bug-comment-cards > .bug-comment-card");
+  const link = event.target.closest(".bug-comment-text a[href], .bug-comment-text pre");
+  let marks = [];
+  if (section && card) {{
+    marks = [card, ...cardOf(section, card)];
+  }} else if (section && link) {{
+    const cards = [...section.querySelectorAll(".bug-comment-cards > .bug-comment-card")]
+      .filter(card => cardOf(section, card).includes(link));
+    if (cards.length) {{
+      marks = [link, ...cards];
+    }}
+  }}
+  if (marks.length == paired.length && marks.every((mark, i) => mark == paired[i])) {{
+    return;
+  }}
+  for (const mark of paired) {{
+    mark.classList.remove("bug-comment-paired");
+  }}
+  for (const mark of marks) {{
+    mark.classList.add("bug-comment-paired");
+  }}
+  paired = marks;
+}});
+// (A block's text sticks below the page's header while its cards scroll by,
+// unless it's too tall to show at once.)
+function fitProse() {{
+  const header = document.getElementById("fixed-header")?.offsetHeight || 0;
+  for (const prose of document.querySelectorAll(".bug-comment-prose")) {{
+    prose.classList.toggle("bug-comment-prose-tall", prose.offsetHeight > window.innerHeight - header - 16);
+  }}
+}}
+fitProse();
+window.addEventListener("resize", fitProse);
 // (The comment's time, as Bugzilla shows it: how long ago it was, its time in
 // its title.)
 for (const time of document.querySelectorAll(".bmo-change-time[datetime]")) {{
@@ -1491,7 +1545,10 @@ fn crash_card_html(
     frames: &[CrashFrame],
     block: usize,
 ) -> String {
-    let mut html = String::from(r#"<div class="bug-comment-card bug-comment-crash">"#);
+    let mut html = format!(
+        r#"<div class="bug-comment-card bug-comment-crash" data-crash="{}">"#,
+        escape(id)
+    );
     let link = format!(
         r#"<a href="https://crash-stats.mozilla.org/report/index/{}">Crash report {}</a>"#,
         escape(id),
@@ -1540,7 +1597,8 @@ fn frames_card_html(
     problem: Option<&str>,
     block: usize,
 ) -> String {
-    let mut html = String::from(r#"<div class="bug-comment-card bug-comment-frames">"#);
+    let mut html =
+        String::from(r#"<div class="bug-comment-card bug-comment-frames" data-frames="">"#);
     let note = match from {
         FramesFrom::Report { .. } => {
             "Its frames, from the crash report, each beside its code at the indexed revision, its line from the report highlighted (mapped from the build's revision).".to_string()
@@ -1583,7 +1641,10 @@ fn excerpt_html(tree_name: &str, excerpt: &CodeExcerpt, encoded_path: &str) -> S
     let url = format!("/{}/source/{}", tree_name, encoded_path);
     let linked: Vec<u32> = link.lines.iter().flat_map(|&(a, b)| a..=b).collect();
     let now = ranges(&excerpt.lines_now);
-    let mut html = String::from(r#"<div class="bug-comment-card">"#);
+    let mut html = format!(
+        r#"<div class="bug-comment-card" data-link="{}">"#,
+        escape(&link.url)
+    );
     // (Its lines now, or if they all changed since, near where they would
     // be.)
     let (anchor, shown) = match (excerpt.lines_now.first(), excerpt.around) {

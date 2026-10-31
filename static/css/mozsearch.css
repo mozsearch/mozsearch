@@ -6061,8 +6061,10 @@ textarea.monospace {
 .crash-rows .source-line-with-number {
   padding: 0;
 }
+/* (The highlight of source listings' selected lines, rather than a red,
+   which would read as removed.) */
 .crash-line {
-  background-color: color-mix(in srgb, #e5484d 22%, transparent);
+  background-color: var(--line-highlight-background);
 }
 .crash-unfold {
   padding: 0.1em 0;
@@ -6299,15 +6301,25 @@ textarea.monospace {
   color: var(--bmo-hovered-link-color);
   text-decoration: underline;
 }
-.bug-comment-text > * {
+/* (Its text sticks below the page's header while its cards scroll by, in
+   its cell, so not over the next block's; but not if it's too tall to show
+   at once, see bug_comment.rs's script.) */
+.bug-comment-prose {
+  position: sticky;
+  top: calc(var(--header-height) + var(--breadcrumbs-height) + 0.5em);
+}
+.bug-comment-prose.bug-comment-prose-tall {
+  position: static;
+}
+.bug-comment-prose > * {
   margin-top: 0;
   margin-bottom: 12px;
 }
-.bug-comment-block:last-child .bug-comment-text > :last-child {
+.bug-comment-block:last-child .bug-comment-prose > :last-child {
   margin-bottom: 0;
 }
 /* (A list's items, but its last, are as close as Bugzilla's.) */
-.bug-comment-item .bug-comment-text > :last-child {
+.bug-comment-item .bug-comment-prose > :last-child {
   margin-bottom: .25em;
 }
 .markdown-body.bug-comment-text ul,
@@ -6424,6 +6436,16 @@ textarea.monospace {
 }
 .bug-comment-card + .bug-comment-card {
   margin-top: 0.8em;
+}
+/* (A card and what in its block's text it's of, while either is hovered.) */
+.bug-comment-text a.bug-comment-paired,
+.bug-comment-text pre.bug-comment-paired {
+  background-color: var(--line-highlight-background);
+  box-shadow: 0 0 0 2px var(--line-highlight-background);
+}
+.bug-comment-card.bug-comment-paired {
+  border-left-color: var(--bmo-link-color);
+  background-color: color-mix(in srgb, var(--line-highlight-background) 45%, transparent);
 }
 .bug-comment-as-linked {
   margin-left: 0.5em;

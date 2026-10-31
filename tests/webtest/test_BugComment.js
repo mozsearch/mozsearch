@@ -95,6 +95,41 @@ add_task(async function test_BugComment() {
   is(text(".bmo-role"), "Reporter", "by its reporter");
 });
 
+add_task(async function test_BugCommentPairs() {
+  // (A card and what in its block's text it's of are marked while either is
+  // hovered; a block's text sticks while its cards scroll by; and the linked
+  // lines' highlight is source listings' selected lines'.)
+  await TestUtils.loadQuery("searchfox", "bug-comment:1234567/1");
+  const [, moved, , , crashed, frames] = blocks();
+  const [movedCard] = cards(moved);
+  const link = moved.querySelector(".bug-comment-text a[href]");
+  TestUtils.dispatchMouseEvent("mouseover", movedCard.querySelector(".crash-code-heading"));
+  ok(movedCard.matches(".bug-comment-paired") && link.matches(".bug-comment-paired"),
+     "Hovering a code link's card marks it and its link");
+  TestUtils.dispatchMouseEvent("mouseover", doc().querySelector(".bug-comment-bug"));
+  ok(!movedCard.matches(".bug-comment-paired") && !link.matches(".bug-comment-paired"),
+     "until something else is hovered");
+  TestUtils.dispatchMouseEvent("mouseover", link);
+  ok(movedCard.matches(".bug-comment-paired"), "Hovering a link marks its card");
+  TestUtils.dispatchMouseEvent("mouseover", cards(crashed)[0]);
+  ok(crashed.querySelector(".bug-comment-text a.bug-comment-paired")?.getAttribute("href").includes("5e4c0b1a"),
+     "A crash report's card marks its report's link");
+  TestUtils.dispatchMouseEvent("mouseover", cards(frames)[0]);
+  ok(frames.querySelector(".bug-comment-text pre").matches(".bug-comment-paired"),
+     "Listed frames' card marks their code block");
+
+  const style = element => frame.contentWindow.getComputedStyle(element);
+  is(style(moved.querySelector(".bug-comment-prose")).position, "sticky",
+     "A block's text sticks while its cards scroll by");
+  const probe = doc().createElement("div");
+  probe.style.backgroundColor = "var(--line-highlight-background)";
+  doc().body.append(probe);
+  const yellow = style(probe).backgroundColor;
+  probe.remove();
+  is(style(movedCard.querySelector(".crash-line")).backgroundColor, yellow,
+     "A linked line's highlight is source listings' selected lines'");
+});
+
 add_task(async function test_BugCommentEstimated() {
   // (Comment 2's crash report, which crash-stats doesn't have, is said, and
   // its listed frames' lines are at the tree's head when it was submitted, by
