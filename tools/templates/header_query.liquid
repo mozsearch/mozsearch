@@ -25,9 +25,16 @@
     (A query's page's box has its query, in the query language, and searches
     with /query/ as it is, unlike other pages' boxes, which send what's typed
     to `/search`, see header_search.liquid; its additions get search.js's
-    quoting.)
+    quoting.  In a tree searching with queries, it goes by `/search` as a
+    query (`as=query`), for the DWIM rules which go somewhere at once, ex: a
+    crash-stats report's URL to its crash view; see web-server.rs's `search`
+    route.)
   {% endcomment %}
+  {%- if query_search %}
+  <form method="get" action="/{{tree}}/search" class="search-box" id="search-box">
+  {%- else %}
   <form method="get" action="/{{tree}}/query/{{preset}}" class="search-box" id="search-box">
+  {%- endif %}
   <fieldset>
     <div id="query-section">
       <label for="query" class="query_label visually-hidden">Find</label>
@@ -42,6 +49,12 @@
   <!-- We currently depend on the default submit behavior for Query so we do
         not mark this disabled like we do for "search" -->
   <input type="submit" value="Search" class="visually-hidden" />
+  {%- if query_search %}
+  <input type="hidden" name="as" value="query" />
+  {%- if preset != "default" %}
+  <input type="hidden" name="preset" value="{{ preset | escape }}" />
+  {%- endif %}
+  {%- endif %}
   {%- if search_rev != empty %}
   <!-- (Searching again stays in the try push's context.) -->
   <input type="hidden" name="rev" value="{{ search_rev | escape }}" />

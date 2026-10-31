@@ -483,6 +483,17 @@ fn query_params(query: &str) -> HashMap<String, String> {
 /// before, if it's different (which the page shows; see pipeline-server.rs),
 /// in a try push's context (`rev`).
 fn query_url(tree_name: &str, query: &str, input: &str, rev: Option<&str>) -> String {
+    preset_query_url(tree_name, "default", query, input, rev)
+}
+
+/// `query_url`, of the query preset `preset` (ex: "default").
+fn preset_query_url(
+    tree_name: &str,
+    preset: &str,
+    query: &str,
+    input: &str,
+    rev: Option<&str>,
+) -> String {
     let mut url = url::form_urlencoded::Serializer::new(String::new());
     url.append_pair("q", query);
     if input.trim() != query {
@@ -491,7 +502,7 @@ fn query_url(tree_name: &str, query: &str, input: &str, rev: Option<&str>) -> St
     if let Some(rev) = rev.filter(|rev| !rev.is_empty()) {
         url.append_pair("rev", rev);
     }
-    format!("/{}/query/default?{}", tree_name, url.finish())
+    format!("/{}/query/{}?{}", tree_name, preset, url.finish())
 }
 
 /// The trees' servers for the data API's routes the web-server serves (see
@@ -1399,7 +1410,10 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         // for JSON, and the other trees', to router.py): its query (see
         // `tools::query::normalize`), whose page (with the input) also says
         // where a DWIM rule says it may be (see pipeline-server.rs), in a try
-        // push's context if it was (`rev`).
+        // push's context if it was (`rev`).  A query page's box's input is a
+        // query already (`as=query`, of its `preset`; see
+        // header_query.liquid), searched as it is, unless a DWIM rule goes
+        // somewhere at once.
         "search" if config::search_endpoint(tree_name) == config::SearchEndpoint::Query => {
             let params = query_params(req.query);
             let param = |name: &str| params.get(name).map(String::as_str);
@@ -1409,7 +1423,22 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 case: param("case") == Some("true"),
                 regexp: param("regexp") == Some("true"),
             };
-            let normalization = tools::query::normalize::normalize_search(input, &form);
+            let as_query = param("as") == Some("query");
+            let preset = param("preset")
+                .filter(|preset| {
+                    !preset.is_empty()
+                        && preset
+                            .bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+                })
+                .unwrap_or("default");
+            let normalization = match as_query {
+                true => tools::query::normalize::Normalization {
+                    query: input.trim().to_string(),
+                    changes: vec![],
+                },
+                false => tools::query::normalize::normalize_search(input, &form),
+            };
             // (A DWIM rule's target which is where to go at once, without
             // searching, saying where the search is, for its page to offer;
             // see `dwim::DwimTarget::always`.)
@@ -1435,8 +1464,9 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     &search,
                 ));
             }
-            WebResponse::found(query_url(
+            WebResponse::found(preset_query_url(
                 tree_name,
+                preset,
                 &normalization.query,
                 input,
                 param("rev"),

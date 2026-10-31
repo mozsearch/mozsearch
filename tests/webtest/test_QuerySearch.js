@@ -91,9 +91,11 @@ add_task(async function test_QueryNormalization() {
   ok(doc().querySelector('details[data-path="widget.cpp"]'), "with its results");
 
   // A query's page's box (ex: a diagram's) has the query language, and
-  // searches with /query/ as it is, rather than the DWIM endpoint.
-  is(doc().querySelector("#search-box").getAttribute("action"), "/trydelta/query/default",
-     "A query's page's box searches with /query/");
+  // searches with /query/ as it is, by /search as a query (`as=query`), for
+  // the DWIM rules which go somewhere at once (see test_QueryBoxGoesAtOnce).
+  is(doc().querySelector("#search-box").getAttribute("action"), "/trydelta/search",
+     "A query's page's box searches by /search");
+  is(doc().querySelector('#search-box input[name="as"]')?.value, "query", "as a query");
   loaded = TestUtils.waitForLoad();
   doc().querySelector("#search-box").requestSubmit();
   await loaded;
@@ -171,6 +173,20 @@ add_task(async function test_QuerySearchGoesAtOnce() {
      "A paged spec's URL goes to the page with its anchor");
   is(doc().location.hash, "#assemble", "at it");
   is(doc().querySelector(".dwim-searched code")?.textContent, wattsi, "saying what was searched for");
+});
+
+add_task(async function test_QueryBoxGoesAtOnce() {
+  // A query's page's box goes where a DWIM rule goes at once too (ex: a
+  // crash-stats report's URL, to its crash view).
+  const id = "5e4c0b1a-7e57-4c0d-8e5a-000000261030";
+  await TestUtils.loadQuery("trydelta", "Frob");
+  doc().querySelector("#query").value = `https://crash-stats.mozilla.org/report/index/${id}`;
+  const loaded = TestUtils.waitForLoad();
+  doc().querySelector("#search-box").requestSubmit();
+  await loaded;
+  is(doc().location.pathname, "/trydelta/query/default", "A crash-stats report's URL in a query's page's box goes to");
+  is(new URLSearchParams(doc().location.search).get("q"), `crash-report:${id}`, "the query of its crash view");
+  ok(doc().querySelector(".crash-report-link"), "which shows it");
 });
 
 add_task(async function test_QueryExcludedPaths() {
