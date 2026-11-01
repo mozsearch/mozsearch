@@ -313,6 +313,17 @@ functions = [
 ]
 
 [[layer]]
+name = "Core Foundation run loop"
+functions = [
+    "__CFRunLoopServiceMachPort",
+    "__CFRunLoopRun",
+    "CFRunLoopRunSpecific",
+    "_CFRunLoopRunSpecificWithOptions",
+    "CFRunLoopRunInMode",
+    "CFRunLoopRun",
+]
+
+[[layer]]
 name = "Windows thread pool"
 functions = [
     "TppWorkerThread",
@@ -378,10 +389,13 @@ loops = ["nsThread::ProcessNextEvent"]
 # The modules of a thread's frames which are Gecko's and the operating
 # systems' and their libraries': a thread no rule describes is the owner's
 # whose module its first frame (innermost, under its waits) of neither is in
-# (ex: a graphics driver's), else Gecko's or the system's.
+# (ex: a graphics driver's), else Gecko's or the system's.  A thread waiting
+# all of whose frames are the system's is idle (a system library's own
+# thread waiting for its work, ex: macOS's NSEventThread, CoreAudio's caulk
+# workers, Windows' thread pools; not Gecko's code calling a wait).
 [modules]
 gecko = ["xul.dll", "libxul.so", "XUL", "firefox.exe", "firefox", "plugin-container", "plugin-container.exe", "mozglue.dll", "libmozglue.so", "libmozglue.dylib", "nss3.dll", "libnss3.so", "libnss3.dylib", "nspr4.dll", "libnspr4.so", "libplc4.so", "libplds4.so", "libnssutil3.so", "libssl3.so", "libsmime3.so", "libsoftokn3.so", "libfreeblpriv3.so", "libipcclientcerts.so", "freebl3.dll", "softokn3.dll", "lgpllibs.dll", "liblgpllibs.so", "libmozsqlite3.so", "libmozsandbox.so", "gkcodecs.dll", "libgkcodecs.so", "mozavcodec.dll", "mozavutil.dll", "libmozavcodec.so", "libmozavutil.so", "libmozavcodec.dylib", "libmozavutil.dylib", "libmozgtk.so", "libmozwayland.so"]
-system = ["ntdll.dll", "kernel32.dll", "KERNELBASE.dll", "kernelbase.dll", "ucrtbase.dll", "msvcrt.dll", "msvcp140.dll", "vcruntime140.dll", "user32.dll", "win32u.dll", "combase.dll", "rpcrt4.dll", "ws2_32.dll", "mswsock.dll", "libc.so.6", "libpthread.so.0", "libm.so.6", "libdl.so.2", "libstdc++.so.6", "libglib-2.0.so.0", "libgio-2.0.so.0", "libgobject-2.0.so.0", "libsystem_kernel.dylib", "libsystem_pthread.dylib", "libsystem_c.dylib", "libdispatch.dylib", "libc++.1.dylib", "libc++abi.dylib", "CoreFoundation", "Foundation", "AppKit", "libobjc.A.dylib", "linux-gate.so", "linux-vdso.so.1", "libart.so", "libc.so", "libbase.so"]
+system = ["ntdll.dll", "kernel32.dll", "KERNELBASE.dll", "kernelbase.dll", "ucrtbase.dll", "msvcrt.dll", "msvcp140.dll", "vcruntime140.dll", "user32.dll", "win32u.dll", "combase.dll", "rpcrt4.dll", "ws2_32.dll", "mswsock.dll", "libc.so.6", "libpthread.so.0", "libm.so.6", "libdl.so.2", "libstdc++.so.6", "libglib-2.0.so.0", "libgio-2.0.so.0", "libgobject-2.0.so.0", "libsystem_kernel.dylib", "libsystem_pthread.dylib", "libsystem_c.dylib", "libdispatch.dylib", "libc++.1.dylib", "libc++abi.dylib", "CoreFoundation", "Foundation", "AppKit", "libobjc.A.dylib", "linux-gate.so", "linux-vdso.so.1", "libart.so", "libc.so", "libbase.so", "caulk", "CoreAudio", "AudioToolbox", "AudioToolboxCore", "Metal", "IOKit", "SkyLight", "HIToolbox", "QuartzCore", "libsystem_trace.dylib", "ole32.dll", "sechost.dll", "msvcp_win.dll", "gdi32full.dll", "dxgi.dll", "d3d11.dll", "windows.storage.dll", "shcore.dll", "shell32.dll", "twinapi.appcore.dll", "CoreMessaging.dll", "CoreUIComponents.dll", "libdbus-1.so.3", "libpulse.so.0", "libpipewire-0.3.so.0", "libX11.so.6", "libxcb.so.1", "libwayland-client.so.0", "ld-linux-x86-64.so.2", "libgtk-3.so.0", "libgdk-3.so.0", "libdconf.so.1"]
 
 [[thread]]
 names = ["MainThread", "Gecko_IOThread"]

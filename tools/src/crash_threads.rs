@@ -551,7 +551,15 @@ impl ThreadRules {
         } else if known.iter().all(|i| unknown(*i)) {
             ThreadState::Unknown
         } else if let Some(kind) = wait {
-            match !below.is_empty() && below.iter().all(|i| infrastructure(*i)) {
+            // (Or a system library's own thread, all of whose frames are the
+            // system's, waiting for its work, ex: macOS's NSEventThread in
+            // its run loop, or an audio framework's workers.)
+            let system_only = below.iter().all(|i| {
+                frames[*i]
+                    .module
+                    .is_some_and(|module| self.system.contains(module))
+            });
+            match !below.is_empty() && (below.iter().all(|i| infrastructure(*i)) || system_only) {
                 true => ThreadState::Idle,
                 false => ThreadState::Waiting(kind.to_string()),
             }
@@ -662,7 +670,7 @@ functions = ["mozilla::detail::ConditionVariableImpl::wait*", "pthread_cond_wait
 
 [[wait]]
 kind = "event"
-functions = ["syscall"]
+functions = ["syscall", "mach_msg"]
 
 [[wait]]
 kind = "I/O"
@@ -702,7 +710,7 @@ loops = ["nsThread::ProcessNextEvent"]
 
 [modules]
 gecko = ["XUL"]
-system = ["libc.so.6"]
+system = ["libc.so.6", "libsystem_kernel.dylib", "libsystem_pthread.dylib", "CoreFoundation", "AppKit"]
 
 [[thread]]
 names = ["DOM Worker"]
@@ -943,6 +951,41 @@ owner = "Core: Graphics"
         assert_eq!(class.state, ThreadState::Unknown);
         let (class, _) = classify(Some("TaskController"), &["", ""]);
         assert_eq!(class.state, ThreadState::Unknown);
+
+        // A system library's thread waiting, all of its frames the system's:
+        // idle (but not if Gecko's code called the wait).
+        let system = |function: &'static str, module: &'static str| RuleFrame {
+            function: Some(function),
+            module: Some(module),
+            scanned: false,
+        };
+        let rules = ThreadRules::parse(RULES).unwrap();
+        let (class, roles) = rules.classify(
+            Some("com.apple.NSEventThread"),
+            &[
+                system("mach_msg", "libsystem_kernel.dylib"),
+                system("__CFRunLoopServiceMachPort", "CoreFoundation"),
+                system("_NSEventThread", "AppKit"),
+                system("_pthread_start", "libsystem_pthread.dylib"),
+            ],
+            false,
+        );
+        assert_eq!(class.state, ThreadState::Idle);
+        assert_eq!(
+            (class.kind.as_str(), class.owner.as_str()),
+            ("system thread", "System")
+        );
+        assert_eq!(roles[1], FrameRole::Idle);
+        let (class, _) = rules.classify(
+            Some("com.apple.NSEventThread"),
+            &[
+                system("mach_msg", "libsystem_kernel.dylib"),
+                system("mozilla::Foo::Bar()", "XUL"),
+                system("_pthread_start", "libsystem_pthread.dylib"),
+            ],
+            false,
+        );
+        assert_eq!(class.state, ThreadState::Waiting("event".to_string()));
 
         // A thread described by its stack, and those no rule describes: the
         // owner whose module its frames are in.
