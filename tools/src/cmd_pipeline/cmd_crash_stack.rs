@@ -3,7 +3,9 @@ use clap::{Args, ValueEnum};
 
 use super::interface::{JsonValue, PipelineCommand, PipelineValues, TextFile};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
-use crate::crash_stack::{crash_report_stack, crash_stack, render_crash_stack, stack_sym_info};
+use crate::crash_stack::{
+    crash_report_stack, crash_stack, render_crash_stack, stack_sym_info, thread_facets,
+};
 
 /// The MIME type of the crash view's HTML (see `crash_stack`), which the query
 /// page shows as it is.
@@ -28,8 +30,7 @@ pub enum CrashThreads {
 
 /// A crash signature's stack beside its frames' code (see `crash_stack`): the
 /// `crash-signature:` query term's; or a crash report's (`--report`, the
-/// `crash-report:` term's, with `--threads`, `crash-threads:`, and
-/// `--hide-threads`, `hide-threads:`).
+/// `crash-report:` term's, with `--threads`, `crash-threads:`).
 #[derive(Debug, Args)]
 pub struct CrashStack {
     /// The signature, as crash-stats has it (ex: "OOM | large | NS_ABORT_OOM
@@ -45,13 +46,6 @@ pub struct CrashStack {
     /// Which of a report's threads' stacks to show.
     #[clap(long, value_enum, default_value = "crashing")]
     threads: CrashThreads,
-
-    /// The threads which a report's view with every thread's hides at first,
-    /// by their states' and kinds' facet values, comma-separated (ex:
-    /// "idle,graphics-thread"; see `crash_threads`), which its facets
-    /// toggle.
-    #[clap(long, value_parser)]
-    hide_threads: Option<String>,
 
     #[clap(long, value_enum, default_value = "html")]
     format: CrashStackFormat,
@@ -90,23 +84,12 @@ impl PipelineCommand for CrashStackCommand {
                 let tree = server.tree_info()?.name;
                 let sym_info = stack_sym_info(server, &stack).await;
                 let mut html = Vec::new();
-                let hide: Vec<String> = self
-                    .args
-                    .hide_threads
-                    .as_deref()
-                    .unwrap_or_default()
-                    .split(',')
-                    .map(|value| value.trim().to_string())
-                    .filter(|value| !value.is_empty())
-                    .collect();
-                render_crash_stack(&tree, &stack, &sym_info, &hide, &mut html).map_err(
-                    |message| {
-                        ServerError::StickyProblem(ErrorDetails {
-                            layer: ErrorLayer::ServerLayer,
-                            message: message.to_string(),
-                        })
-                    },
-                )?;
+                render_crash_stack(&tree, &stack, &sym_info, &mut html).map_err(|message| {
+                    ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::ServerLayer,
+                        message: message.to_string(),
+                    })
+                })?;
                 // (Frames whose lines couldn't be fetched, which they say,
                 // may be got if tried again.)
                 let transient = stack
@@ -118,6 +101,9 @@ impl PipelineCommand for CrashStackCommand {
                     mime_type: CRASH_STACK_MIME.to_string(),
                     contents: String::from_utf8(html).unwrap_or_default(),
                     transient,
+                    // (With every thread's, its threads' facets; see
+                    // `thread_facets`.)
+                    facets: thread_facets(&stack),
                 }))
             }
         }

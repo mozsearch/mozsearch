@@ -384,6 +384,7 @@ fn text(contents: String, mime: &str) -> Result<PipelineValues> {
         mime_type: mime.to_string(),
         contents,
         transient: false,
+        facets: None,
     }))
 }
 

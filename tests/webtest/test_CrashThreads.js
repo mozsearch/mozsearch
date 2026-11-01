@@ -2,10 +2,10 @@
 
 // A crash report's threads in its crash view (see tools/src/crash_threads.rs
 // and config_defaults/crash-threads.toml, and crash_stack.rs's
-// `crumbs_html`, `facets_html`, `collapsed_html`): what each is and was
+// `crumbs_html`, `thread_facets`, `collapsed_html`): what each is and was
 // doing (its kind, owner and state), its infrastructure's frames collapsed;
 // the view's breadcrumbs (the report, and the thread, with a picker of the
-// threads); and with every thread's, its facets, which `hide-threads:` says.
+// threads); and with every thread's, the navigation panel's facets of them.
 // The report is tests/crash-reports/'s fixture, whose crashing thread's top
 // frames are in the searchfox tree's tools/src/blame.rs, above its event
 // loop, with threads idle at their waits, a DOM Worker shutting down, a
@@ -43,7 +43,7 @@ add_task(async function test_CrashThreadsCrashing() {
   is(all?.textContent, "(with all threads)", "with a link to every thread's");
   ok(new URL(all.href).searchParams.get("q").endsWith("crash-threads:all"), "which adds crash-threads:all");
   ok(!doc().getElementById("crash-thread-picker"), "(but no picker, without them)");
-  ok(!doc().querySelector(".crash-facets"), "and no facets");
+  ok(!doc().querySelector(".facet-box"), "and no facets");
 
   // The report's menu.
   TestUtils.click(doc().getElementById("crash-report-menu-button"));
@@ -129,18 +129,30 @@ add_task(async function test_CrashThreadsAll() {
      "and its state");
   TestUtils.dispatchMouseEvent("mousedown", doc().querySelector(".crash-notice"));
 
-  // Facets: hiding the idle threads, and a kind.
-  const facet = value => doc().querySelector(`.crash-facets input[data-facet="${value}"]`);
-  ok(facet("idle")?.checked && facet("taskcontroller-pool")?.checked, "The facets of states and kinds are checked");
-  TestUtils.clickCheckbox(facet("idle"));
-  ok(!shown(doc().getElementById("thread-1")) && !shown(doc().getElementById("thread-6")), "Unchecking idle hides the idle threads");
+  // The navigation panel's facets of the threads (but the crashed one,
+  // which always shows): their states (waits within waiting), kinds and
+  // owners (nested).
+  const value = (facet, v) =>
+    doc().querySelector(`.facet-box .facet[data-facet="${facet}"] .facet-value[data-value="${v}"]`);
+  const count = (facet, v) => value(facet, v)?.querySelector(".facet-count")?.textContent;
+  is(doc().querySelector(".facet-box")?.dataset.nouns, "threads", "The panel's facets are the threads'");
+  is(count("state", "idle"), "3", "counting the idle threads");
+  is(count("state", "waiting"), "1", "the waiting ones");
+  is(count("state", "waiting-condition-variable"), "1", "by their waits");
+  is(count("kind", "taskcontroller-pool"), "2", "the threads of each kind");
+  is(count("owner", "core"), "5", "and of each owner");
+  is(count("owner", "core-xpcom"), "3", "nested by its components");
+
+  // Leaving out the idle threads, and a kind's.
+  TestUtils.click(value("state", "idle"), { bubbles: true, shiftKey: true });
+  ok(!shown(doc().getElementById("thread-1")) && !shown(doc().getElementById("thread-6")),
+     "Leaving out idle hides the idle threads");
   ok(shown(doc().getElementById("thread-3")) && shown(doc().getElementById("thread-0")), "but not the others");
-  const q = () => new URLSearchParams(doc().location.search).get("q");
-  is(q(), `crash-report:${ID} crash-threads:all hide-threads:idle`, "and the query says so");
-  is(doc().getElementById("query").value, q(), "as does its box");
-  TestUtils.clickCheckbox(facet("taskcontroller-pool"));
+  const params = () => new URLSearchParams(doc().location.search);
+  is(JSON.stringify(params().getAll("-facet-state")), JSON.stringify(["idle"]), "and the URL says so");
+  TestUtils.click(value("kind", "taskcontroller-pool"), { bubbles: true, shiftKey: true });
   ok(!shown(doc().getElementById("thread-3")), "A kind's facet hides its threads");
-  is(q(), `crash-report:${ID} crash-threads:all hide-threads:idle,taskcontroller-pool`, "both in the query");
+  is(JSON.stringify(params().getAll("-facet-kind")), JSON.stringify(["taskcontroller-pool"]), "also in the URL");
 
   // Picking a hidden thread shows it.
   TestUtils.click(picker);
@@ -149,9 +161,9 @@ add_task(async function test_CrashThreadsAll() {
   is(doc().location.hash, "#thread-1", "and goes to it");
   is(crumb.textContent, "Thread: #1 (Timer)", "which the breadcrumb says");
 
-  // The query's facets hide threads at first.
-  await TestUtils.loadQuery("searchfox", `crash-report:${ID} crash-threads:all hide-threads:idle`);
-  ok(!facet("idle").checked && facet("waiting").checked, "A query's hidden facets are unchecked");
+  // The URL's facets hide threads at first.
+  await TestUtils.loadQuery("searchfox", `crash-report:${ID} crash-threads:all`, { "-facet-state": "idle" });
+  ok(value("state", "idle").classList.contains("facet-excluded"), "A URL's left out facets are left out");
   ok(doc().getElementById("thread-1").hidden && !doc().getElementById("thread-3").hidden,
      "and their threads hidden at first");
   ok(!doc().getElementById("thread-0").hidden, "(but never the crashing one)");

@@ -141,6 +141,7 @@ impl PipelineCommand for CatHtmlCommand {
             mime_type: "text/html".to_string(),
             contents: norm_html_file(html_str),
             transient: false,
+            facets: None,
         }))
     }
 }

@@ -20,6 +20,10 @@
     the legend of a diagram's badges, which search.js's `Diagram` adds.){% endcomment %}
     {%- elsif graph_facets %}
     {% include 'navigation_panel.liquid' expanded: true, panel: null, panel_facets: graph_facets.facets, panel_group_by: false, panel_sort_by: false, panel_noun: "node", panel_nouns: "nodes" %}
+    {%- comment %}(Or with the facets of a view's own items, ex: a crash
+    report's threads; see `TextFile::facets`.){% endcomment %}
+    {%- elsif view_facets %}
+    {% include 'navigation_panel.liquid' expanded: true, panel: null, panel_facets: view_facets.facets, panel_group_by: false, panel_sort_by: false, panel_noun: view_facets.noun, panel_nouns: view_facets.nouns %}
     {%- elsif graph_badges %}
     {% include 'navigation_panel.liquid' expanded: true, panel: null %}
     {%- else %}
@@ -125,7 +129,11 @@
     </div>
   </div>
   <script>
-var SYM_INFO = {{ SYM_INFO_STR }};
+{%- comment %}
+  (Beside the symbols' information a view's HTML added, ex: a crash view's
+  excerpts'; see crash_stack.rs's `render_crash_stack`.)
+{% endcomment %}
+var SYM_INFO = Object.assign(window.SYM_INFO || {}, {{ SYM_INFO_STR }});
 {%- comment %}
   (A copy of the results, rows included, which would double big pages, so
   only for debugging; otherwise the panel fetches the URL's JSON.)

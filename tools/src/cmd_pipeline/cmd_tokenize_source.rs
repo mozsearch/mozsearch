@@ -69,6 +69,7 @@ impl PipelineCommand for TokenizeSourceCommand {
                 mime_type: "text/plain".to_string(),
                 contents: token_lines.tokenized.join("\n"),
                 transient: false,
+                facets: None,
             })),
             TokenizeMode::Outline => Ok(PipelineValues::JsonValueList(JsonValueList {
                 values: token_lines

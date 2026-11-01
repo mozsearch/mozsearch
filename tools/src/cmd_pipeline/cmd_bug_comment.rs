@@ -53,6 +53,7 @@ impl PipelineCommand for BugCommentCommand {
             mime_type: BUG_COMMENT_MIME.to_string(),
             contents: String::from_utf8(html).unwrap_or_default(),
             transient: view.transient,
+            facets: None,
         }))
     }
 }

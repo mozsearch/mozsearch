@@ -627,14 +627,6 @@ args.report = "$0"
 command = "crash-stack"
 args.threads = "$0"
 
-# The threads a crash report's view with every thread's hides at first, by
-# their states' and kinds' facet values (ex: `hide-threads:idle,graphics-thread`;
-# see crash_threads.rs), which its facets toggle.
-[term.hide-threads]
-[[term.hide-threads.group.crash]]
-command = "crash-stack"
-args.hide-threads = "$0"
-
 # A Bugzilla comment's blocks beside the code they link to ("1915788/20", or
 # "1915788" for its description; see bug_comment.rs), which the DWIM rule for
 # Bugzilla comments' URLs goes to.

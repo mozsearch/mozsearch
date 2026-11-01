@@ -579,6 +579,12 @@ async fn handle_query(
             }
             _ => Value::Null,
         };
+        // (A view's own items' facets, ex: a crash report's threads; see
+        // `TextFile::facets`.)
+        let view_facets = match &result {
+            PipelineValues::TextFile(file) => file.facets.clone().unwrap_or(Value::Null),
+            _ => Value::Null,
+        };
         // (Whether a diagram has badges, which the legend in the navigation
         // panel explains; see search.js's `Diagram.LABELS`.)
         let graph_badges = match &result {
@@ -656,6 +662,7 @@ async fn handle_query(
             "SYM_INFO_STR": sym_info_str,
             "file_facets": file_facets,
             "graph_facets": graph_facets,
+            "view_facets": view_facets,
             "graph_badges": graph_badges,
             "too_expensive": too_expensive.clone().unwrap_or(Value::Null),
             "problem": problem.as_ref().map_or(Value::Null, |problem| json!({

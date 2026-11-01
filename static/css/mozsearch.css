@@ -6340,36 +6340,6 @@ textarea.monospace {
   font-size: 11px;
   font-weight: normal;
 }
-/* The facets of a report's view with every thread's (see `facets_html`):
-   its threads' states and kinds, which hide threads when unchecked. */
-.crash-facets {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2em;
-  margin: 0.4em 0;
-}
-.crash-facet-group {
-  display: flex;
-  align-items: baseline;
-}
-.crash-facet-heading {
-  flex: none;
-  width: 4em;
-  font-weight: bold;
-}
-.crash-facet-values {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2em 0.8em;
-}
-.crash-facet {
-  white-space: nowrap;
-  cursor: pointer;
-}
-.crash-facet-count {
-  color: color-mix(in srgb, currentColor 55%, transparent);
-  font-size: 11px;
-}
 /* A Bugzilla comment's view (see bug_comment.rs), as the crash view: the
    comment as Bugzilla shows it (its header, then its text, a row per block),
    each of its blocks (left) beside the cards of what it links to (right). */

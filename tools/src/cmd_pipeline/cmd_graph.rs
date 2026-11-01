@@ -415,6 +415,7 @@ impl PipelineCommand for GraphCommand {
                 mime_type: "text/x-dot".to_string(),
                 contents: raw_dot_str,
                 transient: false,
+                facets: None,
             }));
         }
 
@@ -507,6 +508,7 @@ impl PipelineCommand for GraphCommand {
                 },
                 mime_type,
                 transient: false,
+                facets: None,
             })),
         }
     }

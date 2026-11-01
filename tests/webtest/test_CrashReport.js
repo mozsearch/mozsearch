@@ -130,6 +130,23 @@ add_task(async function test_CrashReportThenNow() {
   is(view.dataset.thenNow, "both", "A pressed button's mode stays as the window's resized");
 });
 
+add_task(async function test_CrashReportSymbols() {
+  // (The code now's symbols have their information, for the context menu, as
+  // a source listing's, beside the page's own.)
+  await TestUtils.loadQuery("searchfox", `crash-report:${ID}`);
+  TestUtils.click(doc().querySelector('.then-now-modes button[data-mode="now"]'));
+  const info = frame.contentWindow.SYM_INFO || {};
+  const token = [...doc().querySelectorAll(".now-code .crash-rows [data-symbols]")]
+    .find(span => span.dataset.symbols.split(",").some(sym => info[sym]));
+  ok(token, "The code now's symbols have the page's information");
+  TestUtils.click(token);
+  const menu = doc().querySelector("#context-menu");
+  await waitForShown(menu, "Clicking one shows the context menu");
+  const semantic = [...menu.querySelectorAll("a")].map(a => a.textContent)
+    .filter(text => !text.startsWith("Search for the substring") && text != "Sticky highlight");
+  ok(semantic.length > 0, `with its symbol's items: ${JSON.stringify(semantic)}`);
+});
+
 add_task(async function test_CrashReportDwim() {
   // (A search for a crash-stats report's URL, or its ID as Bugzilla has
   // them, goes to its crash view's query at once, in a tree searching with

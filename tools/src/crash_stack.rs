@@ -34,8 +34,9 @@
 //! and its infrastructure's layers (its start, its event loop, its pool),
 //! which the view collapses to a line each (and whose code it doesn't get).
 //! The view's breadcrumbs say which report and thread it is (a picker of
-//! the threads, with every thread's), and with every thread's, its facets
-//! hide threads by their states and kinds (`hide-threads:`).
+//! the threads, with every thread's), and with every thread's, the
+//! navigation panel's facets filter threads by their states, kinds and
+//! owners (see `thread_facets`).
 //!
 //! Columns (the grid's `--crash-columns`): the frames' code, and the frames.
 //! A third column could later show the machine code around each frame's
@@ -1452,7 +1453,8 @@ pub async fn report_threads_stack(
     }
 }
 
-/// The SYM_INFO of the stack's excerpts' symbols (for their context menus).
+/// The SYM_INFO of the stack's excerpts' symbols (for their context menus),
+/// the other threads' too.
 pub async fn stack_sym_info(
     server: &(dyn AbstractServer + Send + Sync),
     stack: &CrashStack,
@@ -1460,6 +1462,7 @@ pub async fn stack_sym_info(
     let syms: Vec<Ustr> = stack
         .frames
         .iter()
+        .chain(stack.threads.iter().flat_map(|thread| &thread.frames))
         .flat_map(|frame| &frame.rows)
         .flat_map(|row| sym_info::html_symbols(&row.html))
         .collect();
@@ -1471,14 +1474,11 @@ pub async fn stack_sym_info(
 
 /// The crash view of `stack` (see the module's documentation), for the query
 /// page (`crash-stack`'s HTML, which the query page shows as it is): its
-/// notice, its rows, and its excerpts' SYM_INFO; a report's threads hidden
-/// by `hide` (their states' and kinds' facet values, see `thread_hidden`)
-/// hidden at first.
+/// notice, its rows, and its excerpts' SYM_INFO.
 pub fn render_crash_stack(
     tree_name: &str,
     stack: &CrashStack,
     sym_info: &BTreeMap<Ustr, Option<JumprefData>>,
-    hide: &[String],
     writer: &mut dyn Write,
 ) -> std::result::Result<(), &'static str> {
     use crate::rendered_docs::escape;
@@ -1498,13 +1498,25 @@ pub fn render_crash_stack(
         .iter()
         .chain(stack.threads.iter().flat_map(|thread| &thread.frames))
         .any(|frame| frame.then.is_some());
-    let mut html = String::new();
-    html.push_str(match has_then {
-        true => r#"<div class="crash-view then-now-view" data-then-now="then">"#,
-        false => r#"<div class="crash-view">"#,
-    });
-    // (A report's breadcrumbs, which crash-view.js moves into the page's.)
+    // (With every thread's, its threads are the items of the navigation
+    // panel's facets; see `thread_facets`.)
     let all_shown = !stack.threads.is_empty();
+    let mut html = format!(
+        r#"<div class="crash-view{}{}"{}>"#,
+        match has_then {
+            true => " then-now-view",
+            false => "",
+        },
+        match all_shown && !stack.thread_list.is_empty() {
+            true => " facet-items",
+            false => "",
+        },
+        match has_then {
+            true => r#" data-then-now="then""#,
+            false => "",
+        }
+    );
+    // (A report's breadcrumbs, which crash-view.js moves into the page's.)
     let summaries: BTreeMap<usize, &ThreadSummary> = stack
         .thread_list
         .iter()
@@ -1607,9 +1619,6 @@ pub fn render_crash_stack(
         }
         html.push_str("</ul>");
     }
-    if all_shown && !stack.thread_list.is_empty() {
-        html.push_str(&facets_html(stack, hide));
-    }
     html.push_str("</div>");
 
     // The crashing thread's stack (a report's in its thread's section), and
@@ -1639,8 +1648,7 @@ pub fn render_crash_stack(
     }
     for thread in &stack.threads {
         let summary = summaries.get(&thread.thread.index).copied();
-        let hidden = summary.is_some_and(|summary| thread_hidden(summary, hide));
-        html.push_str(&thread_open_html(&thread.thread, summary, hidden));
+        html.push_str(&thread_open_html(&thread.thread, summary, true));
         let index = thread.thread.index;
         html.push_str(&frames_html(
             tree_name,
@@ -1677,7 +1685,7 @@ document.addEventListener("click", event => {{
         }
     )
     .map_err(|_| "Write error")?;
-    // (The breadcrumbs' menus and the facets'.)
+    // (The breadcrumbs' menus.)
     if stack.report.is_some() {
         writeln!(
             writer,
@@ -1695,15 +1703,6 @@ fn thread_label(thread: &ThreadInfo) -> String {
         Some(name) if !name.is_empty() => format!("#{} ({})", thread.index, name),
         _ => format!("#{}", thread.index),
     }
-}
-
-/// Whether a thread is hidden by `hide`: its state's facet value (see
-/// `ThreadState::slug`, ex: "idle") or its kind's (see `crash_threads::slug`,
-/// ex: "graphics-thread") is one of them; the crashing thread never is.
-fn thread_hidden(summary: &ThreadSummary, hide: &[String]) -> bool {
-    summary.class.state != ThreadState::Crashed
-        && (hide.contains(&summary.class.state.slug())
-            || hide.contains(&crate::crash_threads::slug(&summary.class.kind)))
 }
 
 /// The query page's URL of `query` in `tree_name`.
@@ -1809,15 +1808,58 @@ fn crumbs_html(
     html
 }
 
-/// The facets of a report's view with every thread's: its threads' states'
-/// and kinds' values (but the crashing thread's), with how many threads have
-/// each, checked unless `hide` has them (see `thread_hidden`), which
-/// crash-view.js hides threads by and puts in the query (`hide-threads:`).
-fn facets_html(stack: &CrashStack, hide: &[String]) -> String {
+/// A thread's facets' values (see `thread_facets`): its state's (a wait's
+/// within "waiting", ex: "waiting-condition-variable"), its kind's, and its
+/// owner's, with its ancestors (ex: "core", "core-networking",
+/// "core-networking-dns"); each value with its name and title.
+fn thread_facet_values(class: &ThreadClass) -> Vec<(&'static str, Vec<(String, String, String)>)> {
     use crate::crash_threads::slug;
-    use crate::rendered_docs::escape;
-    // (States in the order of how much they say, then kinds by how many
-    // threads they have.)
+    let state = match &class.state {
+        ThreadState::Waiting(kind) => vec![
+            (
+                "waiting".to_string(),
+                "waiting".to_string(),
+                class.state.description().to_string(),
+            ),
+            (
+                slug(&class.state.label()),
+                kind.clone(),
+                format!("Waiting on a {}", kind),
+            ),
+        ],
+        state => vec![(state.slug(), state.label(), state.description().to_string())],
+    };
+    let kind = vec![(slug(&class.kind), class.kind.clone(), class.owner.clone())];
+    let mut owner = vec![];
+    let mut prefix = String::new();
+    for segment in class.owner.split(": ") {
+        if !prefix.is_empty() {
+            prefix.push_str(": ");
+        }
+        prefix.push_str(segment);
+        owner.push((slug(&prefix), segment.to_string(), prefix.clone()));
+    }
+    vec![("state", state), ("kind", kind), ("owner", owner)]
+}
+
+/// The navigation panel's facets of a report's view with every thread's (see
+/// `TextFile::facets`), whose items are its threads' sections (but the
+/// crashing thread's, which always shows): their states (in the order of how
+/// much they say, waits' kinds within "waiting"), their kinds (by how many
+/// threads), and their owners (nested by their components, ex: "Core" ›
+/// "Networking" › "DNS"), with how many threads have each.  (facets.js
+/// filters the threads, and puts its choices in the URL, ex:
+/// `-facet-state=idle`.)
+pub fn thread_facets(stack: &CrashStack) -> Option<serde_json::Value> {
+    use crate::cmd_pipeline::facets::{FacetValueView, FacetView};
+    if stack.threads.is_empty() || stack.thread_list.is_empty() {
+        return None;
+    }
+    let shown: BTreeSet<usize> = stack
+        .threads
+        .iter()
+        .map(|thread| thread.thread.index)
+        .collect();
     let rank = |state: &ThreadState| match state {
         ThreadState::Crashed => 0,
         ThreadState::Notable(_) => 1,
@@ -1826,73 +1868,64 @@ fn facets_html(stack: &CrashStack, hide: &[String]) -> String {
         ThreadState::Unknown => 4,
         ThreadState::Idle => 5,
     };
-    let mut states: Vec<(usize, String, String, &'static str, usize)> = vec![];
-    let mut kinds: Vec<(String, String, String, usize)> = vec![];
+    // Each facet's values, as a tree (by their ancestors), with their names,
+    // titles, counts, and sort keys.
+    #[derive(Default)]
+    struct Level {
+        name: String,
+        title: String,
+        count: u32,
+        order: (usize, u32),
+        nested: BTreeMap<String, Level>,
+    }
+    let mut roots: BTreeMap<&'static str, Level> = BTreeMap::new();
     for summary in &stack.thread_list {
-        let state = &summary.class.state;
-        if *state == ThreadState::Crashed {
+        if !shown.contains(&summary.thread.index) {
             continue;
         }
-        let value = state.slug();
-        match states.iter_mut().find(|entry| entry.1 == value) {
-            Some(entry) => entry.4 += 1,
-            None => states.push((
-                rank(state),
-                value,
-                match state {
-                    ThreadState::Waiting(_) => "waiting".to_string(),
-                    state => state.label(),
-                },
-                state.description(),
-                1,
-            )),
-        }
-        let value = slug(&summary.class.kind);
-        match kinds.iter_mut().find(|entry| entry.0 == value) {
-            Some(entry) => entry.3 += 1,
-            None => kinds.push((
-                value,
-                summary.class.kind.clone(),
-                summary.class.owner.clone(),
-                1,
-            )),
+        for (key, values) in thread_facet_values(&summary.class) {
+            let mut level = roots.entry(key).or_default();
+            for (value, name, title) in values {
+                level = level.nested.entry(value).or_default();
+                level.name = name;
+                level.title = title;
+                level.count += 1;
+                level.order = match key {
+                    "state" => (rank(&summary.class.state), 0),
+                    _ => (0, u32::MAX - level.count),
+                };
+            }
         }
     }
-    states.sort_by(|a, b| (a.0, &a.2).cmp(&(b.0, &b.2)));
-    kinds.sort_by(|a, b| b.3.cmp(&a.3).then_with(|| a.1.cmp(&b.1)));
-    let facet = |value: &str, label: &str, title: &str, count: usize| {
-        format!(
-            r#"<label class="crash-facet" title="{}"><input type="checkbox" data-facet="{}"{}> {} <span class="crash-facet-count">{}</span></label>"#,
-            escape(title),
-            escape(value),
-            match hide.iter().any(|hidden| hidden == value) {
-                true => "",
-                false => " checked",
-            },
-            escape(label),
-            count
-        )
-    };
-    let mut html = String::from(
-        r#"<div class="crash-facets" role="group" aria-label="Which threads to show"><div class="crash-facet-group"><span class="crash-facet-heading">States</span><span class="crash-facet-values">"#,
-    );
-    for (_, value, label, description, count) in &states {
-        html.push_str(&facet(value, label, description, *count));
+    fn views(level: Level) -> Vec<FacetValueView> {
+        let mut values: Vec<(String, Level)> = level.nested.into_iter().collect();
+        values.sort_by(|(a_value, a), (b_value, b)| (a.order, a_value).cmp(&(b.order, b_value)));
+        values
+            .into_iter()
+            .map(|(value, level)| FacetValueView {
+                value,
+                name: level.name.clone(),
+                title: level.title.clone(),
+                count: level.count,
+                values: views(level),
+                ..Default::default()
+            })
+            .collect()
     }
-    html.push_str(
-        r#"</span></div><div class="crash-facet-group"><span class="crash-facet-heading">Kinds</span><span class="crash-facet-values">"#,
-    );
-    for (value, kind, owner, count) in &kinds {
-        html.push_str(&facet(value, kind, owner, *count));
+    let mut facets = vec![];
+    for (key, label) in [("state", "State"), ("kind", "Kind"), ("owner", "Owner")] {
+        if let Some(level) = roots.remove(key) {
+            facets.push(FacetView::new(key, label.to_string(), views(level)));
+        }
     }
-    html.push_str("</span></div></div>");
-    html
+    Some(serde_json::json!({ "facets": facets, "noun": "thread", "nouns": "threads" }))
 }
 
-/// The start of a report's thread's section (its id `thread-N`, its facets'
-/// values, and its label, for crash-view.js), `hidden` if it is, and its
-/// heading: which thread, and what it is and was doing, if it's known.
-fn thread_open_html(thread: &ThreadInfo, summary: Option<&ThreadSummary>, hidden: bool) -> String {
+/// The start of a report's thread's section (its id `thread-N`, its label,
+/// for crash-view.js, and if it's `faceted`, its facets' values, see
+/// `thread_facets`), and its heading: which thread, and what it is and was
+/// doing, if it's known.
+fn thread_open_html(thread: &ThreadInfo, summary: Option<&ThreadSummary>, faceted: bool) -> String {
     use crate::rendered_docs::escape;
     let label = thread_label(thread);
     let mut html = format!(
@@ -1900,15 +1933,22 @@ fn thread_open_html(thread: &ThreadInfo, summary: Option<&ThreadSummary>, hidden
         thread.index,
         escape(&label)
     );
-    if let Some(summary) = summary {
+    if let Some(summary) = summary.filter(|_| faceted) {
+        let facets: serde_json::Map<String, serde_json::Value> =
+            thread_facet_values(&summary.class)
+                .into_iter()
+                .map(|(key, values)| {
+                    (
+                        key.to_string(),
+                        values.into_iter().map(|(value, _, _)| value).collect(),
+                    )
+                })
+                .collect();
         html.push_str(&format!(
-            r#" data-state="{}" data-kind="{}""#,
-            escape(&summary.class.state.slug()),
-            escape(&crate::crash_threads::slug(&summary.class.kind))
+            r#" data-path="thread-{}" data-facets="{}""#,
+            thread.index,
+            escape(&serde_json::Value::Object(facets).to_string())
         ));
-    }
-    if hidden {
-        html.push_str(" hidden");
     }
     html.push_str(&format!(
         r#"><h3 class="crash-thread-heading"><span class="crash-thread-name">Thread {}</span>"#,

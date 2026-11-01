@@ -66,6 +66,7 @@ impl PipelineCommand for TokenTimelineCommand {
             mime_type: TOKEN_TIMELINE_MIME.to_string(),
             contents: model.to_string().replace('<', "\\u003c"),
             transient: false,
+            facets: None,
         }))
     }
 }

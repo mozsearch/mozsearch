@@ -1479,6 +1479,13 @@ pub struct TextFile {
     /// server which didn't answer), so that it isn't cached.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub transient: bool,
+    /// For a view's HTML with items to facet (its `.facet-items
+    /// [data-facets]`, see facets.js; ex: a crash report's threads, see
+    /// `crash_stack::thread_facets`): the facets (`facets`, of
+    /// `facets::FacetView`s) and what the items are (`noun`, `nouns`), which
+    /// the query page's navigation panel has.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub facets: Option<serde_json::Value>,
 }
 
 /// A command that takes a single input and produces a single output.  At the

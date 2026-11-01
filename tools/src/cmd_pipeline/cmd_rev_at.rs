@@ -80,6 +80,7 @@ impl PipelineCommand for RevAtCommand {
             mime_type: REV_AT_MIME.to_string(),
             contents: html,
             transient: false,
+            facets: None,
         }))
     }
 }

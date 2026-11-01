@@ -1,12 +1,12 @@
 "use strict";
 
-// The crash view's breadcrumbs, thread picker and facets (see
-// tools/src/crash_stack.rs's `crumbs_html` and `facets_html`): a crash
-// report's view's breadcrumbs move into the page's (after its tree's), the
-// report's ID with its menu, and the thread (the crashing one's, or with
-// every thread's, the one scrolled to), with a picker of the threads, their
-// kinds as its headings; and its facets hide threads by their states and
-// kinds, which the query says (`hide-threads:`), for sharing.
+// The crash view's breadcrumbs and thread picker (see tools/src/crash_stack.rs's
+// `crumbs_html`): a crash report's view's breadcrumbs move into the page's
+// (after its tree's), the report's ID with its menu, and the thread (the
+// crashing one's, or with every thread's, the one scrolled to), with a picker
+// of the threads, their kinds as its headings.  (With every thread's, the
+// navigation panel's facets filter the threads; see facets.js and
+// `thread_facets`.)
 
 // A breadcrumb's menu (as the tree switcher's), below its breadcrumb
 // (`anchor`): `fill` fills it when it opens, and gives the item to focus,
@@ -97,10 +97,6 @@ var CrashView = new (class CrashView {
         document.getElementById("crash-thread-menu"),
         this.crumbs.querySelector(".crash-crumb-thread"),
         menu => this.fillThreadMenu(menu));
-    }
-
-    for (const input of document.querySelectorAll(".crash-facets input[data-facet]")) {
-      input.addEventListener("change", () => this.onFacetChange());
     }
 
     // (The thread scrolled to, with every thread's.)
@@ -232,7 +228,7 @@ var CrashView = new (class CrashView {
     return menu.menu.querySelector(`a[data-thread="${current}"]`);
   }
 
-  // Scrolls to thread `index`'s section (shown, if its facets hid it).
+  // Scrolls to thread `index`'s section (shown, if the facets hid it).
   showThread(index) {
     const section = document.getElementById(`thread-${index}`);
     if (!section) {
@@ -242,31 +238,6 @@ var CrashView = new (class CrashView {
     section.scrollIntoView();
     this.picked = section;
     history.replaceState(history.state, "", `#thread-${index}`);
-    this.updateCurrentThread();
-  }
-
-  // Hides the threads whose states' or kinds' facets are unchecked (but the
-  // crashed one), and puts them in the query, as `hide-threads:`.
-  onFacetChange() {
-    const hidden = [...document.querySelectorAll(".crash-facets input[data-facet]")]
-      .filter(input => !input.checked)
-      .map(input => input.dataset.facet);
-    for (const section of this.sections) {
-      section.hidden = section.dataset.state != "crashed" &&
-        (hidden.includes(section.dataset.state) || hidden.includes(section.dataset.kind));
-    }
-    const box = document.getElementById("query");
-    const url = new URL(document.location.href);
-    let query = (url.searchParams.get("q") || box?.value || "").replace(/ *\bhide-threads:\S*/g, "");
-    if (hidden.length) {
-      query += " hide-threads:" + hidden.join(",");
-    }
-    query = query.trim();
-    url.searchParams.set("q", query);
-    if (box) {
-      box.value = query;
-    }
-    history.replaceState(history.state, "", url.href);
     this.updateCurrentThread();
   }
 })();
