@@ -104,6 +104,7 @@ functions = [
     "RealMsgWaitForMultipleObjectsEx",
     "ZwDelayExecution",
     "NtDelayExecution",
+    "RtlDelayExecution",
     "SleepEx",
     "Sleep",
     "__psynch_cvwait",
@@ -324,6 +325,14 @@ functions = [
 ]
 
 [[layer]]
+name = "DLL interception"
+functions = [
+    "mozilla::interceptor::*",
+    "patched_*",
+    "mozilla::freestanding::patched_*",
+]
+
+[[layer]]
 name = "Windows thread pool"
 functions = [
     "TppWorkerThread",
@@ -362,6 +371,42 @@ functions = [
     "mozilla::AppShutdown::*",
     "nsThreadPool::Shutdown*",
     "mozilla::TaskController::Shutdown*",
+]
+
+# ## Places
+#
+# The directories of libraries' code (patterns), which a busy thread's place
+# (where its code was busy, for crash sets' families; see crash_sets.rs) is
+# above: ex: a quota client's directory (dom/cache) rather than SQLite's,
+# mozStorage's or NSPR's, whose code it called.  (Rust's standard library's
+# files are rust-lang/rust's, "library/...".)
+[places]
+libraries = [
+    "nsprpub/*",
+    "mfbt",
+    "mfbt/*",
+    "mozglue/*",
+    "memory/*",
+    "xpcom/io",
+    "xpcom/base",
+    "xpcom/threads",
+    "xpcom/ds",
+    "xpcom/string",
+    "xpcom/components",
+    "xpcom/glue",
+    "ipc/chromium/*",
+    "ipc/glue",
+    "storage",
+    "third_party/sqlite3/*",
+    "toolkit/xre/dllservices/*",
+    "library/*",
+    "third_party/rust/crossbeam*",
+    "third_party/rust/parking_lot*",
+    "third_party/rust/futures*",
+    "third_party/rust/tokio*",
+    "third_party/rust/mio*",
+    "third_party/rust/rayon*",
+    "third_party/rust/serde*",
 ]
 
 # ## Threads
@@ -511,10 +556,22 @@ owner = "Core: Graphics: WebRender"
 idle = ["rayon_core::sleep::Sleep::sleep", "rayon_core::registry::WorkerThread::wait_until_cold", "std::sync::mpmc::*", "crossbeam_channel::*", "webrender::scene_builder_thread::SceneBuilderThread::run", "webrender::render_backend::RenderBackend::run"]
 
 [[thread]]
-names = ["MediaPDecoder", "MediaSupervisor", "MediaDecoderStateMachine", "dav1d-worker", "AppleVTDecoderCallback", "RemVidChild", "AudioIPC*", "GMPThread", "MediaTimer", "MediaPlayback", "MediaTrackGrph*", "cubeb*"]
+names = ["WASAPI device notification thread", "cubeb rendering thread", "MediaPDecoder", "MediaSupervisor", "MediaDecoderStateMachine", "dav1d-worker", "AppleVTDecoderCallback", "RemVidChild", "AudioIPC*", "GMPThread", "MediaTimer", "MediaPlayback", "MediaTrackGrph*", "cubeb*"]
 kind = "media thread"
 owner = "Core: Audio/Video"
-idle = ["nsThreadPool::Run", "dav1d_worker_task", "audioipc2::ipccore::EventLoop::poll"]
+idle = ["nsThreadPool::Run", "dav1d_worker_task", "audioipc2::ipccore::EventLoop::poll", "monitor_device_notifications::notification_thread_loop"]
+
+[[thread]]
+names = ["WindowsVsyncThread", "SoftwareVsyncThread"]
+kind = "vsync thread"
+owner = "Core: Graphics"
+idle = ["D3DVsyncSource::VBlankLoop", "*::VBlankLoop", "base::WaitableEvent::Wait", "base::MessagePumpDefault::Run"]
+
+[[thread]]
+names = ["mdns_service"]
+kind = "mDNS service thread"
+owner = "Core: WebRTC: Networking"
+idle = ["mdns_service::handle_mdns_socket"]
 
 [[thread]]
 names = ["sqldb:*", "mozStorage", "IndexedDB*", "QuotaManager IO", "LS Thread", "DOMCacheThread", "DOM File"]

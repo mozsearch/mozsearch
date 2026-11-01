@@ -6,6 +6,7 @@
 
   "crash_reports_url": "file://$MOZSEARCH_PATH/tests/crash-reports/{}.json",
   "bugzilla_url": "file://$MOZSEARCH_PATH/tests/bugzilla",
+  "crash_sets_path": "$MOZSEARCH_PATH/tests/crash-sets",
 
   "trees": {
     "tests": {

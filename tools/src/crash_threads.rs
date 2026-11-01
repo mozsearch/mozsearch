@@ -29,6 +29,15 @@ struct RulesToml {
     modules: ModulesToml,
     #[serde(default)]
     thread: Vec<ThreadToml>,
+    #[serde(default)]
+    places: PlacesToml,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PlacesToml {
+    #[serde(default)]
+    libraries: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -170,6 +179,7 @@ impl ThreadRule {
 
 /// The rules of crash-threads.toml (see the module's documentation).
 pub struct ThreadRules {
+    fingerprint: String,
     waits: Vec<(String, Patterns)>,
     layers: Vec<(String, Patterns)>,
     notable: Vec<Notable>,
@@ -178,6 +188,7 @@ pub struct ThreadRules {
     gecko: HashSet<String>,
     system: HashSet<String>,
     threads: Vec<ThreadRule>,
+    libraries: Patterns,
 }
 
 /// A frame of a thread's stack, as the rules see it: its function's name (as
@@ -343,7 +354,7 @@ pub fn rule_name(function: &str) -> String {
 }
 
 /// A thread's name without its number (ex: "DOM Worker" for "DOM Worker #3").
-fn rule_thread_name(name: &str) -> &str {
+pub fn rule_thread_name(name: &str) -> &str {
     let trimmed = name.trim_end_matches(|c: char| c.is_ascii_digit());
     match trimmed.strip_suffix('#') {
         Some(rest) if trimmed.len() < name.len() => rest.trim_end(),
@@ -355,10 +366,12 @@ impl ThreadRules {
     /// The rules of crash-threads.toml's text.
     pub fn parse(text: &str) -> Result<ThreadRules, String> {
         let toml: RulesToml = toml::from_str(text).map_err(|e| e.to_string())?;
+        let fingerprint = format!("{:016x}", crate::crash_sets::fnv1a(text.as_bytes()));
         let named = |name: &String, functions: &[String]| -> Result<(String, Patterns), String> {
             Ok((name.clone(), Patterns::new(functions)?))
         };
         Ok(ThreadRules {
+            fingerprint,
             waits: toml
                 .wait
                 .iter()
@@ -378,6 +391,7 @@ impl ThreadRules {
             loops: Patterns::new(&toml.defaults.loops)?,
             gecko: toml.modules.gecko.into_iter().collect(),
             system: toml.modules.system.into_iter().collect(),
+            libraries: Patterns::new(&toml.places.libraries)?,
             threads: toml
                 .thread
                 .iter()
@@ -425,11 +439,24 @@ impl ThreadRules {
         rules
     }
 
+    /// A hash of the rules' text, for caching what they classify (see
+    /// `crash_sets`).
+    pub fn fingerprint(&self) -> &str {
+        &self.fingerprint
+    }
+
     fn wait_kind(&self, name: &str) -> Option<&str> {
         self.waits
             .iter()
             .find(|(_, patterns)| patterns.matches(name))
             .map(|(kind, _)| kind.as_str())
+    }
+
+    /// Whether the directory `place` (ex: "third_party/sqlite3/src") is a
+    /// library's, whose code a busy thread's place is above (see
+    /// crash-threads.toml's `[places]`).
+    pub fn is_library(&self, place: &str) -> bool {
+        self.libraries.matches(place)
     }
 
     fn layer(&self, name: &str) -> Option<&str> {
@@ -559,7 +586,15 @@ impl ThreadRules {
                     .module
                     .is_some_and(|module| self.system.contains(module))
             });
-            match !below.is_empty() && (below.iter().all(|i| infrastructure(*i)) || system_only) {
+            // (Or its wait's caller is its kind's own idle point, whatever is
+            // below it, ex: a frame Windows' identical code folding misnamed;
+            // nested loops and notable frames were found before.)
+            let at_idle_point = below
+                .first()
+                .is_some_and(|i| rule.is_some_and(|rule| rule.idle.matches(&names[*i])));
+            match !below.is_empty()
+                && (at_idle_point || below.iter().all(|i| infrastructure(*i)) || system_only)
+            {
                 true => ThreadState::Idle,
                 false => ThreadState::Waiting(kind.to_string()),
             }
@@ -912,6 +947,18 @@ owner = "Core: Graphics"
             class.state,
             ThreadState::Waiting("condition variable".to_string())
         );
+        // (Waiting at its kind's idle point is idle, whatever is below it,
+        // ex: a misnamed frame.)
+        let (class, _) = classify(
+            Some("DOM Worker"),
+            &[
+                "pthread_cond_wait",
+                "mozilla::dom::WorkerPrivate::DoRunLoop(JSContext*)",
+                "mozilla::detail::RunnableMethodArguments<>::apply<nsObserverService>()",
+                "start_thread",
+            ],
+        );
+        assert_eq!(class.state, ThreadState::Idle);
 
         // A Rust pool's thread (Rust's names), idle at its wait in its layers.
         let (class, roles) = classify(

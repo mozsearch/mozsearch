@@ -83,6 +83,8 @@ pub mod cinnabar;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod commit_index;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod crash_sets;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod crash_stack;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod crash_threads;

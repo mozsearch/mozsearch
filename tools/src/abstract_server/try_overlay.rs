@@ -195,6 +195,19 @@ impl AbstractServer for TryOverlay {
         self.base.file_facet_info(path)
     }
 
+    // (A try push's context has its branch's crash reports and rules.)
+    async fn crash_report(&self, id: &str) -> Result<std::sync::Arc<Value>> {
+        self.base.crash_report(id).await
+    }
+
+    fn crash_thread_rules(&self) -> Option<std::sync::Arc<crate::crash_threads::ThreadRules>> {
+        self.base.crash_thread_rules()
+    }
+
+    fn crash_sets(&self) -> Option<crate::crash_sets::CrashSetStore> {
+        self.base.crash_sets()
+    }
+
     fn tree_config(&self) -> Result<Value> {
         self.base.tree_config()
     }

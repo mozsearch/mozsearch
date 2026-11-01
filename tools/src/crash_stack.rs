@@ -1075,7 +1075,7 @@ pub async fn crash_report_stack(
 /// and its frames' roles: an inlined call's its frame's, but in a layer's
 /// frame (of a thread which isn't idle), its own layer's, or else the
 /// thread's own (ex: a runnable's code inlined in its event loop's).
-fn classify_threads(
+pub(crate) fn classify_threads(
     rules: &ThreadRules,
     threads: &[ReportThread],
     crashing: usize,
@@ -2571,7 +2571,7 @@ pub(crate) fn frame_html(tree_name: &str, frame: &CrashFrame, id: &str) -> Strin
 }
 
 /// `text` escaped for a URL's query's value.
-fn url_encode_query(text: &str) -> String {
+pub(crate) fn url_encode_query(text: &str) -> String {
     let mut out = String::new();
     for b in text.bytes() {
         match b {

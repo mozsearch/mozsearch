@@ -146,6 +146,12 @@ pub struct ConfigJson {
     /// (`bug_comment::BUGZILLA_URL`): ex: tests' fixtures, `file://...`.
     #[serde(default)]
     pub bugzilla_url: Option<String>,
+
+    /// Where the crash sets' store is (see `crash_sets`), if not
+    /// `crash-sets/` beside the trees' index directories: ex: tests'
+    /// fixtures.
+    #[serde(default)]
+    pub crash_sets_path: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -588,6 +594,8 @@ pub struct Config {
     pub crash_reports_url: Option<String>,
     /// See `ConfigJson::bugzilla_url`.
     pub bugzilla_url: Option<String>,
+    /// See `ConfigJson::crash_sets_path`.
+    pub crash_sets_path: Option<String>,
 }
 
 impl Config {
@@ -903,6 +911,7 @@ pub fn load(
         query_limits: config.query_limits,
         crash_reports_url: config.crash_reports_url,
         bugzilla_url: config.bugzilla_url,
+        crash_sets_path: config.crash_sets_path,
     }
 }
 

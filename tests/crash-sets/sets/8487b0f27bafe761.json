@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "search": {
+    "signature": "mozilla::dom::quota::QuotaManager::Shutdown::<T>::operator()",
+    "product": "Firefox",
+    "release_channels": [
+      "nightly"
+    ],
+    "date_from": "2026-10-26",
+    "date_to": "2026-11-02",
+    "limit": 6
+  },
+  "fetched_at": "2026-11-01T12:00:00Z",
+  "total": 6,
+  "crashes": [
+    "5e4c0b1a-7e57-4c0d-8e5a-0000002611a1",
+    "5e4c0b1a-7e57-4c0d-8e5a-0000002611a2",
+    "5e4c0b1a-7e57-4c0d-8e5a-0000002611a3",
+    "5e4c0b1a-7e57-4c0d-8e5a-0000002611a4",
+    "5e4c0b1a-7e57-4c0d-8e5a-0000002611a5",
+    "5e4c0b1a-7e57-4c0d-8e5a-0000002611a6"
+  ]
+}

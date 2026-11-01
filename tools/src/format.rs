@@ -12484,6 +12484,7 @@ mod tests {
             config_file: String::new(),
             query_limits: Default::default(),
             crash_reports_url: None,
+            crash_sets_path: None,
             bugzilla_url: None,
         };
         let lookup = |tree: &str, kind: &str, captures: &[(&str, &str)]| {

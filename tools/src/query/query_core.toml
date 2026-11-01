@@ -622,6 +622,14 @@ args.positional = "$0"
 command = "crash-stack"
 args.report = "$0"
 
+# A crash set's view (see crash_sets.rs): the crash reports a crash-stats search
+# found, fetched once, by their families (what their other threads were busy
+# with) and their variants, by the set's ID.
+[term.crash-set]
+[[term.crash-set.group.crash-set]]
+command = "crash-set"
+args.positional = "$0"
+
 [term.crash-threads]
 [[term.crash-threads.group.crash]]
 command = "crash-stack"
@@ -826,6 +834,9 @@ output = "result"
 output = "result"
 
 [group.crash]
+output = "result"
+
+[group.crash-set]
 output = "result"
 
 [group.bug-comment]

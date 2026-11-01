@@ -6340,6 +6340,63 @@ textarea.monospace {
   font-size: 11px;
   font-weight: normal;
 }
+/* A crash set's view (see crash_sets.rs): its notice, its families (each
+   with its variants and how many crashes each has), and its crashes' table,
+   which the navigation panel's facets filter. */
+.crash-set-view .crash-notice {
+  max-width: 70em;
+}
+.crash-set-common {
+  font-size: 12px;
+}
+.crash-families {
+  margin: 0.5em 1em 1em;
+}
+.crash-family {
+  margin: 0.3em 0;
+}
+.crash-family summary {
+  cursor: pointer;
+}
+.crash-family-key {
+  font-family: monospace;
+  font-weight: bold;
+}
+.crash-family-count,
+.crash-variant-count {
+  margin-left: 0.4em;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  font-size: 12px;
+}
+.crash-variants {
+  margin: 0.2em 0 0.4em;
+  padding-left: 1.5em;
+  font-size: 12px;
+}
+.crash-variant-label {
+  font-family: monospace;
+  word-break: break-word;
+}
+.crash-variant-latest {
+  margin-left: 0.4em;
+}
+.crash-set-crashes {
+  margin: 0 1em 1em;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.crash-set-crashes th,
+.crash-set-crashes td {
+  padding: 0.15em 0.6em;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+.crash-set-crashes td:first-child {
+  font-family: monospace;
+  white-space: nowrap;
+}
+
 /* A Bugzilla comment's view (see bug_comment.rs), as the crash view: the
    comment as Bugzilla shows it (its header, then its text, a row per block),
    each of its blocks (left) beside the cards of what it links to (right). */

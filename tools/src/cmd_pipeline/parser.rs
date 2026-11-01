@@ -6,6 +6,7 @@ use super::cmd_block_diagram::BlockDiagram;
 use super::cmd_bug_comment::BugComment;
 use super::cmd_cat_html::CatHtml;
 use super::cmd_compile_results::CompileResults;
+use super::cmd_crash_set::CrashSet;
 use super::cmd_crash_stack::CrashStack;
 use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
@@ -103,6 +104,7 @@ pub enum Command {
     Dataflow(Dataflow),
     BlockDiagram(BlockDiagram),
     CrashStack(CrashStack),
+    CrashSet(CrashSet),
     BugComment(BugComment),
     RevAt(RevAt),
     HistoryGrep(HistoryGrepCommandArgs),

@@ -16,6 +16,7 @@ mod cmd_block_diagram;
 mod cmd_cat_html;
 mod cmd_compile_results;
 pub mod cmd_bug_comment;
+pub mod cmd_crash_set;
 pub mod cmd_crash_stack;
 pub mod cmd_rev_at;
 mod cmd_crossref_expand;

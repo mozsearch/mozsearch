@@ -850,6 +850,16 @@ pub trait AbstractServer {
         crate::crash_threads::ThreadRules::cached(&text)
     }
 
+    /// The crash sets' store (see `crash_sets`): a local index's, the
+    /// config's `crash_sets_path`, else `crash-sets/` beside the trees'
+    /// index directories.  (For remote servers, `$SEARCHFOX_CRASH_SETS`, if
+    /// it says where one is, ex: for trying out the views.)
+    fn crash_sets(&self) -> Option<crate::crash_sets::CrashSetStore> {
+        std::env::var("SEARCHFOX_CRASH_SETS")
+            .ok()
+            .map(crate::crash_sets::CrashSetStore::new)
+    }
+
     /// Bugzilla's REST API's response for `path` (ex:
     /// "rest/bug/1915788/comment"; see `bug_comment::fetch_bugzilla`), from
     /// bugzilla.mozilla.org, unless the config says where

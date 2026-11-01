@@ -472,6 +472,13 @@ impl AbstractServer for LocalIndex {
     }
 
     async fn crash_report(&self, id: &str) -> Result<std::sync::Arc<Value>> {
+        // (A crash set's crash, from the store, even once crash-stats has
+        // dropped it; see `crash_sets`.)
+        if let Some(store) = self.crash_sets()
+            && let Ok(Some(crash)) = store.crash(id)
+        {
+            return Ok(std::sync::Arc::new(crash));
+        }
         // (Not holding the config, which isn't Send, while fetching.)
         let template = self
             .tree_config_loaded()
@@ -479,6 +486,19 @@ impl AbstractServer for LocalIndex {
             .clone()
             .unwrap_or_else(|| crate::crash_stack::CRASH_REPORTS_URL.to_string());
         crate::crash_stack::fetch_crash_report(&template, id).await
+    }
+
+    fn crash_sets(&self) -> Option<crate::crash_sets::CrashSetStore> {
+        let root = self
+            .tree_config_loaded()
+            .crash_sets_path
+            .clone()
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                crate::sidecars::sidecar_root(&self.config_paths.index_path)
+                    .with_file_name("crash-sets")
+            });
+        Some(crate::crash_sets::CrashSetStore::new(root))
     }
 
     fn crash_thread_rules(&self) -> Option<std::sync::Arc<crate::crash_threads::ThreadRules>> {

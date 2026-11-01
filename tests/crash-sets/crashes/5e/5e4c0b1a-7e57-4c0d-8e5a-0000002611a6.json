@@ -1,0 +1,331 @@
+{
+ "uuid": "5e4c0b1a-7e57-4c0d-8e5a-0000002611a6",
+ "signature": "mozilla::dom::quota::QuotaManager::Shutdown::<T>::operator()",
+ "product": "Firefox",
+ "version": "146.0a1",
+ "release_channel": "nightly",
+ "build": "20261030000000",
+ "os_name": "Windows NT",
+ "os_pretty_version": "Windows 11",
+ "process_type": "parent",
+ "date_processed": "2026-10-31T15:00:00+00:00",
+ "moz_crash_reason": "QuotaManager shutdown timed out",
+ "json_dump": {
+  "crash_info": {
+   "type": "EXCEPTION_BREAKPOINT",
+   "address": "0x0",
+   "crashing_thread": 0
+  },
+  "threads": [
+   {
+    "thread_name": "IPDL Background",
+    "frames": [
+     {
+      "frame": 0,
+      "function": "tools::blame::find_phab_rev(core::str::Split<char>)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001000",
+      "trust": "context",
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "line": 12
+     },
+     {
+      "frame": 1,
+      "function": "tools::blame::commit_header_patch(git2::Commit const&)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001040",
+      "trust": "cfi",
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "line": 79
+     },
+     {
+      "frame": 2,
+      "function": "nsTimerImpl::Fire(int)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001080",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsTimerImpl.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 571
+     },
+     {
+      "frame": 3,
+      "function": "nsThread::ProcessNextEvent(bool, bool*)",
+      "module": "xul.dll",
+      "module_offset": "0x00000000000010c0",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 1199
+     },
+     {
+      "frame": 4,
+      "function": "NS_ProcessNextEvent(nsIThread*, bool)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001100",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThreadUtils.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 480
+     },
+     {
+      "frame": 5,
+      "function": "mozilla::ipc::MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate*)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001140",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/glue/MessagePump.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 330
+     },
+     {
+      "frame": 6,
+      "function": "MessageLoop::Run()",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001180",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/chromium/src/base/message_loop.cc:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 368
+     },
+     {
+      "frame": 7,
+      "function": "nsThread::ThreadFunc(void*)",
+      "module": "xul.dll",
+      "module_offset": "0x00000000000011c0",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 373
+     },
+     {
+      "frame": 8,
+      "function": "pr_root(void*)",
+      "module": "nss3.dll",
+      "module_offset": "0x0000000000001200",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:nsprpub/pr/src/md/windows/w95thred.c:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 139
+     },
+     {
+      "frame": 9,
+      "function": "BaseThreadInitThunk",
+      "module": "kernel32.dll",
+      "module_offset": "0x0000000000001240",
+      "trust": "cfi"
+     },
+     {
+      "frame": 10,
+      "function": "RtlUserThreadStart",
+      "module": "ntdll.dll",
+      "module_offset": "0x0000000000001280",
+      "trust": "cfi"
+     }
+    ]
+   },
+   {
+    "thread_name": "Link Monitor",
+    "frames": [
+     {
+      "frame": 0,
+      "function": "NtWaitForMultipleObjects",
+      "module": "ntdll.dll",
+      "module_offset": "0x0000000000001000",
+      "trust": "context"
+     },
+     {
+      "frame": 1,
+      "function": "WaitForMultipleObjectsEx",
+      "module": "KERNELBASE.dll",
+      "module_offset": "0x0000000000001040",
+      "trust": "cfi"
+     },
+     {
+      "frame": 2,
+      "function": "nsNotifyAddrListener::Run()",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001080",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:netwerk/system/win32/nsNotifyAddrListener.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 540
+     },
+     {
+      "frame": 3,
+      "function": "nsThread::ProcessNextEvent(bool, bool*)",
+      "module": "xul.dll",
+      "module_offset": "0x00000000000010c0",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 1199
+     },
+     {
+      "frame": 4,
+      "function": "NS_ProcessNextEvent(nsIThread*, bool)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001100",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThreadUtils.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 480
+     },
+     {
+      "frame": 5,
+      "function": "mozilla::ipc::MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate*)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001140",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/glue/MessagePump.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 330
+     },
+     {
+      "frame": 6,
+      "function": "MessageLoop::Run()",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001180",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/chromium/src/base/message_loop.cc:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 368
+     },
+     {
+      "frame": 7,
+      "function": "nsThread::ThreadFunc(void*)",
+      "module": "xul.dll",
+      "module_offset": "0x00000000000011c0",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 373
+     },
+     {
+      "frame": 8,
+      "function": "pr_root(void*)",
+      "module": "nss3.dll",
+      "module_offset": "0x0000000000001200",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:nsprpub/pr/src/md/windows/w95thred.c:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 139
+     },
+     {
+      "frame": 9,
+      "function": "BaseThreadInitThunk",
+      "module": "kernel32.dll",
+      "module_offset": "0x0000000000001240",
+      "trust": "cfi"
+     },
+     {
+      "frame": 10,
+      "function": "RtlUserThreadStart",
+      "module": "ntdll.dll",
+      "module_offset": "0x0000000000001280",
+      "trust": "cfi"
+     }
+    ]
+   },
+   {
+    "thread_name": "QuotaManager IO",
+    "frames": [
+     {
+      "frame": 0,
+      "function": "ZwWaitForAlertByThreadId",
+      "module": "ntdll.dll",
+      "module_offset": "0x0000000000001000",
+      "trust": "context"
+     },
+     {
+      "frame": 1,
+      "function": "RtlSleepConditionVariableSRW",
+      "module": "ntdll.dll",
+      "module_offset": "0x0000000000001040",
+      "trust": "cfi"
+     },
+     {
+      "frame": 2,
+      "function": "SleepConditionVariableSRW",
+      "module": "KERNELBASE.dll",
+      "module_offset": "0x0000000000001080",
+      "trust": "cfi"
+     },
+     {
+      "frame": 3,
+      "function": "mozilla::detail::ConditionVariableImpl::wait(mozilla::detail::MutexImpl&)",
+      "module": "mozglue.dll",
+      "module_offset": "0x00000000000010c0",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:mozglue/misc/ConditionVariable_windows.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 50
+     },
+     {
+      "frame": 4,
+      "function": "mozilla::ThreadEventQueue::GetEvent(bool, mozilla::TimeDuration*)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001100",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/ThreadEventQueue.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 129
+     },
+     {
+      "frame": 5,
+      "function": "nsThread::ProcessNextEvent(bool, bool*)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001140",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 1199
+     },
+     {
+      "frame": 6,
+      "function": "NS_ProcessNextEvent(nsIThread*, bool)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001180",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThreadUtils.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 480
+     },
+     {
+      "frame": 7,
+      "function": "mozilla::ipc::MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate*)",
+      "module": "xul.dll",
+      "module_offset": "0x00000000000011c0",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/glue/MessagePump.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 330
+     },
+     {
+      "frame": 8,
+      "function": "MessageLoop::Run()",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001200",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/chromium/src/base/message_loop.cc:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 368
+     },
+     {
+      "frame": 9,
+      "function": "nsThread::ThreadFunc(void*)",
+      "module": "xul.dll",
+      "module_offset": "0x0000000000001240",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 373
+     },
+     {
+      "frame": 10,
+      "function": "pr_root(void*)",
+      "module": "nss3.dll",
+      "module_offset": "0x0000000000001280",
+      "trust": "cfi",
+      "file": "git:github.com/mozilla-firefox/firefox:nsprpub/pr/src/md/windows/w95thred.c:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "line": 139
+     },
+     {
+      "frame": 11,
+      "function": "BaseThreadInitThunk",
+      "module": "kernel32.dll",
+      "module_offset": "0x00000000000012c0",
+      "trust": "cfi"
+     },
+     {
+      "frame": 12,
+      "function": "RtlUserThreadStart",
+      "module": "ntdll.dll",
+      "module_offset": "0x0000000000001300",
+      "trust": "cfi"
+     }
+    ]
+   }
+  ],
+  "modules": []
+ }
+}
