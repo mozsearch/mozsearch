@@ -800,7 +800,7 @@ impl FlattenedResultsBundle {
         &mut self,
         tree: &str,
         rev: Option<&str>,
-        excerpts: &dyn Fn(&str, &str, &[u32]) -> Vec<Option<(String, u32, String)>>,
+        excerpts: &dyn Fn(&str, &str, &[u32]) -> Vec<Option<crate::format::SpecExcerpt>>,
     ) {
         if self.content_type != "text/html" {
             return;
@@ -818,7 +818,13 @@ impl FlattenedResultsBundle {
                     let source = format!("/{}/source/{}", file_tree, url_encode_path(&file.file));
                     let mut shown = HashSet::new();
                     for (span, found) in file.line_spans.iter_mut().zip(found) {
-                        let Some((url, first, html)) = found else {
+                        let Some(crate::format::SpecExcerpt {
+                            url,
+                            first,
+                            html,
+                            context,
+                        }) = found
+                        else {
                             continue;
                         };
                         if span.contents.is_empty() {
@@ -826,9 +832,15 @@ impl FlattenedResultsBundle {
                         }
                         let line = span.key_line.to_string();
                         let link = rendered_line_link(&url, &line);
+                        // (Where it is, its section and its algorithm's
+                        // step, above it, as a source line's "found in".)
                         let block = match shown.insert(first) {
                             true => format!(
-                                r#"<div role="cell" class="rd-excerpt-block rendered-doc rendered-spec">{}</div>"#,
+                                r#"<div role="cell" class="rd-excerpt-block rendered-doc rendered-spec">{}{}</div>"#,
+                                context.map_or(String::new(), |context| format!(
+                                    r#"<div class="rd-excerpt-context result-context">// found in {}</div>"#,
+                                    context
+                                )),
                                 mark_texts(&html, &span_hit_texts(span))
                             ),
                             false => r#"<div role="cell" class="rd-excerpt-note">In the rendered block above.</div>"#

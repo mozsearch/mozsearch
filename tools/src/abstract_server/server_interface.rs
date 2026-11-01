@@ -413,7 +413,7 @@ pub trait AbstractServer {
     /// The rendered blocks with `lines` of the file at `path`, those the
     /// index's excerpts have (see `format::spec_excerpts`), for search
     /// results' lines in specs' sources.
-    fn spec_excerpts(&self, _path: &str, lines: &[u32]) -> Vec<Option<(String, u32, String)>> {
+    fn spec_excerpts(&self, _path: &str, lines: &[u32]) -> Vec<Option<crate::format::SpecExcerpt>> {
         vec![None; lines.len()]
     }
 

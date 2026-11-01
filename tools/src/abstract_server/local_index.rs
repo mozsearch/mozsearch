@@ -644,7 +644,7 @@ impl AbstractServer for LocalIndex {
         crate::format::rendered_line_template(&cfg, &self.tree_name, path)
     }
 
-    fn spec_excerpts(&self, path: &str, lines: &[u32]) -> Vec<Option<(String, u32, String)>> {
+    fn spec_excerpts(&self, path: &str, lines: &[u32]) -> Vec<Option<crate::format::SpecExcerpt>> {
         let cfg = self.tree_config_loaded();
         match cfg.trees.get(&self.tree_name) {
             Some(tree_config) => {

@@ -3981,6 +3981,13 @@ h2.sp-called-heading {
   font-style: italic;
   opacity: 0.7;
 }
+/* (Where an excerpt's block is, its section and its algorithm's step, above
+   it, as a source line's "found in".) */
+.rd-excerpt-context.result-context {
+  margin: 0 0 0.2em;
+  padding: 0;
+  font-size: smaller;
+}
 mark.rd-excerpt-hit {
   margin: 0;
   padding: 0;

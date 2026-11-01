@@ -40,6 +40,15 @@ add_task(async function test_SpecResultLinks() {
   const excerpt = details.querySelector(".rd-excerpt-block");
   ok(excerpt?.textContent.toLowerCase().includes("poke"), "A spec's source's line shows its rendered block");
   ok(doc().querySelector("mark.rd-excerpt-hit"), "with its hits marked");
+  // (Above its block, where it is: its section, and its algorithm's step.)
+  const contexts = [...details.querySelectorAll(".rd-excerpt-context")].map(context => context.textContent);
+  ok(contexts.length && contexts.every(context => context.startsWith("// found in §")),
+     `A block says which section it's in: ${contexts.join("; ")}`);
+  ok(contexts.some(context => context.includes("Gadgets") && context.endsWith("› assemble step 2.1")),
+     "and which algorithm's step");
+  const sectionLink = details.querySelector(".rd-excerpt-context a");
+  ok(/^\/tests\/rendered\/specs\/source(\/[\w-]+\.html)?#[\w-]+$/.test(sectionLink?.getAttribute("href")),
+     "linked to it in the rendered view");
   const source = details.querySelector("details.rd-excerpt-source");
   ok(source && !source.open, "and its source lines under it, collapsed");
   ok([...source.querySelectorAll("a.query-line-number")].some(link => /^\/tests\/source\/specs\/source#\d+$/.test(href(link))),

@@ -1860,6 +1860,20 @@ pub struct ExcerptBlock {
     pub last: u32,
     pub page: Option<String>,
     pub html: String,
+    /// Where it is, as HTML: its section and its algorithm's step (see
+    /// `rendered_specs::contexts::block_contexts`).
+    pub context: Option<String>,
+}
+
+/// A result's line's rendered block in the index's excerpts (see
+/// `spec_excerpts`): the URL of the line in its page, the block's first line,
+/// its HTML, and where it is (see `ExcerptBlock::context`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct SpecExcerpt {
+    pub url: String,
+    pub first: u32,
+    pub html: String,
+    pub context: Option<String>,
 }
 
 lazy_static! {
@@ -1929,6 +1943,7 @@ pub fn spec_excerpt_blocks(
             rendered.push(page);
         }
     }
+    let ecmarkup = spec.format == Some(crate::spec_analyze::SpecFormat::Ecmarkup);
     let mut blocks = vec![];
     for page in &rendered {
         let name = page.pages.get(page.page).and_then(|page| page.name.clone());
@@ -1937,7 +1952,14 @@ pub fn spec_excerpt_blocks(
             rendered_docs::block_lines(&page.rendered.blocks, line_of, line_starts.len(), |_| {
                 false
             });
-        for (block, lines) in page.rendered.blocks.iter().zip(ranges) {
+        let strip_ats: Vec<usize> = page.rendered.blocks.iter().map(|b| b.strip_at).collect();
+        let contexts = rendered_specs::contexts::block_contexts(
+            &page.rendered.html,
+            &strip_ats,
+            &url,
+            ecmarkup,
+        );
+        for ((block, lines), context) in page.rendered.blocks.iter().zip(ranges).zip(contexts) {
             let (Some(lines), Some(html)) = (
                 lines,
                 rendered_docs::block_html(&page.rendered.html, block.strip_at),
@@ -1952,6 +1974,7 @@ pub fn spec_excerpt_blocks(
                 last: *lines.end() as u32 + 1,
                 page: name.clone(),
                 html: html.replace(r##"href="#"##, &format!(r##"href="{}#"##, url)),
+                context,
             });
         }
     }
@@ -1960,54 +1983,65 @@ pub fn spec_excerpt_blocks(
 }
 
 /// Where the index's excerpts of a file are (see build-spec-excerpts): a
-/// sorted `FIRST<TAB>LAST<TAB>PAGE<TAB>HTML` line per block (see
-/// `ExcerptBlock`; FIRST padded to 8 digits, PAGE "-" for the first, and
-/// HTML's tabs and line breaks as character references), for bisecting.
+/// sorted `FIRST<TAB>LAST<TAB>PAGE<TAB>HTML<TAB>CONTEXT` line per block (see
+/// `ExcerptBlock`; FIRST padded to 8 digits, PAGE "-" for the first, CONTEXT
+/// "-" if it has none, and the HTML's tabs and line breaks as character
+/// references), for bisecting.
 pub fn spec_excerpts_path(tree_config: &TreeConfig, path: &str) -> std::path::PathBuf {
     Path::new(&tree_config.paths.index_path).join(format!("spec-excerpts/{}.tsv", path))
 }
 
 /// An excerpt's line of the index's file (see `spec_excerpts_path`).
 pub fn excerpt_line(block: &ExcerptBlock) -> String {
+    let field = |html: &str| {
+        html.replace('\t', "&#9;")
+            .replace('\r', "&#13;")
+            .replace('\n', "&#10;")
+    };
     format!(
-        "{:08}\t{}\t{}\t{}",
+        "{:08}\t{}\t{}\t{}\t{}",
         block.first,
         block.last,
         block.page.as_deref().unwrap_or("-"),
-        block
-            .html
-            .replace('\t', "&#9;")
-            .replace('\r', "&#13;")
-            .replace('\n', "&#10;")
+        field(&block.html),
+        block.context.as_deref().map_or("-".to_string(), field)
     )
 }
 
 /// The rendered blocks with `lines` of the file at `path` in the index's
-/// excerpts (see `spec_excerpt_blocks`), those it has: for each line, the
-/// URL of the line in its page, the block's first line, and its HTML, for
-/// search results (see `FlattenedResultsBundle::add_rendered_excerpts`).
+/// excerpts (see `spec_excerpt_blocks`), those it has (see `SpecExcerpt`),
+/// for search results (see `FlattenedResultsBundle::add_rendered_excerpts`).
+/// (An index's excerpts from before their contexts have 4 fields.)
 pub fn spec_excerpts(
     tree_name: &str,
     tree_config: &TreeConfig,
     path: &str,
     lines: &[u32],
-) -> Vec<Option<(String, u32, String)>> {
+) -> Vec<Option<SpecExcerpt>> {
     let excerpts = crate::commit_index::SortedLines::open(&spec_excerpts_path(tree_config, path));
     let base = rendered_url(tree_name, None, path);
     lines
         .iter()
         .map(|&line| {
             let fields = excerpts.last_before(&format!("{:08}\t~", line))?;
-            let [first, last, page, html] = fields.as_slice() else {
-                return None;
+            let (first, last, page, html, context) = match fields.as_slice() {
+                [first, last, page, html] => (first, last, page, html, None),
+                [first, last, page, html, context] => {
+                    (first, last, page, html, Some(context).filter(|c| *c != "-"))
+                }
+                _ => return None,
             };
             let (first, last): (u32, u32) = (first.parse().ok()?, last.parse().ok()?);
             if line < first || line > last {
                 return None;
             }
             let page = (page != "-").then_some(page.as_str());
-            let url = format!("{}#{}", rendered_specs::page_url(&base, page), line);
-            Some((url, first, html.clone()))
+            Some(SpecExcerpt {
+                url: format!("{}#{}", rendered_specs::page_url(&base, page), line),
+                first,
+                html: html.clone(),
+                context: context.cloned(),
+            })
         })
         .collect()
 }

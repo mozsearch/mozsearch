@@ -14,6 +14,7 @@
 //! links to the tree's other specs go to their rendered views.
 
 pub mod bikeshed;
+pub mod contexts;
 pub mod ecmarkup;
 pub mod respec;
 pub mod wattsi;
