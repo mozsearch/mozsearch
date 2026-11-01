@@ -481,6 +481,15 @@ impl AbstractServer for LocalIndex {
         crate::crash_stack::fetch_crash_report(&template, id).await
     }
 
+    fn crash_thread_rules(&self) -> Option<std::sync::Arc<crate::crash_threads::ThreadRules>> {
+        // (Read each time, and compiled when it changed.)
+        let text = self
+            .tree_config_loaded()
+            .read_tree_config_file_with_default("crash-threads.toml")
+            .ok()?;
+        crate::crash_threads::ThreadRules::cached(&text)
+    }
+
     async fn bugzilla_json(&self, path: &str) -> Result<std::sync::Arc<Value>> {
         // (Not holding the config, which isn't Send, while fetching.)
         let base = self

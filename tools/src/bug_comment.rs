@@ -820,6 +820,8 @@ async fn estimated_stack(
                 function: Some(frame.function.clone()),
                 source,
                 address: None,
+                module: None,
+                scanned: false,
             }
         })
         .collect();
@@ -838,7 +840,7 @@ async fn estimated_stack(
         crashing_thread: Some(thread.clone()),
     };
     let threads = vec![ReportThread { thread, frames }];
-    crate::crash_stack::report_threads_stack(server, summary, threads, false)
+    crate::crash_stack::report_threads_stack(server, summary, threads, false, None)
         .await
         .frames
 }
@@ -998,7 +1000,7 @@ pub async fn bug_comment(
         });
     let mut stacks: BTreeMap<String, Result<crate::crash_stack::CrashStack>> = BTreeMap::new();
     for id in &crash_ids {
-        let stack = crate::crash_stack::crash_report_stack(server, id, false).await;
+        let stack = crate::crash_stack::crash_report_stack(server, id, false, false).await;
         if let Err(err) = &stack {
             problems.saw(err);
         }

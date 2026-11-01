@@ -1,0 +1,603 @@
+# How the crash view describes a crash report's threads (see
+# tools/src/crash_threads.rs): what each thread is (its kind, by its name or
+# its stack, and who owns it), what it was doing when the crash happened (its
+# state: idle at its normal wait for work, waiting elsewhere, active, or
+# notable, ex: shutting down), and which of its frames are infrastructure
+# (layers: the thread's start, its event loop, its pool), which the view
+# collapses.  A config repo's crash-threads.toml replaces this one.
+#
+# Patterns are of functions' names without their arguments (ex:
+# "nsThread::ProcessNextEvent", Rust's "<Type>::method" as "Type::method",
+# and a thunk's as its function's), or of threads' names, with "*" for any characters.  A thread's name the crash reporter truncated (ex:
+# "TaskCon~ller") matches a name it could be.  Frames found by scanning the
+# stack (`trust = "scan"`), which may not be the thread's, aren't matched.
+
+# ## Waits
+#
+# The functions a thread blocked in (at its stack's top, innermost): the
+# operating systems' and Gecko's synchronization primitives, and I/O and event
+# waits.  (Unsymbolized frames at the top, ex: a system library's without
+# symbols, are a wait's if a wait follows them.)
+[[wait]]
+kind = "condition variable"
+functions = [
+    "mozilla::detail::ConditionVariableImpl::wait*",
+    "mozilla::OffTheBooksCondVar::Wait*",
+    "mozilla::CondVar::Wait*",
+    "mozilla::Monitor::Wait*",
+    "mozilla::OffTheBooksMonitor::Wait*",
+    "mozilla::ReentrantMonitor::Wait*",
+    "PR_WaitCondVar",
+    "_PR_MD_WAIT_CV",
+    "PR_Wait",
+    "std::sys::sync::condvar::*::wait*",
+    "std::sync::condvar::Condvar::wait*",
+    "parking_lot::condvar::Condvar::wait*",
+    "_Cnd_wait",
+    "_Cnd_timedwait",
+    "SleepConditionVariableSRW",
+    "SleepConditionVariableCS",
+    "RtlSleepConditionVariableSRW",
+    "RtlSleepConditionVariableCS",
+    "pthread_cond_wait*",
+    "pthread_cond_timedwait*",
+    "_pthread_cond_wait",
+    "__pthread_cond_wait",
+    "__pthread_cond_timedwait",
+    "___pthread_cond_timedwait*",
+    "__GI___pthread_cond_wait",
+    "__GI___pthread_cond_timedwait",
+    "g_cond_wait*",
+    "g_async_queue_pop*",
+]
+
+[[wait]]
+kind = "lock"
+functions = [
+    "mozilla::detail::MutexImpl::lock",
+    "mozilla::OffTheBooksMutex::Lock",
+    "mozilla::Mutex::Lock",
+    "PR_Lock",
+    "pthread_mutex_lock",
+    "___pthread_mutex_lock",
+    "__GI___pthread_mutex_lock",
+    "__GI___lll_lock_wait",
+    "__lll_lock_wait",
+    "__psynch_mutexwait",
+    "_pthread_mutex_firstfit_lock_slow",
+    "RtlAcquireSRWLockExclusive",
+    "RtlAcquireSRWLockShared",
+    "RtlpAcquireSRWLockExclusiveContended",
+    "RtlpAcquireSRWLockSharedContended",
+    "AcquireSRWLockExclusive",
+    "AcquireSRWLockShared",
+    "RtlEnterCriticalSection",
+    "RtlpEnterCriticalSectionContended",
+    "RtlpWaitOnCriticalSection",
+    "EnterCriticalSection",
+    "parking_lot::raw_mutex::RawMutex::lock_slow",
+    "std::sys::sync::mutex::futex::Mutex::lock_contended",
+]
+
+[[wait]]
+kind = "event"
+functions = [
+    "ZwWaitForAlertByThreadId",
+    "NtWaitForAlertByThreadId",
+    "RtlpWaitOnAddress*",
+    "RtlWaitOnAddress",
+    "WaitOnAddress",
+    "ZwWaitForSingleObject",
+    "NtWaitForSingleObject",
+    "WaitForSingleObject*",
+    "ZwWaitForMultipleObjects",
+    "NtWaitForMultipleObjects",
+    "WaitForMultipleObjects*",
+    "ZwWaitForKeyedEvent",
+    "NtWaitForKeyedEvent",
+    "KiFastSystemCallRet",
+    "ZwWaitForWorkViaWorkerFactory",
+    "NtWaitForWorkViaWorkerFactory",
+    "ZwUserMsgWaitForMultipleObjectsEx",
+    "NtUserMsgWaitForMultipleObjectsEx",
+    "MsgWaitForMultipleObjects*",
+    "RealMsgWaitForMultipleObjectsEx",
+    "ZwDelayExecution",
+    "NtDelayExecution",
+    "SleepEx",
+    "Sleep",
+    "__psynch_cvwait",
+    "semaphore_wait_trap",
+    "semaphore_timedwait_trap",
+    "_dispatch_semaphore_wait_slow",
+    "_dispatch_sema4_wait",
+    "dispatch_semaphore_wait",
+    "__workq_kernreturn",
+    "mach_msg*",
+    "__ulock_wait*",
+    "__semwait_signal",
+    "syscall",
+    "__syscall_cancel*",
+    "__internal_syscall_cancel",
+    "__futex_abstimed_wait*",
+    "__GI___futex_abstimed_wait*",
+    "futex_wait*",
+    "__libc_do_syscall",
+    "nanosleep",
+    "__nanosleep*",
+    "clock_nanosleep*",
+    "usleep",
+    "std::thread::*park*",
+    "std::thread::functions::park",
+    "std::sys::*::thread_parking::*",
+    "crossbeam_channel::*::recv*",
+    "crossbeam_utils::sync::parker::*",
+    "rayon_core::sleep::Sleep::sleep",
+    "rayon_core::registry::WorkerThread::wait_until_cold",
+]
+
+[[wait]]
+kind = "I/O"
+functions = [
+    "NtRemoveIoCompletion*",
+    "ZwRemoveIoCompletion*",
+    "GetQueuedCompletionStatus*",
+    "epoll_wait",
+    "__GI_epoll_wait",
+    "epoll_pwait*",
+    "kevent*",
+    "poll",
+    "__poll",
+    "__libc_poll",
+    "ppoll*",
+    "select",
+    "__select",
+    "PR_Poll",
+    "PollWrapper",
+    "recv*",
+    "__libc_recv*",
+    "read",
+    "__libc_read",
+    "__read_nocancel",
+    "accept*",
+    "ZwReadFile",
+    "NtReadFile",
+    "ReadFile",
+    "NtWaitForSingleObject",
+    "SockWaitForSingleObject",
+    "WSPSelect",
+    "mio::sys::*::select*",
+    "mio::poll::Poll::poll",
+]
+
+# ## Layers
+#
+# Runs of frames which are a thread's infrastructure, outermost (its start)
+# to innermost (its loop), which the view collapses: a thread is "idle" if,
+# under its waits, its frames are its kind's idle point and layers.
+[[layer]]
+name = "thread start"
+functions = [
+    "RtlUserThreadStart",
+    "_RtlUserThreadStart",
+    "__RtlUserThreadStart",
+    "BaseThreadInitThunk",
+    "patched_BaseThreadInitThunk",
+    "thread_start*",
+    "_pthread_start",
+    "_pthread_body",
+    "start_thread",
+    "__clone*",
+    "__GI___clone*",
+    "clone",
+    "clone3",
+    "set_alt_signal_stack_and_start",
+    "start_wqthread",
+    "_pthread_wqthread",
+    "_threadstartex",
+    "_beginthreadex",
+    "std::sys::*thread_start",
+    "<alloc::boxed::Box<*> as core::ops::function::FnOnce<*>>::call_once",
+    "core::ops::function::FnOnce::call_once*",
+    "std::sys::backtrace::__rust_begin_short_backtrace*",
+    "std::sys_common::backtrace::__rust_begin_short_backtrace*",
+    "std::thread::Builder::spawn_unchecked_*",
+    "std::thread::lifecycle::spawn_unchecked*",
+    "std::thread::_Invoke*",
+    "js::detail::ThreadTrampoline<*>::Start",
+    "js::detail::ThreadTrampoline<*>::callMain<*>",
+    "_ZN2js6detail16ThreadTrampoline*",
+]
+
+[[layer]]
+name = "main thread start"
+functions = [
+    "main",
+    "wmain",
+    "wWinMain",
+    "_start",
+    "start",
+    "__libc_start_main*",
+    "__libc_start_call_main",
+    "__scrt_common_main_seh",
+    "__scrt_common_main",
+    "NS_internal_main",
+    "do_main",
+    "content_process_main",
+    "XRE_main",
+    "XRE_InitChildProcess",
+    "XREMain::XRE_main",
+    "XREMain::XRE_mainRun",
+    "mozilla::BootstrapImpl::XRE_main",
+    "mozilla::BootstrapImpl::XRE_InitChildProcess",
+    "XRE_RunAppShell",
+    "nsAppStartup::Run",
+    "nsBaseAppShell::Run",
+    "nsAppShell::Run",
+    "-[NSApplication run]",
+    "-[GeckoNSApplication run]",
+    "NSApplicationMain",
+    "mozilla::gfx::GPUProcessImpl::*",
+    "mozilla::ipc::ProcessChild::*",
+    "mozilla::Bootstrap*",
+    "android.app.ActivityThread.main",
+    "art_quick_invoke_static_stub",
+]
+
+[[layer]]
+name = "NSPR"
+functions = [
+    "pr_root",
+    "_PR_NativeRunThread",
+    "_pt_root",
+    "pt_SetSocketOption",
+]
+
+[[layer]]
+name = "Chromium IPC thread"
+functions = [
+    "ThreadFunc",
+    "(anonymous namespace)::ThreadFunc",
+    "base::Thread::ThreadMain",
+    "base::MessagePumpForIO::DoRunLoop",
+    "base::MessagePumpForIO::WaitForWork",
+    "base::MessagePumpForIO::WaitForIOCompletion",
+    "base::MessagePumpWin::Run",
+    "base::MessagePumpWin::RunWithDispatcher",
+    "base::MessagePumpForUI::DoRunLoop",
+    "base::MessagePumpLibevent::Run",
+    "base::MessagePumpKqueue::Run",
+    "base::MessagePumpDefault::Run",
+    "event_base_loop",
+    "epoll_dispatch",
+]
+
+[[layer]]
+name = "XPCOM event loop"
+functions = [
+    "nsThread::ThreadFunc",
+    "MessageLoop::Run",
+    "MessageLoop::RunHandler",
+    "MessageLoop::RunInternal",
+    "mozilla::ipc::MessagePumpForNonMainThreads::Run",
+    "mozilla::ipc::MessagePumpForChildProcess::Run",
+    "mozilla::ipc::MessagePump::Run",
+    "NS_ProcessNextEvent",
+    "nsThread::ProcessNextEvent",
+    "mozilla::ThreadEventQueue::GetEvent",
+    "mozilla::EventQueueInternal<*>::GetEvent",
+    "mozilla::SynchronizedEventQueue::GetEvent",
+]
+
+[[layer]]
+name = "thread pool"
+functions = [
+    "nsThreadPool::Run",
+    "mozilla::ThreadFuncPoolThread",
+    "mozilla::TaskController::RunPoolThread",
+]
+
+[[layer]]
+name = "task queue"
+functions = [
+    "mozilla::TaskQueue::Runner::Run",
+    "mozilla::ThrottledEventQueue::Inner::Executor::Run",
+]
+
+[[layer]]
+name = "worker event loop"
+functions = [
+    "mozilla::dom::workerinternals::(anonymous namespace)::WorkerThreadPrimaryRunnable::Run",
+    "mozilla::dom::WorkerPrivate::DoRunLoop",
+    "mozilla::dom::WorkerPrivate::WaitForWorkerEvents",
+]
+
+[[layer]]
+name = "Windows thread pool"
+functions = [
+    "TppWorkerThread",
+    "TppWorkpExecuteCallback",
+    "TppTimerQueueExpiration",
+    "TppExecuteWaitCallback",
+    "RtlpTpWorkCallback",
+    "RtlpTpTimerCallback",
+    "RtlpTpWaitCallback",
+    "ExecuteWorkItemThreadProc",
+]
+
+[[layer]]
+name = "Rayon"
+functions = [
+    "rayon_core::registry::*",
+    "rayon_core::job::*",
+    "rayon_core::scope::*",
+]
+
+# ## Notable frames
+#
+# Frames which make a thread's state notable, rather than idle (they stay
+# expanded, and their callers if `called_by` says which, and a nested event
+# loop's inner loops): ex: a nested event loop, or shutting down.
+[[notable]]
+state = "nested event loop"
+functions = ["mozilla::SpinEventLoopUntil*", "SpinEventLoopUntil*"]
+
+[[notable]]
+state = "shutting down"
+functions = [
+    "nsThread::Shutdown*",
+    "nsThreadManager::Shutdown",
+    "mozilla::ShutdownXPCOM",
+    "mozilla::AppShutdown::*",
+    "nsThreadPool::Shutdown*",
+    "mozilla::TaskController::Shutdown*",
+]
+
+# ## Threads
+#
+# What a thread is, by its name (patterns, `names`) or else its stack (any of
+# its frames' functions, `stack`): its kind, its owner (ex: a Bugzilla
+# component, or the module a third party's code is in), and the functions
+# its waits are in when it's idle (beside the defaults below), and its own
+# notable frames.  The first which matches is its.
+[defaults]
+# (Any thread waiting for its event loop's next event is idle.)
+idle = [
+    "mozilla::ThreadEventQueue::GetEvent",
+    "mozilla::EventQueueInternal<*>::GetEvent",
+    "nsThread::ProcessNextEvent",
+    "NS_ProcessNextEvent",
+    "MessageLoop::Run",
+    "mozilla::widget::WinUtils::WaitForMessage",
+]
+# The frames which are an event loop's levels: a thread's are nested (its
+# state "nested event loop") if it has more than its kind's `loops` (1 unless
+# it says, ex: a DOM Worker's own loop runs in its thread's).
+loops = ["nsThread::ProcessNextEvent"]
+
+# The modules of a thread's frames which are Gecko's and the operating
+# systems' and their libraries': a thread no rule describes is the owner's
+# whose module its first frame (innermost, under its waits) of neither is in
+# (ex: a graphics driver's), else Gecko's or the system's.
+[modules]
+gecko = ["xul.dll", "libxul.so", "XUL", "firefox.exe", "firefox", "plugin-container", "plugin-container.exe", "mozglue.dll", "libmozglue.so", "libmozglue.dylib", "nss3.dll", "libnss3.so", "libnss3.dylib", "nspr4.dll", "libnspr4.so", "libplc4.so", "libplds4.so", "libnssutil3.so", "libssl3.so", "libsmime3.so", "libsoftokn3.so", "libfreeblpriv3.so", "libipcclientcerts.so", "freebl3.dll", "softokn3.dll", "lgpllibs.dll", "liblgpllibs.so", "libmozsqlite3.so", "libmozsandbox.so", "gkcodecs.dll", "libgkcodecs.so", "mozavcodec.dll", "mozavutil.dll", "libmozavcodec.so", "libmozavutil.so", "libmozavcodec.dylib", "libmozavutil.dylib", "libmozgtk.so", "libmozwayland.so"]
+system = ["ntdll.dll", "kernel32.dll", "KERNELBASE.dll", "kernelbase.dll", "ucrtbase.dll", "msvcrt.dll", "msvcp140.dll", "vcruntime140.dll", "user32.dll", "win32u.dll", "combase.dll", "rpcrt4.dll", "ws2_32.dll", "mswsock.dll", "libc.so.6", "libpthread.so.0", "libm.so.6", "libdl.so.2", "libstdc++.so.6", "libglib-2.0.so.0", "libgio-2.0.so.0", "libgobject-2.0.so.0", "libsystem_kernel.dylib", "libsystem_pthread.dylib", "libsystem_c.dylib", "libdispatch.dylib", "libc++.1.dylib", "libc++abi.dylib", "CoreFoundation", "Foundation", "AppKit", "libobjc.A.dylib", "linux-gate.so", "linux-vdso.so.1", "libart.so", "libc.so", "libbase.so"]
+
+[[thread]]
+names = ["MainThread", "Gecko_IOThread"]
+stack = ["XRE_main", "XRE_InitChildProcess", "content_process_main", "wmain", "main"]
+kind = "main thread"
+owner = "Core: XPCOM"
+idle = [
+    "nsAppShell::ProcessNextNativeEvent",
+    "mozilla::widget::WinUtils::WaitForMessage",
+    "mozilla::TaskController::GetRunnableForMTTask",
+    "__CFRunLoopServiceMachPort",
+    "__CFRunLoopRun",
+    "CFRunLoopRunSpecific",
+    "_DPSNextEvent",
+    "-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:]",
+    "g_main_context_iterate*",
+    "g_main_context_poll*",
+    "mozilla::ipc::MessagePumpForChildProcess::Run",
+]
+
+[[thread]]
+names = ["DOM Worker"]
+kind = "DOM Worker"
+owner = "Core: DOM: Workers"
+loops = 2
+idle = [
+    "mozilla::dom::WorkerPrivate::WaitForWorkerEvents",
+    "mozilla::dom::WorkerPrivate::DoRunLoop",
+]
+# (Its primary runnable processing the pending events, after its run loop, as
+# it shuts down.)
+[[thread.notable]]
+state = "shutting down"
+functions = ["NS_ProcessPendingEvents"]
+called_by = ["mozilla::dom::workerinternals::(anonymous namespace)::WorkerThreadPrimaryRunnable::Run"]
+
+[[thread]]
+names = ["TaskController"]
+kind = "TaskController pool"
+owner = "Core: XPCOM"
+idle = ["mozilla::ThreadFuncPoolThread"]
+
+[[thread]]
+names = ["StreamTrans"]
+kind = "stream transport pool"
+owner = "Core: Networking"
+idle = ["nsThreadPool::Run"]
+
+[[thread]]
+names = ["BgIOThreadPool", "BackgroundThreadPool"]
+kind = "background task queue pool"
+owner = "Core: XPCOM"
+idle = ["nsThreadPool::Run"]
+
+[[thread]]
+names = ["Timer"]
+kind = "timer thread"
+owner = "Core: XPCOM"
+idle = ["TimerThread::Run", "mozilla::TimerThreadMonitor::Wait"]
+
+[[thread]]
+names = ["Socket Thread"]
+kind = "socket transport thread"
+owner = "Core: Networking"
+idle = ["mozilla::net::nsSocketTransportService::Run", "mozilla::net::nsSocketTransportService::Poll", "mozilla::net::nsSocketTransportService::DoPollIteration", "PR_Poll", "_PR_MD_PR_POLL", "_pr_poll_with_poll"]
+
+[[thread]]
+names = ["IPC I/O Parent", "IPC I/O Child"]
+kind = "IPC I/O thread"
+owner = "Core: IPC"
+idle = [
+    "base::MessagePumpForIO::DoRunLoop",
+    "base::MessagePumpForIO::WaitForWork",
+    "base::MessagePumpForIO::WaitForIOCompletion",
+    "base::MessagePumpLibevent::Run",
+    "base::MessagePumpKqueue::Run",
+    "event_base_loop",
+]
+
+[[thread]]
+names = ["Shutdown Hang Terminator"]
+kind = "shutdown hang terminator"
+owner = "Toolkit: Async Tooling"
+idle = ["mozilla::(anonymous namespace)::RunWatchdog"]
+
+[[thread]]
+names = ["IPC Launch", "IPDL Background", "BHMgr Monitor", "BHMgr Processor", "Worker Launcher", "Permission", "Cookie", "ProcessHangMon", "RemoteLzyStream"]
+kind = "XPCOM thread"
+owner = "Core: XPCOM"
+
+[[thread]]
+names = ["DNS Resolver"]
+kind = "DNS resolver pool"
+owner = "Core: Networking: DNS"
+idle = ["nsHostResolver::GetHostToLookup", "nsHostResolver::ThreadFunc", "mozilla::detail::RunnableMethodImpl<nsHostResolver*,*>::Run"]
+
+[[thread]]
+names = ["Cache2 I/O"]
+kind = "HTTP cache I/O thread"
+owner = "Core: Networking: Cache"
+idle = ["mozilla::net::CacheIOThread::ThreadFunc", "mozilla::net::CacheIOThread::LoopOneLevel"]
+
+[[thread]]
+names = ["StyleThread"]
+kind = "Stylo worker"
+owner = "Core: CSS Parsing and Computation"
+idle = ["rayon_core::sleep::Sleep::sleep", "rayon_core::registry::WorkerThread::wait_until_cold"]
+
+[[thread]]
+names = ["WRWorker", "WRWorkerLP", "WRSceneBuilder*", "WRRenderBackend", "Renderer", "WrGlyphRasterizer", "CanvasRenderer", "Compositor", "WinCompositor", "ImageBridgeChld", "VsyncIOThread"]
+kind = "graphics thread"
+owner = "Core: Graphics: WebRender"
+idle = ["rayon_core::sleep::Sleep::sleep", "rayon_core::registry::WorkerThread::wait_until_cold", "std::sync::mpmc::*", "crossbeam_channel::*", "webrender::scene_builder_thread::SceneBuilderThread::run", "webrender::render_backend::RenderBackend::run"]
+
+[[thread]]
+names = ["MediaPDecoder", "MediaSupervisor", "MediaDecoderStateMachine", "dav1d-worker", "AppleVTDecoderCallback", "RemVidChild", "AudioIPC*", "GMPThread", "MediaTimer", "MediaPlayback", "MediaTrackGrph*", "cubeb*"]
+kind = "media thread"
+owner = "Core: Audio/Video"
+idle = ["nsThreadPool::Run", "dav1d_worker_task", "audioipc2::ipccore::EventLoop::poll"]
+
+[[thread]]
+names = ["sqldb:*", "mozStorage", "IndexedDB*", "QuotaManager IO", "LS Thread", "DOMCacheThread", "DOM File"]
+kind = "storage thread"
+owner = "Core: Storage"
+
+[[thread]]
+names = ["HTML5 Parser"]
+kind = "HTML parser thread"
+owner = "Core: DOM: HTML Parser"
+
+[[thread]]
+names = ["JS Watchdog"]
+kind = "JS watchdog"
+owner = "Core: JavaScript Engine"
+idle = ["WatchdogMain"]
+
+[[thread]]
+names = ["JS Wasm MachExceptionHandler"]
+kind = "Wasm exception handler"
+owner = "Core: JavaScript: WebAssembly"
+idle = ["MachExceptionHandlerThread"]
+
+[[thread]]
+names = ["JS Helper"]
+kind = "JS helper thread"
+owner = "Core: JavaScript Engine"
+idle = ["js::GlobalHelperThreadState::wait", "js::HelperThread::threadLoop"]
+
+[[thread]]
+names = ["ProfilerChild", "SamplerThread", "Profiler*"]
+kind = "profiler thread"
+owner = "Core: Gecko Profiler"
+
+[[thread]]
+names = ["Breakpad ExceptionHandler", "AsyncSignalControlThread", "CrashReporter*", "minidump_writer"]
+kind = "crash reporter thread"
+owner = "Toolkit: Crash Reporting"
+idle = ["google_breakpad::ReceivePort::WaitForMessage", "AsyncSignalControlThreadEntry", "google_breakpad::ExceptionHandler::ExceptionHandlerThreadMain"]
+
+[[thread]]
+names = ["glean.*", "glean*"]
+kind = "Glean thread"
+owner = "Toolkit: Telemetry"
+
+[[thread]]
+names = ["FSBroker", "SandboxReporter"]
+kind = "sandbox broker thread"
+owner = "Core: Security: Process Sandboxing"
+idle = ["mozilla::SandboxBrokerCommon::RecvWithFd", "mozilla::SandboxBroker::ThreadMain"]
+
+[[thread]]
+names = ["URL Classifier"]
+kind = "URL classifier thread"
+owner = "Toolkit: Safe Browsing"
+
+[[thread]]
+names = ["ImageIO", "ImgDecoder*"]
+kind = "image decoding thread"
+owner = "Core: Graphics: ImageLib"
+
+[[thread]]
+names = ["COM MTA"]
+kind = "COM thread"
+owner = "Core: IPC: MSCOM"
+
+[[thread]]
+names = ["gmain", "gdbus", "dconf worker", "pool-*"]
+kind = "GLib thread"
+owner = "Third-party: GLib"
+idle = ["g_main_context_iterate*", "g_main_context_iteration", "g_main_loop_run", "g_thread_pool_wait_for_new_pool", "g_thread_pool_thread_proxy", "g_thread_pool_spawn_thread", "g_async_queue_timeout_pop*", "g_thread_proxy", "glib_worker_main", "gdbus_shared_thread_func", "dconf_gdbus_worker_thread", "g_poll", "g_wakeup_*"]
+
+[[thread]]
+names = ["osclientcerts"]
+kind = "client certificates thread"
+owner = "Core: Security: PSM"
+
+[[thread]]
+stack = ["angle::AsyncWorkerPool::threadLoop"]
+kind = "ANGLE worker"
+owner = "Core: Graphics"
+idle = ["angle::AsyncWorkerPool::threadLoop", "std::condition_variable::wait*", "_Cnd_wait"]
+
+[[thread]]
+stack = ["TppWorkerThread"]
+kind = "Windows thread pool worker"
+owner = "Windows"
+idle = ["TppWorkerThread"]
+
+[[thread]]
+stack = ["CRpcThreadCache::RpcWorkerThreadEntry"]
+kind = "COM RPC worker"
+owner = "Windows"
+idle = ["CROIDTable::WorkerThreadLoop", "CRpcThread::WorkerLoop", "CRpcThreadCache::RpcWorkerThreadEntry"]
+
+[[thread]]
+stack = ["start_wqthread", "_pthread_wqthread"]
+kind = "macOS work queue thread"
+owner = "macOS"
+idle = ["_pthread_wqthread"]

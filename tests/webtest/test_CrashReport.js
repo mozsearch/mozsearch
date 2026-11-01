@@ -65,7 +65,7 @@ add_task(async function test_CrashReport() {
   ok(all?.textContent.includes("all 2 threads' stacks"), "The view links to every thread's stacks");
   const url = new URL(all.href);
   await TestUtils.loadPath(url.pathname + url.search);
-  is(doc().querySelector(".crash-thread-heading")?.textContent, "Thread #1 (Worker)", "which has the other thread's");
+  is(doc().querySelector("#thread-1 .crash-thread-name")?.textContent, "Thread #1 (Worker)", "which has the other thread's");
   const worker = doc().querySelector("#thread-1-frame-0");
   ok(crashText(worker).includes('format!("{}:{}:{}:", self.rev, self.path, self.lineno)'),
      "with its frames' lines");

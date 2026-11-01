@@ -6201,6 +6201,175 @@ textarea.monospace {
   margin: 1.2em 1em 0.3em;
   font-size: 14px;
 }
+/* A report's threads (see crash_stack.rs's `thread_open_html`): each's
+   heading says what it is (its kind and owner) and was doing (its state),
+   and each run of its infrastructure's frames (its wait, its layers: its
+   start, its event loop, its pool) is a line, which shows them on request
+   (an idle thread's all one; see `collapsed_html`). */
+.crash-thread {
+  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + 0.5em);
+}
+.crash-thread-class {
+  margin-left: 0.6em;
+  color: color-mix(in srgb, currentColor 65%, transparent);
+  font-size: 12px;
+  font-weight: normal;
+}
+.crash-thread-owner::before {
+  content: "· ";
+}
+/* (Notable states', ex: shutting down, unless it's another's.) */
+.crash-thread-state {
+  margin-left: 0.4em;
+  padding: 0 0.4em;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  color: #8250df;
+  font-size: 11px;
+  font-weight: normal;
+  white-space: nowrap;
+}
+.crash-state-crashed {
+  color: #c01c28;
+}
+.crash-state-active {
+  color: #1a7f37;
+}
+.crash-state-waiting {
+  color: #9a6700;
+}
+.crash-state-idle,
+.crash-state-unknown {
+  color: var(--page-subtle-foreground, #6e7781);
+}
+.crash-collapsed {
+  padding: 0.3em 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  font-size: 12px;
+}
+.crash-collapsed summary {
+  color: color-mix(in srgb, currentColor 70%, transparent);
+  cursor: pointer;
+}
+.crash-collapsed-names {
+  font-style: italic;
+}
+.crash-collapsed-count {
+  margin-left: 0.4em;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+}
+.crash-compact-frames {
+  margin: 0.3em 0 0.2em;
+  padding-left: 1.5em;
+  list-style: none;
+}
+/* (Other threads' frames without code, ex: a system library's.) */
+.crash-codeless {
+  padding: 0.2em 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  font-size: 12px;
+}
+.crash-codeless .crash-compact-frames {
+  padding-left: 0.5em;
+}
+.crash-compact-where {
+  margin-left: 0.5em;
+  font-family: monospace;
+  font-size: 11px;
+}
+.crash-compact-group {
+  margin-left: 0.5em;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  font-style: italic;
+}
+/* A report's breadcrumbs (see `crumbs_html`; crash-view.js moves them into
+   the page's): its ID and its menu, and the thread, with its picker (its
+   kinds as its columns' headings), or a link to every thread's. */
+.crash-crumbs {
+  display: inline;
+}
+.crash-crumbs[hidden] {
+  display: none;
+}
+.crash-crumb-report {
+  font-family: monospace;
+}
+.crash-crumb-button {
+  pointer-events: auto;
+  background-color: transparent;
+  background-image: var(--select-arrow-svg);
+  background-position: center center;
+  background-repeat: no-repeat;
+  appearance: none;
+  border: none;
+  vertical-align: middle;
+  width: var(--tree-switcher-width);
+  height: var(--tree-switcher-height);
+  border-radius: 2px;
+}
+.crash-crumb-button:hover {
+  background-color: var(--list-hover-background);
+}
+.crash-crumb-button:active {
+  background-color: var(--button-active-background);
+}
+.crash-crumb-all {
+  margin-left: 0.3em;
+}
+#crash-report-menu,
+#crash-thread-menu {
+  display: flex;
+  flex-direction: row;
+  max-height: 70vh;
+}
+#crash-report-menu ul,
+#crash-thread-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+#crash-thread-menu > div + div {
+  border-inline-start: 1px solid var(--page-border-color);
+}
+#crash-thread-menu .indent {
+  padding-inline-start: 16px;
+  padding-inline-end: 16px;
+}
+.crash-menu-owner {
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  font-size: 11px;
+  font-weight: normal;
+}
+/* The facets of a report's view with every thread's (see `facets_html`):
+   its threads' states and kinds, which hide threads when unchecked. */
+.crash-facets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  margin: 0.4em 0;
+}
+.crash-facet-group {
+  display: flex;
+  align-items: baseline;
+}
+.crash-facet-heading {
+  flex: none;
+  width: 4em;
+  font-weight: bold;
+}
+.crash-facet-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2em 0.8em;
+}
+.crash-facet {
+  white-space: nowrap;
+  cursor: pointer;
+}
+.crash-facet-count {
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  font-size: 11px;
+}
 /* A Bugzilla comment's view (see bug_comment.rs), as the crash view: the
    comment as Bugzilla shows it (its header, then its text, a row per block),
    each of its blocks (left) beside the cards of what it links to (right). */

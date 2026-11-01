@@ -838,6 +838,18 @@ pub trait AbstractServer {
         crate::crash_stack::fetch_crash_report(crate::crash_stack::CRASH_REPORTS_URL, id).await
     }
 
+    /// The rules classifying crash reports' threads (see `crash_threads`):
+    /// the config repo's crash-threads.toml, else config_defaults'.  (For
+    /// remote servers, `$MOZSEARCH_PATH`'s config_defaults', if it says
+    /// where a checkout is, ex: for trying out changes to them.)
+    fn crash_thread_rules(&self) -> Option<std::sync::Arc<crate::crash_threads::ThreadRules>> {
+        let mozsearch = std::env::var("MOZSEARCH_PATH").ok()?;
+        let text =
+            std::fs::read_to_string(format!("{}/config_defaults/crash-threads.toml", mozsearch))
+                .ok()?;
+        crate::crash_threads::ThreadRules::cached(&text)
+    }
+
     /// Bugzilla's REST API's response for `path` (ex:
     /// "rest/bug/1915788/comment"; see `bug_comment::fetch_bugzilla`), from
     /// bugzilla.mozilla.org, unless the config says where

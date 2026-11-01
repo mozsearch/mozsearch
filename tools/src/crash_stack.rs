@@ -28,6 +28,15 @@
 //! which changed since say so.  It shows the crashing thread's stack, or with
 //! `crash-threads:all`, every thread's.
 //!
+//! A report's threads are classified by crash-threads.toml's rules (see
+//! crash_threads.rs): what each is (its kind and owner) and was doing (its
+//! state: idle, waiting, active...), and which of its frames are its waits
+//! and its infrastructure's layers (its start, its event loop, its pool),
+//! which the view collapses to a line each (and whose code it doesn't get).
+//! The view's breadcrumbs say which report and thread it is (a picker of
+//! the threads, with every thread's), and with every thread's, its facets
+//! hide threads by their states and kinds (`hide-threads:`).
+//!
 //! Columns (the grid's `--crash-columns`): the frames' code, and the frames.
 //! A third column could later show the machine code around each frame's
 //! address (a report's frames have their modules and offsets;
@@ -40,6 +49,7 @@ use serde::Serialize;
 use ustr::{Ustr, UstrMap, UstrSet, ustr};
 
 use crate::abstract_server::{AbstractServer, Result, ServerError, sym_info};
+use crate::crash_threads::{FrameRole, RuleFrame, ThreadClass, ThreadRules, ThreadState};
 use crate::file_format::jumpref::JumprefData;
 
 /// A crash's stack, as the crash view shows it.
@@ -60,6 +70,19 @@ pub struct CrashStack {
     /// stacks.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub threads: Vec<ThreadStack>,
+    /// For a report's stack: all its threads (shown or not), what they are and
+    /// were doing (see `crash_threads`), if the server has the rules.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub thread_list: Vec<ThreadSummary>,
+}
+
+/// A thread of a crash report (see `CrashStack::thread_list`): which, what it
+/// is and was doing, and how many frames it has.
+#[derive(Clone, Debug, Serialize)]
+pub struct ThreadSummary {
+    pub thread: ThreadInfo,
+    pub class: ThreadClass,
+    pub frames: usize,
 }
 
 /// A frame of a crash's stack.
@@ -100,6 +123,12 @@ pub struct CrashFrame {
     /// then, at the build's revision (or the estimate of it).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub then: Option<ThenExcerpt>,
+    /// For a crash report's frame which is its thread's infrastructure (see
+    /// `crash_threads::FrameRole`), which the view collapses (without its
+    /// code): its layer's name (ex: "XPCOM event loop"), or "wait" for its
+    /// thread's wait at the top, or "idle" for an idle thread's idle point.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collapsed: Option<String>,
 }
 
 /// A frame's function in the tree.
@@ -577,6 +606,7 @@ pub async fn crash_stack(
             source: None,
             problem: None,
             then: None,
+            collapsed: None,
         });
     }
 
@@ -645,6 +675,7 @@ pub async fn crash_stack(
         frames,
         report: None,
         threads: vec![],
+        thread_list: vec![],
     })
 }
 
@@ -853,15 +884,19 @@ pub async fn fetch_crash_report(
 
 /// A frame of a crash report's thread's stack, or a call inlined in it (see
 /// `parse_report`): its frame's number, its function's name (with its
-/// arguments, ex: "mozilla::Foo::Bar(int, char const*)"), where it was, and
-/// for a frame (rather than an inlined call) its module and offset in it
-/// (ex: "XUL+0x4c556c").
+/// arguments, ex: "mozilla::Foo::Bar(int, char const*)"), where it was, for a
+/// frame (rather than an inlined call) its module and offset in it (ex:
+/// "XUL+0x4c556c"), and its frame's module (ex: "XUL") and whether it was
+/// found by scanning the stack (its `trust`), for the thread's rules (see
+/// `crash_threads`).
 #[derive(Clone, Debug)]
 pub struct ReportFrame {
     pub frame: usize,
     pub function: Option<String>,
     pub source: FrameSource,
     pub address: Option<String>,
+    pub module: Option<String>,
+    pub scanned: bool,
 }
 
 /// A crash report's thread, and its stack's frames (see `parse_report`).
@@ -900,12 +935,16 @@ pub fn parse_report(id: &str, report: &serde_json::Value) -> (CrashReport, Vec<R
         let mut frames = vec![];
         for frame in thread["frames"].as_array().into_iter().flatten() {
             let number = frame["frame"].as_u64().map_or(frames.len(), |n| n as usize);
+            let module = text(&frame["module"]);
+            let scanned = frame["trust"].as_str() == Some("scan");
             for inline in frame["inlines"].as_array().into_iter().flatten() {
                 frames.push(ReportFrame {
                     frame: number,
                     function: text(&inline["function"]),
                     source: source(inline, true),
                     address: None,
+                    module: module.clone(),
+                    scanned,
                 });
             }
             let offset = text(&frame["module_offset"]).map(|offset| {
@@ -914,9 +953,9 @@ pub fn parse_report(id: &str, report: &serde_json::Value) -> (CrashReport, Vec<R
                     offset.trim_start_matches("0x").trim_start_matches('0')
                 )
             });
-            let address = match (text(&frame["module"]), offset) {
+            let address = match (&module, offset) {
                 (Some(module), Some(offset)) => Some(format!("{}+{}", module, offset)),
-                (Some(module), None) => Some(module),
+                (Some(module), None) => Some(module.clone()),
                 (None, _) => text(&frame["offset"]),
             };
             frames.push(ReportFrame {
@@ -924,6 +963,8 @@ pub fn parse_report(id: &str, report: &serde_json::Value) -> (CrashReport, Vec<R
                 function: text(&frame["function"]),
                 source: source(frame, false),
                 address,
+                module,
+                scanned,
             });
         }
         threads.push(ReportThread {
@@ -1012,30 +1053,112 @@ const MAX_THEN_FUNCTION_LINES: u32 = 400;
 /// `hg:` file's revision by `AbstractServer::map_rev`), and the crashing
 /// thread's frames' functions, by their names (as a signature's), whose
 /// definitions in the frames' files are the nearest before their lines.
+/// With `classify`, its threads are classified (see `crash_threads`), and
+/// their infrastructure's frames collapsed.
 pub async fn crash_report_stack(
     server: &(dyn AbstractServer + Send + Sync),
     id: &str,
     all_threads: bool,
+    classify: bool,
 ) -> Result<CrashStack> {
     let report = server.crash_report(id).await?;
     let (summary, threads) = parse_report(id, &report);
-    Ok(report_threads_stack(server, summary, threads, all_threads).await)
+    let rules = match classify {
+        true => server.crash_thread_rules(),
+        false => None,
+    };
+    Ok(report_threads_stack(server, summary, threads, all_threads, rules.as_deref()).await)
+}
+
+/// What each of a report's `threads` is and was doing (see `crash_threads`),
+/// and its frames' roles: an inlined call's its frame's, but in a layer's
+/// frame (of a thread which isn't idle), its own layer's, or else the
+/// thread's own (ex: a runnable's code inlined in its event loop's).
+fn classify_threads(
+    rules: &ThreadRules,
+    threads: &[ReportThread],
+    crashing: usize,
+) -> Vec<(ThreadSummary, Vec<FrameRole>)> {
+    threads
+        .iter()
+        .map(|thread| {
+            // (The stackwalker's frames, after their inlined calls.)
+            let at: Vec<usize> = (0..thread.frames.len())
+                .filter(|i| !thread.frames[*i].source.inlined)
+                .collect();
+            let rule_frames: Vec<RuleFrame> = at
+                .iter()
+                .map(|i| {
+                    let frame = &thread.frames[*i];
+                    RuleFrame {
+                        function: frame.function.as_deref(),
+                        module: frame.module.as_deref(),
+                        scanned: frame.scanned,
+                    }
+                })
+                .collect();
+            let (class, frame_roles) = rules.classify(
+                thread.thread.name.as_deref(),
+                &rule_frames,
+                thread.thread.index == crashing,
+            );
+            let mut next = 0;
+            let roles = (0..thread.frames.len())
+                .map(|i| {
+                    while next < at.len() && at[next] < i {
+                        next += 1;
+                    }
+                    let role = frame_roles.get(next).cloned().unwrap_or(FrameRole::Own);
+                    let frame = &thread.frames[i];
+                    match role {
+                        FrameRole::Layer(_)
+                            if frame.source.inlined && class.state != ThreadState::Idle =>
+                        {
+                            match frame.function.as_deref().and_then(|f| rules.layer_of(f)) {
+                                Some(layer) => FrameRole::Layer(layer.to_string()),
+                                None => FrameRole::Own,
+                            }
+                        }
+                        role => role,
+                    }
+                })
+                .collect();
+            (
+                ThreadSummary {
+                    thread: thread.thread.clone(),
+                    class,
+                    frames: at.len(),
+                },
+                roles,
+            )
+        })
+        .collect()
 }
 
 /// The stack of a crash report's `threads` (see `crash_report_stack`; or of
 /// frames a Bugzilla comment lists, whose revision is estimated, see
-/// `bug_comment`).
+/// `bug_comment`), classified by `rules`, if given.
 pub async fn report_threads_stack(
     server: &(dyn AbstractServer + Send + Sync),
     summary: CrashReport,
     threads: Vec<ReportThread>,
     all_threads: bool,
+    rules: Option<&ThreadRules>,
 ) -> CrashStack {
     let (annotations, _) = parse_signature(&summary.signature);
     let crashing = summary
         .crashing_thread
         .as_ref()
         .map_or(0, |thread| thread.index);
+    let classified = rules.map_or_else(Vec::new, |rules| {
+        classify_threads(rules, &threads, crashing)
+    });
+    let mut thread_roles: BTreeMap<usize, Vec<FrameRole>> = BTreeMap::new();
+    let mut thread_list = vec![];
+    for (summary, roles) in classified {
+        thread_roles.insert(summary.thread.index, roles);
+        thread_list.push(summary);
+    }
 
     // Each file's lines' lines at the indexed revision, by the report's
     // revision and the path, with the tree's revision (and None for the map
@@ -1047,8 +1170,15 @@ pub async fn report_threads_stack(
         if thread.thread.index != crashing && !all_threads {
             continue;
         }
+        let roles = thread_roles.remove(&thread.thread.index);
         let mut frames = vec![];
-        for frame in thread.frames {
+        for (position, frame) in thread.frames.into_iter().enumerate() {
+            let collapsed = match roles.as_ref().and_then(|roles| roles.get(position)) {
+                Some(FrameRole::Wait) => Some("wait".to_string()),
+                Some(FrameRole::Layer(layer)) => Some(layer.clone()),
+                Some(FrameRole::Idle) => Some("idle".to_string()),
+                Some(FrameRole::Own) | None => None,
+            };
             let mut source = frame.source;
             if let (Some(path), Some(rev)) = (source.path.clone(), source.rev.clone()) {
                 let key = (rev.clone(), path.clone());
@@ -1102,6 +1232,7 @@ pub async fn report_threads_stack(
                 source: Some(source),
                 problem: None,
                 then: None,
+                collapsed,
             });
         }
         resolved.push((thread.thread, frames));
@@ -1120,6 +1251,9 @@ pub async fn report_threads_stack(
             let (Some(path), Some(line)) = (source.path.clone(), source.indexed_line) else {
                 continue;
             };
+            if frame.collapsed.is_some() {
+                continue;
+            }
             let name = without_arguments(&frame.name).to_string();
             if name.is_empty() || name.starts_with('{') {
                 continue;
@@ -1174,6 +1308,9 @@ pub async fn report_threads_stack(
             let Some(source) = &frame.source else {
                 continue;
             };
+            if frame.collapsed.is_some() {
+                continue;
+            }
             let (Some(path), Some(rev), Some(line)) = (&source.path, &source.rev, source.line)
             else {
                 continue;
@@ -1252,6 +1389,9 @@ pub async fn report_threads_stack(
             let Some(source) = &frame.source else {
                 continue;
             };
+            if frame.collapsed.is_some() {
+                continue;
+            }
             let (Some(path), Some(rev), Some(line), Some(tree_rev)) =
                 (&source.path, &source.rev, source.line, &source.tree_rev)
             else {
@@ -1308,6 +1448,7 @@ pub async fn report_threads_stack(
         frames,
         report: Some(summary),
         threads: others,
+        thread_list,
     }
 }
 
@@ -1330,11 +1471,14 @@ pub async fn stack_sym_info(
 
 /// The crash view of `stack` (see the module's documentation), for the query
 /// page (`crash-stack`'s HTML, which the query page shows as it is): its
-/// notice, its rows, and its excerpts' SYM_INFO.
+/// notice, its rows, and its excerpts' SYM_INFO; a report's threads hidden
+/// by `hide` (their states' and kinds' facet values, see `thread_hidden`)
+/// hidden at first.
 pub fn render_crash_stack(
     tree_name: &str,
     stack: &CrashStack,
     sym_info: &BTreeMap<Ustr, Option<JumprefData>>,
+    hide: &[String],
     writer: &mut dyn Write,
 ) -> std::result::Result<(), &'static str> {
     use crate::rendered_docs::escape;
@@ -1359,6 +1503,16 @@ pub fn render_crash_stack(
         true => r#"<div class="crash-view then-now-view" data-then-now="then">"#,
         false => r#"<div class="crash-view">"#,
     });
+    // (A report's breadcrumbs, which crash-view.js moves into the page's.)
+    let all_shown = !stack.threads.is_empty();
+    let summaries: BTreeMap<usize, &ThreadSummary> = stack
+        .thread_list
+        .iter()
+        .map(|summary| (summary.thread.index, summary))
+        .collect();
+    if let Some(report) = &stack.report {
+        html.push_str(&crumbs_html(tree_name, stack, report, all_shown));
+    }
     match &stack.report {
         None => html.push_str(&format!(
             r#"<div class="crash-notice"><p>The stack of the crash signature <a class="crash-signature" href="{}">{}</a>, innermost frame first: each frame beside its function's code in {}, with the lines it's believed to have been at (its calls of the frame above it) highlighted.  {} of its {} frames are functions in the tree.</p>"#,
@@ -1453,37 +1607,48 @@ pub fn render_crash_stack(
         }
         html.push_str("</ul>");
     }
-    html.push_str("</div>");
-
-    html.push_str(r#"<div class="crash-stack" role="list">"#);
-    for (position, frame) in stack.frames.iter().enumerate() {
-        html.push_str(&frame_html(
-            tree_name,
-            frame,
-            &format!("frame-{}", position),
-        ));
+    if all_shown && !stack.thread_list.is_empty() {
+        html.push_str(&facets_html(stack, hide));
     }
     html.push_str("</div>");
-    // (A report's other threads' stacks, with `crash-threads:all`.)
-    for thread in &stack.threads {
-        html.push_str(&format!(
-            r#"<h3 class="crash-thread-heading" id="thread-{}">Thread #{}{}</h3><div class="crash-stack" role="list">"#,
-            thread.thread.index,
-            thread.thread.index,
-            thread
-                .thread
-                .name
-                .as_ref()
-                .map_or_else(String::new, |name| format!(" ({})", escape(name)))
-        ));
-        for (position, frame) in thread.frames.iter().enumerate() {
-            html.push_str(&frame_html(
+
+    // The crashing thread's stack (a report's in its thread's section), and
+    // with `crash-threads:all`, the other threads'.
+    let crashing = stack
+        .report
+        .as_ref()
+        .and_then(|report| report.crashing_thread.as_ref());
+    match crashing {
+        Some(thread) => {
+            let summary = summaries.get(&thread.index).copied();
+            html.push_str(&thread_open_html(thread, summary, false));
+            html.push_str(&frames_html(
                 tree_name,
-                frame,
-                &format!("thread-{}-frame-{}", thread.thread.index, position),
+                &stack.frames,
+                &|position| format!("frame-{}", position),
+                summary.map(|summary| &summary.class.state),
             ));
+            html.push_str("</section>");
         }
-        html.push_str("</div>");
+        None => html.push_str(&frames_html(
+            tree_name,
+            &stack.frames,
+            &|position| format!("frame-{}", position),
+            None,
+        )),
+    }
+    for thread in &stack.threads {
+        let summary = summaries.get(&thread.thread.index).copied();
+        let hidden = summary.is_some_and(|summary| thread_hidden(summary, hide));
+        html.push_str(&thread_open_html(&thread.thread, summary, hidden));
+        let index = thread.thread.index;
+        html.push_str(&frames_html(
+            tree_name,
+            &thread.frames,
+            &|position| format!("thread-{}-frame-{}", index, position),
+            summary.map(|summary| &summary.class.state),
+        ));
+        html.push_str("</section>");
     }
     // (The view's.)
     html.push_str("</div>");
@@ -1512,7 +1677,438 @@ document.addEventListener("click", event => {{
         }
     )
     .map_err(|_| "Write error")?;
+    // (The breadcrumbs' menus and the facets'.)
+    if stack.report.is_some() {
+        writeln!(
+            writer,
+            r#"<script defer src="/{}/static/js/crash-view.js"></script>"#,
+            escape(tree_name)
+        )
+        .map_err(|_| "Write error")?;
+    }
     Ok(())
+}
+
+/// A thread's label (ex: "#0 (MainThread)").
+fn thread_label(thread: &ThreadInfo) -> String {
+    match &thread.name {
+        Some(name) if !name.is_empty() => format!("#{} ({})", thread.index, name),
+        _ => format!("#{}", thread.index),
+    }
+}
+
+/// Whether a thread is hidden by `hide`: its state's facet value (see
+/// `ThreadState::slug`, ex: "idle") or its kind's (see `crash_threads::slug`,
+/// ex: "graphics-thread") is one of them; the crashing thread never is.
+fn thread_hidden(summary: &ThreadSummary, hide: &[String]) -> bool {
+    summary.class.state != ThreadState::Crashed
+        && (hide.contains(&summary.class.state.slug())
+            || hide.contains(&crate::crash_threads::slug(&summary.class.kind)))
+}
+
+/// The query page's URL of `query` in `tree_name`.
+fn view_query_url(tree_name: &str, query: &str) -> String {
+    format!("/{}/query/default?q={}", tree_name, url_encode_query(query))
+}
+
+/// A report's breadcrumbs (which crash-view.js moves into the page's): the
+/// report's ID, linked to crash-stats, with a menu (crash-stats, its ID to
+/// copy, its signature's stack, the other threads' view), and the thread
+/// (the crashing one's, or with every thread's, the one scrolled to), with a
+/// picker of the threads (every thread's), or a link to every thread's; and
+/// the threads' list (`crash-thread-list`), for the picker.
+fn crumbs_html(
+    tree_name: &str,
+    stack: &CrashStack,
+    report: &CrashReport,
+    all_shown: bool,
+) -> String {
+    use crate::rendered_docs::escape;
+    let report_url = format!("https://crash-stats.mozilla.org/report/index/{}", report.id);
+    let signature_url = match report.signature.is_empty() {
+        true => String::new(),
+        false => view_query_url(
+            tree_name,
+            &format!(
+                "crash-signature:'{}'",
+                report.signature.replace('\\', "\\\\").replace('\'', "\\'")
+            ),
+        ),
+    };
+    let (threads_url, threads_label) = match (report.thread_count > 1, all_shown) {
+        (false, _) => (String::new(), String::new()),
+        (true, false) => (
+            view_query_url(
+                tree_name,
+                &format!("crash-report:{} crash-threads:all", report.id),
+            ),
+            format!("All {} threads' stacks", report.thread_count),
+        ),
+        (true, true) => (
+            view_query_url(tree_name, &format!("crash-report:{}", report.id)),
+            "Only the crashing thread's stack".to_string(),
+        ),
+    };
+    let thread = report.crashing_thread.as_ref();
+    let mut html = format!(
+        r#"<div class="crash-crumbs" hidden data-report="{}" data-report-url="{}" data-signature-url="{}" data-threads-url="{}" data-threads-label="{}"><span class="path-separator">/</span><a class="crash-crumb-report" href="{}" title="The crash report on crash-stats">{}</a><button type="button" class="crash-crumb-button" id="crash-report-menu-button" title="Open the crash report's menu" aria-expanded="false" aria-haspopup="true" aria-controls="crash-report-menu"></button><div id="crash-report-menu" title="The crash report" role="menu" class="context-menu" style="display: none"></div>"#,
+        escape(&report.id),
+        escape(&report_url),
+        escape(&signature_url),
+        escape(&threads_url),
+        escape(&threads_label),
+        escape(&report_url),
+        escape(&report.id)
+    );
+    if let Some(thread) = thread {
+        html.push_str(&format!(
+            r##"<span class="path-separator">/</span><span class="crash-crumb-thread">Thread: <a class="crash-crumb-thread-link" href="#thread-{}">{}</a></span>"##,
+            thread.index,
+            escape(&thread_label(thread))
+        ));
+        match (all_shown, report.thread_count > 1) {
+            (true, _) if !stack.thread_list.is_empty() => html.push_str(
+                r#"<button type="button" class="crash-crumb-button" id="crash-thread-picker" title="Pick a thread" aria-expanded="false" aria-haspopup="true" aria-controls="crash-thread-menu"></button><div id="crash-thread-menu" title="The threads" role="menu" class="context-menu" style="display: none"></div>"#,
+            ),
+            (false, true) => html.push_str(&format!(
+                r#" <a class="crash-crumb-all" href="{}">(with all threads)</a>"#,
+                escape(&threads_url)
+            )),
+            _ => {}
+        }
+    }
+    html.push_str("</div>");
+    if !stack.thread_list.is_empty() {
+        let shown: BTreeSet<usize> = thread
+            .map(|thread| thread.index)
+            .into_iter()
+            .chain(stack.threads.iter().map(|thread| thread.thread.index))
+            .collect();
+        let list: Vec<serde_json::Value> = stack
+            .thread_list
+            .iter()
+            .map(|summary| {
+                serde_json::json!({
+                    "index": summary.thread.index,
+                    "label": thread_label(&summary.thread),
+                    "kind": summary.class.kind,
+                    "owner": summary.class.owner,
+                    "state": summary.class.state.label(),
+                    "stateSlug": summary.class.state.slug(),
+                    "shown": shown.contains(&summary.thread.index),
+                })
+            })
+            .collect();
+        html.push_str(&format!(
+            r#"<script type="application/json" id="crash-thread-list">{}</script>"#,
+            serde_json::to_string(&list)
+                .unwrap_or_else(|_| "[]".to_string())
+                .replace('<', "\\u003c")
+        ));
+    }
+    html
+}
+
+/// The facets of a report's view with every thread's: its threads' states'
+/// and kinds' values (but the crashing thread's), with how many threads have
+/// each, checked unless `hide` has them (see `thread_hidden`), which
+/// crash-view.js hides threads by and puts in the query (`hide-threads:`).
+fn facets_html(stack: &CrashStack, hide: &[String]) -> String {
+    use crate::crash_threads::slug;
+    use crate::rendered_docs::escape;
+    // (States in the order of how much they say, then kinds by how many
+    // threads they have.)
+    let rank = |state: &ThreadState| match state {
+        ThreadState::Crashed => 0,
+        ThreadState::Notable(_) => 1,
+        ThreadState::Active => 2,
+        ThreadState::Waiting(_) => 3,
+        ThreadState::Unknown => 4,
+        ThreadState::Idle => 5,
+    };
+    let mut states: Vec<(usize, String, String, &'static str, usize)> = vec![];
+    let mut kinds: Vec<(String, String, String, usize)> = vec![];
+    for summary in &stack.thread_list {
+        let state = &summary.class.state;
+        if *state == ThreadState::Crashed {
+            continue;
+        }
+        let value = state.slug();
+        match states.iter_mut().find(|entry| entry.1 == value) {
+            Some(entry) => entry.4 += 1,
+            None => states.push((
+                rank(state),
+                value,
+                match state {
+                    ThreadState::Waiting(_) => "waiting".to_string(),
+                    state => state.label(),
+                },
+                state.description(),
+                1,
+            )),
+        }
+        let value = slug(&summary.class.kind);
+        match kinds.iter_mut().find(|entry| entry.0 == value) {
+            Some(entry) => entry.3 += 1,
+            None => kinds.push((
+                value,
+                summary.class.kind.clone(),
+                summary.class.owner.clone(),
+                1,
+            )),
+        }
+    }
+    states.sort_by(|a, b| (a.0, &a.2).cmp(&(b.0, &b.2)));
+    kinds.sort_by(|a, b| b.3.cmp(&a.3).then_with(|| a.1.cmp(&b.1)));
+    let facet = |value: &str, label: &str, title: &str, count: usize| {
+        format!(
+            r#"<label class="crash-facet" title="{}"><input type="checkbox" data-facet="{}"{}> {} <span class="crash-facet-count">{}</span></label>"#,
+            escape(title),
+            escape(value),
+            match hide.iter().any(|hidden| hidden == value) {
+                true => "",
+                false => " checked",
+            },
+            escape(label),
+            count
+        )
+    };
+    let mut html = String::from(
+        r#"<div class="crash-facets" role="group" aria-label="Which threads to show"><div class="crash-facet-group"><span class="crash-facet-heading">States</span><span class="crash-facet-values">"#,
+    );
+    for (_, value, label, description, count) in &states {
+        html.push_str(&facet(value, label, description, *count));
+    }
+    html.push_str(
+        r#"</span></div><div class="crash-facet-group"><span class="crash-facet-heading">Kinds</span><span class="crash-facet-values">"#,
+    );
+    for (value, kind, owner, count) in &kinds {
+        html.push_str(&facet(value, kind, owner, *count));
+    }
+    html.push_str("</span></div></div>");
+    html
+}
+
+/// The start of a report's thread's section (its id `thread-N`, its facets'
+/// values, and its label, for crash-view.js), `hidden` if it is, and its
+/// heading: which thread, and what it is and was doing, if it's known.
+fn thread_open_html(thread: &ThreadInfo, summary: Option<&ThreadSummary>, hidden: bool) -> String {
+    use crate::rendered_docs::escape;
+    let label = thread_label(thread);
+    let mut html = format!(
+        r#"<section class="crash-thread" id="thread-{}" data-label="{}""#,
+        thread.index,
+        escape(&label)
+    );
+    if let Some(summary) = summary {
+        html.push_str(&format!(
+            r#" data-state="{}" data-kind="{}""#,
+            escape(&summary.class.state.slug()),
+            escape(&crate::crash_threads::slug(&summary.class.kind))
+        ));
+    }
+    if hidden {
+        html.push_str(" hidden");
+    }
+    html.push_str(&format!(
+        r#"><h3 class="crash-thread-heading"><span class="crash-thread-name">Thread {}</span>"#,
+        escape(&label)
+    ));
+    if let Some(summary) = summary {
+        let class = &summary.class;
+        html.push_str(&format!(
+            r#" <span class="crash-thread-class"><span class="crash-thread-kind">{}</span> <span class="crash-thread-owner">{}</span></span> <span class="crash-thread-state crash-state-{}" title="{}">{}</span>"#,
+            escape(&class.kind),
+            escape(&class.owner),
+            escape(&class.state.slug()),
+            escape(class.state.description()),
+            escape(&class.state.label())
+        ));
+    }
+    html.push_str("</h3>");
+    html
+}
+
+/// A thread's frames' rows (see `frame_html`), `id` giving each its id by its
+/// position, but runs of its infrastructure's frames (see
+/// `CrashFrame::collapsed`: its wait, its layers) collapsed to a line each
+/// (an idle thread's all one), which shows their frames on request (see
+/// `collapsed_html`); and
+/// for a thread which isn't the crashing one (whose `state` is known), runs
+/// of its frames without code (ex: a system library's) a line each (see
+/// `compact_frame_html`).
+fn frames_html(
+    tree_name: &str,
+    frames: &[CrashFrame],
+    id: &dyn Fn(usize) -> String,
+    state: Option<&ThreadState>,
+) -> String {
+    let codeless = |frame: &CrashFrame| {
+        state.is_some_and(|state| *state != ThreadState::Crashed)
+            && frame.collapsed.is_none()
+            && frame.rows.is_empty()
+            && frame.then.is_none()
+            && frame.problem.is_none()
+    };
+    let mut html = String::from(r#"<div class="crash-stack" role="list">"#);
+    let mut at = 0;
+    while at < frames.len() {
+        if codeless(&frames[at]) {
+            let end = (at..frames.len())
+                .find(|i| !codeless(&frames[*i]))
+                .unwrap_or(frames.len());
+            html.push_str(
+                r#"<div class="crash-codeless" role="listitem"><ol class="crash-compact-frames">"#,
+            );
+            for (offset, frame) in frames[at..end].iter().enumerate() {
+                html.push_str(&compact_frame_html(
+                    tree_name,
+                    frame,
+                    &id(at + offset),
+                    None,
+                ));
+            }
+            html.push_str("</ol></div>");
+            at = end;
+            continue;
+        }
+        if frames[at].collapsed.is_none() {
+            html.push_str(&frame_html(tree_name, &frames[at], &id(at)));
+            at += 1;
+            continue;
+        }
+        let end = (at..frames.len())
+            .find(|i| frames[*i].collapsed.is_none())
+            .unwrap_or(frames.len());
+        html.push_str(&collapsed_html(tree_name, &frames[at..end], at, id, state));
+        at = end;
+    }
+    html.push_str("</div>");
+    html
+}
+
+/// A frame as a line (see `collapsed_html`, `frames_html`), with its id:
+/// which, its function's name, where (linked to the line at the build's
+/// revision, if it's the tree's; else its module and offset), and its group,
+/// if it says.
+fn compact_frame_html(
+    tree_name: &str,
+    frame: &CrashFrame,
+    id: &str,
+    group: Option<&str>,
+) -> String {
+    use crate::rendered_docs::escape;
+    use crate::url_encode_path::url_encode_path;
+    let source = frame.source.as_ref();
+    let where_ = match source {
+        Some(FrameSource {
+            path: Some(path),
+            line: Some(line),
+            tree_rev: Some(tree_rev),
+            ..
+        }) => format!(
+            r#"<a class="crash-compact-where" href="/{}/rev/{}/{}#{}">{}:{}</a>"#,
+            escape(tree_name),
+            escape(tree_rev),
+            escape(&url_encode_path(path)),
+            line,
+            escape(path),
+            line
+        ),
+        Some(FrameSource {
+            path: Some(file),
+            line: Some(line),
+            ..
+        })
+        | Some(FrameSource {
+            file: Some(file),
+            line: Some(line),
+            ..
+        }) => format!(
+            r#"<code class="crash-compact-where">{}:{}</code>"#,
+            escape(file),
+            line
+        ),
+        _ => frame.address.as_ref().map_or_else(String::new, |address| {
+            format!(
+                r#"<span class="crash-compact-where">{}</span>"#,
+                escape(address)
+            )
+        }),
+    };
+    format!(
+        r#"<li class="crash-compact-frame" id="{}"><span class="crash-frame-index">#{}</span> {}<span class="crash-frame-name">{}</span> {}{}</li>"#,
+        id,
+        frame.index,
+        match source.is_some_and(|s| s.inlined) {
+            true => {
+                r#"<span class="crash-frame-inline" title="A call inlined in the frame">inlined</span> "#
+            }
+            false => "",
+        },
+        escape(&frame.name),
+        where_,
+        group.map_or_else(String::new, |group| format!(
+            r#" <span class="crash-compact-group">{}</span>"#,
+            escape(group)
+        ))
+    )
+}
+
+/// A run of a thread's infrastructure's frames (see `frames_html`, whose
+/// first is at `start`), as a line: its groups (its wait, its layers, ex:
+/// "XPCOM event loop", or its idle point, each once), and how many frames;
+/// which shows their frames on request, a line each, with its group if
+/// there are several (see `compact_frame_html`).
+fn collapsed_html(
+    tree_name: &str,
+    frames: &[CrashFrame],
+    start: usize,
+    id: &dyn Fn(usize) -> String,
+    state: Option<&ThreadState>,
+) -> String {
+    use crate::rendered_docs::escape;
+    let group_name = |group: &str| match group {
+        "wait" => match state {
+            Some(state @ ThreadState::Waiting(_)) => state.label(),
+            _ => "its wait".to_string(),
+        },
+        "idle" => "its idle point".to_string(),
+        layer => layer.to_string(),
+    };
+    let mut names: Vec<String> = vec![];
+    for frame in frames {
+        let name = group_name(frame.collapsed.as_deref().unwrap_or_default());
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    let (first, last) = (frames[0].index, frames[frames.len() - 1].index);
+    let mut html = format!(
+        r#"<div class="crash-collapsed{}" role="listitem"><details><summary><span class="crash-collapsed-names">{}</span> <span class="crash-collapsed-count">{} frame{}, {}</span></summary><ol class="crash-compact-frames">"#,
+        match state == Some(&ThreadState::Idle) {
+            true => " crash-collapsed-idle",
+            false => "",
+        },
+        escape(&names.join(" › ")),
+        frames.len(),
+        if frames.len() == 1 { "" } else { "s" },
+        match first == last {
+            true => format!("#{}", first),
+            false => format!("#{}–#{}", first, last),
+        }
+    );
+    for (offset, frame) in frames.iter().enumerate() {
+        let group = group_name(frame.collapsed.as_deref().unwrap_or_default());
+        html.push_str(&compact_frame_html(
+            tree_name,
+            frame,
+            &id(start + offset),
+            (names.len() > 1).then_some(group.as_str()),
+        ));
+    }
+    html.push_str("</ol></details></div>");
+    html
 }
 
 /// How a crash report's crash was (ex: "SIGSEGV at 0x0"), and in which thread

@@ -1,0 +1,610 @@
+{
+ "_comment": "A crash report's fixture (crash-stats' processed crash, as tests/webtest-config.json's crash_reports_url has it) for the crash view's threads (see tools/src/crash_threads.rs and config_defaults/crash-threads.toml): a crashing main thread whose frames are in the searchfox tree's tools/src/blame.rs, above its event loop; threads idle at their waits (a timer's, a TaskController pool's, a Stylo worker's), a DOM Worker shutting down, a TaskController pool's waiting in its own code, an active Gecko thread, and one without symbols.",
+ "uuid": "5e4c0b1a-7e57-4c0d-8e5a-000000261101",
+ "product": "Searchfox",
+ "version": "1.0a1",
+ "release_channel": "nightly",
+ "build": "20261101000000",
+ "os_pretty_version": "Linux",
+ "signature": "tools::blame::find_phab_rev",
+ "json_dump": {
+  "crash_info": {
+   "type": "SIGSEGV / SEGV_MAPERR",
+   "address": "0x0",
+   "crashing_thread": 0
+  },
+  "threads": [
+   {
+    "frames": [
+     {
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "frame": 0,
+      "function": "tools::blame::find_phab_rev(core::str::Split<char>)",
+      "line": 12,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100040",
+      "trust": "context"
+     },
+     {
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "frame": 1,
+      "function": "tools::blame::commit_header_patch(git2::Commit const&)",
+      "line": 79,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100080",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 2,
+      "function": "nsThread::ProcessNextEvent(bool, bool*)",
+      "line": 1199,
+      "module": "libxul.so",
+      "module_offset": "0x00000000001000c0",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThreadUtils.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 3,
+      "function": "NS_ProcessNextEvent(nsIThread*, bool)",
+      "line": 480,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100100",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/glue/MessagePump.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 4,
+      "function": "mozilla::ipc::MessagePump::Run(base::MessagePump::Delegate*)",
+      "line": 85,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100140",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/chromium/src/base/message_loop.cc:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 5,
+      "function": "MessageLoop::Run()",
+      "line": 368,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100180",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:widget/nsBaseAppShell.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 6,
+      "function": "nsBaseAppShell::Run()",
+      "line": 150,
+      "module": "libxul.so",
+      "module_offset": "0x00000000001001c0",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:toolkit/xre/nsAppRunner.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 7,
+      "function": "XRE_main(int, char**, mozilla::BootstrapConfig const&)",
+      "line": 6200,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100200",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:browser/app/nsBrowserApp.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 8,
+      "function": "main",
+      "line": 444,
+      "module": "firefox",
+      "module_offset": "0x0000000000100240",
+      "trust": "cfi"
+     }
+    ],
+    "frame_count": 9,
+    "thread_name": "MainThread"
+   },
+   {
+    "frames": [
+     {
+      "frame": 0,
+      "function": "__futex_abstimed_wait_common",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100280",
+      "trust": "context"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:mozglue/misc/ConditionVariable_posix.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 1,
+      "function": "mozilla::detail::ConditionVariableImpl::wait_for(mozilla::detail::MutexImpl&, mozilla::BaseTimeDuration<mozilla::TimeDurationValueCalculator> const&)",
+      "line": 139,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100300",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/TimerThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 2,
+      "function": "TimerThread::Run()",
+      "line": 1011,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100340",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 3,
+      "function": "nsThread::ProcessNextEvent(bool, bool*)",
+      "line": 1199,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100380",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThreadUtils.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 4,
+      "function": "NS_ProcessNextEvent(nsIThread*, bool)",
+      "line": 480,
+      "module": "libxul.so",
+      "module_offset": "0x00000000001003c0",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/glue/MessagePump.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 5,
+      "function": "mozilla::ipc::MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate*)",
+      "line": 330,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100400",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/chromium/src/base/message_loop.cc:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 6,
+      "function": "MessageLoop::Run()",
+      "line": 368,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100440",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 7,
+      "function": "nsThread::ThreadFunc(void*)",
+      "line": 373,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100480",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:nsprpub/pr/src/pthreads/ptthread.c:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 8,
+      "function": "_pt_root",
+      "line": 191,
+      "module": "libnspr4.so",
+      "module_offset": "0x00000000001004c0",
+      "trust": "cfi"
+     },
+     {
+      "frame": 9,
+      "function": "start_thread",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100500",
+      "trust": "cfi"
+     },
+     {
+      "frame": 10,
+      "function": "__clone3",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100540",
+      "trust": "cfi"
+     }
+    ],
+    "frame_count": 11,
+    "thread_name": "Timer"
+   },
+   {
+    "frames": [
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThreadUtils.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 0,
+      "function": "NS_ProcessPendingEvents(nsIThread*, mozilla::TimeDuration)",
+      "line": 436,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100580",
+      "trust": "context"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:dom/workers/RuntimeService.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 1,
+      "function": "mozilla::dom::workerinternals::(anonymous namespace)::WorkerThreadPrimaryRunnable::Run()",
+      "line": 2273,
+      "module": "libxul.so",
+      "module_offset": "0x00000000001005c0",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 2,
+      "function": "nsThread::ProcessNextEvent(bool, bool*)",
+      "line": 1199,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100600",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThreadUtils.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 3,
+      "function": "NS_ProcessNextEvent(nsIThread*, bool)",
+      "line": 480,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100640",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/glue/MessagePump.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 4,
+      "function": "mozilla::ipc::MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate*)",
+      "line": 330,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100680",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/chromium/src/base/message_loop.cc:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 5,
+      "function": "MessageLoop::Run()",
+      "line": 368,
+      "module": "libxul.so",
+      "module_offset": "0x00000000001006c0",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 6,
+      "function": "nsThread::ThreadFunc(void*)",
+      "line": 373,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100700",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:nsprpub/pr/src/pthreads/ptthread.c:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 7,
+      "function": "_pt_root",
+      "line": 191,
+      "module": "libnspr4.so",
+      "module_offset": "0x0000000000100740",
+      "trust": "cfi"
+     },
+     {
+      "frame": 8,
+      "function": "start_thread",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100780",
+      "trust": "cfi"
+     },
+     {
+      "frame": 9,
+      "function": "__clone3",
+      "module": "libc.so.6",
+      "module_offset": "0x00000000001007c0",
+      "trust": "cfi"
+     }
+    ],
+    "frame_count": 10,
+    "thread_name": "DOM Worker"
+   },
+   {
+    "frames": [
+     {
+      "frame": 0,
+      "function": "__futex_abstimed_wait_common",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100800",
+      "trust": "context"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:mozglue/misc/ConditionVariable_posix.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 1,
+      "function": "mozilla::detail::ConditionVariableImpl::wait(mozilla::detail::MutexImpl&)",
+      "line": 104,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100840",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozsearch/mozsearch:tools/src/blame.rs:50df75fc5253890347bfac70037bc7ad42316862",
+      "frame": 2,
+      "function": "tools::blame::LineData::serialize(alloc::string::String*)",
+      "line": 169,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100880",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/TaskController.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 3,
+      "function": "mozilla::TaskController::RunPoolThread(mozilla::PoolThread*)",
+      "line": 389,
+      "module": "libxul.so",
+      "module_offset": "0x00000000001008c0",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/TaskController.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 4,
+      "function": "mozilla::ThreadFuncPoolThread(void*)",
+      "line": 62,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100900",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:nsprpub/pr/src/pthreads/ptthread.c:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 5,
+      "function": "_pt_root",
+      "line": 191,
+      "module": "libnspr4.so",
+      "module_offset": "0x0000000000100940",
+      "trust": "cfi"
+     },
+     {
+      "frame": 6,
+      "function": "start_thread",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100980",
+      "trust": "cfi"
+     },
+     {
+      "frame": 7,
+      "function": "__clone3",
+      "module": "libc.so.6",
+      "module_offset": "0x00000000001009c0",
+      "trust": "cfi"
+     }
+    ],
+    "frame_count": 8,
+    "thread_name": "TaskController #1"
+   },
+   {
+    "frames": [
+     {
+      "frame": 0,
+      "function": "syscall",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100a00",
+      "trust": "context"
+     },
+     {
+      "file": "/rustc/1159e78c4747b02ef996e55082b704c09b970588/library/std/src/sys/sync/condvar/futex.rs",
+      "frame": 1,
+      "function": "<std::sys::sync::condvar::futex::Condvar>::wait",
+      "line": 29,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100a40",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:third_party/rust/rayon-core/src/registry.rs:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 2,
+      "function": "<rayon_core::registry::WorkerThread>::wait_until_cold",
+      "line": 820,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100a80",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:third_party/rust/rayon-core/src/registry.rs:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 3,
+      "function": "<rayon_core::registry::ThreadBuilder>::run",
+      "line": 54,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100ac0",
+      "trust": "cfi"
+     },
+     {
+      "file": "/rustc/1159e78c4747b02ef996e55082b704c09b970588/library/std/src/sys/backtrace.rs",
+      "frame": 4,
+      "function": "std::sys::backtrace::__rust_begin_short_backtrace::<style::global_style_data::thread_spawn::{closure#0}, ()>",
+      "line": 158,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100b00",
+      "trust": "cfi"
+     },
+     {
+      "file": "/rustc/1159e78c4747b02ef996e55082b704c09b970588/library/std/src/sys/thread/unix.rs",
+      "frame": 5,
+      "function": "<std::sys::thread::unix::Thread>::new::thread_start",
+      "line": 110,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100b40",
+      "trust": "cfi"
+     },
+     {
+      "frame": 6,
+      "function": "start_thread",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100bc0",
+      "trust": "cfi"
+     },
+     {
+      "frame": 7,
+      "function": "__clone3",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100c00",
+      "trust": "cfi"
+     }
+    ],
+    "frame_count": 8,
+    "thread_name": "StyleThread#0"
+   },
+   {
+    "frames": [
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:netwerk/system/netlink/NetlinkService.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 0,
+      "function": "mozilla::net::NetlinkService::Run()",
+      "line": 1080,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100c40",
+      "trust": "context"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 1,
+      "function": "nsThread::ProcessNextEvent(bool, bool*)",
+      "line": 1199,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100c80",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThreadUtils.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 2,
+      "function": "NS_ProcessNextEvent(nsIThread*, bool)",
+      "line": 480,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100cc0",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/glue/MessagePump.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 3,
+      "function": "mozilla::ipc::MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate*)",
+      "line": 330,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100d00",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:ipc/chromium/src/base/message_loop.cc:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 4,
+      "function": "MessageLoop::Run()",
+      "line": 368,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100d40",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/nsThread.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 5,
+      "function": "nsThread::ThreadFunc(void*)",
+      "line": 373,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100d80",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:nsprpub/pr/src/pthreads/ptthread.c:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 6,
+      "function": "_pt_root",
+      "line": 191,
+      "module": "libnspr4.so",
+      "module_offset": "0x0000000000100dc0",
+      "trust": "cfi"
+     },
+     {
+      "frame": 7,
+      "function": "start_thread",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100e00",
+      "trust": "cfi"
+     },
+     {
+      "frame": 8,
+      "function": "__clone3",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100e40",
+      "trust": "cfi"
+     }
+    ],
+    "frame_count": 9,
+    "thread_name": "Link Monitor"
+   },
+   {
+    "frames": [
+     {
+      "frame": 0,
+      "function": "__futex_abstimed_wait_common",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100e80",
+      "trust": "context"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:mozglue/misc/ConditionVariable_posix.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 1,
+      "function": "mozilla::detail::ConditionVariableImpl::wait(mozilla::detail::MutexImpl&)",
+      "line": 104,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100ec0",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/TaskController.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 2,
+      "function": "mozilla::TaskController::RunPoolThread(mozilla::PoolThread*)",
+      "line": 380,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100f00",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:xpcom/threads/TaskController.cpp:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 3,
+      "function": "mozilla::ThreadFuncPoolThread(void*)",
+      "line": 62,
+      "module": "libxul.so",
+      "module_offset": "0x0000000000100f40",
+      "trust": "cfi"
+     },
+     {
+      "file": "git:github.com/mozilla-firefox/firefox:nsprpub/pr/src/pthreads/ptthread.c:7af81fe4a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
+      "frame": 4,
+      "function": "_pt_root",
+      "line": 191,
+      "module": "libnspr4.so",
+      "module_offset": "0x0000000000100f80",
+      "trust": "cfi"
+     },
+     {
+      "frame": 5,
+      "function": "start_thread",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000100fc0",
+      "trust": "cfi"
+     },
+     {
+      "frame": 6,
+      "function": "__clone3",
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000101000",
+      "trust": "cfi"
+     }
+    ],
+    "frame_count": 7,
+    "thread_name": "TaskController #2"
+   },
+   {
+    "frames": [
+     {
+      "frame": 0,
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000101040",
+      "trust": "context"
+     },
+     {
+      "frame": 1,
+      "module": "libc.so.6",
+      "module_offset": "0x0000000000101080",
+      "trust": "scan"
+     },
+     {
+      "frame": 2,
+      "module": "libc.so.6",
+      "module_offset": "0x00000000001010c0",
+      "trust": "scan"
+     }
+    ],
+    "frame_count": 3
+   }
+  ]
+ }
+}
