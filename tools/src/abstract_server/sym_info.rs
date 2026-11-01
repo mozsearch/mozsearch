@@ -79,6 +79,51 @@ pub fn html_symbols(html: &str) -> Vec<Ustr> {
     syms
 }
 
+/// The structured information's platform variants and methods, which nothing
+/// on the pages built over a server uses (their context menus don't), and
+/// which are most of it for big classes (ex: 17.5 of the 22 MB for
+/// "nsIPrincipal" on firefox, with 2 MB for `Document`; 27 of the 29 MB for
+/// "XPCJSContext" on firefox-disco, in a crash report's view).
+pub const UNUSED_META: [&str; 2] = ["variants", "methods"];
+
+/// Removes the `UNUSED_META` of the symbols of SYM_INFO's JSON `sym_info`,
+/// and their supers' layouts (their own supers' and fields', which the
+/// context menu doesn't use either: 1.8 MB for "XPCJSContext").
+pub fn strip_unused_meta(sym_info: &mut serde_json::Value) {
+    for jumpref in sym_info
+        .as_object_mut()
+        .into_iter()
+        .flat_map(|syms| syms.values_mut())
+    {
+        if let Some(meta) = jumpref
+            .get_mut("meta")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            for key in UNUSED_META {
+                meta.remove(key);
+            }
+            for sup in meta
+                .get_mut("supers")
+                .and_then(serde_json::Value::as_array_mut)
+                .into_iter()
+                .flatten()
+            {
+                if let Some(sup) = sup.as_object_mut() {
+                    sup.remove("layout");
+                }
+            }
+        }
+    }
+}
+
+/// `sym_info` as JSON for a page's script (without its symbols'
+/// `UNUSED_META`, and with its "<"s escaped).
+pub fn script_json(sym_info: &BTreeMap<Ustr, Option<JumprefData>>) -> String {
+    let mut value = serde_json::to_value(sym_info).unwrap_or_else(|_| serde_json::json!({}));
+    strip_unused_meta(&mut value);
+    value.to_string().replace('<', "\\u003c")
+}
+
 /// `add_sym_info` for each of `syms` (in order) that `sym_info` doesn't
 /// have, with their jumprefs prefetched (see
 /// `AbstractServer::prefetch_jumpref`).
@@ -109,4 +154,37 @@ pub async fn add_html_sym_info(
     traversed: &mut UstrMap<JumprefTraversals>,
 ) {
     add_syms_info(server, html_symbols(html), sym_info, traversed).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    #[test]
+    fn test_strip_unused_meta() {
+        // (A class's variants, methods and supers' layouts go; the rest,
+        // and symbols without jumprefs, stay.)
+        let mut info = json!({
+            "T_A": {"sym": "T_A", "meta": {
+                "kind": "class",
+                "variants": [{"platforms": ["linux64"]}],
+                "methods": [{"sym": "_ZN1A1fEv"}],
+                "supers": [{"sym": "T_B", "props": [], "layout": {"supers": [], "fields": []}}],
+                "fields": [{"pretty": "A::x"}],
+            }},
+            "T_C": null,
+        });
+        super::strip_unused_meta(&mut info);
+        assert_eq!(
+            info,
+            json!({
+                "T_A": {"sym": "T_A", "meta": {
+                    "kind": "class",
+                    "supers": [{"sym": "T_B", "props": []}],
+                    "fields": [{"pretty": "A::x"}],
+                }},
+                "T_C": null,
+            })
+        );
+    }
 }

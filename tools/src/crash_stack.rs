@@ -1491,8 +1491,8 @@ pub fn render_crash_stack(
         .write_all(html.as_bytes())
         .map_err(|_| "Write error")?;
 
-    // (The excerpts' symbols' SYM_INFO, beside the page's, with its "<"s
-    // escaped.)
+    // (The excerpts' symbols' SYM_INFO, beside the page's, without what
+    // nothing uses; see `sym_info::script_json`.)
     writeln!(
         writer,
         r#"<script>window.SYM_INFO = Object.assign(window.SYM_INFO || {{}}, {});
@@ -1505,9 +1505,7 @@ document.addEventListener("click", event => {{
   unfold.previousElementSibling.hidden = false;
   unfold.remove();
 }});{}</script>"#,
-        serde_json::to_string(sym_info)
-            .unwrap_or_else(|_| "{}".to_string())
-            .replace('<', "\\u003c"),
+        sym_info::script_json(sym_info),
         match has_then {
             true => THEN_NOW_SCRIPT,
             false => "",

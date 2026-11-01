@@ -304,10 +304,8 @@ fn graph_facets_value(
 /// `FlattenedResultsBundle::inline_contexts`), and of the extra symbols the
 /// context menu uses (ex: an XPIDL method's C++ binding), so that clicking a
 /// symbol in them works like in a source listing.  But without the
-/// structured information's platform variants and methods, which nothing on
-/// the page uses, and which are most of it for big classes (ex: 17.5 of the
-/// 22 MB for "nsIPrincipal" on firefox, with 2 MB for `Document`).
-const UNUSED_META: [&str; 2] = ["variants", "methods"];
+/// structured information's platform variants and methods (see
+/// `sym_info::UNUSED_META`).
 
 async fn results_sym_info(
     server: &(dyn AbstractServer + Send + Sync),
@@ -339,13 +337,9 @@ async fn results_sym_info(
                 jumpref.remove("recency");
                 jumpref.remove("recency_from");
             }
-            if let Some(meta) = jumpref.get_mut("meta").and_then(Value::as_object_mut) {
-                for key in UNUSED_META {
-                    meta.remove(key);
-                }
-            }
         }
     }
+    sym_info::strip_unused_meta(&mut sym_info);
     sym_info.to_string()
 }
 

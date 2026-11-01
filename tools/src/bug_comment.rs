@@ -1679,9 +1679,7 @@ for (const time of document.querySelectorAll(".bmo-change-time[datetime]")) {{
   const count = unit && Math.floor(seconds / size);
   time.textContent = unit ? `${{count}} ${{unit}}${{count == 1 ? "" : "s"}} ago` : "just now";
 }}</script>"#,
-        serde_json::to_string(sym_info)
-            .unwrap_or_else(|_| "{}".to_string())
-            .replace('<', "\\u003c"),
+        sym_info::script_json(sym_info),
         match has_then {
             true => crate::crash_stack::THEN_NOW_SCRIPT,
             false => "",
