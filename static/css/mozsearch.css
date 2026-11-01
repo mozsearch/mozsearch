@@ -6024,6 +6024,12 @@ textarea.monospace {
 .crash-view {
   --crash-columns: minmax(0, 1fr) 26em;
 }
+/* (Its code, but both then and now side by side, is about as wide as its
+   lines, so that the frames' info is beside it, rather than across the rest
+   of a wide window.) */
+.crash-view:not(.bug-comment-view):not([data-then-now="both"]) {
+  --crash-columns: minmax(0, 110ch) 26em;
+}
 .crash-notice {
   max-width: 60em;
   margin: 0.5em 1em 1em;

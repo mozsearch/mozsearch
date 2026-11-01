@@ -1658,16 +1658,50 @@ pub(crate) fn then_now_modes_html(then: &str, now: &str) -> String {
 /// The script of `then_now_modes_html`'s buttons.
 pub(crate) const THEN_NOW_SCRIPT: &str = r#"
 // (Which code the view shows beside what it's of: then, now, or both side by
-// side; see crash_stack.rs's `then_now_modes_html`.)
+// side; see crash_stack.rs's `then_now_modes_html`.  At first, both if there's
+// room for two columns of code beside what they're of, else then, again as the
+// window's resized, until a button's pressed.)
+function showThenNow(view, mode) {
+  view.dataset.thenNow = mode;
+  for (const button of view.querySelectorAll(".then-now-modes button[data-mode]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.mode == mode));
+  }
+}
+function fitThenNow() {
+  for (const view of document.querySelectorAll(".then-now-view:not([data-then-now-chosen])")) {
+    const pair = view.querySelector(".then-now");
+    const area = pair?.closest(".bug-comment-cards, .crash-stack");
+    const line = pair?.querySelector(".source-line");
+    if (!area || !line) {
+      continue;
+    }
+    // (A column of code is about 100 of its characters, and the crash view's
+    // frames' info is beside them.)
+    const probe = document.createElement("span");
+    probe.style.cssText = "position: absolute; visibility: hidden; white-space: pre";
+    probe.style.font = getComputedStyle(line).font;
+    probe.textContent = "0".repeat(100);
+    document.body.append(probe);
+    const column = probe.getBoundingClientRect().width;
+    probe.remove();
+    let room = area.clientWidth;
+    const info = area.matches(".crash-stack") && area.querySelector(".crash-frame-info");
+    if (info) {
+      room -= info.getBoundingClientRect().width + 24;
+    }
+    showThenNow(view, room >= 2 * column + 16 ? "both" : "then");
+  }
+}
+fitThenNow();
+window.addEventListener("resize", fitThenNow);
 document.addEventListener("click", event => {
   const button = event.target.closest(".then-now-modes button[data-mode]");
   if (!button) {
     return;
   }
-  button.closest(".then-now-view").dataset.thenNow = button.dataset.mode;
-  for (const other of button.parentElement.querySelectorAll("button")) {
-    other.setAttribute("aria-pressed", String(other == button));
-  }
+  const view = button.closest(".then-now-view");
+  view.dataset.thenNowChosen = "";
+  showThenNow(view, button.dataset.mode);
 });"#;
 
 /// A frame's row of the crash view (see `render_crash_stack`; and of a

@@ -103,7 +103,11 @@ add_task(async function test_BugCommentThenNow() {
   // side by side.)
   await TestUtils.loadQuery("searchfox", "bug-comment:1234567/1");
   const view = doc().querySelector(".then-now-view");
-  is(view?.dataset.thenNow, "then", "The view shows the code then at first");
+  // (At first, both side by side if there's room for two columns of code,
+  // else then.)
+  ok(["then", "both"].includes(view?.dataset.thenNow),
+     `The view shows the code then at first, or both if there's room (${view?.dataset.thenNow})`);
+  TestUtils.click(doc().querySelector('.then-now-modes button[data-mode="then"]'));
   is([...doc().querySelectorAll(".then-now-modes button")].map(button => button.textContent).join("|"),
      "Then|Now|Then & Now", "and offers it now, or both");
   const about = text(".then-about") || "";

@@ -78,7 +78,11 @@ add_task(async function test_CrashReportThenNow() {
   // code now; or both side by side.)
   await TestUtils.loadQuery("searchfox", `crash-report:${ID}`);
   const view = doc().querySelector(".then-now-view");
-  is(view?.dataset.thenNow, "then", "The view shows the code then at first");
+  // (At first, both side by side if there's room for two columns of code,
+  // else then.)
+  ok(["then", "both"].includes(view?.dataset.thenNow),
+     `The view shows the code then at first, or both if there's room (${view?.dataset.thenNow})`);
+  TestUtils.click(doc().querySelector('.then-now-modes button[data-mode="then"]'));
   is([...doc().querySelectorAll(".then-now-modes button")].map(button => button.textContent).join("|"),
      "Then|Now|Then & Now", "and offers it now, or both");
   ok(doc().querySelector(".then-about")?.textContent.includes("at the build's revision"),
@@ -106,6 +110,24 @@ add_task(async function test_CrashReportThenNow() {
   is(frame.contentWindow.getComputedStyle(info.querySelector(".then-now")).display, "grid", "side by side");
   TestUtils.click(then_);
   ok(shown(then) && !shown(info.querySelector(".now-code")), "and Then the code then again");
+
+  // (Its mode at first is by its width, until a button's pressed: both if
+  // there's room for two columns of code beside the frames' info, else then;
+  // and its code, but both, is about as wide as its lines.)
+  delete view.dataset.thenNowChosen;
+  view.style.width = "900px";
+  frame.contentWindow.fitThenNow();
+  is(view.dataset.thenNow, "then", "A narrow view shows the code then");
+  view.style.width = "3000px";
+  frame.contentWindow.fitThenNow();
+  is(view.dataset.thenNow, "both", "and a wide one both");
+  TestUtils.click(then_);
+  ok(info.querySelector(".crash-code").getBoundingClientRect().width < 1200,
+     "Its code alone is about as wide as its lines, beside the frames' info");
+  TestUtils.click(both);
+  view.style.width = "900px";
+  frame.contentWindow.dispatchEvent(new frame.contentWindow.Event("resize"));
+  is(view.dataset.thenNow, "both", "A pressed button's mode stays as the window's resized");
 });
 
 add_task(async function test_CrashReportDwim() {
