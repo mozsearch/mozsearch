@@ -1,0 +1,16 @@
+# The tests tree's semantic coverage (see the tools' `semantic_coverage`):
+# python/coverage/'s files are left out of scip-python's analysis (see
+# build), known_gap.py as a known gap, unexpected.py not, for their source
+# listings' "No Semantic Analysis" info boxes (see webtest
+# test_SemanticCoverage).
+[[language]]
+name = "Python"
+extensions = ["py"]
+analyzer = "scip-python"
+symbol_prefixes = ["S_py_"]
+bug_search = "searchfox python"
+
+[[gap]]
+paths = ["python/coverage/known_gap.py"]
+reason = "It's left out of scip-python's analysis, to test this info box."
+bug = 1999118

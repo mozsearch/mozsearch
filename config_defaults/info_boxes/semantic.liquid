@@ -1,0 +1,30 @@
+{%- comment %}A file without the semantic analysis its language's files have in this
+tree (see tools/src/semantic_coverage.rs and the tree's `semantic_coverage`
+file): why, if it's a known gap (with its bug), else a warning that it's
+unexpected, with a Bugzilla search for its bug (bug 1789515).  On one line, as
+the test info box's.{% endcomment -%}
+{%- if semantic -%}
+  {%- if semantic.reason != "" %}
+  <section class="info-box info-box-info info-box-concise info-box-semantic">
+    <h4>No Semantic Analysis</h4>
+    <span class="info-box-facts">
+      <span class="info-box-fact">{{ semantic.analyzer | escape }} doesn't analyze this {{ semantic.language | escape }} file</span>
+      <span class="info-box-fact">{{ semantic.reason | escape }}</span>
+    </span>
+    {%- if semantic.bug %}
+    <a class="info-box-details" href="https://bugzilla.mozilla.org/show_bug.cgi?id={{ semantic.bug }}">Bug {{ semantic.bug }}</a>
+    {%- endif %}
+  </section>
+  {%- else %}
+  <section class="info-box info-box-warning info-box-concise info-box-semantic">
+    <h4>No Semantic Analysis</h4>
+    <span class="info-box-facts">
+      <span class="info-box-fact">This tree's {{ semantic.language | escape }} files are analyzed with {{ semantic.analyzer | escape }}, but this one has no analysis</span>
+      <span class="info-box-fact">which may be a bug</span>
+    </span>
+    {%- if semantic.bug_search != "" %}
+    <a class="info-box-details" href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ semantic.bug_search | url_encode }}">Search Bugzilla</a>
+    {%- endif %}
+  </section>
+  {%- endif -%}
+{%- endif -%}

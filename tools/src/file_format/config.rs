@@ -239,6 +239,12 @@ pub struct TreeConfigPaths {
     /// views (ex: searches) have them.
     #[serde(default)]
     pub excluded_citation_paths: Vec<String>,
+    /// The tree's semantic coverage file, a path in the config repo (ex:
+    /// "firefox-shared/semantic-coverage.toml"), whose languages' files
+    /// without their analysis have the "No Semantic Analysis" info box (see
+    /// `semantic_coverage`).
+    #[serde(default)]
+    pub semantic_coverage: Option<String>,
     /// Where the tree's pages send searches: router.py's `/search` (the
     /// default), or the pipeline-server's `/query/default` (`"query"`); see
     /// `SearchEndpoint` and `search_url`.

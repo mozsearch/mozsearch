@@ -5353,6 +5353,9 @@ pub fn format_rendered(
             _ => liquid::model::Value::Nil,
         },
     );
+    // (A rendered view's info boxes don't say of its file's semantic
+    // analysis, which its source listing's do.)
+    globals.insert("semantic".into(), liquid::model::Value::Nil);
     let info_boxes = crate::templating::info_boxes::InfoBoxes::cached(cfg).render(&globals);
     if !info_boxes.trim().is_empty() {
         writeln!(

@@ -123,6 +123,8 @@ pub mod pull_requests;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod semantic_analyzer;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod semantic_coverage;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod sidecars;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod source_mapping;

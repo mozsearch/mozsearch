@@ -109,7 +109,12 @@ done
 ## Python Stuff
 echo "Performing build::scip-python step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
+# (Leaving out python/coverage/'s files, for their info boxes; see
+# ../semantic-coverage.toml.  With pyright's default exclusions, which an
+# `exclude` replaces.)
+echo '{"exclude": ["python/coverage", "**/node_modules", "**/__pycache__", "**/.*"]}' > pyrightconfig.json
 scip-python index --show-progress-rate-limit 0 --project-name python --project-version 0.0.0 --environment ../python-scip-env.json --output python.scip
+rm pyrightconfig.json
 mv python.scip $INDEX_ROOT
 
 echo "Performing build::scip-indexer-python step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"

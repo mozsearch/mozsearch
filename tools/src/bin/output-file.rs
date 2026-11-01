@@ -34,6 +34,7 @@ use tools::format::{
     tests_firefox_dev_panel_item, tree_specs,
 };
 use tools::languages;
+use tools::semantic_coverage::SemanticCoverage;
 use tools::templating::info_boxes::InfoBoxes;
 use tools::url_encode_path::url_encode_path;
 
@@ -151,6 +152,17 @@ fn main() {
 
     let pre_templates = Instant::now();
     let info_boxes = InfoBoxes::load(&cfg);
+    // (The tree's languages' files without their semantic analysis have its
+    // info box; see `semantic_coverage`.)
+    let semantic_coverage = tree_config
+        .paths
+        .semantic_coverage
+        .as_ref()
+        .and_then(|path| {
+            SemanticCoverage::load(&cfg.config_repo_path, path)
+                .map_err(|e| eprintln!("Bad semantic coverage file: {}", e))
+                .ok()
+        });
     let panel_section_templates = InfoBoxes::load_dir(&cfg, "panel_sections");
     let source_file_other_tools_panel_liquid_str = cfg
         .read_tree_config_file_with_default("source_file_other_tools_panels.liquid")
@@ -730,6 +742,21 @@ fn main() {
         liquid_globals
             .entry("spec")
             .or_insert(liquid::model::Value::Nil);
+        // (Its missing semantic analysis, if its language's files have it.)
+        let missing = semantic_coverage.as_ref().and_then(|coverage| {
+            coverage.missing(
+                &path,
+                analysis
+                    .iter()
+                    .flat_map(|group| group.data.iter().flat_map(|source| &source.sym)),
+            )
+        });
+        liquid_globals.insert(
+            "semantic".into(),
+            missing.map_or(liquid::model::Value::Nil, |missing| {
+                liquid::model::to_value(&missing).unwrap_or(liquid::model::Value::Nil)
+            }),
+        );
         let source_file_info_boxes = info_boxes.render(&liquid_globals);
         // (The templates' panel sections, after the "Source code" one.)
         let at = panel

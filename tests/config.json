@@ -17,6 +17,7 @@
       "objdir_path": "$WORKING/tests/objdir",
       "wpt_root": "testing/web-platform",
       "excluded_citation_paths": ["third_party/node/"],
+      "semantic_coverage": "tests/semantic-coverage.toml",
       "dataflow_summaries": true,
       "codesearch_path": "$WORKING/tests/livegrep.idx",
       "codesearch_port": 8080,
