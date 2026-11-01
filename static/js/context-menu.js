@@ -1411,9 +1411,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       return;
     }
 
-    // Tree switcher is inside breadcrumbs, but it has its own menu.
+    // Tree switcher is inside breadcrumbs, but it has its own menu, as do
+    // the other buttons opening menus (ex: the crash view's thread picker),
+    // and the crash view's breadcrumbs (see crash-view.js).
     if (event.target.closest("#tree-switcher") ||
-        event.target.closest("#tree-switcher-menu")) {
+        event.target.closest("#tree-switcher-menu") ||
+        event.target.closest("[aria-haspopup]") ||
+        event.target.closest(".crash-crumbs")) {
       return;
     }
 
@@ -2608,7 +2612,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
     if (!suppressSubstring) {
       // A word was clicked on, or a link, whose searches are for it instead.
-      const words = sourceLink ? linkSearchTexts(sourceLink) : [getTargetWord()];
+      const words = sourceLink ? linkSearchTexts(sourceLink) : [getTargetWord(event)];
       for (const word of words.filter(Boolean)) {
         textSearchMenuItems.push(new MenuItem({
           html: this.fmt("Search for the substring <strong>_</strong>", word),
@@ -3014,15 +3018,38 @@ function linkSearchTexts(link) {
   return texts;
 }
 
-function getTargetWord() {
-  let selection = window.getSelection();
-  if (!selection.isCollapsed) {
+// The word `event` clicked on, if it clicked on one: the word at its point
+// (not the selection's, which a click elsewhere than on text, ex: on a
+// diagram's background or on a button, leaves where an earlier click put
+// it), in its target; or for a click without a point (ex: the keyboard's),
+// the selection's, in its target.
+function getTargetWord(event) {
+  const hasPoint = event.detail > 0 || event.clientX || event.clientY;
+  let node = null;
+  let offset = 0;
+  if (hasPoint) {
+    if (document.caretPositionFromPoint) {
+      const position = document.caretPositionFromPoint(event.clientX, event.clientY);
+      node = position?.offsetNode;
+      offset = position?.offset;
+    } else if (document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(event.clientX, event.clientY);
+      node = range?.startContainer;
+      offset = range?.startOffset;
+    }
+  } else {
+    const selection = window.getSelection();
+    if (!selection.isCollapsed) {
+      return null;
+    }
+    node = selection.anchorNode;
+    offset = selection.focusOffset;
+  }
+  if (node?.nodeType != Node.TEXT_NODE || !event.target.contains(node)) {
     return null;
   }
 
-  let offset = selection.focusOffset;
-  let node = selection.anchorNode;
-  let string = node?.nodeValue;
+  let string = node.nodeValue;
 
   if (!string?.length) {
     return null;
@@ -3040,8 +3067,11 @@ function getTargetWord() {
   }
 
   if (offset < string.length && !isWordChar(string[offset])) {
-    // Not really in a word.
-    return null;
+    // Not really in a word, unless the click was on its last character's
+    // right half, which puts the caret after it (and on it; see below).
+    if (!hasPoint || offset == 0 || !isWordChar(string[offset - 1])) {
+      return null;
+    }
   }
 
   let start = offset;
@@ -3056,6 +3086,20 @@ function getTargetWord() {
 
   if (end <= start) {
     return null;
+  }
+
+  // (On the word, rather than beside it, ex: past its line's end, whose
+  // nearest caret position is the word's end.)
+  if (hasPoint) {
+    const range = document.createRange();
+    range.setStart(node, start);
+    range.setEnd(node, end);
+    const onWord = [...range.getClientRects()].some(rect =>
+      event.clientX >= rect.left && event.clientX <= rect.right &&
+      event.clientY >= rect.top && event.clientY <= rect.bottom);
+    if (!onWord) {
+      return null;
+    }
   }
 
   return string.substring(start, end);
