@@ -576,6 +576,13 @@ for repo in config['trees']:
     # which nothing logs) and their ingestions' status (see the tools'
     # `crash_sets`).
     location(f'/{repo}/crash-sets', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+    # and their carry-over to the next index, only for the indexer, not
+    # through the load balancer, which adds X-Forwarded-For (as the
+    # web-server checks too; see infrastructure/aws/carry-over-crash-sets.py).
+    location(f'~ ^/{repo}/crash-sets/(inventory|files)$',
+             ['if ($http_x_forwarded_for) { return 403; }',
+              'proxy_pass http://127.0.0.1:8001;'],
+             cache=False)
 
     # Handled by Rust `pipeline-server.rs`
     location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])

@@ -1344,7 +1344,9 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         // (POST, its body the form's, with an optional API token, which never
         // goes in a URL) asking for their ingestion, which goes to its status
         // (`/{tree}/crash-sets/status/{job}`, `?format=json` polled), and
-        // when it's done, to the set's view.  (Uncached.)
+        // when it's done, to the set's view; a set's view's beacon of its use
+        // (`touch/{id}`); and the next index's carry-over of sets
+        // (`inventory`, `files`; see there).  (Uncached.)
         "crash-sets" => {
             let Some(store) = tree_server(tree_name).and_then(|server| server.crash_sets()) else {
                 return WebResponse::not_found();
@@ -1468,6 +1470,68 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                         Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
                         Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
                     }
+                }
+                // (A set's view's use, its page's beacon; see
+                // `CrashSetStore::touch`.)
+                (Some("touch"), Some(id), true) if path.len() == 4 => match store.touch(id) {
+                    Ok(()) => WebResponse {
+                        status: StatusCode::NO_CONTENT,
+                        ..WebResponse::default()
+                    }
+                    .uncached(),
+                    Err(_) => WebResponse::not_found().uncached(),
+                },
+                // The next index's carry-over of the sets (see
+                // infrastructure/aws/carry-over-crash-sets.py): which to carry
+                // over within `?bytes=` (see `crash_sets::carry_over`), and
+                // their files (POSTed, a path a line), as JSON lines of their
+                // paths and their contents in base64.  Only for requests from
+                // the indexer, not through the load balancer (whose requests
+                // have forwarding headers; see `admission::client_key`).
+                (Some("inventory" | "files"), None, _) if req.client.is_some() => {
+                    WebResponse::not_found().uncached()
+                }
+                (Some("inventory"), None, false) => {
+                    let Some(budget) = query_params(req.query)
+                        .get("bytes")
+                        .and_then(|bytes| bytes.parse().ok())
+                    else {
+                        return WebResponse {
+                            status: StatusCode::BAD_REQUEST,
+                            output: "Which ?bytes=".to_owned(),
+                            ..WebResponse::default()
+                        }
+                        .uncached();
+                    };
+                    let carried =
+                        tools::crash_sets::carry_over(&store, budget, std::time::SystemTime::now());
+                    WebResponse::json(serde_json::to_string(&carried).unwrap()).uncached()
+                }
+                (Some("files"), None, true) => {
+                    let mut output = String::new();
+                    for path in req
+                        .body
+                        .lines()
+                        .map(str::trim)
+                        .filter(|path| !path.is_empty())
+                    {
+                        if let Some(contents) = tools::crash_sets::carried_file(&store, path) {
+                            output.push_str(
+                                &serde_json::json!({
+                                    "path": path,
+                                    "data": tools::crash_sets::base64(&contents),
+                                })
+                                .to_string(),
+                            );
+                            output.push('\n');
+                        }
+                    }
+                    WebResponse {
+                        content_type: "application/x-ndjson".to_owned(),
+                        output,
+                        ..WebResponse::default()
+                    }
+                    .uncached()
                 }
                 _ => WebResponse::not_found(),
             }

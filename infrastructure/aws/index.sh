@@ -108,6 +108,10 @@ echo "Indexing complete"
 # carry-over-imports.py).
 $AWS_ROOT/carry-over-imports.py $CHANNEL $CONFIG_REPO_PATH /index/config.json $INDEX_FS ||
     echo "WARNING: The imported spec pull requests couldn't be carried over."
+# And the crash sets (see carry-over-crash-sets.py), within the space the nginx
+# cache leaves (see below).
+$AWS_ROOT/carry-over-crash-sets.py $CHANNEL /index/config.json $INDEX_FS ||
+    echo "WARNING: The crash sets couldn't be carried over."
 
 # Copy indexing log to index mount so it's easy to get to from the
 # web server instance

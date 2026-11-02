@@ -6,9 +6,14 @@
 //! blockers) and their variants (by which functions).  See
 //! asuth-gecko-notes' tooling/searchfox/crash-sets-plan.md for the design:
 //! nothing a user writes is stored (a set is a search's results, its ID its
-//! manifest's hash, and a search finding nothing stores nothing), and the
-//! next phases (the web server's ingestion with a user's token, lifetimes,
-//! the carry-over across re-indexes).
+//! manifest's hash, and a search finding nothing stores nothing).  The web
+//! server's form asks for sets' ingestions (see `request_ingestion`), with a
+//! user's token for crash-stats' rate limits (which must have no
+//! permissions, and is forgotten once the fetch is done).  Sets are kept for
+//! the web server's life, and ingestions which would go over the store's cap
+//! are refused (see `CrashSetStore::cap`); the next index carries some of
+//! them over, the most recently used, within 60% of its cap (see
+//! `carry_over`).
 //!
 //! The store is a directory (`crash_sets_path` in the config, else
 //! `crash-sets/` beside the trees' index directories; see
@@ -17,7 +22,11 @@
 //!   its hash (see `set_id`);
 //! - `crashes/AB/CRASH-ID.json.gz` (or `.json`, ex: tests' fixtures): each
 //!   crash's whitelisted fields (see `whitelist`), once however many sets
-//!   have it, which the crash view reads too (see `LocalIndex::crash_report`).
+//!   have it, which the crash view reads too (see `LocalIndex::crash_report`);
+//! - `touched/ID`: when the set was last used (its time; see
+//!   `CrashSetStore::touch`);
+//! - `cap`: how many bytes its sets and crashes may take (see
+//!   `CrashSetStore::cap`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Read, Write};
@@ -50,6 +59,14 @@ pub const MAX_DAYS_BACK: i64 = 30;
 /// How many crashes a set has at most without a token, under crash-stats'
 /// rate limits for requests without one.
 pub const MAX_CRASHES_WITHOUT_TOKEN: usize = 100;
+/// How many bytes a store's sets and crashes may take at most, unless its
+/// `cap` file or the config says (see `CrashSetStore::cap`): 5 GB.
+pub const DEFAULT_CAP_BYTES: u64 = 5_000_000_000;
+/// How often a set's use is noted at most (see `CrashSetStore::touch`).
+pub const TOUCH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60 * 60);
+/// How big a crash's file is taken to be, for the estimates of ingestions'
+/// sizes, without the store's own average (see `request_ingestion`).
+const CRASH_BYTES_ESTIMATE: u64 = 30_000;
 
 /// A crash-stats search (SuperSearch's), of the parameters searchfox allows:
 /// a signature (exactly) or a piece of proto signatures (which contain it:
@@ -502,8 +519,253 @@ impl CrashSetStore {
         }
         let text = serde_json::to_vec_pretty(manifest).map_err(|e| e.to_string())?;
         write_atomically(&self.root.join("sets").join(format!("{}.json", id)), &text)?;
+        // (Its creation is its first use.)
+        self.touch(&id)?;
         Ok(id)
     }
+
+    /// Notes a use of the set `id` (see `touched`), unless it was used in
+    /// the last `TOUCH_INTERVAL` (so that a busy set's page doesn't write it
+    /// every time), if the store has it.
+    pub fn touch(&self, id: &str) -> Result<(), String> {
+        if !is_set_id(id) {
+            return Err(format!("{:?} isn't a crash set's ID", id));
+        }
+        let path = self.root.join("touched").join(id);
+        if let Some(touched) = self.touched(id)
+            && touched
+                .elapsed()
+                .is_ok_and(|elapsed| elapsed < TOUCH_INTERVAL)
+            && path.exists()
+        {
+            return Ok(());
+        }
+        if self.manifest(id)?.is_none() {
+            return Err(format!("There's no crash set {} here", id));
+        }
+        write_atomically(&path, b"")
+    }
+
+    /// When the set `id` was last used (its `touched/ID`'s time; see
+    /// `touch`), or else stored.
+    pub fn touched(&self, id: &str) -> Option<std::time::SystemTime> {
+        let modified = |path: PathBuf| {
+            std::fs::metadata(path)
+                .and_then(|meta| meta.modified())
+                .ok()
+        };
+        self.roots().find_map(|root| {
+            modified(root.join("touched").join(id))
+                .or_else(|| modified(root.join("sets").join(format!("{}.json", id))))
+        })
+    }
+
+    /// The sets the store has (its own, not its seed's).
+    pub fn set_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = std::fs::read_dir(self.root.join("sets"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|entry| {
+                entry
+                    .file_name()
+                    .to_str()?
+                    .strip_suffix(".json")
+                    .filter(|id| is_set_id(id))
+                    .map(str::to_string)
+            })
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    /// How big the crash `id`'s file is, if the store has it (its own).
+    fn crash_bytes(&self, id: &str) -> Option<(String, u64)> {
+        ["json.gz", "json"].iter().find_map(|extension| {
+            let path = crash_path(&self.root, id, extension);
+            let bytes = std::fs::metadata(&path).ok()?.len();
+            Some((format!("crashes/{}/{}.{}", &id[..2], id, extension), bytes))
+        })
+    }
+
+    /// How many bytes its sets and crashes take (its own), and how many
+    /// crashes it has.
+    pub fn size(&self) -> (u64, usize) {
+        let mut bytes = 0;
+        let mut crashes = 0;
+        for dir in ["sets", "crashes"] {
+            for entry in walkdir::WalkDir::new(self.root.join(dir))
+                .into_iter()
+                .flatten()
+                .filter(|entry| entry.file_type().is_file())
+            {
+                bytes += entry.metadata().map_or(0, |meta| meta.len());
+                if dir == "crashes" {
+                    crashes += 1;
+                }
+            }
+        }
+        (bytes, crashes)
+    }
+
+    /// How many bytes its sets and crashes may take at most: its `cap` file's
+    /// (which the indexer writes, by the index's volume's free space; see
+    /// infrastructure/aws/carry-over-crash-sets.py), else
+    /// `DEFAULT_CAP_BYTES`.  Sets are kept for the web server's life, and
+    /// ingestions which would go over it are refused (see
+    /// `request_ingestion`), until the next index, which only carries some of
+    /// them over (see `carry_over`).
+    pub fn cap(&self) -> u64 {
+        std::fs::read_to_string(self.root.join("cap"))
+            .ok()
+            .and_then(|text| text.trim().parse().ok())
+            .unwrap_or(DEFAULT_CAP_BYTES)
+    }
+
+    /// Removes the crash `id`'s file (its own; ex: one a failed fetch
+    /// stored, which no set has).
+    fn remove_crash(&self, id: &str) {
+        for extension in ["json.gz", "json"] {
+            let _ = std::fs::remove_file(crash_path(&self.root, id, extension));
+        }
+    }
+}
+
+/// What the next index's store carries over of a store (see `carry_over`):
+/// its sets, the most recently used first, but penalized for their sizes,
+/// within a budget; their files (relative to the store's directory, a crash's
+/// once, with the first set which has it); and how many bytes those take.
+#[derive(Debug, Default, PartialEq, Serialize)]
+pub struct CarryOver {
+    pub sets: Vec<CarriedSet>,
+    pub files: Vec<String>,
+    pub bytes: u64,
+}
+
+/// A set carried over (see `CarryOver`): its ID, how many bytes its files
+/// take (its own, but those of crashes a set before it has), and when it was
+/// last used (see `CrashSetStore::touched`), in seconds since the epoch.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct CarriedSet {
+    pub id: String,
+    pub bytes: u64,
+    pub touched: u64,
+}
+
+/// How many bytes make a set count as a day older than it is, when choosing
+/// the sets to carry over (see `carry_over`): 10 MB, so that one of the most
+/// crashes (`MAX_CRASHES`, about 12 MB) counts as about twice as old as a
+/// small one.
+const CARRY_OVER_BYTES_PER_DAY: f64 = 10_000_000.0;
+
+/// The sets of `store` to carry over to the next index's store, within
+/// `budget` bytes (see infrastructure/aws/carry-over-crash-sets.py: 60% of
+/// its cap): by how long ago they were last used, in days, plus one, times
+/// one plus their sizes in `CARRY_OVER_BYTES_PER_DAY`s, the least first, as
+/// long as they fit (a crash several of them have counting once).
+pub fn carry_over(store: &CrashSetStore, budget: u64, now: std::time::SystemTime) -> CarryOver {
+    struct Candidate {
+        id: String,
+        files: Vec<(String, u64, Option<String>)>,
+        touched: std::time::SystemTime,
+        score: f64,
+    }
+    let mut candidates: Vec<Candidate> = store
+        .set_ids()
+        .into_iter()
+        .filter_map(|id| {
+            let manifest = store.manifest(&id).ok()??;
+            let manifest_bytes =
+                std::fs::metadata(store.root.join("sets").join(format!("{}.json", id)))
+                    .ok()?
+                    .len();
+            let mut files = vec![(format!("sets/{}.json", id), manifest_bytes, None)];
+            files.extend(manifest.crashes.iter().filter_map(|crash| {
+                let (path, bytes) = store.crash_bytes(crash)?;
+                Some((path, bytes, Some(crash.clone())))
+            }));
+            let touched = store.touched(&id)?;
+            let days = now
+                .duration_since(touched)
+                .unwrap_or_default()
+                .as_secs_f64()
+                / 86400.0;
+            let bytes: u64 = files.iter().map(|(_, bytes, _)| bytes).sum();
+            let score = (days + 1.0) * (1.0 + bytes as f64 / CARRY_OVER_BYTES_PER_DAY);
+            Some(Candidate {
+                id,
+                files,
+                touched,
+                score,
+            })
+        })
+        .collect();
+    candidates.sort_by(|a, b| a.score.total_cmp(&b.score).then_with(|| a.id.cmp(&b.id)));
+    let mut carried = CarryOver::default();
+    let mut crashes: BTreeSet<String> = BTreeSet::new();
+    for candidate in candidates {
+        let new_files: Vec<&(String, u64, Option<String>)> = candidate
+            .files
+            .iter()
+            .filter(|(_, _, crash)| crash.as_ref().is_none_or(|crash| !crashes.contains(crash)))
+            .collect();
+        let bytes: u64 = new_files.iter().map(|(_, bytes, _)| bytes).sum();
+        if carried.bytes + bytes > budget {
+            continue;
+        }
+        carried.bytes += bytes;
+        for (path, _, crash) in new_files {
+            carried.files.push(path.clone());
+            crashes.extend(crash.clone());
+        }
+        carried.sets.push(CarriedSet {
+            id: candidate.id,
+            bytes,
+            touched: candidate
+                .touched
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        });
+    }
+    carried
+}
+
+/// The contents of the store's file `path` (see `CarryOver::files`), if it's
+/// one of its sets' or crashes' files, which it has (its own).
+pub fn carried_file(store: &CrashSetStore, path: &str) -> Option<Vec<u8>> {
+    let valid = match path.split('/').collect::<Vec<_>>()[..] {
+        ["sets", file] => file.strip_suffix(".json").is_some_and(is_set_id),
+        ["crashes", dir, file] => file
+            .strip_suffix(".json.gz")
+            .or_else(|| file.strip_suffix(".json"))
+            .is_some_and(|id| is_crash_id(id) && id[..2] == *dir),
+        _ => false,
+    };
+    match valid {
+        true => std::fs::read(store.root.join(path)).ok(),
+        false => None,
+    }
+}
+
+/// `bytes` in base64 (RFC 4648's, padded), for the carried-over files' export
+/// (see web-server.rs's `crash-sets/files`).
+pub fn base64(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = chunk
+            .iter()
+            .enumerate()
+            .fold(0u32, |n, (i, byte)| n | (*byte as u32) << (16 - 8 * i));
+        for i in 0..4 {
+            match i <= chunk.len() {
+                true => out.push(ALPHABET[(n >> (18 - 6 * i)) as usize & 63] as char),
+                false => out.push('='),
+            }
+        }
+    }
+    out
 }
 
 /// A failure of a request of crash-stats' API (see `Api::get`): its HTTP
@@ -686,21 +948,41 @@ pub async fn fetch_set(
     crashes.sort();
     crashes.dedup();
     crashes.truncate(search.limit);
-    for (fetched, id) in crashes.iter().enumerate() {
-        progress(fetched, crashes.len());
-        if store.has_crash(id) {
-            continue;
+    // (Stopping if the store would go over its cap, and removing what it
+    // stored if it fails.)
+    let cap = store.cap();
+    let (mut bytes, _) = store.size();
+    let mut stored: Vec<String> = Vec::new();
+    let fetched = async {
+        for (fetched, id) in crashes.iter().enumerate() {
+            progress(fetched, crashes.len());
+            if store.has_crash(id) {
+                continue;
+            }
+            let query = format!("crash_id={}", id);
+            let processed = match api.get("ProcessedCrash", &query, None).await {
+                Ok(processed) => processed,
+                Err(_) if token.is_some() => api
+                    .get("ProcessedCrash", &query, token)
+                    .await
+                    .map_err(|e| e.message)?,
+                Err(e) => return Err(e.message),
+            };
+            store.store_crash(id, &processed)?;
+            stored.push(id.clone());
+            bytes += store.crash_bytes(id).map_or(0, |(_, bytes)| bytes);
+            if bytes > cap {
+                return Err(FULL.to_string());
+            }
         }
-        let query = format!("crash_id={}", id);
-        let processed = match api.get("ProcessedCrash", &query, None).await {
-            Ok(processed) => processed,
-            Err(_) if token.is_some() => api
-                .get("ProcessedCrash", &query, token)
-                .await
-                .map_err(|e| e.message)?,
-            Err(e) => return Err(e.message),
-        };
-        store.store_crash(id, &processed)?;
+        Ok(())
+    }
+    .await;
+    if let Err(message) = fetched {
+        for id in &stored {
+            store.remove_crash(id);
+        }
+        return Err(message);
     }
     progress(crashes.len(), crashes.len());
     let manifest = CrashSetManifest {
@@ -712,6 +994,10 @@ pub async fn fetch_set(
     };
     store.store_manifest(&manifest)
 }
+
+/// Why an ingestion which would go over the store's cap is refused (see
+/// `CrashSetStore::cap`).
+const FULL: &str = "There's no room for that many more crash reports until searchfox's next re-index: ask for fewer, or try again after it";
 
 /// How many crash sets' ingestions can be waiting or running at once (see
 /// `request_ingestion`), of a client's at most `MAX_CLIENT_INGESTIONS`.
@@ -779,8 +1065,11 @@ static INGESTIONS: std::sync::LazyLock<(std::sync::Mutex<Ingestions>, std::sync:
 /// (see `format::format_crash_set_form`).  Returns the ingestion's ID (see
 /// `ingestion_status`), or why it can't be asked for: its search's dates
 /// aren't recent (see `CrashSearch::check_recent`), or `MAX_INGESTIONS` are
-/// waiting or running, or `MAX_CLIENT_INGESTIONS` of the client's.  They run
-/// one at a time, in the order they were asked for, on their own thread.
+/// waiting or running, or `MAX_CLIENT_INGESTIONS` of the client's, or the
+/// store would go over its cap (see `CrashSetStore::cap`) with its crashes
+/// and those of the others waiting or running (as many as their limits, at
+/// the store's crashes' average size).  They run one at a time, in the order
+/// they were asked for, on their own thread.
 pub fn request_ingestion(
     store: CrashSetStore,
     api: &str,
@@ -790,6 +1079,12 @@ pub fn request_ingestion(
 ) -> Result<String, String> {
     search.check()?;
     search.check_recent(chrono::Utc::now().date_naive(), token.is_some())?;
+    let (bytes, crashes) = store.size();
+    let per_crash = match crashes {
+        0 => CRASH_BYTES_ESTIMATE,
+        crashes => bytes / crashes as u64,
+    };
+    let cap = store.cap();
     static WORKER: std::sync::Once = std::sync::Once::new();
     WORKER.call_once(|| {
         std::thread::spawn(run_ingestions);
@@ -815,6 +1110,10 @@ pub fn request_ingestion(
         && active.iter().filter(|job| job.client == client).count() >= MAX_CLIENT_INGESTIONS
     {
         return Err("You're fetching a crash set already; wait for it to finish".to_string());
+    }
+    let pending: usize = active.iter().map(|job| job.search.limit).sum();
+    if bytes + (pending + search.limit) as u64 * per_crash > cap {
+        return Err(FULL.to_string());
     }
     static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let id = format!(
@@ -1934,6 +2233,12 @@ pub fn render_crash_set(tree_name: &str, view: &CrashSetView) -> String {
     }
     html.push_str("</tbody></table></div>");
     html.push_str(FAMILIES_SCRIPT);
+    // (Its use, for the next index's carry-over; see `CrashSetStore::touch`.)
+    html.push_str(&format!(
+        r#"<script>navigator.sendBeacon?.("/{}/crash-sets/touch/{}");</script>"#,
+        escape(tree_name),
+        escape(&view.id)
+    ));
     // (graph.js's layout, for the diagrams.)
     html.push_str(&format!(
         r#"<script defer src="/{tree}/static/js/graph.js"></script><script defer src="/{tree}/static/js/crash-set.js"></script>"#,
@@ -2506,6 +2811,187 @@ mod tests {
         old.date_from = "2020-01-01".to_string();
         old.date_to = "2020-01-08".to_string();
         assert!(request_ingestion(fixture.store(), &fixture.api(), old, None, None).is_err());
+    }
+
+    #[test]
+    fn test_cap() {
+        let crashes = [
+            "5e4c0b1a-7e57-4c0d-8e5a-0000002611d1",
+            "5e4c0b1a-7e57-4c0d-8e5a-0000002611d2",
+        ];
+        let fixture = Fixture::new("cap", &crashes);
+        let store = fixture.store();
+        assert_eq!(store.cap(), DEFAULT_CAP_BYTES);
+        std::fs::create_dir_all(store.root()).unwrap();
+        std::fs::write(store.root().join("cap"), "1000\n").unwrap();
+        assert_eq!(store.cap(), 1000);
+        // (An ingestion which would go over it is refused: 100 crashes, at
+        // `CRASH_BYTES_ESTIMATE` each in an empty store.)
+        let mut recent = search();
+        let today = chrono::Utc::now().date_naive();
+        recent.date_from = (today - chrono::Duration::days(3))
+            .format("%Y-%m-%d")
+            .to_string();
+        recent.date_to = (today + chrono::Duration::days(1))
+            .format("%Y-%m-%d")
+            .to_string();
+        assert_eq!(
+            request_ingestion(
+                fixture.store(),
+                &fixture.api(),
+                recent,
+                None,
+                Some("cap client".to_string())
+            ),
+            Err(FULL.to_string())
+        );
+        // (A fetch which goes over it fails, and removes what it stored.)
+        std::fs::write(store.root().join("cap"), "1").unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let fetch = || {
+            runtime.block_on(fetch_set(
+                &store,
+                &search(),
+                &fixture.api(),
+                None,
+                &|_, _| {},
+            ))
+        };
+        assert_eq!(fetch(), Err(FULL.to_string()));
+        assert!(!store.has_crash(crashes[0]));
+        assert!(store.set_ids().is_empty());
+        std::fs::remove_file(store.root().join("cap")).unwrap();
+        let set = fetch().unwrap();
+        assert_eq!(store.set_ids(), vec![set]);
+        let (bytes, stored) = store.size();
+        assert_eq!(stored, 2);
+        assert!(bytes > 0);
+    }
+
+    #[test]
+    fn test_carry_over() {
+        let fixture = Fixture::new("carry", &["5e4c0b1a-7e57-4c0d-8e5a-0000002611e1"]);
+        let store = fixture.store();
+        let now = std::time::SystemTime::now();
+        let day = std::time::Duration::from_secs(86400);
+        let crash = |n: u32| format!("5e4c0b1a-7e57-4c0d-8e5a-0000002611{:02x}", 0xe0 + n);
+        let set_time = |path: &Path, time: std::time::SystemTime| {
+            std::fs::File::options()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(time)
+                .unwrap();
+        };
+        // (A set of `crashes`, last used `age` ago.)
+        let add_set = |n: u32, crashes: &[u32], age: std::time::Duration| {
+            for crash in crashes.iter().map(|n| crash(*n)) {
+                if !store.has_crash(&crash) {
+                    store
+                        .store_crash(&crash, &json!({ "uuid": crash, "signature": "Foo" }))
+                        .unwrap();
+                }
+            }
+            let id = store
+                .store_manifest(&CrashSetManifest {
+                    version: MANIFEST_VERSION,
+                    search: search(),
+                    fetched_at: format!("2026-11-01T00:00:0{}Z", n),
+                    total: crashes.len() as u64,
+                    crashes: crashes.iter().map(|n| crash(*n)).collect(),
+                })
+                .unwrap();
+            set_time(&store.root().join("touched").join(&id), now - age);
+            id
+        };
+        // A, used now; B, 2 days ago, which has A's crash too; C, half a day
+        // ago, but big (15 MB, as much as a day and a half); D, 5 days ago.
+        let a = add_set(1, &[1], std::time::Duration::ZERO);
+        let b = add_set(2, &[1, 2], 2 * day);
+        std::fs::write(
+            crash_path(store.root(), &crash(3), "json.gz"),
+            vec![0u8; 15_000_000],
+        )
+        .unwrap();
+        let c = add_set(3, &[3], day / 2);
+        let d = add_set(4, &[4], 5 * day);
+        let ids = |carried: &CarryOver| -> Vec<String> {
+            carried.sets.iter().map(|set| set.id.clone()).collect()
+        };
+        let all = carry_over(&store, u64::MAX, now);
+        assert_eq!(ids(&all), vec![a.clone(), b.clone(), c.clone(), d.clone()]);
+        // (A crash once, with the first set which has it.)
+        assert_eq!(
+            all.files
+                .iter()
+                .filter(|path| path.contains(&crash(1)))
+                .count(),
+            1
+        );
+        assert_eq!(all.files.len(), 4 + 4);
+        assert_eq!(all.bytes, all.sets.iter().map(|set| set.bytes).sum::<u64>());
+        assert_eq!(
+            all.sets[1].touched,
+            (now - 2 * day)
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
+        // (Within a budget, those which fit: not C.)
+        let small = carry_over(&store, 1_000_000, now);
+        assert_eq!(ids(&small), vec![a.clone(), b.clone(), d.clone()]);
+        assert!(small.bytes < 1_000_000);
+        assert!(carry_over(&store, 0, now).sets.is_empty());
+        // (A use makes it the first.)
+        store.touch(&d).unwrap();
+        assert_eq!(ids(&carry_over(&store, u64::MAX, now + day))[0], d);
+        // (But at most once in `TOUCH_INTERVAL`.)
+        let touched = store.touched(&d).unwrap();
+        set_time(
+            &store.root().join("touched").join(&d),
+            touched - TOUCH_INTERVAL / 2,
+        );
+        store.touch(&d).unwrap();
+        assert_eq!(store.touched(&d), Some(touched - TOUCH_INTERVAL / 2));
+        assert!(store.touch("0000000000000000").is_err());
+        assert!(store.touch("../x").is_err());
+
+        // Their files, but no others.
+        assert_eq!(
+            carried_file(&store, &format!("sets/{}.json", a)),
+            std::fs::read(store.root().join("sets").join(format!("{}.json", a))).ok()
+        );
+        let crash_file = format!("crashes/5e/{}.json.gz", crash(1));
+        assert!(carried_file(&store, &crash_file).is_some());
+        for path in [
+            "cap".to_string(),
+            format!("touched/{}", a),
+            format!("crashes/5f/{}.json.gz", crash(1)),
+            format!("crashes/5e/../5e/{}.json.gz", crash(1)),
+            format!("sets/../sets/{}.json", a),
+            "/etc/passwd".to_string(),
+        ] {
+            assert_eq!(carried_file(&store, &path), None, "{}", path);
+        }
+    }
+
+    #[test]
+    fn test_base64() {
+        for (bytes, encoded) in [
+            ("", ""),
+            ("f", "Zg=="),
+            ("fo", "Zm8="),
+            ("foo", "Zm9v"),
+            ("foob", "Zm9vYg=="),
+            ("fooba", "Zm9vYmE="),
+            ("foobar", "Zm9vYmFy"),
+        ] {
+            assert_eq!(base64(bytes.as_bytes()), encoded);
+        }
+        assert_eq!(base64(&[0xff, 0xfe, 0x00]), "//4A");
     }
 
     #[test]
