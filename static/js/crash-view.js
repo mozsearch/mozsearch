@@ -169,6 +169,9 @@ var CrashView = new (class CrashView {
     if (data.signatureUrl) {
       items.push(new MenuItem({ html: "Its signature's stack", href: data.signatureUrl, icon: "search" }));
     }
+    if (data.analyzeUrl) {
+      items.push(new MenuItem({ html: "Analyze its signature's recent crash reports", href: data.analyzeUrl, icon: "tasks" }));
+    }
     if (data.threadsUrl) {
       items.push(new MenuItem({ html: escapeHtml(data.threadsLabel), href: data.threadsUrl, icon: "search" }));
     }

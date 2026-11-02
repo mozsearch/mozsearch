@@ -50,8 +50,8 @@ add_task(async function test_CrashThreadsCrashing() {
   const menu = doc().getElementById("crash-report-menu");
   is(menu.style.display, "flex", "The report's menu opens");
   is([...menu.querySelectorAll("a")].map(a => a.textContent).join("|"),
-     "Open the report on crash-stats|Copy the report's ID|Its signature's stack|All 8 threads' stacks",
-     "with crash-stats, its ID, its signature's stack and every thread's");
+     "Open the report on crash-stats|Copy the report's ID|Its signature's stack|Analyze its signature's recent crash reports|All 8 threads' stacks",
+     "with crash-stats, its ID, its signature's stack, its analysis and every thread's");
   TestUtils.dispatchMouseEvent("mousedown", doc().querySelector(".crash-notice"));
   is(menu.style.display, "none", "and closes");
 

@@ -40,9 +40,14 @@ struct WebRequest<'a> {
     path: &'a str,
     /// The query string (ex: a history page's `scope=...`), or "".
     query: &'a str,
-    /// Whether it's a POST (only `/{tree}/try/{kind}/{id}`'s and
-    /// `/{tree}/spec-prs/sync`'s are allowed).
+    /// Whether it's a POST (only `/{tree}/try/{kind}/{id}`'s,
+    /// `/{tree}/spec-prs/...`'s and `/{tree}/crash-sets/new`'s are allowed).
     post: bool,
+    /// A POST's body, for those which read theirs (`/{tree}/crash-sets/new`'s
+    /// form, whose API token mustn't be in a URL), or "".
+    body: &'a str,
+    /// Who it's from (see `admission::client_key`), if it's from outside.
+    client: Option<String>,
     /// The site's origin, as the browser has it (ex: "https://searchfox.org"),
     /// for what needs absolute URLs (an OpenSearch description); see
     /// `request_origin`.
@@ -473,6 +478,26 @@ fn opensearch_description(tree_name: &str, origin: &str) -> String {
 }
 
 /// A request's query string's parameters.
+/// How big a form's body can be (see `read_body`).
+const MAX_FORM_BODY: usize = 64 * 1024;
+
+/// A request's body, if it's at most `limit` bytes of UTF-8.
+async fn read_body(mut body: hyper::body::Incoming, limit: usize) -> Option<String> {
+    use hyper::body::Body;
+    let mut bytes = vec![];
+    while let Some(frame) =
+        std::future::poll_fn(|cx| std::pin::Pin::new(&mut body).poll_frame(cx)).await
+    {
+        if let Ok(data) = frame.ok()?.into_data() {
+            bytes.extend_from_slice(&data);
+            if bytes.len() > limit {
+                return None;
+            }
+        }
+    }
+    String::from_utf8(bytes).ok()
+}
+
 fn query_params(query: &str) -> HashMap<String, String> {
     url::form_urlencoded::parse(query.as_bytes())
         .into_owned()
@@ -1313,6 +1338,141 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
         }
 
+        // Crash sets (see `tools::crash_sets`): the form of a crash-stats
+        // search whose crash reports to fetch (`/{tree}/crash-sets/new`, its
+        // fields from the query, ex: a crash signature's view's link), and
+        // (POST, its body the form's, with an optional API token, which never
+        // goes in a URL) asking for their ingestion, which goes to its status
+        // (`/{tree}/crash-sets/status/{job}`, `?format=json` polled), and
+        // when it's done, to the set's view.  (Uncached.)
+        "crash-sets" => {
+            let Some(store) = tree_server(tree_name).and_then(|server| server.crash_sets()) else {
+                return WebResponse::not_found();
+            };
+            let form = |search: &tools::crash_sets::CrashSearch, notice: Option<&str>| {
+                let mut writer = Vec::new();
+                match format::format_crash_set_form(tree_name, search, notice, &mut writer) {
+                    Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
+                    Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+                }
+            };
+            match (path.get(2).copied(), path.get(3).copied(), req.post) {
+                (Some("new"), None, false) => {
+                    // (Its fields from the query, else the last week's latest
+                    // 100.)
+                    let fields: Vec<(String, String)> =
+                        url::form_urlencoded::parse(req.query.as_bytes())
+                            .into_owned()
+                            .collect();
+                    let today = chrono::Utc::now().date_naive();
+                    let mut defaults = vec![
+                        (
+                            "from".to_string(),
+                            (today - chrono::Duration::days(7))
+                                .format("%Y-%m-%d")
+                                .to_string(),
+                        ),
+                        ("through".to_string(), today.format("%Y-%m-%d").to_string()),
+                        ("limit".to_string(), "100".to_string()),
+                    ];
+                    defaults.retain(|(name, _)| !fields.iter().any(|(field, _)| field == name));
+                    let fields: Vec<(String, String)> =
+                        fields.into_iter().chain(defaults).collect();
+                    let search =
+                        tools::crash_sets::CrashSearch::from_form(&fields).unwrap_or_else(|_| {
+                            tools::crash_sets::CrashSearch {
+                                signature: fields
+                                    .iter()
+                                    .find(|(name, _)| name == "signature")
+                                    .map(|(_, value)| value.clone()),
+                                product: "Firefox".to_string(),
+                                date_from: (today - chrono::Duration::days(7))
+                                    .format("%Y-%m-%d")
+                                    .to_string(),
+                                date_to: (today + chrono::Duration::days(1))
+                                    .format("%Y-%m-%d")
+                                    .to_string(),
+                                limit: 100,
+                                ..Default::default()
+                            }
+                        });
+                    form(&search, None)
+                }
+                (Some("new"), None, true) => {
+                    let fields: Vec<(String, String)> =
+                        url::form_urlencoded::parse(req.body.as_bytes())
+                            .into_owned()
+                            .collect();
+                    // (The token only goes to the ingestion.)
+                    let token = fields
+                        .iter()
+                        .find(|(name, _)| name == "token")
+                        .map(|(_, value)| value.trim().to_string())
+                        .filter(|token| !token.is_empty());
+                    let search = match tools::crash_sets::CrashSearch::from_form(&fields) {
+                        Ok(search) => search,
+                        Err(problem) => {
+                            // (Its fields as sent, as far as they go.)
+                            let mut search = tools::crash_sets::CrashSearch::from_form(
+                                &fields
+                                    .iter()
+                                    .cloned()
+                                    .chain([("limit".to_string(), "100".to_string())])
+                                    .collect::<Vec<_>>(),
+                            )
+                            .unwrap_or_default();
+                            if search.product.is_empty() {
+                                search.product = "Firefox".to_string();
+                            }
+                            return form(&search, Some(&problem));
+                        }
+                    };
+                    let api = cfg
+                        .crash_stats_api
+                        .clone()
+                        .unwrap_or_else(|| tools::crash_sets::CRASH_STATS_API.to_string());
+                    match tools::crash_sets::request_ingestion(
+                        store,
+                        &api,
+                        search.clone(),
+                        token,
+                        req.client.clone(),
+                    ) {
+                        Ok(job) => WebResponse::see_other(format!(
+                            "/{}/crash-sets/status/{}",
+                            tree_name, job
+                        ))
+                        .uncached(),
+                        Err(problem) => form(&search, Some(&problem)),
+                    }
+                }
+                (Some("status"), Some(job), false) if path.len() == 4 => {
+                    let Some((search, status)) = tools::crash_sets::ingestion_status(job) else {
+                        return WebResponse::not_found().uncached();
+                    };
+                    if query_params(req.query).get("format").map(String::as_str) == Some("json") {
+                        let mut json = serde_json::to_value(&status).unwrap_or_default();
+                        if let tools::crash_sets::IngestionStatus::Done { set } = &status {
+                            json["url"] = format::crash_set_url(tree_name, set).into();
+                        }
+                        return WebResponse::json(json.to_string()).uncached();
+                    }
+                    let mut writer = Vec::new();
+                    match format::format_crash_set_status(
+                        tree_name,
+                        job,
+                        &search,
+                        &status,
+                        &mut writer,
+                    ) {
+                        Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
+                        Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+                    }
+                }
+                _ => WebResponse::not_found(),
+            }
+        }
+
         // A tree of specs' summaries of its spec repositories' open pull
         // requests (`/{tree}/spec-prs`, and a repository's at
         // `/{tree}/spec-prs/{spec}`), and (POST) asking for a sync of them
@@ -1686,10 +1846,13 @@ async fn main() {
             let handler = async |req: http::Request<_>| {
                 // (Only a try push's page takes POSTs, to import it, and the
                 // pull request summaries' syncs' (see `tools::spec_prs`), as
-                // do the data API's routes for those.)
+                // do the data API's routes for those, and crash sets' form;
+                // see `tools::crash_sets`.)
                 let post = req.method() == Method::POST
-                    && (matches!(req.uri().path().split('/').nth(2), Some("try" | "spec-prs"))
-                        || req.uri().path().ends_with("/api/v1/try-import")
+                    && (matches!(
+                        req.uri().path().split('/').nth(2),
+                        Some("try" | "spec-prs" | "crash-sets")
+                    ) || req.uri().path().ends_with("/api/v1/try-import")
                         || req.uri().path().ends_with("/api/v1/spec-prs-sync")
                         || req.uri().path().ends_with("/api/v1/spec-prs-import"));
                 if req.method() != Method::GET && !post {
@@ -1713,6 +1876,29 @@ async fn main() {
                         }
                     };
 
+                // (A crash set's form's body, which has its API token; see
+                // `tools::crash_sets`.  Nothing logs it.)
+                let (parts, incoming) = req.into_parts();
+                let req = http::Request::from_parts(parts, ());
+                let body = match post && req.uri().path().contains("/crash-sets/") {
+                    true => match read_body(incoming, MAX_FORM_BODY).await {
+                        Some(body) => body,
+                        None => {
+                            return http::Response::builder()
+                                .status(StatusCode::PAYLOAD_TOO_LARGE)
+                                .body("Too much".to_string());
+                        }
+                    },
+                    false => String::new(),
+                };
+                let client = admission::client_key(
+                    req.headers()
+                        .get("fastly-client-ip")
+                        .and_then(|value| value.to_str().ok()),
+                    req.headers()
+                        .get("x-forwarded-for")
+                        .and_then(|value| value.to_str().ok()),
+                );
                 let response = {
                     let low_priority = {
                         let path = req.uri().path();
@@ -1737,6 +1923,8 @@ async fn main() {
                                 path,
                                 query,
                                 post,
+                                body: &body,
+                                client,
                                 origin,
                             },
                         );

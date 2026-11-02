@@ -1,0 +1,91 @@
+{%- comment -%}
+  The crash sets' form and their ingestions' status (see the tools'
+  `crash_sets` and `format::format_crash_set_form`): the form of a crash-stats
+  search whose crash reports to fetch (POSTed to `/{tree}/crash-sets/new`,
+  with an optional API token, which never goes in a URL), or an ingestion's
+  status, polled (`status_url`) until it's done, when the page goes to the
+  set's view (`crash-set:ID`).
+{%- endcomment -%}
+<div class="crash-set-form-page">
+{%- if mode == "form" %}
+  <h2>Analyze a crash signature's crash reports</h2>
+  <p class="crash-set-form-about">Searchfox fetches the crash reports a crash-stats search finds, their public data only, and groups them by what their threads were busy with, as a crash set you can link to (<code>crash-set:</code>).  The search is the set: its signature (or a piece of the proto signatures, the frames further up the stack), and its filters.</p>
+  {%- if notice != "" %}
+  <p class="crash-set-form-notice" role="alert">{{ notice | escape }}</p>
+  {%- endif %}
+  <form method="post" action="/{{ tree }}/crash-sets/new" class="crash-set-form" autocomplete="off">
+    <label class="crash-set-field">Signature <input type="text" name="signature" value="{{ signature | escape }}" size="90" placeholder="exactly, as crash-stats has it"></label>
+    <label class="crash-set-field">or proto signatures containing <input type="text" name="proto_signature" value="{{ proto_signature | escape }}" size="60"></label>
+    <label class="crash-set-field">Product <input type="text" name="product" value="{{ product | escape }}" size="12"></label>
+    <fieldset class="crash-set-choices"><legend>Release channels (any, if none)</legend>
+      {%- for choice in release_channels %}
+      <label><input type="checkbox" name="release_channel" value="{{ choice.value | escape }}"{% if choice.checked %} checked{% endif %}> {{ choice.value | escape }}</label>
+      {%- endfor %}
+    </fieldset>
+    <label class="crash-set-field">Versions <input type="text" name="versions" value="{{ versions | escape }}" size="30" placeholder="ex: 146.0a1, 145.0 (any, if none)"></label>
+    <fieldset class="crash-set-choices"><legend>Platforms (any, if none)</legend>
+      {%- for choice in platforms %}
+      <label><input type="checkbox" name="platform" value="{{ choice.value | escape }}"{% if choice.checked %} checked{% endif %}> {{ choice.value | escape }}</label>
+      {%- endfor %}
+    </fieldset>
+    <fieldset class="crash-set-choices"><legend>Process types (any, if none)</legend>
+      {%- for choice in process_types %}
+      <label><input type="checkbox" name="process_type" value="{{ choice.value | escape }}"{% if choice.checked %} checked{% endif %}> {{ choice.value | escape }}</label>
+      {%- endfor %}
+    </fieldset>
+    <label class="crash-set-field">From <input type="date" name="from" value="{{ from | escape }}"></label>
+    <label class="crash-set-field">through <input type="date" name="through" value="{{ through | escape }}"> (within the last {{ max_days_back }} days)</label>
+    <label class="crash-set-field">The latest <input type="number" name="limit" value="{{ limit }}" min="1" max="{{ max_crashes }}"> crash reports (at most {{ max_crashes }}; {{ max_without_token }} without a token)</label>
+    <label class="crash-set-field">A crash-stats API token (optional) <input type="password" name="token" value="" autocomplete="off" size="36"></label>
+    <p class="crash-set-token-note">Only for crash-stats' rate limits: create one <em>without any permissions</em> at <a href="https://crash-stats.mozilla.org/api/tokens/">crash-stats' API tokens</a> (searchfox refuses one which can see protected data).  It's only used for this fetch, never stored, and then forgotten.</p>
+    <button type="submit" class="crash-set-submit">Fetch them</button>
+  </form>
+{%- else %}
+  <h2>Fetching crash reports</h2>
+  <p class="crash-set-form-about">The crash reports of crash-stats' search for {{ about }}.</p>
+  <p class="crash-set-status" data-status-url="{{ status_url | escape }}" data-state="{{ status.state }}">
+  {%- case status.state -%}
+  {%- when "queued" -%}
+    Waiting to be fetched{% if status.ahead > 0 %}, after {{ status.ahead }} other{% if status.ahead != 1 %}s{% endif %}{% endif %}.
+  {%- when "running" -%}
+    Fetching them: {{ status.fetched }} of {{ status.total }}.
+  {%- when "done" -%}
+    Done: <a class="crash-set-link" href="{{ set_url | escape }}">their crash set</a>.
+  {%- when "failed" -%}
+    Fetching them failed: <span class="crash-set-error">{{ status.message | escape }}</span>  (<a href="{{ form_url | escape }}">Try again</a>.)
+  {%- endcase -%}
+  </p>
+  {%- if status.state == "queued" or status.state == "running" or status.state == "done" %}
+  <script>
+    (() => {
+      const line = document.querySelector(".crash-set-status");
+      const poll = async () => {
+        let status;
+        try {
+          status = await (await fetch(line.dataset.statusUrl, { cache: "no-store" })).json();
+        } catch (e) {
+          setTimeout(poll, 3000);
+          return;
+        }
+        line.dataset.state = status.state;
+        if (status.state == "queued") {
+          line.textContent = status.ahead > 0
+            ? `Waiting to be fetched, after ${status.ahead} other${status.ahead == 1 ? "" : "s"}.`
+            : "Waiting to be fetched.";
+        } else if (status.state == "running") {
+          line.textContent = `Fetching them: ${status.fetched} of ${status.total}.`;
+        } else if (status.state == "done") {
+          location.replace(status.url);
+          return;
+        } else {
+          location.reload();
+          return;
+        }
+        setTimeout(poll, 1000);
+      };
+      poll();
+    })();
+  </script>
+  {%- endif %}
+{%- endif %}
+</div>

@@ -45,6 +45,11 @@ const CRASHING_FRAMES: usize = 16;
 const GRAPH_FRAMES: usize = 4;
 /// crash-stats' API.
 pub const CRASH_STATS_API: &str = "https://crash-stats.mozilla.org/api";
+/// How many days back a set's search may start (see `CrashSearch::check_recent`).
+pub const MAX_DAYS_BACK: i64 = 30;
+/// How many crashes a set has at most without a token, under crash-stats'
+/// rate limits for requests without one.
+pub const MAX_CRASHES_WITHOUT_TOKEN: usize = 100;
 
 /// A crash-stats search (SuperSearch's), of the parameters searchfox allows:
 /// a signature (exactly) or a piece of proto signatures (which contain it:
@@ -102,6 +107,83 @@ impl CrashSearch {
             return Err(format!("A crash set has from 1 to {} crashes", MAX_CRASHES));
         }
         Ok(())
+    }
+
+    /// Whether its dates are recent enough (see `MAX_DAYS_BACK`), as of
+    /// `today`, and it has few enough crashes for whether it has a token.
+    pub fn check_recent(&self, today: chrono::NaiveDate, with_token: bool) -> Result<(), String> {
+        let date = |date: &str| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok();
+        if date(&self.date_from).is_none_or(|from| (today - from).num_days() > MAX_DAYS_BACK)
+            || date(&self.date_to).is_none_or(|to| (to - today).num_days() > 1)
+        {
+            return Err(format!(
+                "A crash set's dates are within the last {} days",
+                MAX_DAYS_BACK
+            ));
+        }
+        if !with_token && self.limit > MAX_CRASHES_WITHOUT_TOKEN {
+            return Err(format!(
+                "A crash set without a token has at most {} crashes",
+                MAX_CRASHES_WITHOUT_TOKEN
+            ));
+        }
+        Ok(())
+    }
+
+    /// The search a form's `fields` say (see crash_set_form.liquid; a
+    /// field can repeat, ex: checkboxes): `signature` or `proto_signature`,
+    /// `product`, `release_channel`s, `versions` (comma-separated),
+    /// `platform`s, `process_type`s, the days `from` and `through` (so its
+    /// `date_to` is the next day), and `limit`.
+    pub fn from_form(fields: &[(String, String)]) -> Result<CrashSearch, String> {
+        let one = |name: &str| {
+            fields
+                .iter()
+                .find(|(field, _)| field == name)
+                .map(|(_, value)| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        };
+        let all = |name: &str| -> Vec<String> {
+            fields
+                .iter()
+                .filter(|(field, _)| field == name)
+                .flat_map(|(_, value)| value.split(','))
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .collect()
+        };
+        let through = one("through").unwrap_or_default();
+        let date_to = chrono::NaiveDate::parse_from_str(&through, "%Y-%m-%d")
+            .map_err(|_| format!("{:?} isn't a date (YYYY-MM-DD)", through))?
+            + chrono::Duration::days(1);
+        let search = CrashSearch {
+            signature: one("signature"),
+            proto_signature: one("proto_signature"),
+            product: one("product").unwrap_or_else(|| "Firefox".to_string()),
+            release_channels: all("release_channel"),
+            versions: all("versions"),
+            platforms: all("platform"),
+            process_types: all("process_type"),
+            date_from: one("from").unwrap_or_default(),
+            date_to: date_to.format("%Y-%m-%d").to_string(),
+            limit: one("limit")
+                .unwrap_or_default()
+                .parse()
+                .map_err(|_| "A crash set's number of crashes is a number".to_string())?,
+        };
+        search.check()?;
+        Ok(search)
+    }
+
+    /// The last day of its dates (the day before `date_to`), for its form.
+    pub fn through(&self) -> String {
+        chrono::NaiveDate::parse_from_str(&self.date_to, "%Y-%m-%d")
+            .map(|to| {
+                (to - chrono::Duration::days(1))
+                    .format("%Y-%m-%d")
+                    .to_string()
+            })
+            .unwrap_or_default()
     }
 
     /// SuperSearch's parameters for it (but what to return).
@@ -294,10 +376,13 @@ pub fn whitelist(processed: &Value) -> Value {
     out
 }
 
-/// A crash set store (see the module's documentation).
+/// A crash set store (see the module's documentation): its directory, which
+/// it writes, and optionally a seed, another store which it only reads,
+/// after its own (ex: tests' fixtures, beside what the tests write).
 #[derive(Clone, Debug)]
 pub struct CrashSetStore {
     root: PathBuf,
+    seed: Option<PathBuf>,
 }
 
 /// Writes `contents` to `path` (through a temporary file renamed into
@@ -310,20 +395,34 @@ fn write_atomically(path: &Path, contents: &[u8]) -> Result<(), String> {
     std::fs::rename(&temporary, path).map_err(|e| format!("{}: {}", path.display(), e))
 }
 
+/// The path of the crash `id`'s file in the store at `root`.
+fn crash_path(root: &Path, id: &str, extension: &str) -> PathBuf {
+    root.join("crashes")
+        .join(&id[..2])
+        .join(format!("{}.{}", id, extension))
+}
+
 impl CrashSetStore {
     pub fn new(root: impl Into<PathBuf>) -> CrashSetStore {
-        CrashSetStore { root: root.into() }
+        CrashSetStore {
+            root: root.into(),
+            seed: None,
+        }
+    }
+
+    /// The store, reading `seed` after its own (see `CrashSetStore`).
+    pub fn with_seed(mut self, seed: Option<PathBuf>) -> CrashSetStore {
+        self.seed = seed;
+        self
     }
 
     pub fn root(&self) -> &Path {
         &self.root
     }
 
-    fn crash_path(&self, id: &str, extension: &str) -> PathBuf {
-        self.root
-            .join("crashes")
-            .join(&id[..2])
-            .join(format!("{}.{}", id, extension))
+    /// Its directories to read, its own first.
+    fn roots(&self) -> impl Iterator<Item = &PathBuf> {
+        std::iter::once(&self.root).chain(self.seed.as_ref())
     }
 
     /// The stored crash `id`, if the store has it.
@@ -331,29 +430,34 @@ impl CrashSetStore {
         if !is_crash_id(id) {
             return Err(format!("{:?} isn't a crash report's ID", id));
         }
-        let path = self.crash_path(id, "json.gz");
-        let text = match std::fs::File::open(&path) {
-            Ok(file) => {
-                let mut text = String::new();
-                flate2::read::GzDecoder::new(file)
-                    .read_to_string(&mut text)
-                    .map_err(|e| format!("{}: {}", path.display(), e))?;
-                text
-            }
-            Err(_) => match std::fs::read_to_string(self.crash_path(id, "json")) {
-                Ok(text) => text,
-                Err(_) => return Ok(None),
-            },
-        };
-        serde_json::from_str(&text)
-            .map(Some)
-            .map_err(|e| format!("crash {}: {}", id, e))
+        for root in self.roots() {
+            let path = crash_path(root, id, "json.gz");
+            let text = match std::fs::File::open(&path) {
+                Ok(file) => {
+                    let mut text = String::new();
+                    flate2::read::GzDecoder::new(file)
+                        .read_to_string(&mut text)
+                        .map_err(|e| format!("{}: {}", path.display(), e))?;
+                    text
+                }
+                Err(_) => match std::fs::read_to_string(crash_path(root, id, "json")) {
+                    Ok(text) => text,
+                    Err(_) => continue,
+                },
+            };
+            return serde_json::from_str(&text)
+                .map(Some)
+                .map_err(|e| format!("crash {}: {}", id, e));
+        }
+        Ok(None)
     }
 
     /// Whether the store has the crash `id`.
     pub fn has_crash(&self, id: &str) -> bool {
         is_crash_id(id)
-            && (self.crash_path(id, "json.gz").exists() || self.crash_path(id, "json").exists())
+            && self.roots().any(|root| {
+                crash_path(root, id, "json.gz").exists() || crash_path(root, id, "json").exists()
+            })
     }
 
     /// Stores the processed crash `id`'s whitelisted fields (see
@@ -366,7 +470,7 @@ impl CrashSetStore {
         let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         gz.write_all(&text).map_err(|e| e.to_string())?;
         let bytes = gz.finish().map_err(|e| e.to_string())?;
-        write_atomically(&self.crash_path(id, "json.gz"), &bytes)
+        write_atomically(&crash_path(&self.root, id, "json.gz"), &bytes)
     }
 
     /// The set `id`'s manifest, if the store has it.
@@ -374,12 +478,16 @@ impl CrashSetStore {
         if !is_set_id(id) {
             return Err(format!("{:?} isn't a crash set's ID", id));
         }
-        match std::fs::read_to_string(self.root.join("sets").join(format!("{}.json", id))) {
-            Ok(text) => serde_json::from_str(&text)
-                .map(Some)
-                .map_err(|e| format!("crash set {}: {}", id, e)),
-            Err(_) => Ok(None),
+        for root in self.roots() {
+            if let Ok(text) =
+                std::fs::read_to_string(root.join("sets").join(format!("{}.json", id)))
+            {
+                return serde_json::from_str(&text)
+                    .map(Some)
+                    .map_err(|e| format!("crash set {}: {}", id, e));
+            }
         }
+        Ok(None)
     }
 
     /// Stores `manifest`, and returns its ID (see `set_id`); one with the
@@ -398,38 +506,112 @@ impl CrashSetStore {
     }
 }
 
+/// A failure of a request of crash-stats' API (see `Api::get`): its HTTP
+/// status, if it had one, and what went wrong.
+struct ApiError {
+    status: Option<u16>,
+    message: String,
+}
+
+/// crash-stats' API at `base` (see `CRASH_STATS_API`), or a directory standing
+/// in for it (`file://DIR`, ex: tests' fixtures): `DIR/SuperSearch.json`
+/// answers any search (or `DIR/SuperSearch.TOKEN.json`, a token's, ex: one
+/// which can see protected data), and `DIR/ProcessedCrash/ID.json` is the
+/// processed crash ID.
+struct Api<'a> {
+    base: &'a str,
+    client: reqwest::Client,
+}
+
+impl Api<'_> {
+    /// `endpoint`'s JSON for `query` (ex: "crash_id=..."), with `token` if
+    /// given, waiting and trying again after crash-stats' rate limits' 429s
+    /// (a few times).
+    async fn get(
+        &self,
+        endpoint: &str,
+        query: &str,
+        token: Option<&str>,
+    ) -> Result<Value, ApiError> {
+        let failed = |status: Option<u16>, message: String| ApiError { status, message };
+        if let Some(dir) = self.base.strip_prefix("file://") {
+            let path = match endpoint {
+                "SuperSearch" => token
+                    .map(|token| format!("{}/SuperSearch.{}.json", dir, token))
+                    .filter(|path| Path::new(path).exists())
+                    .unwrap_or_else(|| format!("{}/SuperSearch.json", dir)),
+                "ProcessedCrash" => {
+                    let id = query
+                        .split('&')
+                        .find_map(|param| param.strip_prefix("crash_id="))
+                        .filter(|id| is_crash_id(id))
+                        .ok_or_else(|| failed(Some(400), "no crash ID".to_string()))?;
+                    format!("{}/ProcessedCrash/{}.json", dir, id)
+                }
+                _ => return Err(failed(Some(404), endpoint.to_string())),
+            };
+            let text = std::fs::read_to_string(&path)
+                .map_err(|_| failed(Some(404), format!("{} {}", endpoint, query)))?;
+            return serde_json::from_str(&text).map_err(|e| failed(None, e.to_string()));
+        }
+        let url = format!("{}/{}/?{}", self.base, endpoint, query);
+        for attempt in 1..=5u64 {
+            let mut request = self.client.get(&url);
+            if let Some(token) = token {
+                request = request.header("Auth-Token", token);
+            }
+            let response = request
+                .send()
+                .await
+                .map_err(|e| failed(None, e.to_string()))?;
+            let status = response.status();
+            if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                tokio::time::sleep(std::time::Duration::from_secs(10 * attempt)).await;
+                continue;
+            }
+            if !status.is_success() {
+                return Err(failed(
+                    Some(status.as_u16()),
+                    format!("crash-stats' {} answered {}", endpoint, status),
+                ));
+            }
+            return response
+                .json()
+                .await
+                .map_err(|e| failed(None, e.to_string()));
+        }
+        Err(failed(
+            Some(429),
+            format!("crash-stats kept rate limiting its {}", endpoint),
+        ))
+    }
+}
+
 /// Checks that `token` (a crash-stats API token) can't see protected data,
 /// by asking for protected columns (crash-stats drops those a request may
 /// not see, rather than refusing them): any in the hits means it can.
-async fn check_unprivileged(
-    client: &reqwest::Client,
-    api: &str,
-    token: &str,
-) -> Result<(), String> {
+async fn check_unprivileged(api: &Api<'_>, token: &str) -> Result<(), String> {
     const PROTECTED: &[&str] = &["url", "email", "user_comments"];
     let since = (chrono::Utc::now() - chrono::Duration::days(2)).format("%Y-%m-%d");
-    let mut url = format!(
-        "{}/SuperSearch/?product=Firefox&_results_number=20&_facets_size=0&_columns=uuid&date=%3E%3D{}",
-        api, since
+    let mut query = format!(
+        "product=Firefox&_results_number=20&_facets_size=0&_columns=uuid&date=%3E%3D{}",
+        since
     );
     for column in PROTECTED {
-        url.push_str(&format!("&_columns={}", column));
+        query.push_str(&format!("&_columns={}", column));
     }
-    let response = client
-        .get(&url)
-        .header("Auth-Token", token)
-        .send()
-        .await
-        .map_err(|e| format!("Couldn't check the token: {}", e))?;
-    match response.status() {
-        status if status.is_success() => {}
-        reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::FORBIDDEN => return Ok(()),
-        status => return Err(format!("Couldn't check the token ({})", status)),
-    }
-    let hits: Value = response
-        .json()
-        .await
-        .map_err(|e| format!("Couldn't check the token: {}", e))?;
+    let hits = match api.get("SuperSearch", &query, Some(token)).await {
+        Ok(hits) => hits,
+        // (Refused, which crash-stats could do too.)
+        Err(ApiError {
+            status: Some(400 | 403),
+            ..
+        }) => return Ok(()),
+        Err(ApiError {
+            status: Some(401), ..
+        }) => return Err("crash-stats doesn't know that token".to_string()),
+        Err(e) => return Err(format!("Couldn't check the token: {}", e.message)),
+    };
     let privileged = hits["hits"]
         .as_array()
         .into_iter()
@@ -444,68 +626,52 @@ async fn check_unprivileged(
     }
 }
 
-/// GETs crash-stats' `url` as JSON, waiting and trying again after its rate
-/// limits' 429s (a few times).
-async fn get_json(
-    client: &reqwest::Client,
-    url: &str,
-    token: Option<&str>,
-) -> Result<Value, String> {
-    for attempt in 1..=5u64 {
-        let mut request = client.get(url);
-        if let Some(token) = token {
-            request = request.header("Auth-Token", token);
-        }
-        let response = request.send().await.map_err(|e| e.to_string())?;
-        if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            tokio::time::sleep(std::time::Duration::from_secs(10 * attempt)).await;
-            continue;
-        }
-        let response = response.error_for_status().map_err(|e| e.to_string())?;
-        return response.json().await.map_err(|e| e.to_string());
-    }
-    Err(format!("crash-stats kept rate limiting {}", url))
-}
-
-/// Fetches the crashes `search` finds from crash-stats (at `api`, see
-/// `CRASH_STATS_API`) into `store`, and stores their set's manifest,
-/// returning its ID; nothing is stored if it finds none.  `token` (a
-/// crash-stats API token without permissions, which this checks first) is
-/// only for its rate limits: the search uses it, and the processed crashes'
-/// fetches when they're rate limited without it (crash-stats then strips
-/// protected data itself, and `whitelist` keeps what the store has to public
-/// fields either way).  It's not kept.
+/// Fetches the crashes `search` finds from crash-stats (at `api`, see `Api`)
+/// into `store`, and stores their set's manifest, returning its ID; nothing
+/// is stored if it finds none.  `token` (a crash-stats API token without
+/// permissions, which this checks first) is only for its rate limits: the
+/// search uses it, and the processed crashes' fetches when they're rate
+/// limited without it (crash-stats then strips protected data itself, and
+/// `whitelist` keeps what the store has to public fields either way).  It's
+/// not kept.  `progress` hears how many of the crashes it has, of how many,
+/// as it fetches them.
 pub async fn fetch_set(
     store: &CrashSetStore,
     search: &CrashSearch,
     api: &str,
     token: Option<&str>,
+    progress: &(dyn Fn(usize, usize) + Send + Sync),
 ) -> Result<String, String> {
     search.check()?;
-    let client = reqwest::Client::builder()
-        .user_agent(concat!(
-            "searchfox/",
-            env!("CARGO_PKG_VERSION"),
-            " (crash sets)"
-        ))
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| e.to_string())?;
+    let api = Api {
+        base: api,
+        client: reqwest::Client::builder()
+            .user_agent(concat!(
+                "searchfox/",
+                env!("CARGO_PKG_VERSION"),
+                " (crash sets)"
+            ))
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .map_err(|e| e.to_string())?,
+    };
     if let Some(token) = token {
-        check_unprivileged(&client, api, token).await?;
+        check_unprivileged(&api, token).await?;
     }
     let query: Vec<String> = search
         .params()
         .iter()
         .map(|(name, value)| format!("{}={}", name, url_encode_query(value)))
         .collect();
-    let url = format!(
-        "{}/SuperSearch/?{}&_columns=uuid&_sort=-date&_facets_size=0&_results_number={}",
-        api,
+    let query = format!(
+        "{}&_columns=uuid&_sort=-date&_facets_size=0&_results_number={}",
         query.join("&"),
         search.limit
     );
-    let found = get_json(&client, &url, token).await?;
+    let found = api
+        .get("SuperSearch", &query, token)
+        .await
+        .map_err(|e| e.message)?;
     let mut crashes: Vec<String> = found["hits"]
         .as_array()
         .into_iter()
@@ -519,18 +685,24 @@ pub async fn fetch_set(
     }
     crashes.sort();
     crashes.dedup();
-    for id in &crashes {
+    crashes.truncate(search.limit);
+    for (fetched, id) in crashes.iter().enumerate() {
+        progress(fetched, crashes.len());
         if store.has_crash(id) {
             continue;
         }
-        let url = format!("{}/ProcessedCrash/?crash_id={}", api, id);
-        let processed = match get_json(&client, &url, None).await {
+        let query = format!("crash_id={}", id);
+        let processed = match api.get("ProcessedCrash", &query, None).await {
             Ok(processed) => processed,
-            Err(_) if token.is_some() => get_json(&client, &url, token).await?,
-            Err(e) => return Err(e),
+            Err(_) if token.is_some() => api
+                .get("ProcessedCrash", &query, token)
+                .await
+                .map_err(|e| e.message)?,
+            Err(e) => return Err(e.message),
         };
         store.store_crash(id, &processed)?;
     }
+    progress(crashes.len(), crashes.len());
     let manifest = CrashSetManifest {
         version: MANIFEST_VERSION,
         search: search.clone(),
@@ -539,6 +711,230 @@ pub async fn fetch_set(
         crashes,
     };
     store.store_manifest(&manifest)
+}
+
+/// How many crash sets' ingestions can be waiting or running at once (see
+/// `request_ingestion`), of a client's at most `MAX_CLIENT_INGESTIONS`.
+pub const MAX_INGESTIONS: usize = 8;
+pub const MAX_CLIENT_INGESTIONS: usize = 1;
+/// How many ingestions' statuses are kept (the latest).
+const KEPT_INGESTIONS: usize = 200;
+
+/// A crash set's ingestion's status (see `request_ingestion`): waiting, after
+/// `ahead` others; running, its crashes fetched so far, of how many, and
+/// how long it's been running; done, the set's ID; or failed, why.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum IngestionStatus {
+    Queued {
+        ahead: usize,
+    },
+    Running {
+        fetched: usize,
+        total: usize,
+        seconds: u64,
+    },
+    Done {
+        set: String,
+    },
+    Failed {
+        message: String,
+    },
+}
+
+/// An ingestion's work: where to store the set, crash-stats' API, and the
+/// token, which only lives here (in memory) until the ingestion runs, and
+/// then until it's done.
+struct IngestionWork {
+    store: CrashSetStore,
+    api: String,
+    token: Option<String>,
+}
+
+/// An ingestion: its search, its client (see `admission::client_key`), its
+/// status, and when it started running.
+struct Ingestion {
+    search: CrashSearch,
+    client: Option<String>,
+    status: IngestionStatus,
+    started: Option<std::time::Instant>,
+}
+
+#[derive(Default)]
+struct Ingestions {
+    /// By their IDs, in the order they were asked for (their IDs' order
+    /// isn't; see `order`).
+    jobs: std::collections::HashMap<String, Ingestion>,
+    order: std::collections::VecDeque<String>,
+    queue: std::collections::VecDeque<(String, IngestionWork)>,
+}
+
+static INGESTIONS: std::sync::LazyLock<(std::sync::Mutex<Ingestions>, std::sync::Condvar)> =
+    std::sync::LazyLock::new(Default::default);
+
+/// Asks for the crash set `search` finds to be fetched into `store` from
+/// crash-stats' `api` (see `fetch_set`), with `token` (a crash-stats API
+/// token, which must have no permissions; kept in memory only until the
+/// ingestion's done), for `client`: the web server's crash sets' form's
+/// (see `format::format_crash_set_form`).  Returns the ingestion's ID (see
+/// `ingestion_status`), or why it can't be asked for: its search's dates
+/// aren't recent (see `CrashSearch::check_recent`), or `MAX_INGESTIONS` are
+/// waiting or running, or `MAX_CLIENT_INGESTIONS` of the client's.  They run
+/// one at a time, in the order they were asked for, on their own thread.
+pub fn request_ingestion(
+    store: CrashSetStore,
+    api: &str,
+    search: CrashSearch,
+    token: Option<String>,
+    client: Option<String>,
+) -> Result<String, String> {
+    search.check()?;
+    search.check_recent(chrono::Utc::now().date_naive(), token.is_some())?;
+    static WORKER: std::sync::Once = std::sync::Once::new();
+    WORKER.call_once(|| {
+        std::thread::spawn(run_ingestions);
+    });
+    let (lock, queued) = &*INGESTIONS;
+    let mut ingestions = lock.lock().unwrap();
+    let active: Vec<&Ingestion> = ingestions
+        .jobs
+        .values()
+        .filter(|job| {
+            matches!(
+                job.status,
+                IngestionStatus::Queued { .. } | IngestionStatus::Running { .. }
+            )
+        })
+        .collect();
+    if active.len() >= MAX_INGESTIONS {
+        return Err(
+            "Too many crash sets are being fetched now; try again in a few minutes".to_string(),
+        );
+    }
+    if client.is_some()
+        && active.iter().filter(|job| job.client == client).count() >= MAX_CLIENT_INGESTIONS
+    {
+        return Err("You're fetching a crash set already; wait for it to finish".to_string());
+    }
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let id = format!(
+        "{:016x}",
+        fnv1a(
+            format!(
+                "{:?} {} {}",
+                std::time::SystemTime::now(),
+                COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                serde_json::to_string(&search).unwrap_or_default()
+            )
+            .as_bytes()
+        )
+    );
+    let ahead = ingestions.queue.len();
+    ingestions.jobs.insert(
+        id.clone(),
+        Ingestion {
+            search,
+            client,
+            status: IngestionStatus::Queued { ahead },
+            started: None,
+        },
+    );
+    ingestions.order.push_back(id.clone());
+    ingestions.queue.push_back((
+        id.clone(),
+        IngestionWork {
+            store,
+            api: api.to_string(),
+            token,
+        },
+    ));
+    // (Forgetting the oldest finished ones.)
+    while ingestions.order.len() > KEPT_INGESTIONS {
+        let Some(oldest) = ingestions.order.pop_front() else {
+            break;
+        };
+        ingestions.jobs.remove(&oldest);
+    }
+    queued.notify_one();
+    Ok(id)
+}
+
+/// The ingestion `id`'s search and status, if it's one of the latest (see
+/// `KEPT_INGESTIONS`).
+pub fn ingestion_status(id: &str) -> Option<(CrashSearch, IngestionStatus)> {
+    let ingestions = INGESTIONS.0.lock().unwrap();
+    let job = ingestions.jobs.get(id)?;
+    let status = match (&job.status, job.started) {
+        (IngestionStatus::Running { fetched, total, .. }, Some(started)) => {
+            IngestionStatus::Running {
+                fetched: *fetched,
+                total: *total,
+                seconds: started.elapsed().as_secs(),
+            }
+        }
+        (IngestionStatus::Queued { .. }, _) => IngestionStatus::Queued {
+            ahead: ingestions
+                .queue
+                .iter()
+                .position(|(queued, _)| queued == id)
+                .unwrap_or(0),
+        },
+        (status, _) => status.clone(),
+    };
+    Some((job.search.clone(), status))
+}
+
+/// The ingestions' thread: runs them one at a time (see `request_ingestion`).
+fn run_ingestions() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime for crash sets' ingestions");
+    let (lock, queued) = &*INGESTIONS;
+    loop {
+        let (id, work, search) = {
+            let mut ingestions = lock.lock().unwrap();
+            while ingestions.queue.is_empty() {
+                ingestions = queued.wait(ingestions).unwrap();
+            }
+            let (id, work) = ingestions.queue.pop_front().unwrap();
+            let Some(job) = ingestions.jobs.get_mut(&id) else {
+                continue;
+            };
+            job.status = IngestionStatus::Running {
+                fetched: 0,
+                total: 0,
+                seconds: 0,
+            };
+            job.started = Some(std::time::Instant::now());
+            (id, work, job.search.clone())
+        };
+        let progress = |fetched: usize, total: usize| {
+            if let Some(job) = lock.lock().unwrap().jobs.get_mut(&id) {
+                job.status = IngestionStatus::Running {
+                    fetched,
+                    total,
+                    seconds: 0,
+                };
+            }
+        };
+        let IngestionWork { store, api, token } = work;
+        let result = runtime.block_on(fetch_set(
+            &store,
+            &search,
+            &api,
+            token.as_deref(),
+            &progress,
+        ));
+        // (The token's gone with this.)
+        drop(token);
+        if let Some(job) = lock.lock().unwrap().jobs.get_mut(&id) {
+            job.status = match result {
+                Ok(set) => IngestionStatus::Done { set },
+                Err(message) => IngestionStatus::Failed { message },
+            };
+        }
+    }
 }
 
 /// A frame of a busy thread (see `BusyThread`): its function (without its
@@ -1901,6 +2297,215 @@ mod tests {
                 count: 1
             }
         );
+    }
+
+    #[test]
+    fn test_from_form() {
+        let fields = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+            pairs
+                .iter()
+                .map(|(name, value)| (name.to_string(), value.to_string()))
+                .collect()
+        };
+        let search = CrashSearch::from_form(&fields(&[
+            ("signature", " Foo | Bar "),
+            ("proto_signature", ""),
+            ("release_channel", "nightly"),
+            ("release_channel", "beta"),
+            ("versions", "146.0a1, 145.0"),
+            ("platform", "Windows NT"),
+            ("from", "2026-10-25"),
+            ("through", "2026-10-31"),
+            ("limit", "50"),
+            ("token", "secret"),
+        ]))
+        .unwrap();
+        assert_eq!(search.signature.as_deref(), Some("Foo | Bar"));
+        assert_eq!(search.proto_signature, None);
+        assert_eq!(search.product, "Firefox");
+        assert_eq!(search.release_channels, vec!["nightly", "beta"]);
+        assert_eq!(search.versions, vec!["146.0a1", "145.0"]);
+        assert_eq!(search.date_to, "2026-11-01");
+        assert_eq!(search.through(), "2026-10-31");
+        // (Not the token, which isn't the search's.)
+        assert!(!serde_json::to_string(&search).unwrap().contains("secret"));
+        assert!(
+            CrashSearch::from_form(&fields(&[
+                ("from", "2026-10-25"),
+                ("through", "2026-10-31"),
+                ("limit", "50")
+            ]))
+            .is_err()
+        );
+        assert!(
+            CrashSearch::from_form(&fields(&[
+                ("signature", "Foo"),
+                ("from", "2026-10-25"),
+                ("through", "soon"),
+                ("limit", "50")
+            ]))
+            .is_err()
+        );
+
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap();
+        assert_eq!(search.check_recent(today, false), Ok(()));
+        let mut old = search.clone();
+        old.date_from = "2026-09-01".to_string();
+        old.date_to = "2026-09-10".to_string();
+        assert!(old.check_recent(today, true).is_err());
+        let mut many = search.clone();
+        many.limit = MAX_CRASHES_WITHOUT_TOKEN + 1;
+        assert!(many.check_recent(today, false).is_err());
+        assert_eq!(many.check_recent(today, true), Ok(()));
+    }
+
+    /// A crash-stats stand-in (see `Api`) with `crashes`, which a token
+    /// "privileged" sees protected data of, and a store, in a temporary
+    /// directory, which it removes when dropped.
+    struct Fixture {
+        dir: PathBuf,
+    }
+
+    impl Fixture {
+        fn new(name: &str, crashes: &[&str]) -> Fixture {
+            let dir =
+                std::env::temp_dir().join(format!("crash-sets-{}-{}", name, std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(dir.join("api/ProcessedCrash")).unwrap();
+            let hits: Vec<Value> = crashes.iter().map(|id| json!({ "uuid": id })).collect();
+            std::fs::write(
+                dir.join("api/SuperSearch.json"),
+                json!({ "hits": hits, "total": 7 }).to_string(),
+            )
+            .unwrap();
+            std::fs::write(
+                dir.join("api/SuperSearch.privileged.json"),
+                json!({ "hits": [{ "uuid": crashes[0], "url": "https://example.com/" }] })
+                    .to_string(),
+            )
+            .unwrap();
+            for id in crashes {
+                let crash = json!({
+                    "uuid": id,
+                    "signature": "Foo",
+                    "user_comments": "protected",
+                    "json_dump": { "crash_info": { "crashing_thread": 0 }, "threads": [] },
+                });
+                std::fs::write(
+                    dir.join(format!("api/ProcessedCrash/{}.json", id)),
+                    crash.to_string(),
+                )
+                .unwrap();
+            }
+            Fixture { dir }
+        }
+
+        fn api(&self) -> String {
+            format!("file://{}", self.dir.join("api").display())
+        }
+
+        fn store(&self) -> CrashSetStore {
+            CrashSetStore::new(self.dir.join("store"))
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    #[test]
+    fn test_fetch_set() {
+        let crashes = [
+            "5e4c0b1a-7e57-4c0d-8e5a-0000002611b1",
+            "5e4c0b1a-7e57-4c0d-8e5a-0000002611b2",
+        ];
+        let fixture = Fixture::new("fetch", &crashes);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let progress = std::sync::Mutex::new(vec![]);
+        let fetch = |token: Option<&str>| {
+            runtime.block_on(fetch_set(
+                &fixture.store(),
+                &search(),
+                &fixture.api(),
+                token,
+                &|fetched, total| progress.lock().unwrap().push((fetched, total)),
+            ))
+        };
+        // (A token which can see protected data is refused.)
+        assert!(fetch(Some("privileged")).unwrap_err().contains("protected"));
+        assert!(fixture.store().crash(crashes[0]).unwrap().is_none());
+        let set = fetch(Some("unprivileged")).unwrap();
+        let manifest = fixture.store().manifest(&set).unwrap().unwrap();
+        assert_eq!(manifest.crashes, crashes);
+        assert_eq!(manifest.total, 7);
+        assert_eq!(*progress.lock().unwrap(), vec![(0, 2), (1, 2), (2, 2)]);
+        // (Whitelisted.)
+        let stored = fixture.store().crash(crashes[1]).unwrap().unwrap();
+        assert_eq!(stored["signature"], "Foo");
+        assert!(stored.get("user_comments").is_none());
+        // (Without a token too.)
+        assert!(fetch(None).is_ok());
+
+        // A store seeded with another reads it after its own, and writes its
+        // own.
+        let seeded = CrashSetStore::new(fixture.dir.join("other"))
+            .with_seed(Some(fixture.dir.join("store")));
+        assert_eq!(seeded.manifest(&set).unwrap(), Some(manifest));
+        assert!(seeded.has_crash(crashes[0]));
+        assert!(!fixture.dir.join("other").exists());
+    }
+
+    #[test]
+    fn test_ingestion() {
+        let crashes = ["5e4c0b1a-7e57-4c0d-8e5a-0000002611c1"];
+        let fixture = Fixture::new("ingest", &crashes);
+        let mut recent = search();
+        let today = chrono::Utc::now().date_naive();
+        recent.date_from = (today - chrono::Duration::days(3))
+            .format("%Y-%m-%d")
+            .to_string();
+        recent.date_to = (today + chrono::Duration::days(1))
+            .format("%Y-%m-%d")
+            .to_string();
+        let job = request_ingestion(
+            fixture.store(),
+            &fixture.api(),
+            recent.clone(),
+            None,
+            Some("client".to_string()),
+        )
+        .unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let status = loop {
+            let (searched, status) = ingestion_status(&job).unwrap();
+            assert_eq!(searched, recent);
+            if matches!(
+                status,
+                IngestionStatus::Done { .. } | IngestionStatus::Failed { .. }
+            ) {
+                break status;
+            }
+            assert!(std::time::Instant::now() < deadline, "{:?}", status);
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        let IngestionStatus::Done { set } = status else {
+            panic!("{:?}", status);
+        };
+        assert_eq!(
+            fixture.store().manifest(&set).unwrap().unwrap().crashes,
+            crashes
+        );
+        assert!(ingestion_status("0000000000000000").is_none());
+        // (Old dates are refused before anything's queued.)
+        let mut old = search();
+        old.date_from = "2020-01-01".to_string();
+        old.date_to = "2020-01-08".to_string();
+        assert!(request_ingestion(fixture.store(), &fixture.api(), old, None, None).is_err());
     }
 
     #[test]

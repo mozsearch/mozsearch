@@ -1100,6 +1100,8 @@ pub fn remote_trees_config(
         query_limits: Default::default(),
         crash_reports_url: None,
         crash_sets_path: None,
+        crash_sets_seed: None,
+        crash_stats_api: None,
         bugzilla_url: None,
     }
 }

@@ -148,10 +148,19 @@ pub struct ConfigJson {
     pub bugzilla_url: Option<String>,
 
     /// Where the crash sets' store is (see `crash_sets`), if not
-    /// `crash-sets/` beside the trees' index directories: ex: tests'
-    /// fixtures.
+    /// `crash-sets/` beside the trees' index directories.
     #[serde(default)]
     pub crash_sets_path: Option<String>,
+
+    /// A crash sets' store which the store reads after its own, if any (ex:
+    /// tests' fixtures; see `CrashSetStore::with_seed`).
+    #[serde(default)]
+    pub crash_sets_seed: Option<String>,
+
+    /// crash-stats' API, for crash sets' ingestions, if not
+    /// `crash_sets::CRASH_STATS_API` (ex: tests' fixtures, `file://...`).
+    #[serde(default)]
+    pub crash_stats_api: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -596,6 +605,10 @@ pub struct Config {
     pub bugzilla_url: Option<String>,
     /// See `ConfigJson::crash_sets_path`.
     pub crash_sets_path: Option<String>,
+    /// See `ConfigJson::crash_sets_seed`.
+    pub crash_sets_seed: Option<String>,
+    /// See `ConfigJson::crash_stats_api`.
+    pub crash_stats_api: Option<String>,
 }
 
 impl Config {
@@ -912,6 +925,8 @@ pub fn load(
         crash_reports_url: config.crash_reports_url,
         bugzilla_url: config.bugzilla_url,
         crash_sets_path: config.crash_sets_path,
+        crash_sets_seed: config.crash_sets_seed,
+        crash_stats_api: config.crash_stats_api,
     }
 }
 

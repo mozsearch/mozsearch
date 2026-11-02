@@ -107,6 +107,7 @@ async fn main() {
         &search,
         &args.api,
         token.as_deref(),
+        &|fetched, total| eprint!("\r{}/{}", fetched, total),
     )
     .await
     {

@@ -156,6 +156,15 @@ pub fn build_and_parse_missing_source() -> Template {
     build_and_parse(template_str)
 }
 
+pub fn build_and_parse_crash_set_form() -> Template {
+    let template_str = TEMPLATE_DIR
+        .get_file("crash_set_form.liquid")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    build_and_parse(template_str)
+}
+
 pub fn build_and_parse_try_import() -> Template {
     let template_str = TEMPLATE_DIR
         .get_file("try_import.liquid")

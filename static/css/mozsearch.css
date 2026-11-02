@@ -6476,6 +6476,45 @@ textarea.monospace {
   opacity: 0.35;
 }
 
+/* The crash sets' form and their ingestions' status (see
+   crash_set_form.liquid). */
+.crash-set-form-page {
+  max-width: 62em;
+  margin: 0.5em 1em 2em;
+}
+.crash-set-form-about,
+.crash-set-token-note {
+  color: color-mix(in srgb, currentColor 75%, transparent);
+  font-size: 13px;
+}
+.crash-set-form-notice {
+  padding: 0.4em 0.6em;
+  border-left: 3px solid #c01c28;
+  background-color: color-mix(in srgb, #c01c28 8%, transparent);
+}
+.crash-set-field {
+  display: block;
+  margin: 0.5em 0;
+}
+.crash-set-choices {
+  display: inline-block;
+  margin: 0.4em 0.8em 0.4em 0;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 4px;
+  font-size: 13px;
+}
+.crash-set-choices label {
+  margin-right: 0.6em;
+  white-space: nowrap;
+}
+.crash-set-submit {
+  margin-top: 0.4em;
+  padding: 0.3em 1em;
+}
+.crash-set-error {
+  color: #c01c28;
+}
+
 /* A Bugzilla comment's view (see bug_comment.rs), as the crash view: the
    comment as Bugzilla shows it (its header, then its text, a row per block),
    each of its blocks (left) beside the cards of what it links to (right). */

@@ -12334,6 +12334,125 @@ fn render_spec_prs_page(
     Ok(())
 }
 
+/// The release channels, platforms and process types the crash sets' form
+/// offers (see `format_crash_set_form`).
+const CRASH_SET_CHANNELS: &[&str] = &["nightly", "aurora", "beta", "release", "esr"];
+const CRASH_SET_PLATFORMS: &[&str] = &["Windows NT", "Mac OS X", "Linux", "Android"];
+const CRASH_SET_PROCESSES: &[&str] = &["parent", "content", "gpu", "rdd", "socket", "utility", "gmplugin"];
+
+/// The crash sets' form (`/{tree}/crash-sets/new`; see `crash_sets` and
+/// crash_set_form.liquid), its fields `search`'s, and the problem with what
+/// was sent (`notice`), if any.
+pub fn format_crash_set_form(
+    tree_name: &str,
+    search: &crate::crash_sets::CrashSearch,
+    notice: Option<&str>,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    use crate::crash_sets::{MAX_CRASHES, MAX_CRASHES_WITHOUT_TOKEN, MAX_DAYS_BACK};
+    let choices = |offered: &[&str], chosen: &[String]| -> Vec<serde_json::Value> {
+        let mut choices: Vec<serde_json::Value> = offered
+            .iter()
+            .map(|value| json!({ "value": value, "checked": chosen.iter().any(|c| c == value) }))
+            .collect();
+        // (And those chosen which it doesn't offer, ex: from a link.)
+        for value in chosen.iter().filter(|value| !offered.contains(&value.as_str())) {
+            choices.push(json!({ "value": value, "checked": true }));
+        }
+        choices
+    };
+    let globals = json!({
+        "tree": tree_name,
+        "mode": "form",
+        "title": "Analyze a crash signature's crash reports",
+        "notice": notice.unwrap_or_default(),
+        "signature": search.signature.clone().unwrap_or_default(),
+        "proto_signature": search.proto_signature.clone().unwrap_or_default(),
+        "product": search.product,
+        "release_channels": choices(CRASH_SET_CHANNELS, &search.release_channels),
+        "versions": search.versions.join(", "),
+        "platforms": choices(CRASH_SET_PLATFORMS, &search.platforms),
+        "process_types": choices(CRASH_SET_PROCESSES, &search.process_types),
+        "from": search.date_from,
+        "through": search.through(),
+        "limit": search.limit,
+        "max_crashes": MAX_CRASHES,
+        "max_without_token": MAX_CRASHES_WITHOUT_TOKEN,
+        "max_days_back": MAX_DAYS_BACK,
+    });
+    render_crash_set_page(tree_name, globals, writer)
+}
+
+/// The status of the crash set ingestion `job` of `search` (see
+/// `crash_sets::request_ingestion`), polled until it's done (see
+/// crash_set_form.liquid).
+pub fn format_crash_set_status(
+    tree_name: &str,
+    job: &str,
+    search: &crate::crash_sets::CrashSearch,
+    status: &crate::crash_sets::IngestionStatus,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let set_url = match status {
+        crate::crash_sets::IngestionStatus::Done { set } => crash_set_url(tree_name, set),
+        _ => String::new(),
+    };
+    let mut form_url = url::form_urlencoded::Serializer::new(String::new());
+    for (name, value) in [
+        ("signature", search.signature.clone().unwrap_or_default()),
+        ("proto_signature", search.proto_signature.clone().unwrap_or_default()),
+    ] {
+        if !value.is_empty() {
+            form_url.append_pair(name, &value);
+        }
+    }
+    let globals = json!({
+        "tree": tree_name,
+        "mode": "status",
+        "title": "Fetching crash reports",
+        "about": search.about_html(),
+        "status": status,
+        "status_url": format!("/{}/crash-sets/status/{}?format=json", tree_name, job),
+        "set_url": set_url,
+        "form_url": format!("/{}/crash-sets/new?{}", tree_name, form_url.finish()),
+    });
+    render_crash_set_page(tree_name, globals, writer)
+}
+
+/// The query page's URL of the crash set `set`'s view.
+pub fn crash_set_url(tree_name: &str, set: &str) -> String {
+    format!("/{}/query/default?q=crash-set%3A{}", tree_name, set)
+}
+
+/// A crash sets' page (see `format_crash_set_form`), in the site's page.
+fn render_crash_set_page(
+    tree_name: &str,
+    globals: serde_json::Value,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let page_title = format!(
+        "{} - mozsearch",
+        globals["title"].as_str().unwrap_or_default()
+    );
+    let opt = Options {
+        title: &page_title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "crash-set-page",
+        search_rev: None,
+    };
+    output::generate_header(&opt, writer)?;
+    output::generate_panel(&opt, writer, &[], true)?;
+    let globals = liquid::to_object(&globals).map_err(|_| "Template problems")?;
+    crate::templating::builder::build_and_parse_crash_set_form()
+        .render_to(writer, &globals)
+        .map_err(|_| "Template problems")?;
+    output::generate_footer(&opt, tree_name, "", writer).unwrap();
+    Ok(())
+}
+
 /// The status of the syncs of `server`'s tree's pull request summaries (or of
 /// `spec`'s).
 fn spec_prs_sync_status(
@@ -12485,6 +12604,8 @@ mod tests {
             query_limits: Default::default(),
             crash_reports_url: None,
             crash_sets_path: None,
+            crash_sets_seed: None,
+            crash_stats_api: None,
             bugzilla_url: None,
         };
         let lookup = |tree: &str, kind: &str, captures: &[(&str, &str)]| {

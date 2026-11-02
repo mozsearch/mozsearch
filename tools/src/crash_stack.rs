@@ -1527,12 +1527,13 @@ pub fn render_crash_stack(
     }
     match &stack.report {
         None => html.push_str(&format!(
-            r#"<div class="crash-notice"><p>The stack of the crash signature <a class="crash-signature" href="{}">{}</a>, innermost frame first: each frame beside its function's code in {}, with the lines it's believed to have been at (its calls of the frame above it) highlighted.  {} of its {} frames are functions in the tree.</p>"#,
+            r#"<div class="crash-notice"><p>The stack of the crash signature <a class="crash-signature" href="{}">{}</a>, innermost frame first: each frame beside its function's code in {}, with the lines it's believed to have been at (its calls of the frame above it) highlighted.  {} of its {} frames are functions in the tree.</p><p class="crash-links"><a class="crash-set-new" href="{}">Analyze its recent crash reports</a>, by what their threads were busy with.</p>"#,
             escape(&crash_stats),
             escape(&stack.signature),
             escape(tree_name),
             found,
-            stack.frames.len()
+            stack.frames.len(),
+            escape(&crash_set_form_url(tree_name, &stack.signature))
         )),
         Some(report) => {
             let (what, thread) = report_crashed(report);
@@ -1575,6 +1576,10 @@ pub fn render_crash_stack(
                         report.signature.replace('\\', "\\\\").replace('\'', "\\'")
                     ))),
                     escape(&report.signature)
+                ));
+                links.push(format!(
+                    r#"<a class="crash-set-new" href="{}">its signature's recent crash reports, analyzed</a>"#,
+                    escape(&crash_set_form_url(tree_name, &report.signature))
                 ));
             }
             if report.thread_count > 1 {
@@ -1705,6 +1710,16 @@ fn thread_label(thread: &ThreadInfo) -> String {
     }
 }
 
+/// The crash sets' form's URL for `signature`'s crash reports (see
+/// `crash_sets`).
+fn crash_set_form_url(tree_name: &str, signature: &str) -> String {
+    format!(
+        "/{}/crash-sets/new?signature={}",
+        tree_name,
+        url_encode_query(signature)
+    )
+}
+
 /// The query page's URL of `query` in `tree_name`.
 fn view_query_url(tree_name: &str, query: &str) -> String {
     format!("/{}/query/default?q={}", tree_name, url_encode_query(query))
@@ -1750,10 +1765,14 @@ fn crumbs_html(
     };
     let thread = report.crashing_thread.as_ref();
     let mut html = format!(
-        r#"<div class="crash-crumbs" hidden data-report="{}" data-report-url="{}" data-signature-url="{}" data-threads-url="{}" data-threads-label="{}"><span class="path-separator">/</span><a class="crash-crumb-report" href="{}" title="The crash report on crash-stats">{}</a><button type="button" class="crash-crumb-button" id="crash-report-menu-button" title="Open the crash report's menu" aria-expanded="false" aria-haspopup="true" aria-controls="crash-report-menu"></button><div id="crash-report-menu" title="The crash report" role="menu" class="context-menu" style="display: none"></div>"#,
+        r#"<div class="crash-crumbs" hidden data-report="{}" data-report-url="{}" data-signature-url="{}" data-analyze-url="{}" data-threads-url="{}" data-threads-label="{}"><span class="path-separator">/</span><a class="crash-crumb-report" href="{}" title="The crash report on crash-stats">{}</a><button type="button" class="crash-crumb-button" id="crash-report-menu-button" title="Open the crash report's menu" aria-expanded="false" aria-haspopup="true" aria-controls="crash-report-menu"></button><div id="crash-report-menu" title="The crash report" role="menu" class="context-menu" style="display: none"></div>"#,
         escape(&report.id),
         escape(&report_url),
         escape(&signature_url),
+        escape(&match report.signature.is_empty() {
+            true => String::new(),
+            false => crash_set_form_url(tree_name, &report.signature),
+        }),
         escape(&threads_url),
         escape(&threads_label),
         escape(&report_url),

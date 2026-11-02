@@ -489,8 +489,8 @@ impl AbstractServer for LocalIndex {
     }
 
     fn crash_sets(&self) -> Option<crate::crash_sets::CrashSetStore> {
-        let root = self
-            .tree_config_loaded()
+        let cfg = self.tree_config_loaded();
+        let root = cfg
             .crash_sets_path
             .clone()
             .map(std::path::PathBuf::from)
@@ -498,7 +498,10 @@ impl AbstractServer for LocalIndex {
                 crate::sidecars::sidecar_root(&self.config_paths.index_path)
                     .with_file_name("crash-sets")
             });
-        Some(crate::crash_sets::CrashSetStore::new(root))
+        Some(
+            crate::crash_sets::CrashSetStore::new(root)
+                .with_seed(cfg.crash_sets_seed.clone().map(std::path::PathBuf::from)),
+        )
     }
 
     fn crash_thread_rules(&self) -> Option<std::sync::Arc<crate::crash_threads::ThreadRules>> {

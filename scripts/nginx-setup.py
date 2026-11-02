@@ -572,6 +572,10 @@ for repo in config['trees']:
     location(f'/{repo}/spec-prs', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
     # and a spec's rendered page with their changes beside it.
     location(f'/{repo}/rendered-prs', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+    # Crash sets' form, its POSTs (with their API tokens in their bodies,
+    # which nothing logs) and their ingestions' status (see the tools'
+    # `crash_sets`).
+    location(f'/{repo}/crash-sets', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 
     # Handled by Rust `pipeline-server.rs`
     location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])
