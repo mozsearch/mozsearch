@@ -4,6 +4,7 @@
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/Mangle.h"
@@ -2219,6 +2220,12 @@ public:
       ExpansionLoc = SM.getFileLoc(Loc);
     }
     normalizeLocation(&ExpansionLoc);
+
+    if (isa<CXXDeductionGuideDecl>(D)) {
+      // Ignore template deduction guides, they can not be referenced in the code
+      // and trying to mangle their name triggers UB (bug 2088068).
+      return true;
+    }
 
     if (isa<ParmVarDecl>(D) && !D->getDeclName().getAsIdentifierInfo()) {
       // Unnamed parameter in function proto.
