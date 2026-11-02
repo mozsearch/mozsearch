@@ -38,6 +38,8 @@ struct RulesToml {
 struct PlacesToml {
     #[serde(default)]
     libraries: Vec<String>,
+    #[serde(default)]
+    generic: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -189,6 +191,7 @@ pub struct ThreadRules {
     system: HashSet<String>,
     threads: Vec<ThreadRule>,
     libraries: Patterns,
+    generic: Patterns,
 }
 
 /// A frame of a thread's stack, as the rules see it: its function's name (as
@@ -392,6 +395,7 @@ impl ThreadRules {
             gecko: toml.modules.gecko.into_iter().collect(),
             system: toml.modules.system.into_iter().collect(),
             libraries: Patterns::new(&toml.places.libraries)?,
+            generic: Patterns::new(&toml.places.generic)?,
             threads: toml
                 .thread
                 .iter()
@@ -457,6 +461,14 @@ impl ThreadRules {
     /// crash-threads.toml's `[places]`).
     pub fn is_library(&self, place: &str) -> bool {
         self.libraries.matches(place)
+    }
+
+    /// Whether a call to `function` (as a report has it, see `rule_name`) is
+    /// generic application code (ex: an operation's dispatch, a directory's
+    /// iteration), which a busy thread's place and its stack skip, as they
+    /// do libraries' (see crash-threads.toml's `[places]`).
+    pub fn is_generic(&self, function: &str) -> bool {
+        self.generic.matches(&rule_name(function))
     }
 
     fn layer(&self, name: &str) -> Option<&str> {

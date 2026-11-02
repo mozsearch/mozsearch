@@ -6396,6 +6396,85 @@ textarea.monospace {
   font-family: monospace;
   white-space: nowrap;
 }
+.crash-set-heading {
+  margin: 1em 1em 0.3em;
+  font-size: 14px;
+}
+.crash-set-about {
+  max-width: 70em;
+  margin: 0 1em 0.5em;
+  color: color-mix(in srgb, currentColor 70%, transparent);
+  font-size: 12px;
+}
+/* (The diagrams of what a set's crashes' threads were busy with, a box each,
+   beside each other; see crash-set.js.) */
+.crash-graphs {
+  margin: 0 1em;
+}
+.crash-graph {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  vertical-align: top;
+  margin: 0 0.8em 0.8em 0;
+  padding: 0.3em 0.4em;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 4px;
+}
+.crash-graph[hidden] {
+  display: none;
+}
+.crash-graph figcaption {
+  margin-bottom: 0.2em;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  font-size: 11px;
+}
+.crash-graph-canvas {
+  position: relative;
+}
+.crash-graph-edges {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+.crash-graph-edge {
+  fill: none;
+  stroke: color-mix(in srgb, currentColor 45%, transparent);
+}
+.crash-graph-edge-head {
+  fill: color-mix(in srgb, currentColor 45%, transparent);
+}
+.crash-graph-edge-none {
+  opacity: 0.2;
+}
+/* (A function, its color by how many of the stacks have it: `--heat`.) */
+.crash-graph-node {
+  position: absolute;
+  max-width: 28em;
+  overflow: hidden;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, #d9480f 55%, transparent);
+  border-radius: 3px;
+  background-color: color-mix(in srgb, #ff6b35 calc(var(--heat, 0) * 80%), var(--page-background));
+  font-family: monospace;
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.crash-graph-node-scope {
+  overflow: hidden;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  font-size: 9px;
+  text-overflow: ellipsis;
+}
+.crash-graph-node-count {
+  color: color-mix(in srgb, currentColor 65%, transparent);
+  font-size: 9px;
+}
+.crash-graph-node-none {
+  opacity: 0.35;
+}
 
 /* A Bugzilla comment's view (see bug_comment.rs), as the crash view: the
    comment as Bugzilla shows it (its header, then its text, a row per block),

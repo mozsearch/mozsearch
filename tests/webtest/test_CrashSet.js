@@ -41,12 +41,33 @@ add_task(async function test_CrashSet() {
      "QuotaManager IO: _PR_MD_FSYNC ‹ mozilla::dom::quota::QuotaManager::UnloadQuota ‹ mozilla::dom::quota::ShutdownStorageOp::DoDirectoryWork",
      "A variant is its busy threads' functions, from their library calls to the tree's code calling them");
 
-  // The navigation panel's facets of its crashes.
+  // The diagrams of what they were busy with: a box for each connected part
+  // of their stacks' graph (but what they all were busy with), the biggest
+  // first, its functions colored and numbered by how many stacks have them.
+  const graphs = () => [...doc().querySelectorAll(".crash-graph")].filter(graph => !graph.hidden);
+  is(JSON.stringify(graphs().map(graph => graph.querySelector("figcaption").textContent)),
+     JSON.stringify(["3 stacks of 3 crashes", "2 stacks of 2 crashes"]), "A diagram for each connected part of their stacks");
+  const nodes = graph => [...graph.querySelectorAll(".crash-graph-node")].map(node =>
+    [node.querySelector(".crash-graph-node-text").textContent, node.style.getPropertyValue("--heat")]);
+  is(JSON.stringify(nodes(graphs()[0])), JSON.stringify([
+    ["CreateDirectoryMetadata2 1", "0.333"], ["DoDirectoryWork 3", "1.000"], ["UnloadQuota 2", "0.667"],
+  ]), "its functions, without libraries' (NSPR's) and event loops', with their stacks' counts and heat");
+  is(graphs()[0].querySelectorAll(".crash-graph-edge").length, 2, "and their calls");
+  const top = graphs()[0].querySelector(".crash-graph-node").getBoundingClientRect().top;
+  ok([...graphs()[0].querySelectorAll(".crash-graph-node")].some(node => node.getBoundingClientRect().top < top),
+     "callers over callees");
+
+  // The navigation panel's facets of its crashes: what they were busy with,
+  // by thread, and the directories involved.
   const rows = () => [...doc().querySelectorAll(".crash-set-crash")].filter(row => !row.hidden);
   is(rows().length, 6, "A row per crash");
   is(doc().querySelector(".facet-box")?.dataset.nouns, "crashes", "which the panel's facets filter");
-  const busy = [...doc().querySelectorAll('.facet-box .facet[data-facet="busy"] .facet-value')]
-    .find(button => button.textContent.startsWith("DOMCacheThread in dom/cache"));
+  const facetValue = (facet, name) => [...doc().querySelectorAll(`.facet-box .facet[data-facet="${facet}"] .facet-value`)]
+    .find(button => button.textContent.replace(/\s*\d+$/, "") == name);
+  ok(facetValue("busy", "QuotaManager IO") && facetValue("busy", "dom/quota"),
+     "What they were busy with is by thread, then where");
+  ok(facetValue("directory", "dom") && facetValue("directory", "cache"), "and the directories involved, nested");
+  const busy = facetValue("busy", "DOMCacheThread");
   TestUtils.click(busy);
   is(rows().length, 2, "Selecting what they were busy with shows those crashes");
   is(new URLSearchParams(doc().location.search).getAll("facet-busy").length, 1, "as the URL says");
@@ -55,6 +76,8 @@ add_task(async function test_CrashSet() {
                     family.querySelector(".crash-family-count").textContent]);
   is(JSON.stringify(shownFamilies), JSON.stringify([["DOMCacheThread in dom/cache", "2 of 2 crashes"]]),
      "and only the families which have them, with how many of their crashes are shown");
+  is(JSON.stringify(graphs().map(graph => graph.querySelector("figcaption").textContent)),
+     JSON.stringify(["2 stacks of 2 crashes"]), "and the diagrams which have their stacks");
   const cache = doc().querySelector('.crash-set-crash[data-path$="2611a5"] .crash-set-crash-link');
   is(doc().querySelector(".crash-family:not([hidden]) .crash-variant-latest")?.getAttribute("href"),
      cache.getAttribute("href"), "whose latest crashes are the latest shown");

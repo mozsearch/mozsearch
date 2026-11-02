@@ -314,6 +314,23 @@ functions = [
 ]
 
 [[layer]]
+name = "native event loop"
+functions = [
+    "mozilla::widget::WinUtils::WaitForMessage",
+    "mozilla::widget::WinUtils::PeekMessage",
+    "nsAppShell::ProcessNextNativeEvent",
+    "nsBaseAppShell::DoProcessNextNativeEvent",
+    "nsBaseAppShell::OnProcessNextEvent",
+    "nsBaseAppShell::NativeEventCallback",
+    "nsAppShell::EventWindowProc",
+    "g_main_context_iteration",
+    "g_main_context_iterate*",
+    "_DPSNextEvent",
+    "-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:]",
+    "-[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:]",
+]
+
+[[layer]]
 name = "Core Foundation run loop"
 functions = [
     "__CFRunLoopServiceMachPort",
@@ -407,6 +424,32 @@ libraries = [
     "third_party/rust/mio*",
     "third_party/rust/rayon*",
     "third_party/rust/serde*",
+]
+# Generic application code's functions (patterns), which a busy thread's
+# place and its stack in a crash set's diagrams skip, as they do libraries':
+# its operations' dispatch and iteration helpers, which join unrelated
+# stacks (only distinctive application logic says what a thread was busy
+# with; asuth).
+generic = [
+    "*::RunImmediately",
+    "*::RunImmediately::*",
+    "mozilla::CollectEach",
+    "mozilla::CollectEach<*",
+    "mozilla::CollectWhile",
+    "mozilla::CollectWhile<*",
+    "mozilla::dom::quota::detail::CollectEachFile",
+    "mozilla::dom::quota::detail::CollectEachFile<*",
+    "mozilla::dom::quota::CollectEachFile",
+    "mozilla::dom::quota::CollectEachFile<*",
+    "mozilla::dom::quota::CollectEachFileAtomicCancelable*",
+    "mozilla::dom::quota::DirectoryLockImpl::*",
+    "mozilla::detail::RunnableFunction<*",
+    "mozilla::detail::RunnableMethodImpl<*",
+    "mozilla::MozPromise<*",
+    "mozilla::Runnable::Run",
+    "mozilla::CancelableRunnable::Run",
+    "mozilla::ipc::*::OnMessageReceived*",
+    "mozilla::ipc::MessageChannel::*",
 ]
 
 # ## Threads

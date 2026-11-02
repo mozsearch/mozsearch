@@ -371,7 +371,7 @@ pub fn parse_signature(signature: &str) -> (Vec<(String, Option<&'static str>)>,
 }
 
 /// A name without its template arguments (`<...>`, nested).
-fn without_template_args(name: &str) -> String {
+pub(crate) fn without_template_args(name: &str) -> String {
     let mut depth = 0;
     let mut out = String::with_capacity(name.len());
     for c in name.chars() {

@@ -39,6 +39,10 @@ pub const MAX_DAYS: i64 = 30;
 const TOP_FRAMES: usize = 3;
 /// How many of the crashing thread's own frames its digest has.
 const CRASHING_FRAMES: usize = 16;
+/// How many frames of a busy thread's stack its set's diagrams have (more
+/// join what different crashes' threads were busy with through their shared
+/// callers, into big diagrams).
+const GRAPH_FRAMES: usize = 4;
 /// crash-stats' API.
 pub const CRASH_STATS_API: &str = "https://crash-stats.mozilla.org/api";
 
@@ -553,7 +557,8 @@ pub struct BusyFrame {
 /// thread's), and where its own code in the repository was busy (`place`:
 /// the directory of its first own frame with a file in the repository which
 /// isn't a library's, ex: "dom/cache" rather than SQLite's or mozStorage's
-/// it called, see `ThreadRules::is_library`, else of its first with a file),
+/// it called, see `ThreadRules::is_library`, nor generic application code's,
+/// see `ThreadRules::is_generic`, else of its first with a file),
 /// and its functions there (`code`: its first frame with a file, and its
 /// place's frame and its two callers), if it has any.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -569,6 +574,16 @@ pub struct BusyThread {
     pub frames: Vec<BusyFrame>,
     pub place: Option<String>,
     pub code: Vec<String>,
+    /// Its stack in the repository's code from its place down (its callers),
+    /// but libraries' and generic application code's frames (ex: event
+    /// loops', dispatchers'), a few of them, for its set's diagrams (see
+    /// `StackGraph`).
+    #[serde(default)]
+    pub stack: Vec<BusyFrame>,
+    /// Its own frames' files in the repository (but libraries'), for its
+    /// set's facets of directories and subsystems.
+    #[serde(default)]
+    pub paths: Vec<String>,
 }
 
 /// A thing a crash's threads were doing (see `CrashDigest::features`): its
@@ -710,8 +725,8 @@ pub fn digest(rules: &ThreadRules, id: &str, crash: &Value) -> CrashDigest {
         {
             continue;
         }
-        // (Its own frames, and whether each is in the repository.)
-        let own: Vec<(BusyFrame, bool)> = thread
+        // (Its own frames, and each's file in the repository, if it is.)
+        let own: Vec<(BusyFrame, Option<String>)> = thread
             .frames
             .iter()
             .zip(&roles)
@@ -721,32 +736,30 @@ pub fn digest(rules: &ThreadRules, id: &str, crash: &Value) -> CrashDigest {
                 if function == "?" || function.starts_with("<unknown") {
                     return None;
                 }
-                let (place, in_repository) = match (&frame.source.path, &frame.module) {
-                    (Some(path), _) => (
-                        path.rsplit_once('/')
-                            .map_or_else(|| "(top)".to_string(), |(dir, _)| dir.to_string()),
-                        true,
-                    ),
-                    (None, Some(module)) => (module.clone(), false),
-                    (None, None) => ("?".to_string(), false),
+                let place = match (&frame.source.path, &frame.module) {
+                    (Some(path), _) => path
+                        .rsplit_once('/')
+                        .map_or_else(|| "(top)".to_string(), |(dir, _)| dir.to_string()),
+                    (None, Some(module)) => module.clone(),
+                    (None, None) => "?".to_string(),
                 };
                 Some((
                     BusyFrame {
                         function: rule_name(function),
                         place,
                     },
-                    in_repository,
+                    frame.source.path.clone(),
                 ))
             })
             .collect();
         if own.is_empty() {
             continue;
         }
-        let in_repository: Vec<usize> = (0..own.len()).filter(|i| own[*i].1).collect();
+        let in_repository: Vec<usize> = (0..own.len()).filter(|i| own[*i].1.is_some()).collect();
         let place_at = in_repository
             .iter()
             .copied()
-            .find(|i| !rules.is_library(&own[*i].0.place))
+            .find(|i| !rules.is_library(&own[*i].0.place) && !rules.is_generic(&own[*i].0.function))
             .or(in_repository.first().copied());
         let code: Vec<String> = match (in_repository.first(), place_at) {
             (Some(first), Some(at)) => {
@@ -767,8 +780,34 @@ pub fn digest(rules: &ThreadRules, id: &str, crash: &Value) -> CrashDigest {
             }
             _ => vec![],
         };
+        // (Its stack in the repository's code, from its place down, but
+        // libraries' frames, for the set's diagrams; and its files.)
+        let stack: Vec<BusyFrame> = place_at.map_or_else(Vec::new, |at| {
+            own[at..]
+                .iter()
+                .filter(|(frame, path)| {
+                    path.is_some()
+                        && !rules.is_library(&frame.place)
+                        && !rules.is_generic(&frame.function)
+                })
+                .take(GRAPH_FRAMES)
+                .map(|(frame, _)| frame.clone())
+                .collect()
+        });
+        let paths: Vec<String> = own
+            .iter()
+            .filter(|(frame, _)| !rules.is_library(&frame.place))
+            .filter_map(|(_, path)| path.clone())
+            .fold(vec![], |mut paths, path| {
+                if !paths.contains(&path) {
+                    paths.push(path);
+                }
+                paths
+            });
         busy.push(BusyThread {
             index: thread.thread.index,
+            stack,
+            paths,
             label: match &thread.thread.name {
                 Some(name) if !name.is_empty() => format!("#{} ({})", thread.thread.index, name),
                 _ => format!("#{}", thread.thread.index),
@@ -843,10 +882,180 @@ pub struct Family {
     pub variants: Vec<Variant>,
 }
 
+/// A function in a set's diagram (see `StackGraph`): its name (without its
+/// arguments), where its code is (its directory), and how many of the
+/// diagram's stacks have it.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct StackNode {
+    pub function: String,
+    pub place: String,
+    pub count: usize,
+}
+
+/// A call in a set's diagram: its caller's and its callee's positions in
+/// its nodes, and how many of its stacks have it.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct StackEdge {
+    pub from: usize,
+    pub to: usize,
+    pub count: usize,
+}
+
+/// A busy thread's stack in a set's diagram: its crash's ID, the thread's
+/// label, and its nodes' and edges' positions (so that the view can count
+/// those of the crashes its facets show).
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct GraphStack {
+    pub crash: String,
+    pub thread: String,
+    pub nodes: Vec<usize>,
+    pub edges: Vec<usize>,
+}
+
+/// A connected part of the graph of what a set's crashes' threads other than
+/// the crashing one were busy with (see `stack_graphs`): their stacks'
+/// functions in the repository's code (but libraries'), callers over
+/// callees, and the stacks.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct StackGraph {
+    pub nodes: Vec<StackNode>,
+    pub edges: Vec<StackEdge>,
+    pub stacks: Vec<GraphStack>,
+}
+
+/// How many diagrams a set's view has at most (the biggest).
+const MAX_GRAPHS: usize = 40;
+
+/// The diagrams of what a set's crashes' threads other than the crashing
+/// one were busy with (see `StackGraph`): the graph of their stacks (see
+/// `BusyThread::stack`; but those of what most of them were busy with,
+/// `common`, which says nothing), each function a node, each call an edge,
+/// in its connected parts, the biggest (by their stacks) first, at most
+/// `MAX_GRAPHS`.
+fn stack_graphs(digests: &[CrashDigest], is_common: &dyn Fn(&str) -> bool) -> Vec<StackGraph> {
+    // (A function is a node by its name and place.)
+    let mut nodes: Vec<(String, String)> = vec![];
+    let mut node_of: BTreeMap<(String, String), usize> = BTreeMap::new();
+    let mut stacks: Vec<(String, String, Vec<usize>)> = vec![];
+    for digest in digests {
+        for thread in digest.busy.iter().filter(|thread| !thread.crashing) {
+            let (Some(place), false) = (&thread.place, thread.stack.is_empty()) else {
+                continue;
+            };
+            let who = thread.name.as_deref().unwrap_or(&thread.kind);
+            if is_common(&format!("{} in {}", who, place)) {
+                continue;
+            }
+            let mut at: Vec<usize> = vec![];
+            for frame in &thread.stack {
+                let key = (frame.function.clone(), frame.place.clone());
+                let id = *node_of.entry(key.clone()).or_insert_with(|| {
+                    nodes.push(key);
+                    nodes.len() - 1
+                });
+                // (Not a recursion's repeats.)
+                if !at.contains(&id) {
+                    at.push(id);
+                }
+            }
+            stacks.push((digest.id.clone(), thread.label.clone(), at));
+        }
+    }
+    // The connected parts (union-find over the calls).
+    let mut parent: Vec<usize> = (0..nodes.len()).collect();
+    fn root(parent: &mut [usize], mut node: usize) -> usize {
+        while parent[node] != node {
+            parent[node] = parent[parent[node]];
+            node = parent[node];
+        }
+        node
+    }
+    for (_, _, at) in &stacks {
+        for pair in at.windows(2) {
+            let (a, b) = (root(&mut parent, pair[0]), root(&mut parent, pair[1]));
+            if a != b {
+                parent[a] = b;
+            }
+        }
+    }
+    let mut parts: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for (stack, (_, _, at)) in stacks.iter().enumerate() {
+        let part = root(&mut parent, at[0]);
+        parts.entry(part).or_default().push(stack);
+    }
+    let mut graphs: Vec<StackGraph> = parts
+        .into_values()
+        .map(|part_stacks| {
+            let mut graph = StackGraph {
+                nodes: vec![],
+                edges: vec![],
+                stacks: vec![],
+            };
+            let mut local: BTreeMap<usize, usize> = BTreeMap::new();
+            let mut edge_of: BTreeMap<(usize, usize), usize> = BTreeMap::new();
+            for stack in part_stacks {
+                let (crash, thread, at) = &stacks[stack];
+                let ids: Vec<usize> = at
+                    .iter()
+                    .map(|node| {
+                        *local.entry(*node).or_insert_with(|| {
+                            let (function, place) = nodes[*node].clone();
+                            graph.nodes.push(StackNode {
+                                function,
+                                place,
+                                count: 0,
+                            });
+                            graph.nodes.len() - 1
+                        })
+                    })
+                    .collect();
+                for id in &ids {
+                    graph.nodes[*id].count += 1;
+                }
+                // (Callers over callees: the stack is innermost first.)
+                let mut edges = vec![];
+                for pair in ids.windows(2) {
+                    let (caller, callee) = (pair[1], pair[0]);
+                    let edge = *edge_of.entry((caller, callee)).or_insert_with(|| {
+                        graph.edges.push(StackEdge {
+                            from: caller,
+                            to: callee,
+                            count: 0,
+                        });
+                        graph.edges.len() - 1
+                    });
+                    if !edges.contains(&edge) {
+                        graph.edges[edge].count += 1;
+                        edges.push(edge);
+                    }
+                }
+                graph.stacks.push(GraphStack {
+                    crash: crash.clone(),
+                    thread: thread.clone(),
+                    nodes: ids,
+                    edges,
+                });
+            }
+            graph
+        })
+        .collect();
+    graphs.sort_by(|a, b| {
+        b.stacks
+            .len()
+            .cmp(&a.stacks.len())
+            .then_with(|| a.nodes[0].function.cmp(&b.nodes[0].function))
+    });
+    graphs.truncate(MAX_GRAPHS);
+    graphs
+}
+
 /// A crash set's analysis: its ID and manifest, its crashes' digests (the
 /// latest first; see `digest`), those the store doesn't have any more, what
 /// most of its crashes' threads were busy with (`common`, with how many
-/// crashes; see `set_view`), and its families (the biggest first).
+/// crashes; see `set_view`), its families (the biggest first), the diagrams
+/// of what its crashes' threads were busy with (see `stack_graphs`), and its
+/// crashes' files' subsystems (the tree's, filled by `crash-set`, see
+/// `add_subsystems`).
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CrashSetView {
     pub id: String,
@@ -855,6 +1064,27 @@ pub struct CrashSetView {
     pub missing: Vec<String>,
     pub common: Vec<(String, usize)>,
     pub families: Vec<Family>,
+    #[serde(default)]
+    pub graphs: Vec<StackGraph>,
+    #[serde(default)]
+    pub subsystems: BTreeMap<String, String>,
+}
+
+impl CrashSetView {
+    /// Its crashes' files' subsystems, by `subsystem_of` (ex: the tree's
+    /// per-file information's; see `AbstractServer::file_facet_info`).
+    pub fn add_subsystems(&mut self, subsystem_of: &dyn Fn(&str) -> Option<String>) {
+        let paths: BTreeSet<&String> = self
+            .digests
+            .iter()
+            .flat_map(|digest| digest.busy.iter().flat_map(|thread| &thread.paths))
+            .collect();
+        for path in paths {
+            if let Some(subsystem) = subsystem_of(path) {
+                self.subsystems.insert(path.clone(), subsystem);
+            }
+        }
+    }
 }
 
 /// Of a set's crashes, the share which a feature most of them have is in
@@ -985,6 +1215,7 @@ pub fn analyze(
         })
         .collect();
     families.sort_by(|a, b| b.crashes.cmp(&a.crashes).then_with(|| a.key.cmp(&b.key)));
+    let graphs = stack_graphs(&digests, &is_common);
     CrashSetView {
         id: id.to_string(),
         manifest,
@@ -992,16 +1223,23 @@ pub fn analyze(
         missing,
         common,
         families,
+        graphs,
+        subsystems: BTreeMap::new(),
     }
 }
 
-/// A crash's facets' values (see `set_facets`): its family's and variant's,
-/// what its other threads were busy with (see `CrashDigest::features`), its
-/// version, platform and process type.
-fn crash_facet_values(
-    view: &CrashSetView,
-    at: usize,
-) -> Vec<(&'static str, Vec<(String, String)>)> {
+/// A facet's value's path from its facet's top (ex: a family and its
+/// variant), each value with its name.
+type ValuePath = Vec<(String, String)>;
+
+/// A crash's facets' values (see `set_facets`), as paths from their facets'
+/// tops: its family's and variant's; what its threads other than the
+/// crashing one were busy with, by thread (ex: "QuotaManager IO" › "dom/quota";
+/// or its pending blockers; see `CrashDigest::features`); the subsystems and
+/// the directories of its distinctive busy threads' files (theirs and their
+/// parents'; see `CrashSetView::subsystems`); its version, platform and
+/// process type.
+fn crash_facet_values(view: &CrashSetView, at: usize) -> Vec<(&'static str, Vec<ValuePath>)> {
     let digest = &view.digests[at];
     let (family, variant) = view
         .families
@@ -1014,68 +1252,130 @@ fn crash_facet_values(
                 .map(|variant| (family, variant))
         })
         .expect("every crash is in a family");
-    let busy: BTreeSet<String> = digest
-        .features()
+    // (What its other threads were busy with, under their names.)
+    let mut busy: Vec<ValuePath> = vec![];
+    for blocker in &digest.blockers {
+        busy.push(vec![
+            ("blocked".to_string(), "pending blockers".to_string()),
+            (format!("blocked/{}", slug(blocker)), blocker.clone()),
+        ]);
+    }
+    for thread in digest.busy.iter().filter(|thread| !thread.crashing) {
+        let Some(place) = &thread.place else {
+            continue;
+        };
+        let who = thread.name.as_deref().unwrap_or(&thread.kind);
+        let top = format!("t-{}", slug(who));
+        busy.push(vec![
+            (top.clone(), who.to_string()),
+            (format!("{}/{}", top, slug(place)), place.clone()),
+        ]);
+    }
+    if busy.is_empty() {
+        busy.push(vec![("none".to_string(), "nothing".to_string())]);
+    }
+    // (Its distinctive busy threads' files' subsystems and directories,
+    // nested: not the crashing thread's, nor what most of the set's crashes
+    // had busy, which say nothing of it.)
+    let is_common = |thread: &BusyThread| {
+        thread.place.as_ref().is_some_and(|place| {
+            let who = thread.name.as_deref().unwrap_or(&thread.kind);
+            let key = format!("{} in {}", who, place);
+            view.common.iter().any(|(common, _)| *common == key)
+        })
+    };
+    let paths: BTreeSet<&String> = digest
+        .busy
+        .iter()
+        .filter(|thread| !thread.crashing && !is_common(thread))
+        .flat_map(|thread| &thread.paths)
+        .collect();
+    let nested = |text: &str| -> ValuePath {
+        let mut path = vec![];
+        let mut so_far = String::new();
+        for segment in text.split('/').filter(|segment| !segment.is_empty()) {
+            if !so_far.is_empty() {
+                so_far.push('/');
+            }
+            so_far.push_str(segment);
+            path.push((so_far.clone(), segment.to_string()));
+        }
+        path
+    };
+    let subsystems: Vec<ValuePath> = paths
+        .iter()
+        .filter_map(|path| view.subsystems.get(*path))
+        .collect::<BTreeSet<_>>()
         .into_iter()
-        .map(|feature| feature.key)
+        .map(|subsystem| nested(subsystem))
+        .collect();
+    let directories: Vec<ValuePath> = paths
+        .iter()
+        .filter_map(|path| path.rsplit_once('/').map(|(dir, _)| dir))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(nested)
         .collect();
     let one = |value: &str| match value.is_empty() {
-        true => vec![("unknown".to_string(), "unknown".to_string())],
-        false => vec![(slug(value), value.to_string())],
+        true => vec![vec![("unknown".to_string(), "unknown".to_string())]],
+        false => vec![vec![(slug(value), value.to_string())]],
     };
     vec![
         (
             "family",
-            vec![
+            vec![vec![
                 (family.value.clone(), family.key.clone()),
                 (variant.value.clone(), variant.label.clone()),
-            ],
+            ]],
         ),
-        (
-            "busy",
-            match busy.is_empty() {
-                true => vec![("none".to_string(), "nothing".to_string())],
-                false => busy.iter().map(|key| (slug(key), key.clone())).collect(),
-            },
-        ),
+        ("busy", busy),
+        ("subsystem", subsystems),
+        ("directory", directories),
         ("version", one(&digest.version)),
         ("platform", one(&digest.platform)),
         ("process", one(&digest.process_type)),
     ]
 }
 
+/// The values of a crash's facets (see `crash_facet_values`), as its row's
+/// `data-facets` has them: each value along each of its paths, once.
+fn flat_facet_values(paths: &[ValuePath]) -> Vec<String> {
+    paths
+        .iter()
+        .flatten()
+        .map(|(value, _)| value.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
 /// The navigation panel's facets of a set's view (see `TextFile::facets`),
-/// whose items are its crashes' rows: their families (with their variants
-/// nested), what their other threads were busy with (common or not), their
-/// versions, platforms and process types, with how many crashes have each.
+/// whose items are its crashes' rows (see `crash_facet_values`): their
+/// families (with their variants nested), what their other threads were
+/// busy with (by thread, then where), the subsystems and directories
+/// involved (nested), their versions, platforms and process types, with how
+/// many crashes have each.
 pub fn set_facets(view: &CrashSetView) -> Value {
     use crate::cmd_pipeline::facets::{FacetValueView, FacetView};
     #[derive(Default)]
     struct Level {
         name: String,
         count: u32,
-        order: usize,
         nested: BTreeMap<String, Level>,
     }
     let mut roots: BTreeMap<&'static str, Level> = BTreeMap::new();
     for at in 0..view.digests.len() {
-        for (key, values) in crash_facet_values(view, at) {
+        for (key, paths) in crash_facet_values(view, at) {
             let root = roots.entry(key).or_default();
-            match key {
-                // (A family's variants are nested in it.)
-                "family" => {
-                    let mut level = &mut *root;
-                    for (order, (value, name)) in values.into_iter().enumerate() {
-                        level = level.nested.entry(value).or_default();
-                        level.name = name;
-                        level.count += 1;
-                        level.order = order;
-                    }
-                }
-                _ => {
-                    for (value, name) in values {
-                        let level = root.nested.entry(value).or_default();
-                        level.name = name;
+            // (A crash counts once for each value, whatever its paths through
+            // it.)
+            let mut counted: BTreeSet<String> = BTreeSet::new();
+            for path in paths {
+                let mut level = &mut *root;
+                for (value, name) in path {
+                    level = level.nested.entry(value.clone()).or_default();
+                    level.name = name;
+                    if counted.insert(value) {
                         level.count += 1;
                     }
                 }
@@ -1103,11 +1403,15 @@ pub fn set_facets(view: &CrashSetView) -> Value {
     for (key, label) in [
         ("family", "Family"),
         ("busy", "Busy with"),
+        ("subsystem", "Subsystems involved"),
+        ("directory", "Directories involved"),
         ("version", "Version"),
         ("platform", "Platform"),
         ("process", "Process type"),
     ] {
-        if let Some(level) = roots.remove(key) {
+        if let Some(level) = roots.remove(key)
+            && !level.nested.is_empty()
+        {
             facets.push(FacetView::new(key, label.to_string(), views(level)));
         }
     }
@@ -1125,10 +1429,11 @@ fn crash_view_url(tree_name: &str, id: &str) -> String {
 
 /// The `crash-set:` view of `view` (see the module's documentation), for the
 /// query page: its notice (what the set is: its search, linked to crash-stats'
-/// page of it, when it was fetched), its families (each with its variants,
-/// how many crashes each has, and its latest crash's view), and its crashes'
-/// table (a row each, which the navigation panel's facets filter; see
-/// `set_facets`).
+/// page of it, when it was fetched), the diagrams of what they were busy with
+/// (see `stack_graphs`; static/js/crash-set.js draws them), its families
+/// (each with its variants, how many crashes each has, and its latest crash's
+/// view; the biggest few open), and its crashes' table (a row each, which the
+/// navigation panel's facets filter; see `set_facets`).
 pub fn render_crash_set(tree_name: &str, view: &CrashSetView) -> String {
     use crate::rendered_docs::escape;
     let manifest = &view.manifest;
@@ -1165,10 +1470,27 @@ pub fn render_crash_set(tree_name: &str, view: &CrashSetView) -> String {
         ));
     }
     html.push_str("</div>");
-    html.push_str(r#"<section class="crash-families">"#);
-    for family in &view.families {
+    // The diagrams of what they were busy with (see `stack_graphs`), which
+    // crash-set.js draws.
+    if !view.graphs.is_empty() {
         html.push_str(&format!(
-            r#"<details class="crash-family" open data-family="{}"><summary><span class="crash-family-key">{}</span> <span class="crash-family-count">{}</span></summary><ul class="crash-variants">"#,
+            r#"<section class="crash-set-graphs"><h3 class="crash-set-heading">What they were busy with</h3><p class="crash-set-about">Their threads' stacks (but the crashing one's, and what most of them had), in the tree's code but libraries', callers over callees, a diagram for each connected part, the biggest first: each function's color says how many of the stacks have it, and its number how many.</p><div class="crash-graphs"></div><script type="application/json" id="crash-set-graphs">{}</script></section>"#,
+            serde_json::to_string(&view.graphs)
+                .unwrap_or_else(|_| "[]".to_string())
+                .replace('<', "\\u003c")
+        ));
+    }
+    html.push_str(
+        r#"<section class="crash-families"><h3 class="crash-set-heading">Their families</h3>"#,
+    );
+    for (position, family) in view.families.iter().enumerate() {
+        html.push_str(&format!(
+            r#"<details class="crash-family"{} data-family="{}"><summary><span class="crash-family-key">{}</span> <span class="crash-family-count">{}</span></summary><ul class="crash-variants">"#,
+            // (The biggest few open.)
+            match position < 3 {
+                true => " open",
+                false => "",
+            },
             escape(&family.value),
             escape(&family.key),
             plural(family.crashes, "crash", "crashes")
@@ -1186,16 +1508,16 @@ pub fn render_crash_set(tree_name: &str, view: &CrashSetView) -> String {
         html.push_str("</ul></details>");
     }
     html.push_str("</section>");
-    html.push_str(r#"<table class="crash-set-crashes"><thead><tr><th>Crash</th><th>Date</th><th>Version</th><th>Platform</th><th>Process</th><th>Family</th><th>Variant</th></tr></thead><tbody class="facet-items">"#);
+    html.push_str(r#"<h3 class="crash-set-heading">Their crashes</h3><table class="crash-set-crashes"><thead><tr><th>Crash</th><th>Date</th><th>Version</th><th>Platform</th><th>Process</th><th>Family</th><th>Variant</th></tr></thead><tbody class="facet-items">"#);
     for (at, digest) in view.digests.iter().enumerate() {
         let facets: serde_json::Map<String, Value> = crash_facet_values(view, at)
             .into_iter()
-            .map(|(key, values)| {
+            .map(|(key, paths)| {
                 (
                     key.to_string(),
-                    values
+                    flat_facet_values(&paths)
                         .into_iter()
-                        .map(|(value, _)| Value::String(value))
+                        .map(Value::String)
                         .collect(),
                 )
             })
@@ -1216,6 +1538,11 @@ pub fn render_crash_set(tree_name: &str, view: &CrashSetView) -> String {
     }
     html.push_str("</tbody></table></div>");
     html.push_str(FAMILIES_SCRIPT);
+    // (graph.js's layout, for the diagrams.)
+    html.push_str(&format!(
+        r#"<script defer src="/{tree}/static/js/graph.js"></script><script defer src="/{tree}/static/js/crash-set.js"></script>"#,
+        tree = escape(tree_name)
+    ));
     html
 }
 
@@ -1366,6 +1693,18 @@ mod tests {
                 }],
                 place: place.map(str::to_string),
                 code: vec![code.to_string()],
+                // (Its function, called by a dispatcher of its place's.)
+                stack: vec![
+                    BusyFrame {
+                        function: code.to_string(),
+                        place: place.unwrap_or("?").to_string(),
+                    },
+                    BusyFrame {
+                        function: format!("Dispatch{}", place.unwrap_or("?").len()),
+                        place: place.unwrap_or("?").to_string(),
+                    },
+                ],
+                paths: place.map_or_else(Vec::new, |place| vec![format!("{}/File.cpp", place)]),
             }
         };
         let mut threads = vec![BusyThread {
@@ -1494,6 +1833,74 @@ mod tests {
         assert_eq!(facets["facets"][0]["key"], "family");
         assert_eq!(facets["facets"][0]["values"][0]["count"], 3);
         assert_eq!(facets["facets"][0]["values"][0]["values"][0]["count"], 2);
+        // (What they were busy with, by thread, then where.)
+        let busy = &facets["facets"][1];
+        assert_eq!(busy["key"], "busy");
+        assert_eq!(busy["values"][0]["name"], "Link Monitor");
+        assert_eq!(busy["values"][0]["count"], 6);
+        assert_eq!(
+            busy["values"][0]["values"][0]["name"],
+            "netwerk/system/win32"
+        );
+        assert_eq!(busy["values"][1]["name"], "QuotaManager IO");
+        assert_eq!(
+            busy["values"][1]["values"][0]["value"],
+            "t-quotamanager-io/dom-quota"
+        );
+        // (The directories involved, but the crashing thread's and the common
+        // ones', nested.)
+        let directories = &facets["facets"][2];
+        assert_eq!(directories["key"], "directory");
+        let names: Vec<&str> = directories["values"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, vec!["dom"]);
+        assert_eq!(directories["values"][0]["count"], 5);
+        assert_eq!(directories["values"][0]["values"][0]["value"], "dom/quota");
+
+        // The diagrams: of the stacks but those of the common feature, in
+        // their connected parts, the biggest first, each function in it once
+        // (in the order of the latest stacks') with how many stacks have it,
+        // callers over callees.
+        let graphs: Vec<(Vec<(&str, usize)>, usize)> = view
+            .graphs
+            .iter()
+            .map(|graph| {
+                (
+                    graph
+                        .nodes
+                        .iter()
+                        .map(|node| (node.function.as_str(), node.count))
+                        .collect(),
+                    graph.stacks.len(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            graphs,
+            vec![
+                (
+                    vec![
+                        ("CreateDirectoryMetadata2", 1),
+                        ("Dispatch9", 3),
+                        ("UnloadQuota", 2)
+                    ],
+                    3
+                ),
+                (vec![("DeleteAllCacheEntries", 2), ("Dispatch9", 2)], 2),
+            ]
+        );
+        assert_eq!(
+            view.graphs[0].edges[0],
+            StackEdge {
+                from: 1,
+                to: 0,
+                count: 1
+            }
+        );
     }
 
     #[test]

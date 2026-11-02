@@ -60,8 +60,15 @@ impl PipelineCommand for CrashSetCommand {
             "crash-set",
             &format!("{} {}", id, rules.fingerprint()),
             || async {
-                let view = set_view(&store, &rules, &id)
+                let mut view = set_view(&store, &rules, &id)
                     .map_err(|message| problem(ErrorLayer::BadInput, message))?;
+                // (Its files' subsystems, the tree's.)
+                view.add_subsystems(&|path| {
+                    server
+                        .file_facet_info(path)
+                        .and_then(|(_, subsystem)| subsystem)
+                        .map(|subsystem| subsystem.to_string())
+                });
                 Ok::<_, ServerError>(serde_json::to_value(&view)?)
             },
         )
