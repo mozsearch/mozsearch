@@ -1,4 +1,4 @@
-{% if concise.info contains "test" or concise.info contains "test_results" -%}
+{% if concise.info contains "test" -%}
   {%- assign test_heading = "Test Info:" -%}
   {%- assign test_severity = "info" -%}
   {%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 -%}
