@@ -779,10 +779,11 @@ struct ApiError {
 /// in for it (`file://DIR`, ex: tests' fixtures): `DIR/SuperSearch.json`
 /// answers any search (or `DIR/SuperSearch.TOKEN.json`, a token's, ex: one
 /// which can see protected data), and `DIR/ProcessedCrash/ID.json` is the
-/// processed crash ID.
+/// processed crash ID.  (A directory's has no HTTP client, which needs CA
+/// certificates, which nix's sandbox, where its tests run, doesn't have.)
 struct Api<'a> {
     base: &'a str,
-    client: reqwest::Client,
+    client: Option<reqwest::Client>,
 }
 
 impl Api<'_> {
@@ -817,8 +818,12 @@ impl Api<'_> {
             return serde_json::from_str(&text).map_err(|e| failed(None, e.to_string()));
         }
         let url = format!("{}/{}/?{}", self.base, endpoint, query);
+        let client = self
+            .client
+            .as_ref()
+            .ok_or_else(|| failed(None, "no HTTP client".to_string()))?;
         for attempt in 1..=5u64 {
-            let mut request = self.client.get(&url);
+            let mut request = client.get(&url);
             if let Some(token) = token {
                 request = request.header("Auth-Token", token);
             }
@@ -907,15 +912,20 @@ pub async fn fetch_set(
     search.check()?;
     let api = Api {
         base: api,
-        client: reqwest::Client::builder()
-            .user_agent(concat!(
-                "searchfox/",
-                env!("CARGO_PKG_VERSION"),
-                " (crash sets)"
-            ))
-            .timeout(std::time::Duration::from_secs(60))
-            .build()
-            .map_err(|e| e.to_string())?,
+        client: match api.starts_with("file://") {
+            true => None,
+            false => Some(
+                reqwest::Client::builder()
+                    .user_agent(concat!(
+                        "searchfox/",
+                        env!("CARGO_PKG_VERSION"),
+                        " (crash sets)"
+                    ))
+                    .timeout(std::time::Duration::from_secs(60))
+                    .build()
+                    .map_err(|e| e.to_string())?,
+            ),
+        },
     };
     if let Some(token) = token {
         check_unprivileged(&api, token).await?;
