@@ -50,6 +50,17 @@ add_task(async function test_CrashSet() {
   TestUtils.click(busy);
   is(rows().length, 2, "Selecting what they were busy with shows those crashes");
   is(new URLSearchParams(doc().location.search).getAll("facet-busy").length, 1, "as the URL says");
+  const shownFamilies = [...doc().querySelectorAll(".crash-family")].filter(family => !family.hidden)
+    .map(family => [family.querySelector(".crash-family-key").textContent,
+                    family.querySelector(".crash-family-count").textContent]);
+  is(JSON.stringify(shownFamilies), JSON.stringify([["DOMCacheThread in dom/cache", "2 of 2 crashes"]]),
+     "and only the families which have them, with how many of their crashes are shown");
+  const cache = doc().querySelector('.crash-set-crash[data-path$="2611a5"] .crash-set-crash-link');
+  is(doc().querySelector(".crash-family:not([hidden]) .crash-variant-latest")?.getAttribute("href"),
+     cache.getAttribute("href"), "whose latest crashes are the latest shown");
+  TestUtils.click(busy);
+  is(rows().length, 6, "Unselecting it shows them all again");
+  is(doc().querySelector(".crash-family-count")?.textContent, "3 crashes", "and the families' counts");
 
   // A crash's view, from the store (crash-stats doesn't have it).
   const latest = doc().querySelector(".crash-variant-latest");

@@ -1215,8 +1215,54 @@ pub fn render_crash_set(tree_name: &str, view: &CrashSetView) -> String {
         ));
     }
     html.push_str("</tbody></table></div>");
+    html.push_str(FAMILIES_SCRIPT);
     html
 }
+
+/// The script of a set's view's families (see `render_crash_set`): as the
+/// navigation panel's facets filter its crashes' rows (facets.js's
+/// "facetschange"), its families and variants say how many of those shown
+/// they have, those without any hide, and their latest crashes' links go to
+/// the latest shown.
+const FAMILIES_SCRIPT: &str = r#"<script>
+(() => {
+  const body = document.querySelector(".crash-set-crashes .facet-items");
+  if (!body) {
+    return;
+  }
+  const rows = [...body.querySelectorAll(".crash-set-crash")].map(row => ({
+    row,
+    values: JSON.parse(row.dataset.facets).family || [],
+    href: row.querySelector(".crash-set-crash-link")?.getAttribute("href"),
+  }));
+  const plural = n => `${n} ${n == 1 ? "crash" : "crashes"}`;
+  body.addEventListener("facetschange", () => {
+    const shown = rows.filter(entry => !entry.row.hidden);
+    const filtered = shown.length < rows.length;
+    const show = (element, value, count, total) => {
+      const n = shown.filter(entry => entry.values.includes(value)).length;
+      element.hidden = n == 0;
+      count.textContent = filtered ? `${n} of ${plural(total)}` : plural(total);
+      return n;
+    };
+    for (const family of document.querySelectorAll(".crash-family")) {
+      const count = family.querySelector(".crash-family-count");
+      count.dataset.total ??= rows.filter(entry => entry.values.includes(family.dataset.family)).length;
+      show(family, family.dataset.family, count, Number(count.dataset.total));
+      for (const variant of family.querySelectorAll(".crash-variant")) {
+        const value = variant.dataset.variant;
+        const variantCount = variant.querySelector(".crash-variant-count");
+        variantCount.dataset.total ??= rows.filter(entry => entry.values.includes(value)).length;
+        if (show(variant, value, variantCount, Number(variantCount.dataset.total))) {
+          // (Rows are the latest first.)
+          const latest = shown.find(entry => entry.values.includes(value));
+          variant.querySelector(".crash-variant-latest")?.setAttribute("href", latest.href);
+        }
+      }
+    }
+  });
+})();
+</script>"#;
 
 #[cfg(test)]
 mod tests {
