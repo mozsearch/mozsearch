@@ -294,7 +294,7 @@ def main():
                     else:
                         log(f"{repo}: {len(prs)} pull requests, so without their review "
                             f"decisions (at most {MAX_REST_REVIEWS} without a snapshot)")
-            except snapshots.RateLimited as e:
+            except (snapshots.RateLimited, snapshots.Unavailable) as e:
                 log(f"ERROR: {repo}: {e}")
                 sys.exit(1)
             entry, taken = {"prs": prs}, now

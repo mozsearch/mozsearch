@@ -37,7 +37,7 @@ import tomllib
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from snapshot import API, USER_AGENT, Client, RateLimited, github_repo  # noqa: E402
+from snapshot import USER_AGENT, Client, RateLimited, Unavailable, github_repo  # noqa: E402
 
 FIELDS = """
 pageInfo { hasNextPage endCursor }
@@ -141,9 +141,7 @@ RESERVE = 200
 
 
 def graphql(client, query, variables=None):
-    result = client.request(f"{API}/graphql", {"query": query, "variables": variables or {}})
-    if result.get("errors"):
-        raise Exception(f"GraphQL errors: {result['errors']}")
+    result = client.graphql(query, variables or {})
     # (Its results are kept, but it's the last; see `main`'s `stopping`.)
     remaining = (result["data"].get("rateLimit") or {}).get("remaining")
     if remaining is not None and remaining < getattr(client, "reserve", RESERVE):
@@ -234,7 +232,8 @@ def main():
                 repo.cursor = connection["pageInfo"]["endCursor"] if connection["pageInfo"]["hasNextPage"] else None
             if repo.cursor is None:
                 print(f"{repo.name}: {len(repo.prs)} merged pull requests", file=sys.stderr, flush=True)
-    except RateLimited as e:
+    except (RateLimited, Unavailable) as e:
+        # (Keeping what's done; the next run goes on from there.)
         limited = str(e)
         print(f"Stopping: {e}", file=sys.stderr, flush=True)
 

@@ -20,11 +20,17 @@ hour.  Requests are serial; on a 403 or 429 it waits as GitHub says
 (Retry-After, or until X-RateLimit-Reset when X-RateLimit-Remaining is 0,
 else at least a minute, doubling), for at most --max-wait seconds (600 by
 default) in all, and then stops, writing what it has with the repositories
-it didn't finish marked incomplete.
+it didn't finish marked incomplete.  GitHub's and the network's hiccups (a
+500, 502, 503 or 504, a connection's failure or timeout, or GraphQL's
+"Something went wrong" timeouts) are tried again, a few times (waiting 15 s,
+doubling), and those waits count in --max-wait too; a repository whose
+request kept failing is marked incomplete, and the others are still asked
+for.
 """
 
 import argparse
 import datetime
+import http.client
 import json
 import os
 import re
@@ -71,8 +77,33 @@ def configured_repos(specs_toml, config_toml):
     return [github_repo(urls[repo]) for repo in repos if github_repo(urls.get(repo))]
 
 
+# The failures worth trying again (GitHub's servers' and gateways' hiccups,
+# and the network's), up to TRIES times in all, waiting RETRY_WAIT seconds,
+# doubling, before each other try (see `Client.retry`).
+TRANSIENT_STATUSES = (500, 502, 503, 504)
+TRIES = 4
+RETRY_WAIT = 15
+
+
 class RateLimited(Exception):
     pass
+
+
+class OutOfTime(RateLimited):
+    """GitHub kept failing requests past the time to wait (--max-wait), as its
+    rate limits can: stop, keeping what's done."""
+
+
+class Unavailable(Exception):
+    """GitHub kept failing a request (see `Client.retry`)."""
+
+
+def transient_graphql_errors(errors):
+    """Whether GraphQL's errors are its own hiccups (ex: "Something went
+    wrong while executing your query. This may be the result of a timeout"),
+    rather than the query's."""
+    return any(re.search(r"something went wrong|timeout|timed out", error.get("message", ""), re.I)
+               for error in errors)
 
 
 class Client:
@@ -82,8 +113,35 @@ class Client:
         self.max_wait = max_wait
         self.requests = 0
 
+    def retry(self, failure, tries):
+        """Wait before trying a request again after its `tries`th failure,
+        or raise Unavailable after the last (or OutOfTime past --max-wait)."""
+        if tries >= TRIES:
+            raise Unavailable(f"{failure}, {tries} times")
+        wait = RETRY_WAIT * 2 ** (tries - 1)
+        if self.waited + wait > self.max_wait:
+            raise OutOfTime(f"GitHub kept failing ({failure}) past the time to wait")
+        print(f"{failure}; trying again in {wait} s", file=sys.stderr, flush=True)
+        time.sleep(wait)
+        self.waited += wait
+
+    def graphql(self, query, variables):
+        """GraphQL's data for `query`, trying it again after GraphQL's own
+        hiccups (see `transient_graphql_errors`)."""
+        tries = 0
+        while True:
+            result = self.request(f"{API}/graphql", {"query": query, "variables": variables})
+            errors = result.get("errors")
+            if not errors:
+                return result
+            if not transient_graphql_errors(errors):
+                raise Exception(f"GraphQL errors: {errors}")
+            tries += 1
+            self.retry(f"GraphQL errors: {errors}", tries)
+
     def request(self, url, body=None):
         backoff = 60
+        tries = 0
         while True:
             headers = {"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"}
             if self.token:
@@ -98,6 +156,10 @@ class Client:
                 with urllib.request.urlopen(request, timeout=120) as response:
                     return json.loads(response.read())
             except urllib.error.HTTPError as e:
+                if e.code in TRANSIENT_STATUSES:
+                    tries += 1
+                    self.retry(f"HTTP {e.code} from {url}", tries)
+                    continue
                 if e.code not in (403, 429):
                     raise
                 retry_after = e.headers.get("Retry-After", "")
@@ -114,15 +176,22 @@ class Client:
                 print(f"Rate limited ({e.code}); waiting {wait} s", file=sys.stderr, flush=True)
                 time.sleep(wait)
                 self.waited += wait
+            except (urllib.error.URLError, http.client.HTTPException, ConnectionError,
+                    TimeoutError) as e:
+                # (The connection's failures, timeouts and truncated responses.)
+                tries += 1
+                self.retry(f"{type(e).__name__} from {url}: {e}", tries)
 
 
 def graphql_prs(client, owner, name):
     prs, after = [], None
     while True:
-        result = client.request(f"{API}/graphql", {
-            "query": QUERY, "variables": {"owner": owner, "name": name, "after": after}})
-        if result.get("errors"):
-            raise Exception(f"{owner}/{name}: {result['errors']}")
+        try:
+            result = client.graphql(QUERY, {"owner": owner, "name": name, "after": after})
+        except (RateLimited, Unavailable):
+            raise
+        except Exception as e:
+            raise Exception(f"{owner}/{name}: {e}")
         connection = result["data"]["repository"]["pullRequests"]
         for node in connection["nodes"]:
             prs.append({
@@ -233,6 +302,10 @@ def main():
             limited = str(e)
             snapshot["repos"][repo] = {"incomplete": True, "prs": []}
             print(f"{repo}: {e}; stopping", file=sys.stderr, flush=True)
+        except Unavailable as e:
+            # (The tree's syncs ask for it themselves; see sync.py.)
+            snapshot["repos"][repo] = {"incomplete": True, "prs": []}
+            print(f"{repo}: GitHub kept failing ({e}); marked incomplete", file=sys.stderr, flush=True)
     snapshot["requests"] = client.requests
     if limited:
         snapshot["limited"] = limited

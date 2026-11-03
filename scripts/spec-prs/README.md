@@ -65,8 +65,14 @@ time, so the repository doesn't grow. With its token, it asks the GraphQL
 API: one query per 100 pull requests, review decisions included. On a 403 or
 429, it waits as GitHub says, for at most `--max-wait` seconds, then
 publishes what it has, with the repositories it didn't finish marked
-incomplete. Its first run (2026-10-26) took 90 queries for wubspecs' 85
-repositories' 1,239 open pull requests.
+incomplete. GitHub's and the network's hiccups (500, 502, 503 and 504
+responses, connections' failures and timeouts, and GraphQL's "Something went
+wrong" timeouts) are tried again, up to 4 times, waiting 15 s, doubling,
+within `--max-wait` too; a repository whose request kept failing is marked
+incomplete, which the tree's syncs then ask GitHub for themselves (a 504 for
+one repository failed the whole 2026-11-03 13:26 run before). Its first run
+(2026-10-26) took 90 queries for wubspecs' 85 repositories' 1,239 open pull
+requests.
 
 The snapshot is about 440 bytes per pull request: 540 KB for wubspecs' 85
 repositories' 1,239 open pull requests (2026-10-26).
