@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use clap::Args;
 
 use super::interface::{PipelineCommand, PipelineValues};
-use super::transforms::path_glob_transform;
+use super::transforms::{path_case, path_glob_transform};
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 use crate::hyperblame::history_grep::{HistoryGrep, HistoryGrepArgs, MAX_PATH_FILES};
@@ -125,12 +125,19 @@ impl PipelineCommand for HistoryGrepCommand {
                 }));
             }
         };
-        let pathre = match (&self.args.pathre, &self.args.path) {
-            (Some(pathre), _) => pathre.clone(),
-            (None, Some(path)) => path_glob_transform(path),
-            (None, None) => String::new(),
-        };
-        let not_pathre = self.args.not_pathre.clone().unwrap_or_default();
+        // (Ignoring case, but with `case:sensitive`, as the files'.)
+        let pathre = path_case(
+            match (&self.args.pathre, &self.args.path) {
+                (Some(pathre), _) => pathre.clone(),
+                (None, Some(path)) => path_glob_transform(path),
+                (None, None) => String::new(),
+            },
+            self.args.case_sensitive,
+        );
+        let not_pathre = path_case(
+            self.args.not_pathre.clone().unwrap_or_default(),
+            self.args.case_sensitive,
+        );
         // (The files a path names, if few, whose every revision can be
         // checked.)
         let mut files = vec![];

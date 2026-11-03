@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use super::{
     interface::{BatchGroupItem, BatchGroups, PipelineCommand, PipelineValues},
-    transforms::path_glob_transform,
+    transforms::{path_case, path_glob_transform},
 };
 
 use crate::abstract_server::{AbstractServer, FileMatches, Result};
@@ -38,6 +38,11 @@ pub struct SearchFiles {
     #[clap(long, value_parser)]
     include_dirs: bool,
 
+    /// Match the paths' case (the query language's `case:sensitive`); they
+    /// ignore it otherwise, as router.py's `/search/` does.
+    #[clap(long, value_parser)]
+    case_sensitive: bool,
+
     #[clap(long, short, value_parser, value_enum)]
     group_by: Option<GroupFilesBy>,
 }
@@ -49,6 +54,26 @@ pub struct SearchFilesCommand {
 
 const FILE_MATCH_LIMIT: usize = 2_000_000;
 
+impl SearchFiles {
+    /// The regexps of the paths to match and to leave out (see
+    /// `AbstractServer::search_files`), ignoring case unless it's
+    /// `case_sensitive`.
+    fn patterns(&self) -> (String, String) {
+        let pathre = if let Some(pathre) = &self.pathre {
+            pathre.clone()
+        } else if let Some(path) = &self.path {
+            path_glob_transform(path)
+        } else {
+            "".to_string()
+        };
+        let not_pathre = self.not_pathre.clone().unwrap_or_default();
+        (
+            path_case(pathre, self.case_sensitive),
+            path_case(not_pathre, self.case_sensitive),
+        )
+    }
+}
+
 #[async_trait]
 impl PipelineCommand for SearchFilesCommand {
     async fn execute(
@@ -56,13 +81,7 @@ impl PipelineCommand for SearchFilesCommand {
         server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let pathre_pattern = if let Some(pathre) = &self.args.pathre {
-            pathre.clone()
-        } else if let Some(path) = &self.args.path {
-            path_glob_transform(path)
-        } else {
-            "".to_string()
-        };
+        let (pathre_pattern, not_pathre_pattern) = self.args.patterns();
 
         // A zero limit implies no limit, but the server currently needs us to
         // provide a limit because it uses take().  Also, it's probably
@@ -77,7 +96,7 @@ impl PipelineCommand for SearchFilesCommand {
         let mut matches = server
             .search_files(
                 &pathre_pattern,
-                self.args.not_pathre.as_deref().unwrap_or_default(),
+                &not_pathre_pattern,
                 self.args.include_dirs,
                 use_limit + 1,
             )
@@ -105,5 +124,43 @@ impl PipelineCommand for SearchFilesCommand {
             }
             None => Ok(PipelineValues::FileMatches(matches)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SearchFiles;
+    use clap::Parser;
+
+    #[derive(Parser)]
+    struct Command {
+        #[clap(flatten)]
+        args: SearchFiles,
+    }
+
+    /// The paths' regexps ignore case (as router.py's file search does),
+    /// unless asked not to (`case:sensitive`).
+    #[test]
+    fn test_patterns() {
+        let patterns = |args: &[&str]| {
+            Command::parse_from(std::iter::once("search-files").chain(args.iter().copied()))
+                .args
+                .patterns()
+        };
+        assert_eq!(
+            patterns(&["httpbasechannel.cpp"]),
+            (r"(?i)httpbasechannel\.cpp".to_string(), String::new())
+        );
+        assert_eq!(
+            patterns(&["--pathre", "^netwerk/", "--not-pathre", "test"]),
+            ("(?i)^netwerk/".to_string(), "(?i)test".to_string())
+        );
+        assert_eq!(
+            patterns(&["HttpBaseChannel.cpp", "--case-sensitive"]),
+            (r"HttpBaseChannel\.cpp".to_string(), String::new())
+        );
+        assert_eq!(patterns(&[]), (String::new(), String::new()));
+        let re = regex::Regex::new(&patterns(&["httpbasechannel.cpp"]).0).unwrap();
+        assert!(re.is_match("netwerk/protocol/http/HttpBaseChannel.cpp"));
     }
 }

@@ -119,8 +119,14 @@ async fn candidate_files(
             return Err(ServerError::TooExpensive(Box::new(refused)));
         }
         let limit = limits.grep_files.min(usize::MAX as u64 - 1) as usize;
+        // (Ignoring case as the pattern does; see `path_case`.)
         let files = server
-            .search_files(search.pathre, search.not_pathre, false, limit + 1)
+            .search_files(
+                &super::transforms::path_case(search.pathre.to_string(), !search.fold_case),
+                &super::transforms::path_case(search.not_pathre.to_string(), !search.fold_case),
+                false,
+                limit + 1,
+            )
             .await?;
         if files.limit_hit || files.file_matches.len() > limit {
             refused.exceeded.push(crate::query_limits::Exceeded {

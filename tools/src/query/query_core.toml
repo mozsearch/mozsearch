@@ -425,12 +425,18 @@ alias = "path"
 term = "pathre"
 transforms = ["path_glob"]
 
-# Case-sensitivity: the text and identifiers a query searches, if it does,
-# ignore case, but with `case:sensitive` (ex: router.py's search's
-# "Case-sensitive" option), and so do token histories, which otherwise are of
-# the token's case variant with the most removals.
+# Case-sensitivity: the files, text and identifiers a query searches, if it
+# does, ignore case, but with `case:sensitive` (ex: router.py's search's
+# "Case-sensitive" option, though its file search always ignores case), and
+# so do token histories, which otherwise are of the token's case variant with
+# the most removals.
 [term.case]
 values = ["sensitive", "insensitive"]
+[[term.case.group.file-search]]
+command = "search-files"
+when = "sensitive"
+amend = true
+args.case-sensitive = true
 [[term.case.group.text-search]]
 command = "search-text"
 when = "sensitive"
