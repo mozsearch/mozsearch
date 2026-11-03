@@ -10625,8 +10625,9 @@ struct ExploreExtras {
     /// same_changes}`.
     landed: Vec<serde_json::Value>,
     /// For a spec's pull request (see `try_import::is_pull_request`), its page
-    /// upstream (ex: on GitHub), if any, and its page here, which imports its
-    /// newer commits: `{link, path}`.
+    /// upstream (ex: on GitHub), if any, its page here, which imports its
+    /// newer commits, and its changed specs' views with just its changes (see
+    /// `spec_pr_views`): `{link, path, views}`.
     pull_request: Option<serde_json::Value>,
 }
 
@@ -11551,13 +11552,55 @@ fn render_explore(
     Ok(())
 }
 
+/// The views of a spec's pull request's (`SPEC/N`; see
+/// `try_import::is_pull_request`) changed specs' sources (and files ecmarkup
+/// specs import) with just its changes beside them
+/// (`/{tree}/rendered-prs/{path}?prs=N`; see `format_rendered`'s
+/// `only_prs`), as `{path, url}`, from its spec repository's summary (none
+/// without one, or for an hg push).
+pub(crate) fn spec_pr_views(
+    server: &(dyn AbstractServer + Send + Sync),
+    tree_name: &str,
+    rev: &str,
+) -> Vec<serde_json::Value> {
+    let Some((spec, number)) = rev.split_once('/') else {
+        return vec![];
+    };
+    let Ok(number) = number.parse::<u32>() else {
+        return vec![];
+    };
+    let (server, spec) = (server.clonify(), spec.to_string());
+    let summaries =
+        run_on_runtime(async move { server.spec_prs(Some(&spec)).await }).unwrap_or_default();
+    let mut paths: Vec<&str> = summaries
+        .iter()
+        .flat_map(|summary| &summary.prs)
+        .filter(|pr| pr.number == number)
+        .flat_map(|pr| &pr.files)
+        .filter(|file| file.spec.is_some())
+        .map(|file| file.path.as_str())
+        .collect();
+    paths.dedup();
+    paths
+        .iter()
+        .map(|path| {
+            json!({
+                "path": path,
+                "url": format!("/{}/rendered-prs/{}?prs={}", tree_name, url_encode_path(path), number),
+            })
+        })
+        .collect()
+}
+
 /// The page of a try push (`/{tree}/try/hg/{rev}`; see `try_import`): once the
 /// tree has imported it, the explore page of its commits, and before, its
 /// import's status (with `notice`, ex: why it couldn't be asked for), and a
 /// button asking for it (see `request_try_import`), and while it waits or
-/// runs, polling its status (see `format_try_status`).  Returns whether it's
-/// the imported push's page, which doesn't change (so it can be cached),
-/// rather than its import's status's.
+/// runs, polling its status (see `format_try_status`).  A spec's pull
+/// request's page, either way, links to its changed specs' views with just
+/// its changes (see `spec_pr_views`).  Returns whether it's the imported
+/// push's page, which doesn't change (so it can be cached), rather than its
+/// import's status's.
 pub fn format_try(
     cfg: &Config,
     server: &(dyn AbstractServer + Send + Sync),
@@ -11571,6 +11614,7 @@ pub fn format_try(
     let rev = normalize_push(rev).ok_or("Not a try push")?;
     let (push_name, push_link) = push_title(cfg, tree_name, &rev);
     let status = try_import_status(server, &rev)?;
+    let views = spec_pr_views(server, tree_name, &rev);
     match status {
         ImportStatus::Unavailable => return Err("This tree can't import try pushes"),
         ImportStatus::Imported { .. } => {
@@ -11615,6 +11659,7 @@ pub fn format_try(
                     json!({
                         "link": push_link,
                         "path": crate::try_import::push_url_path(&rev),
+                        "views": views,
                     })
                 }),
                 note: Some(format!(
@@ -11663,6 +11708,7 @@ pub fn format_try(
         ),
         "status": status,
         "notice": notice,
+        "views": views,
     }))
     .map_err(|_| "Template problems")?;
     crate::templating::builder::build_and_parse_try_import()

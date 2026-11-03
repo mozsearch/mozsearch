@@ -1354,6 +1354,28 @@ mod tests {
         assert!(page.contains("haven't been synced yet"), "{}", page);
     }
 
+    /// A spec's pull request's page's links to its changed specs' views with
+    /// just its changes (see `format::spec_pr_views`).
+    #[test]
+    fn test_spec_pr_views() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let _entered = runtime.enter();
+        let server = Fake(SyncStatus::Idle {
+            finished: None,
+            error: None,
+        });
+        assert_eq!(
+            crate::format::spec_pr_views(&server, "specs", "gizmo/2"),
+            vec![serde_json::json!({
+                "path": "dom/dom.bs",
+                "url": "/specs/rendered-prs/dom/dom.bs?prs=2",
+            })]
+        );
+        // (Not of a pull request it doesn't have, nor an hg push.)
+        assert!(crate::format::spec_pr_views(&server, "specs", "gizmo/3").is_empty());
+        assert!(crate::format::spec_pr_views(&server, "specs", "0123456789ab").is_empty());
+    }
+
     fn pr(number: u32, review: Option<&str>, association: &str, draft: bool) -> PrSummary {
         PrSummary {
             number,

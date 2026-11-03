@@ -28,7 +28,8 @@
  * after the list, shows it again (see `setHidden`).  A view of only some of
  * them (`?prs=N,M`, ex: a pull request's link to its changes; see `only`)
  * shows those even if they're hidden, and keeps them in its links to the
- * spec's pages.
+ * spec's pages.  A card's "Only this" goes to the view of only its pull
+ * request's changes.
  *
  * An ecmarkup spec's page also lists the pull requests changing the files its
  * source imports, linking to those files' views with their changes (`imported`).
@@ -451,6 +452,15 @@
       github.href = pr.url;
       github.textContent = "on GitHub";
       header.append(" ", github);
+    }
+    // (The view of only its changes, unless this is it; see `only`.)
+    if (!(only.size == 1 && only.has(pr.number))) {
+      const onlyThis = document.createElement("a");
+      onlyThis.className = "sp-pr-only";
+      onlyThis.href = `${location.pathname}?prs=${pr.number}`;
+      onlyThis.textContent = "Only this";
+      onlyThis.title = "Show only this pull request's changes beside the spec (a link you can share)";
+      header.append(" ", onlyThis);
     }
     // (Hiding its pull request, on the spec's pages; see `setHidden`.)
     const hide = document.createElement("button");

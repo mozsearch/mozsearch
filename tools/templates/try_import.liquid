@@ -3,10 +3,14 @@
   and `try_import`): its import's status, a button asking for it (which POSTs
   to the page), and while it waits or runs, polling its status (see
   `format::format_try_status`) until it's done, when the page reloads as the
-  push's explore page.
+  push's explore page.  A spec's pull request's page links to its changed
+  specs' views with just its changes (`views`; see `format::spec_pr_views`).
 {%- endcomment -%}
 <div class="try-import" data-status-url="/{{ tree }}/{{ status_path }}">
   <h2>{{ name | escape }}{% if link %} (<a href="{{ link | escape }}">on GitHub</a>){% endif %}</h2>
+  {%- if views.size > 0 %}
+  <p class="spec-pr-views">Rendered with just this pull request: {% for view in views %}<a class="spec-pr-just-this" href="{{ view.url | escape }}" title="The rendering with only this pull request's changes beside it">{{ view.path | escape }}</a>{% unless forloop.last %}, {% endunless %}{% endfor %}</p>
+  {%- endif %}
   {%- if notice %}
   <p class="try-import-notice">{{ notice | escape }}</p>
   {%- endif %}

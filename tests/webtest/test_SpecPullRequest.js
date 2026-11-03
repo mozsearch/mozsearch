@@ -69,6 +69,31 @@ add_task(async function test_SpecPullRequest() {
      "while the tip's is the trunk's");
 });
 
+// A spec's pull request's page links to its changed specs' views with just
+// its changes (see tools/src/format.rs's `spec_pr_views`), from its spec
+// repository's summaries (synced first, as test_SpecPullRequestSummaries
+// does): before its import (6, which no test imports), and after (1).
+add_task(async function test_SpecPullRequestJustThis() {
+  await TestUtils.loadPath("/specpr/spec-prs");
+  if (!doc().querySelector(".spec-prs-repos")) {
+    // (Unless the web server's start is syncing them already, when the page
+    // reloads once it's done; see tools/src/spec_prs.rs's `start`.)
+    doc().querySelector(".spec-prs-sync-button")?.click();
+    await waitForCondition(() => doc()?.querySelector(".spec-prs-repos, .spec-prs-error"),
+                           "Syncing finishes", 500, 240);
+  }
+  const views = () => [...doc().querySelectorAll(".spec-pr-views .spec-pr-just-this")]
+    .map(a => a.getAttribute("href")).sort().join(" ");
+  await TestUtils.loadPath("/specpr/try/gizmo/6");
+  ok(doc().querySelector(".try-import"), "Pull request 6's page is its import's");
+  is(views(), "/specpr/rendered-prs/gizmo/es/gauges.html?prs=6",
+     "which links to the view of the file it changes with just its changes");
+  is(doc().querySelector(".spec-pr-just-this")?.textContent, "gizmo/es/gauges.html", "by its path");
+  await importPage(1);
+  is(views(), "/specpr/rendered-prs/gizmo/bs/index.bs?prs=1 /specpr/rendered-prs/gizmo/source?prs=1",
+     "Pull request 1's explore page links to the views of the specs it changes with just its changes");
+});
+
 add_task(async function test_SpecPullRequestSemantics() {
   await importPage(1);
   const link = doc().querySelector('.explore-semantic-head a[href^="/specpr/rev/"]');

@@ -186,7 +186,7 @@ add_task(async function test_SpecPullRequestViewHide() {
 // tools/src/format.rs's `format_rendered`) lists only those, says so, linking
 // to the view with all of them, shows them even if they're hidden by hand,
 // and keeps them in its links to the spec's views (see spec-pr-view.js's
-// `only`).
+// `only`); a card's "Only this" goes to it.
 add_task(async function test_SpecPullRequestViewOnly() {
   await prepare();
   const storage = frame.contentWindow.localStorage;
@@ -223,6 +223,18 @@ add_task(async function test_SpecPullRequestViewOnly() {
   ok(card(1)?.hidden && card(2) && !card(2).hidden && doc().querySelector(".sp-pr-hidden-box"),
      "The view with all of them hides the one hidden by hand");
   storage.removeItem(hiddenKey());
+
+  // A card's "Only this" goes to the view of only its pull request.
+  const onlyThis = card(2).querySelector(".sp-pr-only");
+  is(onlyThis?.getAttribute("href"), "/specpr/rendered-prs/gizmo/source?prs=2",
+     "A card's Only this links to the view of only its pull request");
+  onlyThis.click();
+  await waitForCondition(() => frame.contentWindow.location.search == "?prs=2" &&
+                         doc().body.classList.contains("sp-prs-loaded"), "which it goes to");
+  is([...doc().querySelectorAll(".sp-pr-entry")].map(entry => entry.dataset.path).join(","), "2",
+     "listing only it");
+  ok(card(2) && !card(1), "with only its changes");
+  ok(!card(2).querySelector(".sp-pr-only"), "whose card doesn't have Only this there");
 });
 
 // The list of pull requests in the panel collapses (a long one at first),

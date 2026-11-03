@@ -3509,6 +3509,7 @@ h2.sp-called-heading {
    navigation panel, the list of those hidden, after the list of pull
    requests, with buttons showing them again (see spec-pr-view.js's
    `setHidden`); their entries in the list are hidden too. */
+.sp-pr-only,
 .sp-pr-hide,
 .sp-pr-unhide {
   padding: 0 0.4em;
@@ -3521,9 +3522,15 @@ h2.sp-called-heading {
   font-size: smaller;
   cursor: pointer;
 }
+.sp-pr-only,
 .sp-pr-hide {
   opacity: 0.7;
 }
+.sp-pr-only {
+  text-decoration: none;
+}
+.sp-pr-only:hover,
+.sp-pr-only:focus-visible,
 .sp-pr-hide:hover,
 .sp-pr-hide:focus-visible {
   opacity: 1;
