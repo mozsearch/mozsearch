@@ -81,6 +81,33 @@ pub fn file_url(opt: &Options, path: &str) -> String {
     )
 }
 
+/// The breadcrumbs' tree link and tree switcher.
+fn breadcrumbs_tree(opt: &Options) -> String {
+    let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
+    breadcrumbs.push_str(r#"<button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button>"#);
+    breadcrumbs.push_str(r#"<div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div>"#);
+    breadcrumbs
+}
+
+/// Breadcrumbs of a page which isn't a file's or a directory's (ex: a tree
+/// of specs' pull requests, `Spec PRs / dom`): the tree, and `trail`'s labels
+/// and links (escaped here).
+pub fn generate_breadcrumbs_trail(
+    opt: &Options,
+    writer: &mut dyn Write,
+    trail: &[(&str, String)],
+) -> Result<(), &'static str> {
+    let mut breadcrumbs = breadcrumbs_tree(opt);
+    for (label, link) in trail {
+        breadcrumbs.push_str(&format!(
+            r#"<span class="path-separator">/</span><a href="{}">{}</a>"#,
+            escape_attr(link),
+            escape_attr(label)
+        ));
+    }
+    writeln!(*writer, "<div class=\"breadcrumbs\">{}</div>", breadcrumbs).map_err(|_| "Write err")
+}
+
 pub fn generate_breadcrumbs(
     opt: &Options,
     writer: &mut dyn Write,
@@ -88,10 +115,7 @@ pub fn generate_breadcrumbs(
     file_syms: &[String],
     generate_symbol: bool,
 ) -> Result<(), &'static str> {
-    let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
-
-    breadcrumbs.push_str(r#"<button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button>"#);
-    breadcrumbs.push_str(r#"<div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div>"#);
+    let mut breadcrumbs = breadcrumbs_tree(opt);
 
     let mut path_so_far = "".to_string();
 

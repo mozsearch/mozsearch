@@ -181,6 +181,50 @@ add_task(async function test_SpecPullRequestViewHide() {
   ok(!card(1).hidden, "on the next page");
 });
 
+// A view of only some of the pull requests (`?prs=N,M`, ex: a pull request's
+// "with just this pull request" on its spec repository's page; see
+// tools/src/format.rs's `format_rendered`) lists only those, says so, linking
+// to the view with all of them, shows them even if they're hidden by hand,
+// and keeps them in its links to the spec's views (see spec-pr-view.js's
+// `only`).
+add_task(async function test_SpecPullRequestViewOnly() {
+  await prepare();
+  const storage = frame.contentWindow.localStorage;
+  const hiddenKey = () => frame.contentWindow.storageKey("spPrHidden/specpr/gizmo");
+  storage.setItem(hiddenKey(), JSON.stringify({ 1: "Define oiling sprockets, and springs" }));
+  await loadView("gizmo/source?prs=1");
+  is([...doc().querySelectorAll(".sp-pr-entry")].map(entry => entry.dataset.path).join(","), "1",
+     "The view of only pull request 1 lists only it");
+  const card = number => doc().querySelector(`.sp-pr-column .sp-pr-card[data-pr="${number}"]`);
+  ok(card(1) && !card(1).hidden && !card(2), "and shows only its changes");
+  ok(!doc().querySelector(".sp-pr-hidden-box"), "even though it's hidden by hand, which it doesn't list");
+  const only = doc().querySelector(".sp-prs-only");
+  ok(only?.textContent.startsWith("Only the changes of pull request #1 of gizmo are beside this page"),
+     `Its header says so: ${only?.textContent}`);
+  const all = only.querySelector(".sp-prs-all");
+  is(all?.getAttribute("href"), "/specpr/rendered-prs/gizmo/source", "linking to the view with all of them");
+  is(all.textContent, "All 4 of its open pull requests changing it", "saying how many");
+
+  // (Its links to the spec's views keep it: the ecmarkup spec's to the file it
+  // imports.)
+  await loadView("gizmo/es/spec.html?prs=6");
+  is(doc().querySelector('.sp-pr-entry[data-path="6"] .sp-pr-imported a')?.getAttribute("href"),
+     "/specpr/rendered-prs/gizmo/es/gauges.html?prs=6",
+     "The view's links to the spec's views keep the pull requests it shows");
+
+  // (One which doesn't change the page.)
+  await TestUtils.loadPath("/specpr/rendered-prs/gizmo/source?prs=3");
+  ok(doc().querySelector(".sp-prs-only")?.textContent.includes("#3 doesn't change this page."),
+     "A pull request which doesn't change the page, the view says so");
+  ok(!doc().querySelector(".sp-pr-entry"), "listing none");
+
+  // (The view with all of them hides it again.)
+  await loadView("gizmo/source");
+  ok(card(1)?.hidden && card(2) && !card(2).hidden && doc().querySelector(".sp-pr-hidden-box"),
+     "The view with all of them hides the one hidden by hand");
+  storage.removeItem(hiddenKey());
+});
+
 // The list of pull requests in the panel collapses (a long one at first),
 // which is remembered, while filtering and on the next page, until it's
 // expanded again.

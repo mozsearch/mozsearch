@@ -25,7 +25,10 @@
  * expanding it is remembered (see rendered_prs.liquid).  A card's "Hide"
  * hides its pull request (its cards and its entry) on the spec's pages,
  * whatever the filtering, until the panel's list of the hidden pull requests,
- * after the list, shows it again (see `setHidden`).
+ * after the list, shows it again (see `setHidden`).  A view of only some of
+ * them (`?prs=N,M`, ex: a pull request's link to its changes; see `only`)
+ * shows those even if they're hidden, and keeps them in its links to the
+ * spec's pages.
  *
  * An ecmarkup spec's page also lists the pull requests changing the files its
  * source imports, linking to those files' views with their changes (`imported`).
@@ -560,6 +563,34 @@
   // hidden, after the list of pull requests, each with a button showing it
   // again.
   const [, treeName, , specRepo] = location.pathname.split("/");
+
+  // ## Only some of the pull requests
+  //
+  // The view of only some of them (`?prs=N,M`, ex: a pull request's "with
+  // just this pull request" on its spec repository's page; see the tools'
+  // `format_rendered`, which lists only those) shows them even if they're
+  // hidden by hand, until they're hidden again, and its links to the spec's
+  // pages in the view keep them (but the header's link to the view with all
+  // of them, `.sp-prs-all`).
+  const only = new Set((new URLSearchParams(location.search).get("prs") || "")
+    .split(",").map(Number).filter(number => number > 0));
+  function withOnly(href) {
+    if (!only.size || href.startsWith("#")) {
+      return href;
+    }
+    const url = new URL(href, location.href);
+    if (url.origin != location.origin || !url.pathname.startsWith(`/${treeName}/rendered-prs/`) ||
+        url.searchParams.has("prs")) {
+      return href;
+    }
+    return `${url.pathname}${url.search ? `${url.search}&` : "?"}prs=${[...only].join(",")}${url.hash}`;
+  }
+  if (only.size) {
+    for (const link of document.querySelectorAll("#rendered-doc a[href], .sp-pages a[href]")) {
+      link.setAttribute("href", withOnly(link.getAttribute("href")));
+    }
+  }
+
   const hiddenKey = storageKey(`spPrHidden/${treeName}/${specRepo}`);
   // (Its numbers and titles.)
   function readHidden() {
@@ -572,13 +603,15 @@
   }
   let hidden = readHidden();
   const entryNumber = entry => Number(entry.dataset.path);
-  const shownEntry = entry => !entry.hidden && !hidden.has(entryNumber(entry));
+  const hiddenEntry = entry => hidden.has(entryNumber(entry)) && !only.has(entryNumber(entry));
+  const shownEntry = entry => !entry.hidden && !hiddenEntry(entry);
 
   function setHidden(number, title, hide) {
     // (As another of the spec's pages may have left them.)
     hidden = readHidden();
     if (hide) {
       hidden.set(number, title);
+      only.delete(number);
     } else if (number === null) {
       hidden.clear();
     } else {
@@ -594,7 +627,7 @@
 
   function applyHidden() {
     for (const entry of entries) {
-      entry.classList.toggle("sp-pr-entry-hidden", hidden.has(entryNumber(entry)));
+      entry.classList.toggle("sp-pr-entry-hidden", hiddenEntry(entry));
     }
     for (const card of cards) {
       card.element.hidden = !shownEntry(card.entry);
@@ -608,7 +641,9 @@
   // of the spec too, which it says), after the list of pull requests.
   let hiddenBox = null;
   function renderHidden() {
-    if (!hidden.size) {
+    // (Not those shown anyway; see `only`.)
+    const listed = [...hidden].filter(([number]) => !only.has(number));
+    if (!listed.length) {
       hiddenBox?.remove();
       hiddenBox = null;
       return;
@@ -623,7 +658,7 @@
     const heading = document.createElement("h4");
     const count = document.createElement("span");
     count.className = "sp-pr-hidden-count";
-    count.textContent = `(${hidden.size})`;
+    count.textContent = `(${listed.length})`;
     heading.append("Hidden pull requests ", count);
     summary.append(heading);
     const note = document.createElement("p");
@@ -632,7 +667,7 @@
     const list = document.createElement("ul");
     list.className = "facet-items sp-pr-hidden-list";
     const onPage = new Set(entries.map(entryNumber));
-    for (const [number, title] of [...hidden].sort((a, b) => b[0] - a[0])) {
+    for (const [number, title] of listed.sort((a, b) => b[0] - a[0])) {
       const item = document.createElement("li");
       item.className = "sp-pr-hidden-entry";
       item.dataset.pr = number;
@@ -646,7 +681,7 @@
       list.append(item);
     }
     const parts = [summary, note, list];
-    if (hidden.size > 1) {
+    if (listed.length > 1) {
       const all = document.createElement("button");
       all.type = "button";
       all.className = "sp-pr-unhide sp-pr-unhide-all";
@@ -684,7 +719,7 @@
     note.append(only ? "It changes the files this page imports: " : " It also changes the files this page imports: ");
     pr.imported.forEach(({ path, view }, i) => {
       const link = document.createElement("a");
-      link.href = view;
+      link.href = withOnly(view);
       link.textContent = path.split("/").pop();
       link.title = `${path}, with the pull requests' changes beside it`;
       note.append(i ? ", " : "", link);

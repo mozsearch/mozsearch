@@ -1,12 +1,16 @@
 {%- comment -%}
   The pages of the summaries of the open pull requests of a tree of specs'
   spec repositories (see `format::format_spec_prs` and `spec_prs`): without
-  `spec`, its repositories, with how many pull requests each has (linking to
-  their pages filtered to them; see facets.js's `facet-` parameters); with it, a
+  `spec`, its repositories (their specs' directories, and their GitHub
+  names), with how many pull requests each has (linking to their pages
+  filtered to them; see facets.js's `facet-` parameters); with it, a
   repository's pull requests, with facets filtering them (see
-  facet_bar.liquid), each with its page as a try push (which imports it), its
-  GitHub page, and what it changes (with links to the specs' renderings with
-  all of the pull requests' changes beside them), and its import's status,
+  facet_bar.liquid; in the navigation panel, the "panel" `part`, the rest
+  being the "page" part), links to its specs' renderings with all of the pull
+  requests' changes beside them (`rendered`), and each pull request with its
+  page as a try push (which imports it), its GitHub page, and what it changes
+  (with links to the specs' renderings with only its changes beside them),
+  and its import's status,
   with a button asking for the imports of those which need them (which POSTs
   to `imports.import_url`, with the numbers of those the facets show, if
   there aren't too many; `imports.batch` says whether all are few enough), and
@@ -17,17 +21,23 @@
   poll its status (`status_url`; see `format::format_spec_prs_sync_status`)
   until it's done, when the page reloads.
 {%- endcomment -%}
+{%- if part == "panel" %}
+{%- if spec and summary and prs.size > 0 %}
+{%- include "facet_bar.liquid" facets: facets, group_by: false, sort_by: false, noun: "pull request", nouns: "pull requests" %}
+{%- endif %}
+{%- else %}
 <div class="spec-prs" data-status-url="{{ status_url }}">
-  <h2>{{ title | escape }}{% if summary %} (<a href="{{ summary.url | escape }}">on GitHub</a>){% endif %}</h2>
-  {%- if spec %}
-  <p class="spec-prs-up"><a href="/{{ tree }}/spec-prs">All of the specs' pull requests</a></p>
+  {%- if rendered.size == 1 and rendered_several == false %}
+  <p class="spec-prs-rendered"><a class="spec-prs-rendered-link" href="{{ rendered.first.url | escape }}">Rendered spec with all of its pull requests</a></p>
+  {%- elsif rendered.size > 0 %}
+  <p class="spec-prs-rendered">Rendered specs with all of their pull requests: {% for each in rendered %}<a class="spec-prs-rendered-link" href="{{ each.url | escape }}" title="{{ each.count }} of its pull requests change it">{{ each.name | escape }}</a> ({{ each.count }}){% unless forloop.last %}, {% endunless %}{% endfor %}</p>
   {%- endif %}
   <div class="spec-prs-sync">
     {%- if notice %}
     <p class="spec-prs-notice">{{ notice | escape }}</p>
     {%- endif %}
     <p class="spec-prs-status">
-    {%- if summary %}Synced {{ summary.synced }}{% if summary.snapshot %}, from GitHub's metadata as of {{ summary.snapshot }}{% endif %}. {% endif -%}
+    {%- if summary %}<a class="spec-prs-github" href="{{ summary.url | escape }}">{{ summary.repo | escape }}</a> on GitHub. Synced {{ summary.synced }}{% if summary.snapshot %}, from GitHub's metadata as of {{ summary.snapshot }}{% endif %}. {% endif -%}
     {%- case status.state -%}
     {%- when "queued" -%}
       Waiting to sync.
@@ -63,7 +73,6 @@
   {%- if spec %}
   {%- if summary %}
   {%- if prs.size > 0 %}
-  {%- include "facet_bar.liquid" facets: facets, group_by: false, sort_by: false, noun: "pull request", nouns: "pull requests" %}
   <div class="facet-items spec-pr-list">
     {%- for pr in prs %}
     <section class="spec-pr" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}" data-needed="{{ pr.import.needed }}">
@@ -75,7 +84,7 @@
       {%- if pr.files.size > 0 %}
       <ul class="spec-pr-files">
         {%- for file in pr.files %}
-        <li><a href="{{ file.link }}">{{ file.path | escape }}</a>{% if file.with_prs %} (<a class="spec-pr-with-prs" href="{{ file.with_prs }}" title="Its rendering with the changes of all of the open pull requests changing it beside it">with pull requests</a>){% endif %} <span class="spec-pr-added">+{{ file.added }}</span> <span class="spec-pr-removed">−{{ file.removed }}</span>{% if file.sections.size > 0 %} in {% for section in file.sections %}{% if section.link %}<a href="{{ section.link | escape }}">{{ section.title | escape }}</a>{% else %}{{ section.title | escape }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</li>
+        <li><a href="{{ file.link }}">{{ file.path | escape }}</a>{% if file.just_this %} (<a class="spec-pr-just-this" href="{{ file.just_this | escape }}" title="Its rendering with only this pull request's changes beside it">with just this pull request</a>){% endif %} <span class="spec-pr-added">+{{ file.added }}</span> <span class="spec-pr-removed">−{{ file.removed }}</span>{% if file.sections.size > 0 %} in {% for section in file.sections %}{% if section.link %}<a href="{{ section.link | escape }}">{{ section.title | escape }}</a>{% else %}{{ section.title | escape }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</li>
         {%- endfor %}
       </ul>
       {%- endif %}
@@ -92,12 +101,12 @@
   {%- if repos.size > 0 %}
   <table class="spec-prs-repos">
     <thead>
-      <tr><th>Spec repository</th><th>Open</th><th>Approved</th><th>Changes requested</th><th title="Authored by people who can review the repository's pull requests (its owners, members and collaborators)">By people who can review</th><th>Drafts</th><th>Synced</th></tr>
+      <tr><th>Spec</th><th>Repository</th><th>Open</th><th>Approved</th><th>Changes requested</th><th title="Authored by people who can review the repository's pull requests (its owners, members and collaborators)">By people who can review</th><th>Drafts</th><th>Synced</th></tr>
     </thead>
     <tbody>
       {%- for repo in repos %}
       {%- capture page %}/{{ tree }}/spec-prs/{{ repo.spec }}{% endcapture %}
-      <tr><td><a href="{{ page }}">{{ repo.repo | escape }}</a></td><td>{{ repo.count }}</td><td><a href="{{ page }}?facet-review=APPROVED">{{ repo.approved }}</a></td><td><a href="{{ page }}?facet-review=CHANGES_REQUESTED">{{ repo.changes_requested }}</a></td><td><a href="{{ page }}?facet-author=reviewer">{{ repo.by_reviewers }}</a></td><td><a href="{{ page }}?facet-draft=draft">{{ repo.drafts }}</a></td><td>{{ repo.synced }}</td></tr>
+      <tr><td><a class="spec-prs-repo-page" href="{{ page }}">{{ repo.spec | escape }}</a></td><td><a class="spec-prs-repo-github" href="{{ repo.url | escape }}">{{ repo.repo | escape }}</a></td><td>{{ repo.count }}</td><td><a href="{{ page }}?facet-review=APPROVED">{{ repo.approved }}</a></td><td><a href="{{ page }}?facet-review=CHANGES_REQUESTED">{{ repo.changes_requested }}</a></td><td><a href="{{ page }}?facet-author=reviewer">{{ repo.by_reviewers }}</a></td><td><a href="{{ page }}?facet-draft=draft">{{ repo.drafts }}</a></td><td>{{ repo.synced }}</td></tr>
       {%- endfor %}
     </tbody>
   </table>
@@ -195,4 +204,5 @@
     setTimeout(poll, 3000);
   })();
 </script>
+{%- endif %}
 {%- endif %}

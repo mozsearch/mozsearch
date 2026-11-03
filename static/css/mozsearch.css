@@ -3273,6 +3273,14 @@ h2.sp-called-heading {
 .spec-prs {
   padding: 0 1rem 1rem;
 }
+/* (Its specs' renderings with all of its pull requests' changes, what's most
+   wanted, first.) */
+.spec-prs-rendered {
+  margin: 0.6em 0;
+}
+.spec-prs-rendered-link {
+  font-weight: 600;
+}
 .spec-prs-sync form {
   display: inline;
 }
@@ -3291,7 +3299,7 @@ h2.sp-called-heading {
   border-bottom: 1px solid var(--page-border-color);
   text-align: left;
 }
-.spec-prs-repos td:not(:first-child, :last-child) {
+.spec-prs-repos td:not(:first-child, :nth-child(2), :last-child) {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

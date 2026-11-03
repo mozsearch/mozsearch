@@ -12,7 +12,11 @@
     (see spec-pr-view.js), and applied as it's parsed.  An entry whose first
     commits are another's (`contains`; ex: stacked on it) says so, and that
     only its own changes are shown, and so does the other's (`contained_by`).
-  - "header", before the page: which pull requests they are, as of when.
+  - "header", before the page: which pull requests they are, as of when; or
+    with `only` (see `format::format_rendered`'s `only_prs`), that only
+    those pull requests are shown (and those of them which don't change the
+    page), linking to the view with all of them (`sp-prs-all`, which
+    spec-pr-view.js leaves without `?prs=`).
 {%- endcomment -%}
 {%- if part == "panel" %}
 {%- if summary and prs.size > 0 %}
@@ -31,7 +35,12 @@
 {%- endif %}
 {%- else %}
 <section class="sp-prs-header">
-  {%- if summary %}
+  {%- if summary and only %}
+  <p class="sp-prs-intro sp-prs-only">
+    {%- if only.shown.size > 0 %}Only the changes of {% if only.shown.size == 1 %}pull request{% else %}pull requests{% endif %} {% for number in only.shown %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="/{{ tree }}/try/{{ spec_repo }}/{{ number }}">#{{ number }}</a>{% endfor %} of {{ summary.repo | escape }} are beside this page, as of {{ summary.synced }}.{% endif %}
+    {%- if only.missing.size > 0 %} {% for number in only.missing %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="/{{ tree }}/try/{{ spec_repo }}/{{ number }}">#{{ number }}</a>{% endfor %} {% if only.missing.size == 1 %}doesn't{% else %}don't{% endif %} change this page.{% endif %}
+    {%- if only.all > 0 %} (<a class="sp-prs-all" href="{{ only.all_url | escape }}">All {{ only.all }} of its open pull requests changing it</a>.){% endif %}</p>
+  {%- elsif summary %}
   {%- if prs.size > 0 %}
   <p class="sp-prs-intro">The changes of {{ summary.repo | escape }}'s open pull requests changing this page, merged with it, are beside it, as of {{ summary.synced }} (<a href="/{{ tree }}/spec-prs/{{ spec_repo }}">all of its pull requests</a>); the navigation panel lists them, with filters.</p>
   {%- else %}

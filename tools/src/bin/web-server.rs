@@ -836,8 +836,28 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 return WebResponse::redirect(url);
             }
 
+            // (Only some of its pull requests, `?prs=N,M`; see
+            // `format_rendered`.)
+            let only_prs: Option<Vec<u32>> = query_params(req.query)
+                .get("prs")
+                .filter(|_| with_prs)
+                .map(|prs| {
+                    prs.split(',')
+                        .filter_map(|number| number.trim().parse().ok())
+                        .take(50)
+                        .collect::<Vec<u32>>()
+                })
+                .filter(|prs| !prs.is_empty());
             let mut writer = Vec::new();
-            match format::format_rendered(cfg, tree_name, rev, &file_path, with_prs, &mut writer) {
+            match format::format_rendered(
+                cfg,
+                tree_name,
+                rev,
+                &file_path,
+                with_prs,
+                only_prs.as_deref(),
+                &mut writer,
+            ) {
                 Ok(()) if with_prs => {
                     WebResponse::html(String::from_utf8(writer).unwrap()).uncached()
                 }
@@ -1571,8 +1591,18 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
             let page = |notice: Option<&str>| {
                 let mut writer = Vec::new();
-                match format::format_spec_prs(server.as_ref(), tree_name, spec, notice, &mut writer)
-                {
+                let specs = cfg
+                    .trees
+                    .get(*tree_name)
+                    .and_then(|tree_config| format::tree_specs(tree_name, tree_config));
+                match format::format_spec_prs(
+                    server.as_ref(),
+                    tree_name,
+                    spec,
+                    specs.as_deref(),
+                    notice,
+                    &mut writer,
+                ) {
                     Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
                     Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
                 }

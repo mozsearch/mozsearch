@@ -4992,13 +4992,19 @@ fn render_spec_view(
 /// pull requests' changes of it beside it (`/{tree}/rendered-prs/{path}`; see
 /// `spec_prs`): the pull requests changing its source, with facets filtering
 /// them, whose changes of the page spec-pr-view.js fetches (see
-/// `spec_pr_blocks_json`) and shows beside the blocks they change.
+/// `spec_pr_blocks_json`) and shows beside the blocks they change; with
+/// `only_prs` (`?prs=N,M`, ex: a pull request's link to the view with just
+/// its changes; see `format_spec_prs`), only those pull requests, which the
+/// page says, linking to the view with all of them (and spec-pr-view.js
+/// keeps them in the links to the spec's pages, and shows them even if
+/// they're hidden by hand).
 pub fn format_rendered(
     cfg: &Config,
     tree_name: &str,
     rev: Option<&str>,
     path: &str,
     with_prs: bool,
+    only_prs: Option<&[u32]>,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
@@ -5060,7 +5066,7 @@ pub fn format_rendered(
                 None if ecmarkup => rendered_specs::ecmarkup::imported_files(path, &read),
                 _ => vec![],
             };
-            let prs: Vec<crate::spec_prs::PrSummary> = summary
+            let mut prs: Vec<crate::spec_prs::PrSummary> = summary
                 .iter()
                 .flat_map(|summary| &summary.prs)
                 .filter(|pr| {
@@ -5070,7 +5076,12 @@ pub fn format_rendered(
                 })
                 .cloned()
                 .collect();
-            Some((spec_repo, summary, prs, imported))
+            // (Only those asked for, of how many.)
+            let only = only_prs.map(|only| (only.to_vec(), prs.len()));
+            if let Some(only) = only_prs {
+                prs.retain(|pr| only.contains(&pr.number));
+            }
+            Some((spec_repo, summary, prs, imported, only))
         }
     };
     let source = {
@@ -5304,13 +5315,14 @@ pub fn format_rendered(
     // (In the view with its pull requests' changes, their facets and list are
     // the panel's first section; see rendered_prs.liquid.)
     let prs_globals = match &pr_view {
-        Some((spec_repo, summary, prs, imported)) => Some(rendered_prs_globals(
+        Some((spec_repo, summary, prs, imported, only)) => Some(rendered_prs_globals(
             tree_name,
             spec_repo,
             summary.as_ref(),
             prs,
             (path, &view_path),
             imported,
+            only.as_ref().map(|(numbers, all)| (numbers.as_slice(), *all)),
         )?),
         None => None,
     };
@@ -5614,7 +5626,9 @@ fn contained_by_note(containments: &[&crate::spec_prs::Containment]) -> (String,
 /// `render_rendered_prs`).  A pull request whose first commits are another's
 /// (ex: stacked on it; see `spec_prs::containments`, of all of the spec
 /// repository's pull requests) has only its own changes (see
-/// `spec_pr_blocks_json`'s `after`), and both entries say so.
+/// `spec_pr_blocks_json`'s `after`), and both entries say so.  With `only`,
+/// `prs` are those of its numbers (see `format_rendered`'s `only_prs`) of how
+/// many change the page.
 fn rendered_prs_globals(
     tree_name: &str,
     spec_repo: &str,
@@ -5622,6 +5636,7 @@ fn rendered_prs_globals(
     prs: &[crate::spec_prs::PrSummary],
     (source_path, view_path): (&str, &str),
     imported: &[String],
+    only: Option<(&[u32], usize)>,
 ) -> Result<liquid::Object, &'static str> {
     use crate::spec_prs::{pr_facet_values, pr_facets, review_name};
     let try_path_of = |number: u32| format!("/{}/try/{}/{}", tree_name, spec_repo, number);
@@ -5728,6 +5743,19 @@ fn rendered_prs_globals(
         })),
         "prs": entries,
         "facets": pr_facets(prs, chrono::Utc::now()),
+        // (Those of `only` which change the page, and don't, and the view
+        // with all of them.)
+        "only": only.map(|(numbers, all)| {
+            let (shown, missing): (Vec<u32>, Vec<u32>) = numbers
+                .iter()
+                .partition(|number| prs.iter().any(|pr| pr.number == **number));
+            json!({
+                "shown": shown,
+                "missing": missing,
+                "all": all,
+                "all_url": format!("/{}/rendered-prs/{}", tree_name, url_encode_path(view_path)),
+            })
+        }),
     }))
     .map_err(|_| "Template problems")
 }
@@ -11920,11 +11948,20 @@ fn utc_minute(iso: &str) -> String {
 /// `format_spec_pr_imports`).  Both have their syncs' status (with `notice`,
 /// ex: why one couldn't be asked for), a button asking for one, and while one
 /// waits or runs, poll its status (see `format_spec_prs_sync_status`),
-/// reloading once it's done.
+/// reloading once it's done.  Their breadcrumbs are the tree's, "Spec PRs"
+/// and the repository's directory (its GitHub name, with its organization,
+/// is in the page), and a repository's page's facets are in the navigation
+/// panel (the fancy bar, if it's docked).  A repository's page links to its
+/// specs' views with all of their pull requests' changes beside them (of
+/// `specs`, the tree's, if it has them: a repository of one spec's, or of
+/// several, those its pull requests change), and each pull request's
+/// changed specs' sources, to their views with only its changes (`?prs=N`;
+/// see `format_rendered`).
 pub fn format_spec_prs(
     server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
     spec: Option<&str>,
+    specs: Option<&SpecsConfig>,
     notice: Option<&str>,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
@@ -11950,6 +11987,8 @@ pub fn format_spec_prs(
         "summary": null,
         "prs": [],
         "facets": [],
+        "rendered": [],
+        "rendered_several": false,
         // (A repository's page's; see below.)
         "imports": {
             "available": false,
@@ -11963,8 +12002,10 @@ pub fn format_spec_prs(
             "status_url": "",
         },
     });
-    let title = match spec {
+    match spec {
         None => {
+            let mut summaries: Vec<&crate::spec_prs::RepoSummary> = summaries.iter().collect();
+            summaries.sort_by(|a, b| a.spec.cmp(&b.spec));
             let repos: Vec<serde_json::Value> = summaries
                 .iter()
                 .map(|summary| {
@@ -11985,14 +12026,49 @@ pub fn format_spec_prs(
                 })
                 .collect();
             globals["repos"] = json!(repos);
-            "Pull requests of the specs".to_string()
         }
         Some(spec) => {
             // (A spec repository not synced yet has a page with the button.)
             let Some(summary) = summaries.first() else {
-                globals["title"] = json!(format!("Pull requests of {}", spec));
                 return render_spec_prs_page(tree_name, globals, writer);
             };
+            // (Its specs' views with all of their pull requests' changes: a
+            // repository of one spec's, or of several, those its pull
+            // requests change, the most changed first.)
+            let mut rendered: Vec<(String, String, usize)> = specs
+                .iter()
+                .flat_map(|specs| &specs.specs)
+                .filter(|entry| entry.dir().split('/').next() == Some(spec))
+                .filter_map(|entry| {
+                    let source = entry.source_path()?;
+                    let count = summary
+                        .prs
+                        .iter()
+                        .filter(|pr| {
+                            pr.files
+                                .iter()
+                                .any(|file| file.spec.as_deref() == Some(entry.name.as_str()))
+                        })
+                        .count();
+                    Some((
+                        entry.name.clone(),
+                        format!("/{}/rendered-prs/{}", tree_name, url_encode_path(&source)),
+                        count,
+                    ))
+                })
+                .collect();
+            let several = rendered.len() > 1;
+            if several {
+                rendered.retain(|(_, _, count)| *count > 0);
+            }
+            globals["rendered_several"] = json!(several);
+            rendered.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+            globals["rendered"] = json!(
+                rendered
+                    .iter()
+                    .map(|(name, url, count)| json!({ "name": name, "url": url, "count": count }))
+                    .collect::<Vec<_>>()
+            );
             // (None if the tree can't import them.)
             let imports = spec_pr_imports(server, spec).unwrap_or_default();
             let import_of = |number: u32| imports.iter().find(|import| import.number == number);
@@ -12040,10 +12116,15 @@ pub fn format_spec_prs(
                                 "link": rendered.clone().unwrap_or_else(|| {
                                     format!("/{}/source/{}", tree_name, file.path)
                                 }),
-                                // (The view with all of the pull requests'
-                                // changes of it; see `format_rendered`.)
-                                "with_prs": file.spec.as_ref().map(|_| {
-                                    format!("/{}/rendered-prs/{}", tree_name, file.path)
+                                // (The view with only its changes of it; see
+                                // `format_rendered`.)
+                                "just_this": file.spec.as_ref().map(|_| {
+                                    format!(
+                                        "/{}/rendered-prs/{}?prs={}",
+                                        tree_name,
+                                        url_encode_path(&file.path),
+                                        pr.number
+                                    )
                                 }),
                                 "sections": file.sections.iter().map(|section| json!({
                                     "title": section.title,
@@ -12093,10 +12174,8 @@ pub fn format_spec_prs(
             });
             globals["prs"] = json!(prs);
             globals["facets"] = json!(pr_facets(&summary.prs, chrono::Utc::now()));
-            format!("Pull requests of {}", summary.repo)
         }
     };
-    globals["title"] = json!(title);
     render_spec_prs_page(tree_name, globals, writer)
 }
 
@@ -12308,13 +12387,14 @@ pub fn format_missing_source(
 /// A page of pull request summaries, from `format_spec_prs`'s globals.
 fn render_spec_prs_page(
     tree_name: &str,
-    globals: serde_json::Value,
+    mut globals: serde_json::Value,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
-    let page_title = format!(
-        "{} - mozsearch",
-        globals["title"].as_str().unwrap_or_default()
-    );
+    let spec = globals["spec"].as_str().map(str::to_string);
+    let page_title = match &spec {
+        Some(spec) => format!("{} - Spec PRs - mozsearch", spec),
+        None => "Spec PRs - mozsearch".to_string(),
+    };
     let opt = Options {
         title: &page_title,
         tree_name,
@@ -12325,11 +12405,33 @@ fn render_spec_prs_page(
         search_rev: None,
     };
     output::generate_header(&opt, writer)?;
-    output::generate_panel(&opt, writer, &[], true)?;
-    let globals = liquid::to_object(&globals).map_err(|_| "Template problems")?;
-    crate::templating::builder::build_and_parse_spec_prs()
-        .render_to(writer, &globals)
-        .map_err(|_| "Template problems")?;
+    let mut trail = vec![("Spec PRs", format!("/{}/spec-prs", tree_name))];
+    if let Some(spec) = &spec {
+        trail.push((spec.as_str(), format!("/{}/spec-prs/{}", tree_name, spec)));
+    }
+    output::generate_breadcrumbs_trail(&opt, writer, &trail)?;
+    // (A repository's page's facets are in the panel; see spec_prs.liquid.)
+    let template = crate::templating::builder::build_and_parse_spec_prs();
+    let render = |globals: &mut serde_json::Value, part: &str, writer: &mut dyn Write| {
+        globals["part"] = json!(part);
+        let globals = liquid::to_object(globals).map_err(|_| "Template problems")?;
+        template
+            .render_to(writer, &globals)
+            .map_err(|_| "Template problems")
+    };
+    let mut panel_html = vec![];
+    render(&mut globals, "panel", &mut panel_html)?;
+    let panel_html = String::from_utf8(panel_html).map_err(|_| "Template problems")?;
+    let panel = match panel_html.trim().is_empty() {
+        true => vec![],
+        false => vec![PanelSection {
+            name: String::new(),
+            items: vec![],
+            raw_items: vec![panel_html],
+        }],
+    };
+    output::generate_panel(&opt, writer, &panel, panel.is_empty())?;
+    render(&mut globals, "page", writer)?;
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
     Ok(())
 }
@@ -12761,6 +12863,28 @@ mod tests {
             assert_eq!(render(&sparse, "panel").trim(), "");
             assert!(render(&sparse, "header").contains(says));
         }
+
+        // (Only some of them, of how many, one of which doesn't change the
+        // page, linking to the view with all of them; see `format_rendered`'s
+        // `only_prs`.)
+        let mut only = globals(vec![pr(1)], true);
+        only["only"] = serde_json::json!({
+            "shown": [1],
+            "missing": [9],
+            "all": 4,
+            "all_url": "/specs/rendered-prs/gizmo/source",
+        });
+        let header = render(&only, "header");
+        assert!(
+            header.contains(r#"Only the changes of pull request <a href="/specs/try/gizmo/1">#1</a> of whatwg/gizmo are beside this page, as of 2026-10-28 18:00 UTC. <a href="/specs/try/gizmo/9">#9</a> doesn't change this page. (<a class="sp-prs-all" href="/specs/rendered-prs/gizmo/source">All 4 of its open pull requests changing it</a>.)"#),
+            "{}",
+            header
+        );
+        only["only"]["shown"] = serde_json::json!([1, 2, 3]);
+        only["only"]["missing"] = serde_json::json!([]);
+        assert!(
+            render(&only, "header").contains(r#"pull requests <a href="/specs/try/gizmo/1">#1</a>, <a href="/specs/try/gizmo/2">#2</a> and <a href="/specs/try/gizmo/3">#3</a> of"#)
+        );
 
         // (A pull request whose first commits are another's, and the other's.)
         let mut stacked = pr(2);

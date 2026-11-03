@@ -1232,32 +1232,91 @@ mod tests {
     fn test_format_spec_prs() {
         let runtime = tokio::runtime::Runtime::new().unwrap();
         let _entered = runtime.enter();
-        let render = |status: SyncStatus, spec: Option<&str>| {
+        // (The repository's spec, whose source the pull requests change, and
+        // another's, elsewhere.)
+        let specs: crate::spec_analyze::SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "dom"
+            path = "gizmo"
+            source = "dom.bs"
+            format = "bikeshed"
+            [[spec]]
+            name = "other"
+            format = "bikeshed"
+            "#,
+        )
+        .unwrap();
+        let render_with = |status: SyncStatus, spec: Option<&str>, specs| {
             let mut writer = Vec::new();
-            crate::format::format_spec_prs(&Fake(status), "specs", spec, None, &mut writer)
+            crate::format::format_spec_prs(&Fake(status), "specs", spec, specs, None, &mut writer)
                 .map(|()| String::from_utf8(writer).unwrap())
         };
+        let render =
+            |status: SyncStatus, spec: Option<&str>| render_with(status, spec, Some(&specs));
         let idle = SyncStatus::Idle {
             finished: None,
             error: None,
         };
         let page = render(idle.clone(), Some("gizmo")).unwrap();
-        assert!(page.contains("Pull requests of example/gizmo"), "{}", page);
+        // (Its breadcrumbs are the tree's, "Spec PRs" and the repository's
+        // directory, its title too, and its GitHub name is in the page.)
+        assert!(
+            page.contains(r#"<span class="path-separator">/</span><a href="/specs/spec-prs">Spec PRs</a><span class="path-separator">/</span><a href="/specs/spec-prs/gizmo">gizmo</a></div>"#),
+            "{}",
+            page
+        );
+        assert!(
+            page.contains("<title>gizmo - Spec PRs - mozsearch</title>"),
+            "{}",
+            page
+        );
+        assert!(
+            page.contains(r#"<a class="spec-prs-github" href="https://github.com/example/gizmo">example/gizmo</a> on GitHub. Synced 2026-10-26 14:03 UTC."#),
+            "{}",
+            page
+        );
         assert!(page.contains(r#"href="/specs/try/gizmo/2""#), "{}", page);
         assert!(
             page.contains(r#"href="/specs/rendered/dom/dom.bs#s1""#),
             "{}",
             page
         );
+        // (Its spec's view with all of its pull requests' changes, and each's
+        // with only its own.)
         assert!(
-            page.contains(r#"href="/specs/rendered-prs/dom/dom.bs""#),
+            page.contains(r#"<a class="spec-prs-rendered-link" href="/specs/rendered-prs/gizmo/dom.bs">Rendered spec with all of its pull requests</a>"#),
             "{}",
             page
         );
-        assert!(page.contains(r#"data-nouns="pull requests""#), "{}", page);
-        assert!(page.contains("Synced 2026-10-26 14:03 UTC."), "{}", page);
+        assert!(
+            page.contains(r#"href="/specs/rendered-prs/dom/dom.bs?prs=2""#),
+            "{}",
+            page
+        );
+        // (Its facets are in the panel, before its pull requests.)
+        let facets = page.find(r#"data-nouns="pull requests""#).unwrap();
+        assert!(
+            page.find(r#"id="panel-content""#).unwrap() < facets
+                && facets < page.find(r#"class="facet-items spec-pr-list""#).unwrap(),
+            "{}",
+            page
+        );
+        // (Without the tree's specs, no views of them.)
+        let page = render_with(idle.clone(), Some("gizmo"), None).unwrap();
+        assert!(!page.contains("spec-prs-rendered"), "{}", page);
         let page = render(idle, None).unwrap();
-        assert!(page.contains(r#"href="/specs/spec-prs/gizmo""#), "{}", page);
+        assert!(
+            page.contains("<title>Spec PRs - mozsearch</title>"),
+            "{}",
+            page
+        );
+        // (The repositories' specs' directories, then their GitHub names.)
+        assert!(
+            page.contains(r#"<td><a class="spec-prs-repo-page" href="/specs/spec-prs/gizmo">gizmo</a></td><td><a class="spec-prs-repo-github" href="https://github.com/example/gizmo">example/gizmo</a></td>"#),
+            "{}",
+            page
+        );
         let page = render(
             SyncStatus::Running {
                 seconds: 3,
@@ -1286,6 +1345,7 @@ mod tests {
             }),
             "specs",
             Some("other"),
+            None,
             None,
             &mut writer,
         )
