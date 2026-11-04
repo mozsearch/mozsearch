@@ -19,6 +19,7 @@ use super::cmd_history_grep::HistoryGrepCommandArgs;
 use super::cmd_history_journal::HistoryJournal;
 use super::cmd_jq::JQ;
 use super::cmd_jumpref_lookup::JumprefLookup;
+use super::cmd_lock_held::LockHeld;
 use super::cmd_lock_regions::LockRegions;
 use super::cmd_merge_analyses::MergeAnalyses;
 use super::cmd_normalize_unstable_data::NormalizeUnstableData;
@@ -106,6 +107,7 @@ pub enum Command {
     BlockDiagram(BlockDiagram),
     CrashStack(CrashStack),
     CrashSet(CrashSet),
+    LockHeld(LockHeld),
     LockRegions(LockRegions),
     BugComment(BugComment),
     RevAt(RevAt),

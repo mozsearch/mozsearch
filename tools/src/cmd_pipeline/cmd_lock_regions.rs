@@ -84,13 +84,23 @@ fn region_text(func: &FuncIr, region: &HeldRegion) -> String {
     }
     for call in &region.calls {
         out.push_str(&format!(
-            "    call {} {}{}\n",
+            "    call {} {}{}{}\n",
             call.line,
             call.callee_pretty,
             match call.kind {
                 crate::dataflow::ir::CallKind::Call => "",
                 crate::dataflow::ir::CallKind::Construct => " (construct)",
                 crate::dataflow::ir::CallKind::Macro => " (macro)",
+            },
+            match call.proof_args.as_slice() {
+                [] => String::new(),
+                args => format!(
+                    ", passing the proof as argument {}",
+                    args.iter()
+                        .map(|i| i.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
             }
         ));
     }

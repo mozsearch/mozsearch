@@ -12,10 +12,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
-use super::ir::{Atom, CallKind, EventKind, FuncIr, LockKind, LockRegion, Place, Step, Val};
+use super::ir::{Atom, CallKind, EventKind, FuncIr, LockKind, LockRegion, Place, Root, Step, Val};
 
 /// The classes (as their records' type symbols name them, without `T_`) of
 /// guards which hold their mutexes, and of those which release them.
@@ -109,10 +109,10 @@ pub fn is_proof_type(type_sym: Option<&str>, type_pretty: Option<&str>) -> bool 
 }
 
 /// Where a function holds a mutex (see `held_regions`): an acquiring
-/// guard's or a proof parameter's region (see `LockRegion`), but where the
-/// releasing guards of its mutex in it release it, and the lambdas made in it;
-/// and what runs there.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// guard's or a proof parameter's region (see `LockRegion`), or a whole body
+/// run with it held (see `held_body`), but where the releasing guards of its
+/// mutex in it release it, and the lambdas made in it; and what runs there.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HeldRegion {
     pub kind: LockKind,
     pub guard: String,
@@ -120,8 +120,10 @@ pub struct HeldRegion {
     /// which its callers say), and as the function spells it.
     pub mutex: Option<Ustr>,
     pub mutex_text: String,
-    /// For a proof, its parameter's index.
+    /// For a proof, its parameter's index; and the local holding it (a
+    /// guard's local, or the proof parameter), which calls pass on as a proof.
     pub param: Option<usize>,
+    pub local: Option<Ustr>,
     pub line: u32,
     pub end_line: u32,
     /// Its parts which aren't held: released (by unlocks), and lambdas
@@ -138,17 +140,23 @@ pub struct HeldRegion {
     pub locks: Vec<NestedLock>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// A call made with a mutex held: its line, its callee, and the IR's call
+/// (`id`, for its arguments), and which of its arguments pass the proof that
+/// the mutex is held on (the region's `local`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HeldCall {
+    pub id: usize,
     pub line: u32,
     pub callee: Vec<Ustr>,
     pub callee_pretty: String,
     pub kind: CallKind,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proof_args: Vec<usize>,
 }
 
 /// A field accessed with a mutex held: the lines it's read on, written on,
 /// and has methods called on (`mQueue.Push(x)`).
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FieldAccess {
     pub sym: Ustr,
     pub name: String,
@@ -157,7 +165,7 @@ pub struct FieldAccess {
     pub calls: Vec<u32>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NestedLock {
     pub mutex: Option<Ustr>,
     pub mutex_text: String,
@@ -166,11 +174,71 @@ pub struct NestedLock {
 }
 
 /// The fields in a place (`this->mA.mB`: mA and mB), C++'s (`F_…`).
+/// The state in a place: its global, if it's in one (ex: a static
+/// variable), and its fields (`this->mA.mB`: mA and mB; C++'s, `F_…`).
 fn place_fields(place: &Place) -> impl Iterator<Item = Ustr> + '_ {
-    place.path.iter().filter_map(|step| match step {
-        Step::Field(sym) if sym.starts_with("F_") => Some(*sym),
+    let global = match &place.root {
+        Root::Global(sym) => Some(*sym),
         _ => None,
-    })
+    };
+    global
+        .into_iter()
+        .chain(place.path.iter().filter_map(|step| match step {
+            Step::Field(sym) if sym.starts_with("F_") => Some(*sym),
+            _ => None,
+        }))
+}
+
+/// The lambdas (of `lambdas`, by index) which the function calls in the
+/// events `start..end` (`later()`, of a local initialized with a lambda),
+/// whose events run there, rather than later.
+fn called_lambdas(
+    ir: &FuncIr,
+    lambdas: &[(usize, usize)],
+    start: usize,
+    end: usize,
+) -> BTreeSet<usize> {
+    // (The locals initialized with lambdas, by name, and the lambdas' lines.)
+    let mut locals: BTreeMap<String, u32> = BTreeMap::new();
+    for event in &ir.events {
+        if let EventKind::Assign { place, vals, .. } = &event.kind
+            && place.path.is_empty()
+            && let Root::Local(sym) = &place.root
+            && let Some(line) = vals.iter().find_map(|val| match &val.atom {
+                Atom::Const(text) => text.strip_prefix("lambda@")?.parse::<u32>().ok(),
+                _ => None,
+            })
+            && let Some(name) = ir.names.get(sym)
+        {
+            locals.insert(name.clone(), line);
+        }
+    }
+    let mut called = BTreeSet::new();
+    for event in ir
+        .events
+        .get(start..end.min(ir.events.len()))
+        .unwrap_or_default()
+    {
+        let EventKind::Call(c) = &event.kind else {
+            continue;
+        };
+        let Some(call) = ir.calls.get(*c) else {
+            continue;
+        };
+        let Some(&line) = locals.get(&call.callee_pretty) else {
+            continue;
+        };
+        if !call.callee.is_empty() {
+            continue;
+        }
+        if let Some(i) = lambdas
+            .iter()
+            .position(|&(s, _)| ir.events.get(s).is_some_and(|e| e.line == line))
+        {
+            called.insert(i);
+        }
+    }
+    called
 }
 
 /// The lines of some of a function's events: (first, last).
@@ -181,11 +249,207 @@ fn event_lines(ir: &FuncIr, start: usize, end: usize) -> Option<(u32, u32)> {
     Some((first, last))
 }
 
+/// The function's lambdas' events (`start..end`), the outermost ones: its
+/// events' runs in lambdas.
+fn lambda_runs(ir: &FuncIr) -> Vec<(usize, usize)> {
+    let mut runs = vec![];
+    let mut start = None;
+    for (i, event) in ir.events.iter().enumerate() {
+        match (event.in_lambda, start) {
+            (true, None) => start = Some(i),
+            (false, Some(s)) => {
+                runs.push((s, i));
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(s) = start {
+        runs.push((s, ir.events.len()));
+    }
+    runs
+}
+
+/// What a held region (see `HeldRegion`) needs to be analyzed: what it is,
+/// and its events (`start..end`), its lambdas', and the releases in it.
+struct Span<'r> {
+    kind: LockKind,
+    guard: String,
+    mutex: Option<Ustr>,
+    mutex_text: String,
+    param: Option<usize>,
+    local: Option<Ustr>,
+    start: usize,
+    end: usize,
+    line: u32,
+    end_line: u32,
+    lambdas: Vec<(usize, usize)>,
+    releases: Vec<&'r LockRegion>,
+}
+
+/// What runs in a held region with its mutex held (see `HeldRegion`).
+fn analyze(ir: &FuncIr, mut span: Span) -> HeldRegion {
+    let guard_calls: BTreeSet<usize> = ir.locks.iter().filter_map(|l| l.call).collect();
+    let mutex = span.mutex;
+    // (The lambdas called in it run with it held.)
+    let called = called_lambdas(ir, &span.lambdas, span.start, span.end);
+    span.lambdas = span
+        .lambdas
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !called.contains(i))
+        .map(|(_, range)| *range)
+        .collect();
+    let held = |e: usize| {
+        !span.lambdas.iter().any(|&(s, end)| s <= e && e < end)
+            && !span.releases.iter().any(|l| l.start <= e && e < l.end)
+    };
+    let mut held_lines = BTreeSet::new();
+    let mut calls = vec![];
+    let mut fields: BTreeMap<Ustr, FieldAccess> = BTreeMap::new();
+    let mut access = |sym: Ustr, line: u32, how: u8| {
+        if Some(sym) == mutex {
+            return;
+        }
+        let field = fields.entry(sym).or_insert_with(|| FieldAccess {
+            sym,
+            name: ir
+                .names
+                .get(&sym)
+                .cloned()
+                .unwrap_or_else(|| super::ir::sym_short_name(&sym)),
+            ..Default::default()
+        });
+        let lines = match how {
+            0 => &mut field.reads,
+            1 => &mut field.writes,
+            _ => &mut field.calls,
+        };
+        if lines.last() != Some(&line) {
+            lines.push(line);
+        }
+    };
+    let reads = |vals: &[Val], line: u32, access: &mut dyn FnMut(Ustr, u32, u8)| {
+        for val in vals {
+            if let Atom::Read(place) | Atom::Addr(place) = &val.atom {
+                for sym in place_fields(place) {
+                    access(sym, line, 0);
+                }
+            }
+        }
+    };
+    // (A place's last field, how it's accessed; the ones it's reached
+    // through, read.)
+    let path_access = |place: &Place, line: u32, how: u8, access: &mut dyn FnMut(Ustr, u32, u8)| {
+        let path: Vec<Ustr> = place_fields(place).collect();
+        if let Some((last, through)) = path.split_last() {
+            for sym in through {
+                access(*sym, line, 0);
+            }
+            access(*last, line, how);
+        }
+    };
+    for e in span.start..span.end.min(ir.events.len()) {
+        if !held(e) {
+            continue;
+        }
+        let event = &ir.events[e];
+        held_lines.insert(event.line);
+        match &event.kind {
+            EventKind::Assign { place, vals, .. } => {
+                path_access(place, event.line, 1, &mut access);
+                reads(vals, event.line, &mut access);
+            }
+            EventKind::Return { vals } | EventKind::Test { vals } => {
+                reads(vals, event.line, &mut access)
+            }
+            EventKind::Call(c) => {
+                if guard_calls.contains(c) {
+                    continue;
+                }
+                let Some(call) = ir.calls.get(*c) else {
+                    continue;
+                };
+                let proof_args = call
+                    .args
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, arg)| {
+                        span.local.is_some_and(|local| {
+                            arg.place
+                                .as_ref()
+                                .is_some_and(|p| p.path.is_empty() && p.root == Root::Local(local))
+                        })
+                    })
+                    .map(|(i, _)| i)
+                    .collect();
+                calls.push(HeldCall {
+                    id: call.id,
+                    line: call.line,
+                    callee: call.callee.clone(),
+                    callee_pretty: call.callee_pretty.clone(),
+                    kind: call.kind,
+                    proof_args,
+                });
+                for arg in &call.args {
+                    reads(&arg.vals, event.line, &mut access);
+                }
+                // (A method called on a field: `mQueue.Push(x)`.)
+                if let Some(receiver) = &call.receiver
+                    && let Some(place) = &receiver.place
+                {
+                    path_access(place, event.line, 2, &mut access);
+                }
+            }
+        }
+    }
+    let locks = ir
+        .locks
+        .iter()
+        .filter(|l| {
+            l.kind == LockKind::Acquire
+                && l.start > span.start
+                && l.start < span.end
+                && (l.mutex_sym() != mutex || mutex.is_none())
+                // (Made with it held.)
+                && held(l.start - 1)
+        })
+        .map(|l| NestedLock {
+            mutex: l.mutex_sym(),
+            mutex_text: match &l.mutex {
+                Some(place) => ir.place_name(place),
+                None => l.mutex_text.clone(),
+            },
+            guard: l.guard.clone(),
+            line: l.line,
+        })
+        .collect();
+    HeldRegion {
+        kind: span.kind,
+        guard: span.guard,
+        mutex,
+        mutex_text: span.mutex_text,
+        param: span.param,
+        local: span.local,
+        line: span.line,
+        end_line: span.end_line,
+        released: span.releases.iter().map(|l| (l.line, l.end_line)).collect(),
+        lambdas: span
+            .lambdas
+            .iter()
+            .filter_map(|&(start, end)| event_lines(ir, start, end))
+            .collect(),
+        held_lines: held_lines.into_iter().collect(),
+        calls,
+        fields: fields.into_values().collect(),
+        locks,
+    }
+}
+
 /// The regions where a function holds mutexes (see `HeldRegion`): each
 /// acquiring guard's and proof parameter's region, with what runs in it with
 /// the mutex held.
 pub fn held_regions(ir: &FuncIr) -> Vec<HeldRegion> {
-    let guard_calls: BTreeSet<usize> = ir.locks.iter().filter_map(|l| l.call).collect();
     let mut out = vec![];
     for region in &ir.locks {
         if region.kind == LockKind::Release {
@@ -205,141 +469,56 @@ pub fn held_regions(ir: &FuncIr) -> Vec<HeldRegion> {
                         || (mutex.is_none() && l.mutex_text == region.mutex_text))
             })
             .collect();
-        let held =
-            |e: usize| !region.in_lambda(e) && !releases.iter().any(|l| l.start <= e && e < l.end);
-        let mut held_lines = BTreeSet::new();
-        let mut calls = vec![];
-        let mut fields: BTreeMap<Ustr, FieldAccess> = BTreeMap::new();
-        let mut access = |sym: Ustr, line: u32, how: u8| {
-            if Some(sym) == mutex {
-                return;
-            }
-            let field = fields.entry(sym).or_insert_with(|| FieldAccess {
-                sym,
-                name: ir
-                    .names
-                    .get(&sym)
-                    .cloned()
-                    .unwrap_or_else(|| super::ir::sym_short_name(&sym)),
-                ..Default::default()
-            });
-            let lines = match how {
-                0 => &mut field.reads,
-                1 => &mut field.writes,
-                _ => &mut field.calls,
-            };
-            if lines.last() != Some(&line) {
-                lines.push(line);
-            }
-        };
-        let reads = |vals: &[Val], line: u32, access: &mut dyn FnMut(Ustr, u32, u8)| {
-            for val in vals {
-                if let Atom::Read(place) | Atom::Addr(place) = &val.atom {
-                    for sym in place_fields(place) {
-                        access(sym, line, 0);
-                    }
-                }
-            }
-        };
-        for e in region.start..region.end.min(ir.events.len()) {
-            if !held(e) {
-                continue;
-            }
-            let event = &ir.events[e];
-            held_lines.insert(event.line);
-            match &event.kind {
-                EventKind::Assign { place, vals, .. } => {
-                    // (Its last field's written; the ones it's reached
-                    // through, read.)
-                    let path: Vec<Ustr> = place_fields(place).collect();
-                    if let Some((last, through)) = path.split_last() {
-                        for sym in through {
-                            access(*sym, event.line, 0);
-                        }
-                        access(*last, event.line, 1);
-                    }
-                    reads(vals, event.line, &mut access);
-                }
-                EventKind::Return { vals } | EventKind::Test { vals } => {
-                    reads(vals, event.line, &mut access)
-                }
-                EventKind::Call(c) => {
-                    if guard_calls.contains(c) {
-                        continue;
-                    }
-                    let Some(call) = ir.calls.get(*c) else {
-                        continue;
-                    };
-                    calls.push(HeldCall {
-                        line: call.line,
-                        callee: call.callee.clone(),
-                        callee_pretty: call.callee_pretty.clone(),
-                        kind: call.kind,
-                    });
-                    for arg in &call.args {
-                        reads(&arg.vals, event.line, &mut access);
-                    }
-                    // (A method called on a field: `mQueue.Push(x)`.)
-                    if let Some(receiver) = &call.receiver
-                        && let Some(place) = &receiver.place
-                    {
-                        let path: Vec<Ustr> = place_fields(place).collect();
-                        if let Some((last, through)) = path.split_last() {
-                            for sym in through {
-                                access(*sym, event.line, 0);
-                            }
-                            access(*last, event.line, 2);
-                        }
-                    }
-                }
-            }
-        }
-        let locks = ir
-            .locks
-            .iter()
-            .filter(|l| {
-                l.kind == LockKind::Acquire
-                    && l.start < region.end
-                    && !std::ptr::eq(*l, region)
-                    && (l.mutex_sym() != mutex || mutex.is_none())
-                    // (Made with it held.)
-                    && l.start > region.start
-                    && held(l.start - 1)
-            })
-            .map(|l| NestedLock {
-                mutex: l.mutex_sym(),
-                mutex_text: match &l.mutex {
+        out.push(analyze(
+            ir,
+            Span {
+                kind: region.kind,
+                guard: region.guard.clone(),
+                mutex,
+                mutex_text: match &region.mutex {
                     Some(place) => ir.place_name(place),
-                    None => l.mutex_text.clone(),
+                    None => region.mutex_text.clone(),
                 },
-                guard: l.guard.clone(),
-                line: l.line,
-            })
-            .collect();
-        out.push(HeldRegion {
-            kind: region.kind,
-            guard: region.guard.clone(),
-            mutex,
-            mutex_text: match &region.mutex {
-                Some(place) => ir.place_name(place),
-                None => region.mutex_text.clone(),
+                param: region.param,
+                local: region.local,
+                start: region.start,
+                end: region.end,
+                line: region.line,
+                end_line: region.end_line,
+                lambdas: region.lambdas.clone(),
+                releases,
             },
-            param: region.param,
-            line: region.line,
-            end_line: region.end_line,
-            released: releases.iter().map(|l| (l.line, l.end_line)).collect(),
-            lambdas: region
-                .lambdas
-                .iter()
-                .filter_map(|&(start, end)| event_lines(ir, start, end))
-                .collect(),
-            held_lines: held_lines.into_iter().collect(),
-            calls,
-            fields: fields.into_values().collect(),
-            locks,
-        });
+        ));
     }
     out
+}
+
+/// A function's whole body run with `mutex` held (ex: one called with it
+/// held), as a held region (of kind `Proof`, without a parameter): but its
+/// unlocks of the mutex, and the lambdas it makes.
+pub fn held_body(ir: &FuncIr, mutex: Option<Ustr>, mutex_text: &str) -> HeldRegion {
+    let releases: Vec<&LockRegion> = ir
+        .locks
+        .iter()
+        .filter(|l| l.kind == LockKind::Release && mutex.is_some() && l.mutex_sym() == mutex)
+        .collect();
+    analyze(
+        ir,
+        Span {
+            kind: LockKind::Proof,
+            guard: String::new(),
+            mutex,
+            mutex_text: mutex_text.to_string(),
+            param: None,
+            local: None,
+            start: 0,
+            end: ir.events.len(),
+            line: ir.line,
+            end_line: ir.end_line,
+            lambdas: lambda_runs(ir),
+            releases,
+        },
+    )
 }
 
 #[cfg(test)]

@@ -153,7 +153,7 @@ pub struct Arg {
     pub end_line: u32,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CallKind {
     Call,
@@ -381,7 +381,7 @@ pub struct Guard {
 }
 
 /// What a lock region does (see `LockRegion`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LockKind {
     /// A scoped guard holding its mutex to the end of its block

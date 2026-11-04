@@ -21,39 +21,6 @@
   const rows = [...document.querySelectorAll(".crash-set-crash")];
   const plural = (n, one, many) => `${n} ${n == 1 ? one : many}`;
 
-  // A function's name's lines: its scope (ex: "mozilla::dom::quota::
-  // QuotaManager::"), and its last part, without template arguments; a
-  // lambda's its enclosing function's, ex: "DeleteFiles λ".
-  function nameLines(name) {
-    let plain = "";
-    let depth = 0;
-    for (const c of name) {
-      if (c == "<") {
-        if (depth++ == 0) {
-          plain += "<…>";
-        }
-      } else if (c == ">" && depth > 0) {
-        depth--;
-      } else if (depth == 0) {
-        plain += c;
-      }
-    }
-    let m = plain.match(/^(.*::)([^:]+)$/);
-    let [scope, text] = m ? [m[1], m[2]] : ["", plain];
-    while (text == "operator()" && (m = scope.match(/^(.*::)?([^:]+)::$/))) {
-      const [, outer, enclosing] = m;
-      // (A lambda's own scopes, ex: "<lambda_1>::", and its enclosing
-      // lambdas'.)
-      if (enclosing == "<…>" || enclosing == "operator()" ||
-          enclosing.startsWith("<lambda") || enclosing.startsWith("{lambda")) {
-        scope = outer || "";
-        continue;
-      }
-      [scope, text] = [outer || "", `${enclosing.replace(/<…>$/, "")} λ`];
-    }
-    return [scope, text];
-  }
-
   // Lays out `graph` in a box of its own.
   function draw(graph) {
     const figure = document.createElement("figure");
@@ -67,7 +34,7 @@
     const blocks = graph.nodes.map(node => {
       const element = document.createElement("div");
       element.className = "crash-graph-node";
-      const [scope, text] = nameLines(node.function);
+      const [scope, text] = graphNameLines(node.function);
       if (scope) {
         const line = document.createElement("div");
         line.className = "crash-graph-node-scope";

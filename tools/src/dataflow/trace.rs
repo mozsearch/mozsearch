@@ -1997,6 +1997,16 @@ impl<'s> Tracer<'s> {
         out
     }
 
+    /// The functions a call of `sym` runs (see `resolve`): their files, and
+    /// their indices in them.
+    pub async fn callee_functions(&mut self, sym: &Ustr) -> Vec<(Arc<FileIr>, usize)> {
+        self.resolve(sym)
+            .await
+            .into_iter()
+            .map(|target| (target.file, target.func))
+            .collect()
+    }
+
     async fn resolve(&mut self, sym: &Ustr) -> Vec<Target> {
         // An IPDL message's generated `Send` method: the actor's `Recv`
         // methods, which IPC calls with the same arguments, rather than the

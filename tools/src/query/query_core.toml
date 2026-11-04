@@ -636,6 +636,13 @@ args.report = "$0"
 command = "crash-set"
 args.positional = "$0"
 
+# The code that runs with a mutex held (see the tools' `lock_held`), by the
+# mutex's symbol (a field's or a global's).
+[term.lock-held]
+[[term.lock-held.group.lock-held]]
+command = "lock-held"
+args.positional = "$0"
+
 [term.crash-threads]
 [[term.crash-threads.group.crash]]
 command = "crash-stack"
@@ -843,6 +850,9 @@ output = "result"
 output = "result"
 
 [group.crash-set]
+output = "result"
+
+[group.lock-held]
 output = "result"
 
 [group.bug-comment]
