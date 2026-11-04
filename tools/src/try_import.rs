@@ -425,6 +425,21 @@ pub struct TryPush {
     /// its semantic analysis left out (see scripts/rebase-try-push.sh).
     #[serde(default)]
     pub landed: Vec<LandedCommit>,
+    /// If its stack is on a newer trunk revision than the indexed one and
+    /// needs its changes, so that its semantic analysis is of it with the
+    /// trunk's revisions since the indexed one (see
+    /// `TryDeltaMeta::stack_base`): those revisions'.
+    #[serde(default)]
+    pub semantic_trunk: Option<SemanticTrunk>,
+}
+
+/// The trunk's revisions a try push's semantic analysis has besides its stack
+/// (see `TryPush::semantic_trunk`): the revision its stack is on, and how many
+/// revisions it is past the indexed one.
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct SemanticTrunk {
+    pub stack_base: String,
+    pub revisions: usize,
 }
 
 /// A try push's commit which has landed, by its import's log (see
@@ -510,6 +525,24 @@ pub fn try_push(cfg: &Config, tree_name: &str, rev: &str) -> Option<TryPush> {
             landed
         })
         .collect();
+    let semantic_trunk = semantic_head.as_ref().and_then(|head| {
+        let dir = crate::try_delta::delta_dir(&tree_config.paths.index_path, head);
+        let meta: crate::try_delta::TryDeltaMeta =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("meta.json")).ok()?).ok()?;
+        let stack_base = meta.stack_base?;
+        let revisions = git
+            .repo
+            .graph_ahead_behind(
+                Oid::from_str(&stack_base).ok()?,
+                Oid::from_str(&meta.base).ok()?,
+            )
+            .ok()?
+            .0;
+        Some(SemanticTrunk {
+            stack_base,
+            revisions,
+        })
+    });
     Some(TryPush {
         stack,
         truncated,
@@ -517,6 +550,7 @@ pub fn try_push(cfg: &Config, tree_name: &str, rev: &str) -> Option<TryPush> {
         semantic_head,
         semantic_failure,
         landed,
+        semantic_trunk,
     })
 }
 

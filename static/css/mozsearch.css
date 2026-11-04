@@ -5416,10 +5416,36 @@ html.for-interactive-graph .query-result {
   margin: 0.4em 0 0.2em;
   font-size: 1.1em;
 }
-.rc-note,
-.rc-other-files {
+.rc-note {
   margin: 0.2em 0;
   opacity: 0.8;
+}
+/* (Folded, and in a box of its own when unfolded, so that the canvas keeps
+   most of the window; see rev-canvas.js.) */
+.rc-other-files {
+  margin: 0.2em 0;
+  font-size: 0.9em;
+}
+.rc-other-files summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.rc-other-files-about {
+  font-weight: normal;
+  opacity: 0.8;
+}
+.rc-other-files-list,
+.rc-clusters > .rc-cluster-list {
+  max-height: 30vh;
+  overflow: auto;
+}
+.rc-other-files-group {
+  margin: 0.2em 0;
+  opacity: 0.85;
+}
+/* (The canvas fills the rest of the window, but at least most of it.) */
+.rev-canvas #interactive-graph-base {
+  min-height: max(200px, 60vh);
 }
 .rc-toolbar {
   display: flex;

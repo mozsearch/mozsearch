@@ -62,6 +62,26 @@ pub struct TryDeltaMeta {
     pub changed: BTreeMap<String, FileChange>,
     /// The files whose analysis the push changes (`analysis/{path}.gz`).
     pub analyzed: BTreeMap<String, AnalyzedFile>,
+    /// The revision the push's stack is on, if `head` is the push's head
+    /// itself with the trunk's revisions since `base` (a stack on a newer
+    /// trunk revision which needs their changes; see
+    /// scripts/rebase-try-push.sh), and the files the stack itself changes,
+    /// relative to it, which `changed` has with those revisions' others.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stack_base: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub stack_changed: BTreeMap<String, FileChange>,
+}
+
+impl TryDeltaMeta {
+    /// The files the push's stack changes: `stack_changed`, if it's analyzed
+    /// with the trunk's revisions it's on, else `changed`.
+    pub fn stack_files(&self) -> &BTreeMap<String, FileChange> {
+        match self.stack_base {
+            Some(_) => &self.stack_changed,
+            None => &self.changed,
+        }
+    }
 }
 
 pub struct TryDelta {

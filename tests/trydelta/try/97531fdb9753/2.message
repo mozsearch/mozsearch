@@ -1,0 +1,3 @@
+Bug 6792 - Count gadgets too. r=reviewer
+
+Differential Revision: https://phabricator.services.mozilla.com/D9754

@@ -226,6 +226,21 @@ fn jump_lines(jump: &str) -> Vec<u32> {
         .unwrap_or_default()
 }
 
+/// The lines of `path` that a range's changes add, and those they touch
+/// (added, or beside removed ones), as `changed_lines` says (see
+/// `rev_lines::rev_changed_lines`, whose `removed` are the latter).
+fn range_lines(
+    lines: &crate::dataflow::slice::ChangedLines,
+    path: &str,
+) -> (BTreeSet<u32>, BTreeSet<u32>) {
+    let Some(file) = lines.files.get(path) else {
+        return (BTreeSet::new(), BTreeSet::new());
+    };
+    let added: BTreeSet<u32> = file.added.iter().copied().collect();
+    let touched = added.iter().chain(&file.removed).copied().collect();
+    (added, touched)
+}
+
 /// The first of a card's symbols, its id.
 fn syms_first(syms: &[String]) -> String {
     syms.first().cloned().unwrap_or_default()
@@ -253,10 +268,21 @@ pub async fn build_canvas(
     let link = |path: &str| format!("/{}/rev/{}/{}", tree_name, meta.head, url_encode_path(path));
 
     // ## The functions the push adds or changes.
+    // (A push analyzed with the trunk's revisions its stack is on since the
+    // indexed revision, which its stack needs: its stack's own files, and
+    // their lines it changes; see `TryDeltaMeta::stack_base`.)
+    let stack_lines = match &meta.stack_base {
+        Some(stack_base) => Some(
+            overlay
+                .rev_changed_lines(&format!("{}..{}", stack_base, meta.head))
+                .map_err(|_| "Bad revision")?,
+        ),
+        None => None,
+    };
+    let files = meta.stack_files();
     // (The analyzed files' sources and analysis, on both sides, at once; see
     // `AbstractServer::prefetch_files`.)
-    let analyzed: Vec<String> = meta
-        .changed
+    let analyzed: Vec<String> = files
         .iter()
         .filter(|(path, change)| {
             **change != FileChange::Removed && meta.analyzed.contains_key(*path)
@@ -275,7 +301,7 @@ pub async fn build_canvas(
     .await;
     let mut nodes: Vec<CanvasNode> = vec![];
     let mut other_files = vec![];
-    for (path, change) in &meta.changed {
+    for (path, change) in files {
         let other = |note| CanvasFile {
             path: path.clone(),
             change: *change,
@@ -293,16 +319,24 @@ pub async fn build_canvas(
             other_files.push(other("not found"));
             continue;
         };
-        let base_source = match change {
-            FileChange::Added => None,
-            _ => base.fetch_raw_source(path).await.ok(),
+        let (added, touched) = match &stack_lines {
+            Some(lines) => range_lines(lines, path),
+            None => {
+                let base_source = match change {
+                    FileChange::Added => None,
+                    _ => base.fetch_raw_source(path).await.ok(),
+                };
+                changed_lines(
+                    base_source.as_deref().map(str::as_bytes),
+                    head_source.as_bytes(),
+                )
+            }
         };
-        let (added, touched) = changed_lines(
-            base_source.as_deref().map(str::as_bytes),
-            head_source.as_bytes(),
-        );
-        let base_functions: BTreeSet<String> = match change {
-            FileChange::Added => BTreeSet::new(),
+        // (Those the indexed revision has, but not with the trunk's revisions,
+        // whose analysis isn't there: by their lines, a function whose lines
+        // the stack all adds being added.)
+        let base_functions: BTreeSet<String> = match (change, &stack_lines) {
+            (FileChange::Added, _) | (_, Some(_)) => BTreeSet::new(),
             _ => file_functions(base, path)
                 .await
                 .into_iter()
@@ -324,7 +358,10 @@ pub async fn build_canvas(
         }
         for ((first, last), mut functions) in by_lines {
             functions.sort_by(|a, b| a.sym.cmp(&b.sym));
-            let changed = functions.iter().any(|f| base_functions.contains(&f.pretty));
+            let changed = match stack_lines {
+                Some(_) => !(first..=last).all(|line| added.contains(&line)),
+                None => functions.iter().any(|f| base_functions.contains(&f.pretty)),
+            };
             let syms: Vec<String> = functions.iter().map(|f| f.sym.clone()).collect();
             let mut pretties = functions.into_iter().map(|f| f.pretty);
             let pretty = pretties.next().unwrap_or_default();

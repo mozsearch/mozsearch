@@ -10074,6 +10074,7 @@ pub fn render_explore_page(
         scopes: vec![],
         semantic_head: None,
         semantic_failure: None,
+        semantic_trunk: None,
         landed: vec![],
         pull_request: None,
     };
@@ -10487,6 +10488,7 @@ pub fn render_history(
         scopes: data["scopes"].as_array().cloned().unwrap_or_default(),
         semantic_head: None,
         semantic_failure: None,
+        semantic_trunk: None,
         landed: vec![],
         pull_request: None,
     };
@@ -10620,6 +10622,10 @@ struct ExploreExtras {
     semantic_head: Option<String>,
     /// For a try push without one, why, if its import's analysis failed.
     semantic_failure: Option<crate::try_import::SemanticFailure>,
+    /// For a try push analyzed with the trunk's revisions its stack is on
+    /// since the indexed revision (see `try_import::SemanticTrunk`), as
+    /// `{stack_base, revisions}`.
+    semantic_trunk: Option<serde_json::Value>,
     /// For a try push, its commits which have landed (see
     /// `try_import::LandedCommit`), as `{rev, summary, landed, landed_summary,
     /// same_changes}`.
@@ -11541,6 +11547,7 @@ fn render_explore(
         "scopes": extras.scopes,
         "semantic_head": extras.semantic_head,
         "semantic_failure": extras.semantic_failure,
+        "semantic_trunk": extras.semantic_trunk,
         "landed": extras.landed,
         "pull_request": extras.pull_request,
     }))
@@ -11642,6 +11649,9 @@ pub fn format_try(
                 explore_url,
                 // (And if it has none, why, if its import's analysis failed.)
                 semantic_failure: push.semantic_failure,
+                semantic_trunk: push.semantic_trunk.as_ref().map(|trunk| {
+                    json!({"stack_base": trunk.stack_base, "revisions": trunk.revisions})
+                }),
                 landed: push
                     .landed
                     .iter()

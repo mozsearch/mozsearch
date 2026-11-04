@@ -6,9 +6,9 @@ set -o pipefail # Check all commands in a pipeline
 
 # The trydelta tree's semantic analysis of a try push (see import-try, which
 # runs this with its environment, and tools/src/try_delta.rs): its stack
-# rebased onto the indexed revision (here, the tree's head) is compiled with
-# the indexer (all of the tree's C++, since it's small; see build), and its
-# semantic delta built from that analysis.  Its steps are "semantic::" steps,
+# (PUSH_REVS, as the import's) rebased onto the indexed revision (here, the
+# tree's head) is compiled with the indexer (all of the tree's C++, since it's
+# small; see build), and its semantic delta built from that analysis.  Its steps are "semantic::" steps,
 # which the push's page names if it fails (see try_import's
 # `semantic_failure`).
 #
@@ -46,5 +46,9 @@ done
 popd
 
 echo "Performing semantic::delta step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
-build-try-delta "$CONFIG_FILE" "$TREE_NAME" "$NAME" "$REBASED" "$WORK/tip-analysis"
+# (A stack on a newer trunk revision which needs its changes is analyzed with
+# them; see rebase-try-push.sh.)
+STACK_BASE=$(git -C "$GIT_ROOT" rev-parse -q --verify "refs/try-stack-base/$NAME" || true)
+build-try-delta "$CONFIG_FILE" "$TREE_NAME" "$NAME" "$REBASED" "$WORK/tip-analysis" \
+    ${STACK_BASE:+--stack-base "$STACK_BASE"}
 rm -rf "$WORK"

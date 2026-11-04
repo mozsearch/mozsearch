@@ -524,16 +524,41 @@ var RevCanvas = new (class RevCanvas {
     clusters.append(summary, this.clusterNote, " ", mergeLabel, this.clusterList);
     legend.after(clusters);
 
+    // The files it changes without cards, by why (ex: not analyzed), folded
+    // (a push can change thousands), each list in a box of its own height.
     if (this.model.other_files.length) {
-      const others = document.createElement("p");
+      const others = document.createElement("details");
       others.className = "rc-other-files";
-      others.append("Its other files: ");
-      this.model.other_files.forEach((file, i) => {
-        const a = document.createElement("a");
-        a.href = file.link;
-        a.textContent = file.path;
-        others.append(...(i ? [", "] : []), a, ` (${file.change}, ${file.note})`);
-      });
+      const summary = document.createElement("summary");
+      summary.textContent = `Its other files (${this.model.other_files.length})`;
+      const about = document.createElement("span");
+      about.className = "rc-other-files-about";
+      about.textContent = ": those it changes without cards";
+      summary.append(about);
+      const list = document.createElement("div");
+      list.className = "rc-other-files-list";
+      const byNote = new Map();
+      for (const file of this.model.other_files) {
+        if (!byNote.has(file.note)) {
+          byNote.set(file.note, []);
+        }
+        byNote.get(file.note).push(file);
+      }
+      for (const [note, files] of byNote) {
+        const group = document.createElement("p");
+        group.className = "rc-other-files-group";
+        const heading = document.createElement("strong");
+        heading.textContent = `${note[0].toUpperCase()}${note.slice(1)} (${files.length}): `;
+        group.append(heading);
+        files.forEach((file, i) => {
+          const a = document.createElement("a");
+          a.href = file.link;
+          a.textContent = file.path;
+          group.append(...(i ? [", "] : []), a, ...(file.change == "modified" ? [] : [` (${file.change})`]));
+        });
+        list.append(group);
+      }
+      others.append(summary, list);
       clusters.after(others);
     }
   }

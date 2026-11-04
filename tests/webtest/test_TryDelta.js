@@ -614,3 +614,53 @@ add_task(async function test_TryDeltaFailure() {
   ok(failure.includes("conflict with the indexed revision's"), "and why");
   ok(failure.includes("The files whose changes conflict: widget.h."), "with the files");
 });
+
+// Import the push `push` (if it isn't yet), and return the head of its stack
+// as analyzed, from its page's link to its semantic analysis.
+async function importNamedPush(push) {
+  await TestUtils.loadPath(`/trydelta/try/hg/${push}`);
+  if (!doc().querySelector(".explore-page")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+                           "The push is imported", 500, 240);
+  }
+  return doc().querySelector(".explore-semantic-head a")?.getAttribute("href")?.split("/")[3];
+}
+
+// A push on a newer trunk revision than the indexed one is analyzed as its
+// stack (the try repository's draft changesets, the import's PUSH_REVS)
+// rebased onto the indexed revision, not with the trunk's revisions since
+// (see scripts/rebase-try-push.sh): 13579bdf1357's first commit is the
+// trunk's (adding trunk.cpp's TrunkOnly), and its stack adds sizer.cpp.
+add_task(async function test_TryDeltaNewerTrunk() {
+  const head = await importNamedPush("13579bdf1357");
+  ok(head?.match(/^[0-9a-f]{40}$/), `The push has semantic analysis: ${head}`);
+  ok(!doc().querySelector(".explore-semantic-trunk"), "without the trunk's revision");
+  const model = await (await fetch(`/trydelta/rev-canvas/${head}/canvas.json`, { cache: "no-store" })).json();
+  const names = model.nodes.map(node => node.pretty);
+  ok(names.includes("trydelta::UseSizer"), `Its canvas has its stack's functions: ${names}`);
+  ok(!names.includes("trydelta::TrunkOnly"), "but not the trunk revision's");
+  ok(!model.other_files.some(file => file.path == "trunk.cpp"), "nor its files");
+});
+
+// But one whose stack needs the trunk's changes (its commits conflict on the
+// indexed revision) is analyzed with them, which its page says, and its
+// canvas has only its stack's changes (see `TryDeltaMeta::stack_base`):
+// 97531fdb9753's first commit is the trunk's (adding counter.h's
+// CountWidgets, and trunk2.cpp), and its stack changes CountWidgets, adds
+// CountGadgets, and adds tally.cpp.
+add_task(async function test_TryDeltaWithTrunk() {
+  const head = await importNamedPush("97531fdb9753");
+  ok(head?.match(/^[0-9a-f]{40}$/), `The push has semantic analysis: ${head}`);
+  const trunk = doc().querySelector(".explore-semantic-trunk")?.textContent ?? "";
+  ok(trunk.includes("with the revision since the indexed one"),
+     `Its page says it's analyzed with the trunk's revision: ${trunk}`);
+  const model = await (await fetch(`/trydelta/rev-canvas/${head}/canvas.json`, { cache: "no-store" })).json();
+  const status = name => model.nodes.find(node => node.pretty == name)?.status;
+  is(status("trydelta::CountGadgets"), "added", "Its canvas has the functions its stack adds");
+  is(status("trydelta::CountWidgets"), "changed", "and those it changes");
+  is(status("trydelta::Tally"), "added", "and those of the files it adds");
+  ok(!["added", "changed"].includes(status("trydelta::TrunkTwo")),
+     "but not the trunk revision's (TrunkTwo calls CountWidgets: a card of the context)");
+  ok(!model.other_files.some(file => file.path == "trunk2.cpp"), "nor its files");
+});

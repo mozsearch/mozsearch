@@ -19,7 +19,7 @@
 //!
 //! Usage: build-try-delta CONFIG TREE PUSH HEAD TIP_ANALYSIS
 //!          [--incomplete FILE] [--objdir DIR [--changed-generated FILE]]
-//!          [--threads N]
+//!          [--threads N] [--stack-base REV]
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
@@ -68,6 +68,12 @@ struct Cli {
     changed_generated: Option<String>,
     #[clap(long, default_value_t = 4)]
     threads: usize,
+    /// The revision the push's stack is on, if `head` is the push's head with
+    /// the trunk's revisions since the indexed revision (its stack needing
+    /// their changes; see scripts/rebase-try-push.sh), for what the stack
+    /// itself changes (`TryDeltaMeta::stack_changed`).
+    #[clap(long)]
+    stack_base: Option<String>,
 }
 
 /// How long the delta's phases took, each said as it ends (so that a
@@ -311,27 +317,14 @@ fn cite_specs<'a>(
     cited
 }
 
-fn main() {
-    let cli = Cli::parse();
-    let mut phases = Phases::new();
-    let cfg = config::load(&cli.config_file, false, Some(&cli.tree_name), None, None);
-    let tree_config = cfg.trees.get(&cli.tree_name).expect("No such tree");
-    let paths = &tree_config.paths;
-    let repo =
-        Repository::open(paths.git_path.as_deref().expect("The tree has no git repo")).unwrap();
-
-    // ## What the push changes, relative to the indexed revision.
-    let base_commit = repo.head().unwrap().peel_to_commit().unwrap();
-    let head_commit = repo
-        .revparse_single(&cli.head)
-        .and_then(|object| object.peel_to_commit())
-        .expect("No such head");
+/// The files `to`'s tree changes from `from`'s, and how.
+fn tree_changes(
+    repo: &Repository,
+    from: &git2::Commit,
+    to: &git2::Commit,
+) -> BTreeMap<String, FileChange> {
     let diff = repo
-        .diff_tree_to_tree(
-            Some(&base_commit.tree().unwrap()),
-            Some(&head_commit.tree().unwrap()),
-            None,
-        )
+        .diff_tree_to_tree(Some(&from.tree().unwrap()), Some(&to.tree().unwrap()), None)
         .unwrap();
     let mut changed: BTreeMap<String, FileChange> = BTreeMap::new();
     for delta in diff.deltas() {
@@ -357,6 +350,36 @@ fn main() {
             }
         }
     }
+    changed
+}
+
+fn main() {
+    let cli = Cli::parse();
+    let mut phases = Phases::new();
+    let cfg = config::load(&cli.config_file, false, Some(&cli.tree_name), None, None);
+    let tree_config = cfg.trees.get(&cli.tree_name).expect("No such tree");
+    let paths = &tree_config.paths;
+    let repo =
+        Repository::open(paths.git_path.as_deref().expect("The tree has no git repo")).unwrap();
+
+    // ## What the push changes, relative to the indexed revision.
+    let base_commit = repo.head().unwrap().peel_to_commit().unwrap();
+    let head_commit = repo
+        .revparse_single(&cli.head)
+        .and_then(|object| object.peel_to_commit())
+        .expect("No such head");
+    let mut changed = tree_changes(&repo, &base_commit, &head_commit);
+    // (And what its stack itself changes, if it's analyzed with the trunk's
+    // revisions it's on since the indexed revision.)
+    let stack_base = cli.stack_base.as_ref().map(|rev| {
+        repo.revparse_single(rev)
+            .and_then(|object| object.peel_to_commit())
+            .expect("No such stack base")
+    });
+    let stack_changed = match &stack_base {
+        Some(stack_base) => tree_changes(&repo, stack_base, &head_commit),
+        None => BTreeMap::new(),
+    };
     let incomplete: BTreeSet<String> = match &cli.incomplete {
         Some(list) => fs::read_to_string(list)
             .unwrap()
@@ -724,6 +747,8 @@ fn main() {
         head,
         changed,
         analyzed,
+        stack_base: stack_base.map(|commit| commit.id().to_string()),
+        stack_changed,
     };
     fs::write(
         out.join("meta.json"),

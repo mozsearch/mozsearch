@@ -10,7 +10,10 @@ set -o pipefail # Check all commands in a pipeline
 # try/NAME/N.message its message, committed on top of the tree's head, or of
 # the revision try/NAME/base names, if any (ex: HEAD~1, for a push based on an
 # older revision), with forged authors and dates, for stable SHAs, and
-# imported like any tree's push.  Then it's analyzed semantically (see
+# imported like any tree's push.  The first try/NAME/public of its commits
+# (if it says) aren't its stack's but the trunk's it's on (ex: a push on a
+# newer trunk revision than the indexed one), as the try repository's public
+# changesets are.  Then it's analyzed semantically (see
 # analyze-try), and its rebased stack imported too; if that fails, it's still
 # imported, without them.
 
@@ -46,11 +49,13 @@ while [ -f "$PUSH/$N.message" ]; do
 done
 rm -f "$GIT_INDEX_FILE"
 unset GIT_DIR GIT_INDEX_FILE
+PUBLIC=$(cat "$PUSH/public" 2>/dev/null || echo 0)
+STACK="${REVS[*]:$PUBLIC}"
 
-PUSH_REVS="${REVS[*]}" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
+PUSH_REVS="$STACK" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
     "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$HEAD_REV" "$MAX_REVISIONS"
 
-if "$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$HEAD_REV"; then
+if PUSH_REVS="$STACK" "$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$HEAD_REV"; then
     # (And its stack rebased for that analysis, for its pages' blame and stack
     # strip; see import-try-rebased.sh.)
     "$MOZSEARCH_PATH/scripts/import-try-rebased.sh" \

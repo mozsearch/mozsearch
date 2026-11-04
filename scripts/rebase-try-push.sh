@@ -5,10 +5,13 @@ set -o pipefail # Check all commands in a pipeline
 
 # Rebase a try push's stack onto the tree's indexed revision (its git repo's
 # HEAD), for the push's semantic analysis (see tools/src/try_delta.rs), as
-# refs/try-rebased/NAME, and print its commit: the push's head itself if the
-# push is on top of the indexed revision, and otherwise its stack's commits
-# (since its history diverged from the indexed revision's) applied to the
-# indexed revision one at a time, each a commit with its commit's author,
+# refs/try-rebased/NAME, and print its commit: the push's head itself if its
+# stack is on the indexed revision, and otherwise its stack's commits (those
+# in PUSH_REVS if it's set, oldest first, ex: the try repository's draft
+# changesets, since a push on a newer trunk revision than the indexed one has
+# others since the indexed revision; else those since its history diverged
+# from the indexed revision's) applied to the indexed revision one at a time,
+# each a commit with its commit's author,
 # dates and message (so that the history, which imports them too, blames
 # their tokens on them; see import-try-rebased.sh), leaving out those which
 # have landed since then (as `git rebase` would): commits whose changes are a
@@ -20,7 +23,14 @@ set -o pipefail # Check all commands in a pipeline
 # changes conflict ("Conflicting commit: <commit> <summary>", and git's lines
 # for the files), or if all of the stack's commits have landed ("All of the
 # push's commits have landed."), but those selecting try's tasks (changing
-# only try_task_config.json), so there's nothing to analyze.
+# only try_task_config.json), so there's nothing to analyze.  But a stack on
+# a newer trunk revision than the indexed one which needs that revision's
+# changes (its commits conflict on the indexed revision) is the push's head
+# itself, with the revisions since the indexed one, and
+# refs/try-stack-base/NAME names the revision its stack is on, so that what
+# the stack itself changes can be told apart (see build-try-delta's
+# --stack-base); it says so on stderr ("Analyzing it with the N revisions its
+# stack is on since the indexed revision: ...").
 #
 # Usage: rebase-try-push.sh GIT_ROOT NAME HEAD_REV
 
@@ -39,11 +49,34 @@ git() {
 
 BASE=$(git rev-parse HEAD)
 FORK=$(git merge-base "$BASE" "$HEAD_REV")
-if [ "$FORK" = "$BASE" ]; then
+git update-ref -d "refs/try-stack-base/$NAME" 2>/dev/null || true
+# The stack's commits, and the revision it's on.
+if [ -n "${PUSH_REVS:-}" ]; then
+    read -r -a STACK <<< "$PUSH_REVS"
+    STACK_BASE=$(git rev-parse "${STACK[0]}^")
+else
+    mapfile -t STACK < <(git rev-list --reverse --no-merges "$FORK..$HEAD_REV")
+    STACK_BASE=$FORK
+fi
+if [ "$STACK_BASE" = "$BASE" ]; then
     git update-ref "refs/try-rebased/$NAME" "$HEAD_REV"
     echo "$HEAD_REV"
     exit 0
 fi
+
+# A stack on a newer trunk revision than the indexed one (descending from
+# it) whose commits conflict on the indexed revision: the push's head itself,
+# with the revisions since the indexed one (see the top); otherwise a failure.
+with_trunk() {
+    if [ "$FORK" != "$BASE" ]; then
+        exit 1
+    fi
+    echo "Analyzing it with the $(git rev-list --count "$BASE..$STACK_BASE") revisions its stack is on since the indexed revision: its stack is on $STACK_BASE." 1>&2
+    git update-ref "refs/try-stack-base/$NAME" "$STACK_BASE"
+    git update-ref "refs/try-rebased/$NAME" "$HEAD_REV"
+    echo "$HEAD_REV"
+    exit 0
+}
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -53,7 +86,7 @@ trap 'rm -rf "$WORK"' EXIT
 # ("<commit> <revision URL>").
 # (By the commits' files, rather than paths as arguments, which a big stack
 # has too many of.)
-git diff --name-only "$FORK" "$HEAD_REV" > "$WORK/files"
+git diff --name-only "$STACK_BASE" "$HEAD_REV" > "$WORK/files"
 git log --no-merges --format='commit %H' --name-only "$FORK..$BASE" |
     awk 'NR == FNR { files[$0] = 1; next }
          /^commit / { commit = $2; next }
@@ -76,7 +109,7 @@ git read-tree "$BASE"
 APPLIED=0
 PARENT=$BASE
 : > "$WORK/rebased"
-for COMMIT in $(git rev-list --reverse --no-merges "$FORK..$HEAD_REV"); do
+for COMMIT in "${STACK[@]}"; do
     PATCH_ID=$(git show "$COMMIT" | git patch-id --stable | cut -d' ' -f1)
     LANDED=$(awk -v id="$PATCH_ID" '$1 == id { print $2; exit }' "$WORK/patch-ids")
     HOW="the same changes"
@@ -94,7 +127,7 @@ for COMMIT in $(git rev-list --reverse --no-merges "$FORK..$HEAD_REV"); do
     fi
     if ! git diff --binary --full-index "$COMMIT^" "$COMMIT" | git apply --cached --3way 1>&2; then
         echo "Conflicting commit: $COMMIT $(git log -1 --format=%s "$COMMIT")" 1>&2
-        exit 1
+        with_trunk
     fi
     if [ "$(git diff-tree --no-commit-id --name-only -r "$COMMIT")" != "try_task_config.json" ]; then
         APPLIED=$((APPLIED + 1))
