@@ -526,6 +526,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/locks" class="mimetype-fixed-container mimetype-icon-folder">locks</a></td>
+          <td class="description"><a href="/tests/source/locks" title=""></td>
+          <td class="size"><a href="/tests/source/locks"></a></td>
+          <td class="coverage"><a href="/tests/source/locks" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/lots_of_calls.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lots_of_calls.cpp</a></td>
           <td class="description"><a href="/tests/source/lots_of_calls.cpp" title=""></td>
           <td class="size"><a href="/tests/source/lots_of_calls.cpp">1663</a></td>

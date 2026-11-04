@@ -20,7 +20,7 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 use crate::crash_threads::slug;
 use crate::dataflow::frontend::FileIr;
 use crate::dataflow::ir::{LockKind, sym_short_name};
-use crate::dataflow::locks::{HeldRegion, held_body, held_regions};
+use crate::dataflow::locks::{HeldRegion, field_parts, held_body, held_regions};
 use crate::dataflow::trace::{TraceOpts, Tracer};
 use crate::rendered_docs::escape;
 
@@ -70,6 +70,9 @@ pub enum How {
     Proof,
     /// A function called with the mutex held.
     Callee,
+    /// A method requiring it held (`MOZ_REQUIRES(mMutex)`; see
+    /// `Annotations`), for its whole body.
+    Contract,
 }
 
 /// A step of how a region's function is reached from a guard's: the
@@ -127,7 +130,61 @@ pub struct LockHeldView {
     pub subsystems: BTreeMap<String, String>,
     #[serde(default)]
     pub notes: Vec<String>,
+    /// What its class's thread-safety annotations say of it (see
+    /// `Annotations`).
+    #[serde(default)]
+    pub annotations: Annotations,
+    /// The fields which are it too: initialized (or assigned) from it, ex: a
+    /// `SharedMutex` copy, or a reference or pointer to it (see `Alias`).
+    #[serde(default)]
+    pub aliases: Vec<Alias>,
+    /// Its guarded fields' accesses outside the regions holding it (but in
+    /// the methods requiring it, those without the analysis, and
+    /// constructors and destructors), at most `MAX_UNGUARDED`, and how many
+    /// there are.
+    #[serde(default)]
+    pub unguarded: Vec<UnguardedUse>,
+    #[serde(default)]
+    pub unguarded_count: usize,
 }
+
+/// What Gecko's thread-safety annotations (clang's attributes) in the
+/// mutex's class's source say of it: its fields it guards
+/// (`MOZ_GUARDED_BY(mMutex)`, `MOZ_PT_GUARDED_BY`), its methods requiring it
+/// held (`MOZ_REQUIRES(mMutex)`, `MOZ_REQUIRES_SHARED`), and its methods the
+/// analysis is off for (`MOZ_NO_THREAD_SAFETY_ANALYSIS`).  (From the source
+/// text, the annotations' arguments as the mutex's name; see
+/// `annotations`.)
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Annotations {
+    pub guarded: Vec<Ustr>,
+    pub requires: Vec<Ustr>,
+    pub unchecked: Vec<Ustr>,
+}
+
+/// A field which is the mutex too (see `LockHeldView::aliases`), and where
+/// it's initialized from it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Alias {
+    pub sym: Ustr,
+    pub name: String,
+    pub path: String,
+    pub line: u32,
+}
+
+/// A guarded field's access outside the regions holding the mutex (see
+/// `LockHeldView::unguarded`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct UnguardedUse {
+    pub field: Ustr,
+    pub path: String,
+    pub line: u32,
+    pub context: String,
+}
+
+/// How many guarded fields' accesses outside the regions holding the mutex
+/// the view lists, at most.
+const MAX_UNGUARDED: usize = 200;
 
 impl LockHeldView {
     /// Its files' subsystems, by `subsystem_of` (ex: the tree's per-file
@@ -144,18 +201,6 @@ impl LockHeldView {
 
 fn problem(layer: ErrorLayer, message: String) -> ServerError {
     ServerError::StickyProblem(ErrorDetails { layer, message })
-}
-
-/// The class and the name of a field's symbol (`F_<T_mozilla::dom::Worker>_mQueue`:
-/// "mozilla::dom::Worker", "mQueue").
-pub fn field_parts(sym: &str) -> (String, String) {
-    match sym
-        .strip_prefix("F_<T_")
-        .and_then(|rest| rest.split_once(">_"))
-    {
-        Some((class, name)) => (class.to_string(), name.to_string()),
-        None => (String::new(), sym_short_name(sym)),
-    }
 }
 
 /// The class and the method of a function's pretty name.
@@ -199,38 +244,79 @@ pub async fn lock_held_view(
         mutex_pretty,
         ..Default::default()
     };
-    // The guards' regions, in the files using it.
-    let paths: BTreeSet<String> = xref
-        .uses
-        .iter()
-        .flatten()
-        .map(|uses| uses.path.to_string())
-        .collect();
+    // Its class's annotations (see `Annotations`).
+    view.annotations = annotations(&mut tracer, sym).await;
+    // The guards' regions of it, in the files using it, and of the fields
+    // which are it too, in theirs.
     let mut work: VecDeque<(Arc<FileIr>, usize, usize)> = VecDeque::new();
     let mut seen: HashSet<Ustr> = HashSet::new();
-    for path in paths {
-        let Some(file) = tracer.file(&path).await else {
+    let mut mutexes: Vec<Ustr> = vec![sym];
+    let mut done: HashSet<Ustr> = HashSet::new();
+    while let Some(mutex) = mutexes.iter().find(|m| !done.contains(*m)).copied() {
+        done.insert(mutex);
+        let Some(xref) = tracer.crossref(&mutex).await else {
             continue;
         };
-        for (index, func) in file.funcs.iter().enumerate() {
-            for region in held_regions(func) {
-                if region.kind != LockKind::Acquire || region.mutex != Some(sym) {
-                    continue;
+        let paths: BTreeSet<String> = xref
+            .uses
+            .iter()
+            .flatten()
+            .map(|uses| uses.path.to_string())
+            .collect();
+        for path in paths {
+            let Some(file) = tracer.file(&path).await else {
+                continue;
+            };
+            for (index, func) in file.funcs.iter().enumerate() {
+                for region in held_regions(func) {
+                    if region.kind != LockKind::Acquire || region.mutex != Some(mutex) {
+                        continue;
+                    }
+                    seen.insert(func.sym);
+                    view.regions.push(ViewRegion {
+                        how: How::Guard,
+                        depth: 0,
+                        via: vec![],
+                        func: func.sym,
+                        func_pretty: func.pretty.clone(),
+                        path: func.path.clone(),
+                        func_line: func.line,
+                        func_end_line: func.end_line,
+                        region,
+                    });
+                    work.push_back((file.clone(), index, view.regions.len() - 1));
                 }
-                seen.insert(func.sym);
-                view.regions.push(ViewRegion {
-                    how: How::Guard,
-                    depth: 0,
-                    via: vec![],
-                    func: func.sym,
-                    func_pretty: func.pretty.clone(),
-                    path: func.path.clone(),
-                    func_line: func.line,
-                    func_end_line: func.end_line,
-                    region,
-                });
-                work.push_back((file.clone(), index, view.regions.len() - 1));
+                // (A field initialized or assigned from it, or its address.)
+                for alias in aliases_in(func, mutex) {
+                    if mutexes.contains(&alias.sym) {
+                        continue;
+                    }
+                    mutexes.push(alias.sym);
+                    view.aliases.push(alias);
+                }
             }
+        }
+    }
+    // The methods requiring it, for their whole bodies.
+    for method in view.annotations.requires.clone() {
+        if seen.contains(&method) {
+            continue;
+        }
+        for (file, index) in tracer.callee_functions(&method).await.into_iter().take(1) {
+            let func = &file.funcs[index];
+            seen.insert(func.sym);
+            view.regions.push(ViewRegion {
+                how: How::Contract,
+                depth: 0,
+                via: vec![],
+                func: func.sym,
+                func_pretty: func.pretty.clone(),
+                path: func.path.clone(),
+                func_line: func.line,
+                func_end_line: func.end_line,
+                region: held_body(func, Some(sym), &short(&view.mutex_pretty).to_string()),
+            });
+            work.push_back((file.clone(), index, view.regions.len() - 1));
         }
     }
     // The functions its proofs are passed to, and those called with it held,
@@ -284,7 +370,8 @@ pub async fn lock_held_view(
                         "Only the first {} regions are shown; there are more.",
                         MAX_REGIONS
                     ));
-                    return Ok(view);
+                    work.clear();
+                    break;
                 }
                 region.mutex = Some(sym);
                 region.mutex_text = from.region.mutex_text.clone();
@@ -311,7 +398,236 @@ pub async fn lock_held_view(
             }
         }
     }
+    // Its guarded fields' accesses outside the regions holding it.
+    unguarded_uses(&mut tracer, &mut view).await;
     Ok(view)
+}
+
+/// The fields `func` initializes or assigns from `mutex` (its value, or its
+/// address): which are it too (see `Alias`).
+fn aliases_in(func: &crate::dataflow::ir::FuncIr, mutex: Ustr) -> Vec<Alias> {
+    use crate::dataflow::ir::{Atom, EventKind};
+    let mut out = vec![];
+    for event in &func.events {
+        let EventKind::Assign { place, vals, .. } = &event.kind else {
+            continue;
+        };
+        let Some(field) = place.last_field() else {
+            continue;
+        };
+        if field == mutex || out.iter().any(|alias: &Alias| alias.sym == field) {
+            continue;
+        }
+        if vals.iter().any(|val| match &val.atom {
+            Atom::Read(from) | Atom::Addr(from) => !val.derived && from.last_field() == Some(mutex),
+            _ => false,
+        }) {
+            out.push(Alias {
+                sym: field,
+                name: crate::dataflow::locks::mutex_name(Some(&field), &func.place_name(place)),
+                path: func.path.clone(),
+                line: event.line,
+            });
+        }
+    }
+    out
+}
+
+/// The arguments of an annotation's call in a text (ex: `mMutex` of
+/// `MOZ_GUARDED_BY(mMutex)`), each.
+fn annotation_args<'t>(text: &'t str, macro_name: &str) -> Vec<&'t str> {
+    let mut out = vec![];
+    let mut rest = text;
+    let open = format!("{}(", macro_name);
+    while let Some(at) = rest.find(&open) {
+        // (Not a longer macro's name's end, ex: MOZ_PT_GUARDED_BY's.)
+        let before = rest[..at].chars().last();
+        let after = &rest[at + open.len()..];
+        if before.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') {
+            rest = after;
+            continue;
+        }
+        let Some(close) = after.find(')') else {
+            break;
+        };
+        out.extend(after[..close].split(',').map(|arg| {
+            arg.trim()
+                .trim_start_matches("this->")
+                .trim_start_matches('&')
+        }));
+        rest = &after[close..];
+    }
+    out
+}
+
+/// What the mutex's class's thread-safety annotations say of it (see
+/// `Annotations`): its fields' declarations' lines (`lineRange`, in the
+/// class's file unless they say another's), and its methods' declarations'
+/// (or else definitions') lines up to their ends.
+async fn annotations(tracer: &mut Tracer<'_>, mutex: Ustr) -> Annotations {
+    let mut out = Annotations::default();
+    let (class, name) = field_parts(&mutex);
+    if class.is_empty() {
+        return out;
+    }
+    let class_sym = ustr(&format!("T_{}", class));
+    let Some(class_xref) = tracer.crossref(&class_sym).await else {
+        return out;
+    };
+    let Some(meta) = class_xref.meta.clone() else {
+        return out;
+    };
+    let class_path = class_xref
+        .definitions
+        .iter()
+        .flatten()
+        .map(|def| def.path.to_string())
+        .next();
+    // (Lines of a file, `first..=last`.)
+    async fn lines(tracer: &mut Tracer<'_>, path: &str, first: u32, last: u32) -> String {
+        let Some(source) = tracer.source(path).await else {
+            return String::new();
+        };
+        source
+            .lines()
+            .skip(first.saturating_sub(1) as usize)
+            .take((last.saturating_sub(first) + 1) as usize)
+            .collect::<Vec<_>>()
+            .join(
+                "
+",
+            )
+    }
+    for field in &meta.fields {
+        let (path, range) = match field.line_range.split_once('#') {
+            Some((path, range)) if !path.is_empty() => (path.to_string(), range.to_string()),
+            Some((_, range)) => match &class_path {
+                Some(path) => (path.clone(), range.to_string()),
+                None => continue,
+            },
+            None => continue,
+        };
+        let (first, last) = match range.split_once('-') {
+            Some((a, b)) => (a.parse().unwrap_or(0), b.parse().unwrap_or(0)),
+            None => {
+                let line = range.parse().unwrap_or(0);
+                (line, line)
+            }
+        };
+        if first == 0 {
+            continue;
+        }
+        let text = lines(tracer, &path, first, last.max(first)).await;
+        if ["MOZ_GUARDED_BY", "MOZ_PT_GUARDED_BY"]
+            .iter()
+            .any(|annotation| annotation_args(&text, annotation).contains(&name.as_str()))
+        {
+            out.guarded.push(field.sym);
+        }
+    }
+    for method in &meta.methods {
+        let Some(xref) = tracer.crossref(&method.sym).await else {
+            continue;
+        };
+        // (Its declaration, else its definition: from its line to its end,
+        // a few lines at most.)
+        let Some(at) = xref
+            .declarations
+            .iter()
+            .flatten()
+            .chain(xref.definitions.iter().flatten())
+            .find_map(|found| {
+                found
+                    .lines
+                    .first()
+                    .map(|line| (found.path.to_string(), line.lineno))
+            })
+        else {
+            continue;
+        };
+        let text = lines(tracer, &at.0, at.1, at.1 + 3).await;
+        let text = match text.find([';', '{']) {
+            Some(end) => &text[..end],
+            None => &text,
+        };
+        if ["MOZ_REQUIRES", "MOZ_REQUIRES_SHARED"]
+            .iter()
+            .any(|annotation| annotation_args(text, annotation).contains(&name.as_str()))
+        {
+            out.requires.push(method.sym);
+        }
+        if text.contains("MOZ_NO_THREAD_SAFETY_ANALYSIS") {
+            out.unchecked.push(method.sym);
+        }
+    }
+    out
+}
+
+/// The view's guarded fields' accesses outside the regions holding the
+/// mutex (see `LockHeldView::unguarded`): their uses (by their crossref)
+/// whose lines aren't in a region's held lines (a guard's region's but its
+/// released parts and lambdas, or a function's), but in the methods requiring
+/// it, those without the analysis, and constructors and destructors.
+async fn unguarded_uses(tracer: &mut Tracer<'_>, view: &mut LockHeldView) {
+    let mut held: BTreeMap<&str, Vec<(u32, u32)>> = BTreeMap::new();
+    for region in &view.regions {
+        let ranges = held.entry(region.path.as_str()).or_default();
+        match region.how {
+            How::Guard => {
+                let mut out = region.region.released.clone();
+                out.extend(region.region.lambdas.iter().copied());
+                ranges.extend(crate::dataflow::locks::ranges_without(
+                    region.region.line,
+                    region.region.end_line,
+                    &out,
+                ));
+            }
+            _ => ranges.push((region.func_line, region.func_end_line)),
+        }
+    }
+    let exempt: HashSet<Ustr> = view
+        .annotations
+        .requires
+        .iter()
+        .chain(&view.annotations.unchecked)
+        .copied()
+        .collect();
+    let mut unguarded = vec![];
+    for field in view.annotations.guarded.clone() {
+        let Some(xref) = tracer.crossref(&field).await else {
+            continue;
+        };
+        for uses in xref.uses.iter().flatten() {
+            for line in &uses.lines {
+                let in_held = held.get(uses.path.as_str()).is_some_and(|ranges| {
+                    ranges
+                        .iter()
+                        .any(|&(first, last)| first <= line.lineno && line.lineno <= last)
+                });
+                if in_held || exempt.contains(&line.contextsym) {
+                    continue;
+                }
+                // (Constructors and destructors, which nothing shares the
+                // object with yet, or anymore.)
+                let (class, method) = method_parts(&line.context);
+                let class_name = short(&class);
+                if !class_name.is_empty()
+                    && (method == class_name || method.strip_prefix('~') == Some(class_name))
+                {
+                    continue;
+                }
+                unguarded.push(UnguardedUse {
+                    field,
+                    path: uses.path.to_string(),
+                    line: line.lineno,
+                    context: line.context.to_string(),
+                });
+            }
+        }
+    }
+    view.unguarded_count = unguarded.len();
+    unguarded.truncate(MAX_UNGUARDED);
+    view.unguarded = unguarded;
 }
 
 /// A facet value's path from its facet's top (see `view_facets`): each level's
@@ -351,6 +667,7 @@ fn region_facet_values(
             ),
         ],
         How::Proof => vec![("proof".to_string(), "Proven held".to_string())],
+        How::Contract => vec![("contract".to_string(), "Required held".to_string())],
         How::Callee => vec![
             ("callee".to_string(), "Called with it held".to_string()),
             (
@@ -666,11 +983,13 @@ pub fn region_graphs(tree_name: &str, view: &LockHeldView) -> Vec<RegionGraph> {
                 &|| GraphNode {
                     kind: match how {
                         How::Proof => "proof",
+                        How::Contract => "contract",
                         _ => "callee",
                     },
                     label: region.func_pretty.clone(),
                     sub: match how {
                         How::Proof => "passed its proof".to_string(),
+                        How::Contract => "requires it held".to_string(),
                         _ => format!(
                             "called with it held, {} call{} deep",
                             region.depth,
@@ -834,6 +1153,52 @@ pub fn render_lock_held(
             ),
         },
     ));
+    // (What its class's annotations say, and the fields which are it too.)
+    let mut said = vec![];
+    if count(How::Contract) > 0 {
+        said.push(format!(
+            "{} of its class {} it held (<code>MOZ_REQUIRES</code>)",
+            plural(count(How::Contract), "method", "methods"),
+            if count(How::Contract) == 1 { "requires" } else { "require" }
+        ));
+    }
+    if !view.annotations.guarded.is_empty() {
+        said.push(format!(
+            "it guards {} (<code>MOZ_GUARDED_BY</code>)",
+            plural(view.annotations.guarded.len(), "field", "fields")
+        ));
+    }
+    if !view.annotations.unchecked.is_empty() {
+        said.push(format!(
+            "{} of its class {} the thread-safety analysis off (<code>MOZ_NO_THREAD_SAFETY_ANALYSIS</code>)",
+            plural(view.annotations.unchecked.len(), "method", "methods"),
+            if view.annotations.unchecked.len() == 1 { "turns" } else { "turn" }
+        ));
+    }
+    if !said.is_empty() {
+        let mut said = said.join("; ");
+        if let Some(first) = said.get(..1) {
+            said = format!("{}{}", first.to_uppercase(), &said[1..]);
+        }
+        html.push_str(&format!(
+            r#"<p class="lock-held-annotations">{}.</p>"#,
+            said
+        ));
+    }
+    if !view.aliases.is_empty() {
+        html.push_str(&format!(
+            r#"<p class="lock-held-aliases">It's also {}, initialized from it; their guards' regions are here too.</p>"#,
+            view.aliases
+                .iter()
+                .map(|alias| format!(
+                    r#"<a href="{}"><code>{}</code></a>"#,
+                    line_link(tree_name, &alias.path, alias.line),
+                    escape(&alias.name)
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
     for note in &view.notes {
         html.push_str(&format!(
             r#"<p class="lock-held-note">{}</p>"#,
@@ -859,7 +1224,7 @@ pub fn render_lock_held(
             b.regions.cmp(&a.regions).then_with(|| a_sym.cmp(b_sym))
         });
         html.push_str(&format!(
-            r#"<details class="lock-held-fields" open><summary>The fields accessed with it held ({})</summary><table><thead><tr><th>Field</th><th>Regions</th><th>Read in</th><th>Written in</th><th>Methods called in</th></tr></thead><tbody>"#,
+            r#"<details class="lock-held-fields" open><summary>The fields accessed with it held ({})</summary><table><thead><tr><th>Field</th><th>Regions</th><th>Read in</th><th>Written in</th><th>Methods called in</th><th title="Whether its declaration says the mutex guards it (MOZ_GUARDED_BY)">Guarded by it</th></tr></thead><tbody>"#,
             fields.len()
         ));
         for (sym, summary) in &fields {
@@ -873,7 +1238,7 @@ pub fn render_lock_held(
                 n => n.to_string(),
             };
             html.push_str(&format!(
-                r#"<tr><td><a href="/{}/query/default?q={}">{}{}</a></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>"#,
+                r#"<tr><td><a href="/{}/query/default?q={}">{}{}</a></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>"#,
                 escape(tree_name),
                 crate::crash_stack::url_encode_query(&format!("symbol:{}", sym)),
                 match class.is_empty() {
@@ -885,9 +1250,36 @@ pub fn render_lock_held(
                 cell(summary.reads),
                 cell(summary.writes),
                 cell(summary.calls),
+                match view.annotations.guarded.contains(sym) {
+                    true => "✓",
+                    false => "",
+                },
             ));
         }
         html.push_str("</tbody></table></details>");
+    }
+    // Its guarded fields' accesses without it held.
+    if view.unguarded_count > 0 {
+        html.push_str(&format!(
+            r#"<details class="lock-held-unguarded"><summary>Its guarded fields' accesses without it held, as far as this analysis sees ({})</summary><p class="lock-held-about">Outside the regions here (but in the methods requiring it, those without the thread-safety analysis, and constructors and destructors): ex: under an assertion that the current thread owns it, or in code only one thread runs.</p><ul>"#,
+            view.unguarded_count
+        ));
+        for use_ in &view.unguarded {
+            let (_, name) = field_parts(&use_.field);
+            html.push_str(&format!(
+                r#"<li><a href="{}"><code>{}</code> in {}</a></li>"#,
+                line_link(tree_name, &use_.path, use_.line),
+                escape(&name),
+                escape(&use_.context)
+            ));
+        }
+        if view.unguarded.len() < view.unguarded_count {
+            html.push_str(&format!(
+                "<li>… and {} more</li>",
+                view.unguarded_count - view.unguarded.len()
+            ));
+        }
+        html.push_str("</ul></details>");
     }
     html.push_str("</div>");
     // The diagrams of how they're called (see `region_graphs`; drawn by
@@ -971,6 +1363,7 @@ fn card_html(
         ),
         How::Proof => caller_html("is passed its proof"),
         How::Callee => caller_html("is called with it held"),
+        How::Contract => "requires it held (<code>MOZ_REQUIRES</code>)".to_string(),
     };
     let via = match region.via.len() {
         0 | 1 => String::new(),
@@ -990,6 +1383,7 @@ fn card_html(
             How::Guard => "guard",
             How::Proof => "proof",
             How::Callee => "callee",
+            How::Contract => "contract",
         },
         id = escape(&region.id()),
         facets = escape(&serde_json::to_string(&facets).unwrap_or_default()),
@@ -1143,6 +1537,20 @@ document.addEventListener("click", event => {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_annotation_args() {
+        assert_eq!(
+            annotation_args("  int mStatus MOZ_GUARDED_BY(mMutex);", "MOZ_GUARDED_BY"),
+            vec!["mMutex"]
+        );
+        // (Not a longer macro's.)
+        assert!(annotation_args("T* mP MOZ_PT_GUARDED_BY(mMutex);", "MOZ_GUARDED_BY").is_empty());
+        assert_eq!(
+            annotation_args("void F() MOZ_REQUIRES(mMutex, this->mOther)", "MOZ_REQUIRES"),
+            vec!["mMutex", "mOther"]
+        );
+    }
 
     #[test]
     fn test_parts() {

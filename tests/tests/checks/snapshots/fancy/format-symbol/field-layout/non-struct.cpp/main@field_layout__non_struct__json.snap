@@ -14,7 +14,7 @@ input_file: inputs/fancy/format-symbol/field-layout/non-struct.cpp/field_layout_
             "structured": 1,
             "pretty": "field_layout::non_struct::Proxy::x",
             "sym": "F_<T_field_layout::non_struct::Proxy>_x",
-            "type_pretty": null,
+            "type_pretty": "signed char",
             "kind": "field",
             "subsystem": null,
             "parentsym": "T_field_layout::non_struct::Proxy",

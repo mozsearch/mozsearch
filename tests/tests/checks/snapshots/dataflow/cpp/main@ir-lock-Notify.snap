@@ -1,0 +1,20 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/ir-lock-Notify
+---
+mozilla::dom::Worker::Notify (locks/locks.cpp:55-68)
+     56:6   status init {0}
+     58:22  call#0 Construct mozilla::detail::BaseAutoLock::BaseAutoLock<T>({this->mMutex}@this->mMutex) -> _ZN7mozilla6detail12BaseAutoLockC1ET_
+     58:18  lock init {mozilla::detail::BaseAutoLock::BaseAutoLock<T>(…)}
+     59:4   status = {this->mStatus}
+     61:28  call#1 Construct mozilla::detail::BaseAutoUnlock::BaseAutoUnlock<T>({this->mMutex}@this->mMutex) -> _ZN7mozilla6detail14BaseAutoUnlockC1ET_
+     61:22  unlock init {mozilla::detail::BaseAutoUnlock::BaseAutoUnlock<T>(…)}
+     62:6   call#2 Call mozilla::dom::CallOut({status}@status) -> _ZN7mozilla3dom7CallOutEi
+     64:28  λ this->mUnguarded = {1}
+     64:9   later init {lambda@64}
+     65:4   call#3 Call later() -> ?
+     67:2   this->mUnguarded = {status}
+  lock Acquire mozilla::MutexAutoLock this->mMutex events 3..10 lines 58-66, 1 lambda(s) made in it
+  lock Release mozilla::MutexAutoUnlock this->mMutex events 6..7 lines 61-63
+  ?    65 UnresolvedCall: call of later

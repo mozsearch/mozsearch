@@ -208,6 +208,13 @@ impl AbstractServer for TryOverlay {
         self.base.crash_sets()
     }
 
+    fn lock_regions(
+        &self,
+        path: &str,
+    ) -> Option<std::sync::Arc<crate::dataflow::locks::FileLocks>> {
+        self.base.lock_regions(path)
+    }
+
     fn tree_config(&self) -> Result<Value> {
         self.base.tree_config()
     }

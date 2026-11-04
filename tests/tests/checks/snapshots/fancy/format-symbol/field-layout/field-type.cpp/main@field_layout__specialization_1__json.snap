@@ -28,7 +28,7 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
             "structured": 1,
             "pretty": "field_layout::template_base::Sub1::c",
             "sym": "F_<T_field_layout::template_base::Sub1>_c",
-            "type_pretty": null,
+            "type_pretty": "unsigned char",
             "kind": "field",
             "subsystem": null,
             "parentsym": "T_field_layout::template_base::Sub1",

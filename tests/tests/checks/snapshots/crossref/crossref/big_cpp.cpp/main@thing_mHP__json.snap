@@ -69,7 +69,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing_mHP__json
           "structured": 1,
           "pretty": "outerNS::Thing::mHP",
           "sym": "F_<T_outerNS::Thing>_mHP",
-          "type_pretty": null,
+          "type_pretty": "int",
           "kind": "field",
           "subsystem": "Core/Big",
           "parentsym": "T_outerNS::Thing",

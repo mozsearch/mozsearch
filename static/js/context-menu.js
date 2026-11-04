@@ -67,6 +67,21 @@ function searchUrl(tree, encodedQuery) {
 // A link to the pipeline-server's /query/default (diagrams, following
 // values), in the context of the try push whose code was clicked, or whose
 // pages these are, if any (data-search-rev; see `searchUrl`).
+/**
+ * Whether a type (a field's, as its metadata says it, ex: "class
+ * mozilla::dom::SharedMutex") is a mutex's: Gecko's (and the standard
+ * library's), whose guards the tools' dataflow/locks.rs knows.
+ */
+function isMutexType(type) {
+  if (!type) {
+    return false;
+  }
+  const bare = type.replace(/^(class|struct) /, "").replace(/^const /, "")
+    .split("<")[0].replace(/[&* ]+$/, "");
+  return /^(mozilla::(detail::)?|mozilla::dom::)?(Mutex|StaticMutex|OffTheBooksMutex|RecursiveMutex|Monitor|ReentrantMonitor|RWLock|StaticRWLock|SharedMutex)$/.test(bare) ||
+    /^std::(mutex|recursive_mutex|shared_mutex|timed_mutex)$/.test(bare);
+}
+
 function queryUrl(tree, queryString) {
   const context = window.ContextMenu?.searchContext;
   const data = context?.getAttribute("data-tree") == tree && context.hasAttribute("data-search")
@@ -2407,6 +2422,16 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
                 // is already used for sticky highlight and so we now expect it
                 // to have muscle memory implications so we can't repurpose it.
                 icon: "docs",
+                section: "layout",
+                confidence,
+              }));
+            }
+            // (A mutex field's code holding it; see the tools' lock_held.rs.)
+            if (jumpref?.meta?.kind === "field" && isMutexType(jumpref.meta.type_pretty)) {
+              fieldLayoutMenuItems.push(new MenuItem({
+                html: this.fmt("Code holding <strong>_</strong>", jumpref.pretty),
+                href: queryUrl(tree, `lock-held:${jumpref.sym}`),
+                icon: "search",
                 section: "layout",
                 confidence,
               }));

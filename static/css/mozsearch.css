@@ -7230,8 +7230,12 @@ textarea.monospace {
   padding: 0 1rem 1rem;
 }
 .lock-held-fields table {
+  width: auto;
   border-collapse: collapse;
   margin: 0.4em 0;
+}
+.lock-held-unguarded ul {
+  margin: 0.3em 0;
 }
 .lock-held-fields th,
 .lock-held-fields td {

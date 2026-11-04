@@ -1640,6 +1640,23 @@ fn process_class_fields(
     meta_table: &mut MetaTable,
     field_owning_class_rules: FieldOwningClassRules,
 ) -> FieldMemberUseTable {
+    // (A field's own metadata has its type, from its class's, for its
+    // symbol's menus, ex: a mutex's "Code holding it"; see context-menu.js.)
+    let field_types: Vec<(Ustr, Ustr)> = meta_table
+        .values()
+        .filter(|meta| meta.kind.as_str() == "class" || meta.kind.as_str() == "struct")
+        .flat_map(|meta| meta.fields.iter().map(|field| (field.sym, field.type_pretty)))
+        .filter(|(_, type_pretty)| !type_pretty.is_empty())
+        .collect();
+    for (sym, type_pretty) in field_types {
+        if let Some(field_meta) = meta_table.get_mut(&sym)
+            && field_meta.kind.as_str() == "field"
+            && field_meta.type_pretty.is_none()
+        {
+            field_meta.type_pretty = Some(type_pretty);
+        }
+    }
+
     // ### Process class/fields using ontology type information
     let mut field_member_use_table = FieldMemberUseTable::new();
     for meta in meta_table.values_mut() {

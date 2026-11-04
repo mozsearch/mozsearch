@@ -1271,6 +1271,11 @@ pub struct FlattenedLineSpan {
     /// "toolchain"]`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ctxtra: Vec<String>,
+    /// The mutexes held at the key line, outer ones first, by their names
+    /// (ex: "Worker::mMutex"; see `AbstractServer::lock_regions`), for C++
+    /// files of trees with dataflow summaries.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub locks: Vec<String>,
     /// For HTML pages with facets of lines ("Last changed" and
     /// "Preprocessor"), the result's values of them, as facets.js's JSON
     /// (see `results_file_facets` in pipeline-server.rs), which
@@ -1306,7 +1311,7 @@ impl FlattenedLineSpan {
     /// to its definition), rather than a link to a search for it.
     fn inline_context(&mut self) {
         let pp = self.pp.as_deref().unwrap_or_default();
-        if self.context.is_empty() && pp.is_empty() {
+        if self.context.is_empty() && pp.is_empty() && self.locks.is_empty() {
             return;
         }
         let Some(row) = self
@@ -1363,12 +1368,24 @@ impl FlattenedLineSpan {
                 escape(&shown)
             ));
         }
+        // (The mutexes held there, as `#if` contexts are.)
+        if !self.locks.is_empty() {
+            annotation.push_str(&format!(
+                r#" <span class="result-locks">holding {}</span>"#,
+                self.locks
+                    .iter()
+                    .map(|name| format!("<code>{}</code>", escape(name)))
+                    .collect::<Vec<_>>()
+                    .join(" › ")
+            ));
+        }
         annotation.push_str("</span>");
         self.contents.insert_str(at, &annotation);
         self.context = ustr("");
         self.contextsym = ustr("");
         self.pp = None;
         self.ctxtra.clear();
+        self.locks.clear();
     }
 
     /// Expand the range by before/after, ensuring we don't go below line 1 for
@@ -1826,6 +1843,7 @@ mod tests {
             recency_label: None,
             pp: None,
             ctxtra: vec![],
+            locks: vec![],
             facets: None,
             more_hits: vec![],
             captures: vec![],
@@ -1852,6 +1870,7 @@ mod tests {
             recency_label: None,
             pp: None,
             ctxtra: vec!["fetches".to_string(), "toolchain".to_string()],
+            locks: vec![],
             facets: None,
             more_hits: vec![],
             captures: vec![],
@@ -1875,6 +1894,7 @@ mod tests {
             recency_label: None,
             pp: None,
             ctxtra: vec![],
+            locks: vec![],
             facets: None,
             more_hits: vec![],
             captures: vec![],
@@ -1899,6 +1919,7 @@ mod tests {
                 "A < 2 || B".to_string(),
             ]),
             ctxtra: vec![],
+            locks: vec![],
             facets: None,
             more_hits: vec![],
             captures: vec![],
@@ -1933,6 +1954,7 @@ mod tests {
             recency_label: None,
             pp: None,
             ctxtra: vec![],
+            locks: vec![],
             facets: None,
             more_hits: vec![],
             captures: vec![],

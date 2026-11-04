@@ -27,8 +27,8 @@ use tools::{
         PipelineValues,
         builder::build_pipeline_graph,
         facets::{
-            CtxtraFacet, FacetAction, FacetFile, GraphFacetNode, PathKinds, PpFacet, file_facets,
-            graph_facets, last_changed_facet,
+            CtxtraFacet, FacetAction, FacetFile, GraphFacetNode, LOCK_LABELS, PathKinds, PpFacet,
+            file_facets, graph_facets, last_changed_facet,
         },
         interface::{FlattenedResultsBundle, GraphInput},
     },
@@ -152,7 +152,36 @@ fn results_file_facets(
         facet
     });
 
-    if recency || pp.is_some() || ctxtra.is_some() {
+    // The "Lock held" facet of the results' lines: the mutexes held where
+    // they are (see `AbstractServer::lock_regions`), which their context
+    // says too (see `FlattenedLineSpan::inline_context`).
+    for pk_group in &mut results.path_kind_results {
+        for kind_group in &mut pk_group.kind_groups {
+            for file in &mut kind_group.by_file {
+                let Some(locks) = server.lock_regions(&file.file) else {
+                    continue;
+                };
+                for span in &mut file.line_spans {
+                    span.locks = locks.held_at(span.key_line);
+                }
+            }
+        }
+    }
+    let lines = results.path_kind_results.iter().flat_map(|pk_group| {
+        pk_group.kind_groups.iter().flat_map(|kind_group| {
+            kind_group.by_file.iter().flat_map(|file| {
+                file.line_spans
+                    .iter()
+                    .map(move |span| (file.file.as_str(), span.locks.as_slice()))
+            })
+        })
+    });
+    let lock = CtxtraFacet::labeled(&LOCK_LABELS, lines).map(|(facet, file_values)| {
+        add_file_values("lock", file_values);
+        facet
+    });
+
+    if recency || pp.is_some() || ctxtra.is_some() || lock.is_some() {
         for pk_group in &mut results.path_kind_results {
             for kind_group in &mut pk_group.kind_groups {
                 for file in &mut kind_group.by_file {
@@ -176,6 +205,10 @@ fn results_file_facets(
                                 json!(ctxtra.line_values(&span.ctxtra)),
                             );
                         }
+                        if let Some(lock) = &lock {
+                            line_facets
+                                .insert("lock".to_string(), json!(lock.line_values(&span.locks)));
+                        }
                         span.facets = Some(Value::Object(line_facets).to_string());
                     }
                 }
@@ -187,6 +220,9 @@ fn results_file_facets(
     }
     if let Some(ctxtra) = ctxtra {
         facets.push(ctxtra.view);
+    }
+    if let Some(lock) = lock {
+        facets.push(lock.view);
     }
     let lenses = if recency {
         json!([{

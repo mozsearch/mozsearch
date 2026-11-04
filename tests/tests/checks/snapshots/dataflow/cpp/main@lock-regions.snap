@@ -1,0 +1,41 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/lock-regions
+---
+mozilla::dom::Worker::Dispatch (locks/locks.cpp:42-47)
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 43-47
+    held lines: 44,45,46
+    call 45 mozilla::dom::Queue::Push
+    call 46 mozilla::dom::Worker::DispatchLockHeld, passing the proof as argument 1
+    field mQueue [F_<T_mozilla::dom::Worker>_mQueue]: methods called 45
+    field mQueueLength [F_<T_mozilla::dom::Worker>_mQueueLength]: read 44; written 44
+mozilla::dom::Worker::DispatchLockHeld (locks/locks.cpp:49-53)
+  proof const mozilla::MutexAutoLock & param aProofOfLock lines 49-53
+    held lines: 51,52
+    call 52 mozilla::dom::Wake
+    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: written 51
+mozilla::dom::Worker::Notify (locks/locks.cpp:55-68)
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 58-66
+    held lines: 59,61,64,65
+    released: 61-63
+    call 65 later
+    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 59
+    field mUnguarded [F_<T_mozilla::dom::Worker>_mUnguarded]: written 64
+mozilla::dom::Worker::Close (locks/locks.cpp:70-75)
+  held mozilla::MonitorAutoLock this->mMonitor [F_<T_mozilla::dom::Worker>_mMonitor] lines 71-75
+    held lines: 72,73,74
+    call 72 mozilla::Monitor::Notify
+    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 74
+    acquires mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] at 73
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 73-75
+    held lines: 74
+    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 74
+mozilla::dom::Reporter::Report (locks/locks.cpp:91-94)
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Reporter>_mMutex] lines 92-94
+    held lines: 93
+    field mReports [F_<T_mozilla::dom::Reporter>_mReports]: read 93; written 93
+mozilla::dom::Increment (locks/locks.cpp:99-102)
+  held mozilla::StaticMutexAutoLock sCountMutex [_ZN7mozilla3domL11sCountMutexE] lines 100-102
+    held lines: 101
+    field sCount [_ZN7mozilla3domL6sCountE]: read 101; written 101

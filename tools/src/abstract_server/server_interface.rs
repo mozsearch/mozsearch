@@ -860,6 +860,17 @@ pub trait AbstractServer {
             .map(crate::crash_sets::CrashSetStore::new)
     }
 
+    /// Where a file's functions hold mutexes (see
+    /// `dataflow::locks::FileLocks`), for search results' "Lock held"
+    /// context: a local index's, from its `lock-regions` (which
+    /// dataflow-summarize writes, for trees with dataflow summaries).
+    fn lock_regions(
+        &self,
+        _path: &str,
+    ) -> Option<std::sync::Arc<crate::dataflow::locks::FileLocks>> {
+        None
+    }
+
     /// Bugzilla's REST API's response for `path` (ex:
     /// "rest/bug/1915788/comment"; see `bug_comment::fetch_bugzilla`), from
     /// bugzilla.mozilla.org, unless the config says where

@@ -10,6 +10,9 @@
 //! Writes, into the tree's index directory:
 //! - `dataflow-summaries`: a summary per line (JSON), by function symbol;
 //! - `dataflow-fields`: an edge between fields per line (JSON);
+//! - `lock-regions`: where each file's functions hold mutexes, a file per
+//!   line (JSON; see `dataflow::locks::FileLocks`), for search results' "Lock
+//!   held" context;
 //! - `diags/dataflow-summarize/files.tsv`: each file's analysis bytes, how
 //!   long it took, and its functions' count, slowest first.
 //!
@@ -42,6 +45,7 @@ use clap::Parser;
 
 use tools::budget_queue::{BudgetQueue, release_freed_memory};
 use tools::dataflow::frontend::{build_file_ir, lang_for_path};
+use tools::dataflow::locks::{FileLocks, file_locks};
 use tools::dataflow::records::FileRecords;
 use tools::dataflow::summary::{
     IpdlSlots, Summary, field_edges, structured_overrides, summarize_in,
@@ -121,19 +125,20 @@ fn analysis_budget() -> u64 {
 /// each thread.)
 const RELEASE_AFTER_BYTES: u64 = 32 << 20;
 
-/// The summaries of a file's functions with bodies, or why it has none.
+/// The summaries of a file's functions with bodies, and where they hold
+/// mutexes (see `dataflow::locks::file_locks`), or why it has none.
 fn summarize_file(
     files_path: &str,
     objdir_path: &str,
     path: &str,
     analysis: &str,
     ipdl: &IpdlSlots,
-) -> Result<Vec<Summary>, String> {
+) -> Result<(Vec<Summary>, Option<FileLocks>), String> {
     let source = read_source(files_path, objdir_path, path).ok_or("no source")?;
     let values = read_analysis_values(analysis).ok_or("no analysis")?;
     let recs = FileRecords::from_values(values);
     let ir = build_file_ir(path, &source, &recs)?;
-    Ok(ir
+    let summaries = ir
         .funcs
         .iter()
         .filter(|f| f.has_body)
@@ -144,7 +149,8 @@ fn summarize_file(
                 .unwrap_or_default();
             summarize_in(f, ipdl, overrides)
         })
-        .collect())
+        .collect();
+    Ok((summaries, file_locks(&ir)))
 }
 
 /// What the code IPDL generates is (see `IpdlSlots`), from the structured
@@ -240,6 +246,8 @@ fn main() {
             .map_or_else(analysis_budget, |mb| mb << 20),
     );
     let mut summaries: Vec<Summary> = vec![];
+    // (Where files hold mutexes, for search results' "Lock held" context.)
+    let mut lock_files: Vec<FileLocks> = vec![];
     let mut failed = analyses
         .iter()
         .filter(|analysis| analysis.is_none())
@@ -258,6 +266,7 @@ fn main() {
                     // `release_freed_memory` can give back, rather than
                     // pinned by the summaries kept between them.)
                     let mut out: Vec<u8> = vec![];
+                    let mut locks: Vec<FileLocks> = vec![];
                     let mut failed = 0;
                     let mut timings = vec![];
                     let mut waited = std::time::Duration::ZERO;
@@ -277,11 +286,12 @@ fn main() {
                             analysis,
                             ipdl,
                         ) {
-                            Ok(file_summaries) => {
+                            Ok((file_summaries, file_locks)) => {
                                 for summary in &file_summaries {
                                     serde_json::to_writer(&mut out, summary).unwrap();
                                     out.push(b'\n');
                                 }
+                                locks.extend(file_locks);
                                 Some(file_summaries.len())
                             }
                             Err(_) => {
@@ -300,12 +310,13 @@ fn main() {
                             functions,
                         });
                     }
-                    (out, failed, timings, waited)
+                    (out, locks, failed, timings, waited)
                 })
             })
             .collect();
         for handle in handles {
-            let (out, f, t, w) = handle.join().unwrap();
+            let (out, l, f, t, w) = handle.join().unwrap();
+            lock_files.extend(l);
             summaries.extend(
                 out.split(|b| *b == b'\n')
                     .filter(|line| !line.is_empty())
@@ -335,6 +346,15 @@ fn main() {
     let mut out = BufWriter::new(File::create(index.join("dataflow-fields")).unwrap());
     for edge in &edges {
         serde_json::to_writer(&mut out, edge).unwrap();
+        out.write_all(b"\n").unwrap();
+    }
+    out.flush().unwrap();
+    // (A file's once: the first, by path, as for the summaries.)
+    lock_files.sort_by(|a, b| a.path.cmp(&b.path));
+    lock_files.dedup_by(|a, b| a.path == b.path);
+    let mut out = BufWriter::new(File::create(index.join("lock-regions")).unwrap());
+    for locks in &lock_files {
+        serde_json::to_writer(&mut out, locks).unwrap();
         out.write_all(b"\n").unwrap();
     }
     out.flush().unwrap();

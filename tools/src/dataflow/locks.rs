@@ -521,9 +521,169 @@ pub fn held_body(ir: &FuncIr, mutex: Option<Ustr>, mutex_text: &str) -> HeldRegi
     )
 }
 
+/// The class and the name of a field's symbol
+/// (`F_<T_mozilla::dom::Worker>_mQueue`: "mozilla::dom::Worker", "mQueue"),
+/// or else none and its short name.
+pub fn field_parts(sym: &str) -> (String, String) {
+    match sym
+        .strip_prefix("F_<T_")
+        .and_then(|rest| rest.split_once(">_"))
+    {
+        Some((class, name)) => (class.to_string(), name.to_string()),
+        None => (String::new(), super::ir::sym_short_name(sym)),
+    }
+}
+
+/// How a mutex is named for people (ex: "Worker::mMutex"): its field's
+/// class's last name and its name, else (a global, or an expression) as the
+/// code spells it.
+pub fn mutex_name(sym: Option<&str>, text: &str) -> String {
+    match sym {
+        Some(sym) if sym.starts_with("F_") => {
+            let (class, field) = field_parts(sym);
+            let class = class.rsplit("::").next().unwrap_or(&class).to_string();
+            match class.is_empty() {
+                true => field,
+                false => format!("{}::{}", class, field),
+            }
+        }
+        _ => text.to_string(),
+    }
+}
+
+/// Where a file's mutexes are held, as lines (see `file_locks`), for search
+/// results' "Lock held" context.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FileLocks {
+    pub path: String,
+    pub locks: Vec<LineLock>,
+}
+
+/// A region holding a mutex (see `HeldRegion`), as lines: the ranges held
+/// (first, last; its lines but its unlocks' and its lambdas'), the mutex,
+/// and its name (see `mutex_name`; a proof's, its parameter's).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LineLock {
+    pub held: Vec<(u32, u32)>,
+    pub mutex: Option<Ustr>,
+    pub name: String,
+    pub kind: LockKind,
+}
+
+impl FileLocks {
+    /// The names of the mutexes held at a line, the outer ones (the earlier
+    /// regions) first.
+    pub fn held_at(&self, line: u32) -> Vec<String> {
+        let mut names: Vec<String> = vec![];
+        for lock in &self.locks {
+            if lock
+                .held
+                .iter()
+                .any(|&(first, last)| first <= line && line <= last)
+                && !names.contains(&lock.name)
+            {
+                names.push(lock.name.clone());
+            }
+        }
+        names
+    }
+}
+
+/// Lines `first..=last` but the ranges `out`.
+pub fn ranges_without(first: u32, last: u32, out: &[(u32, u32)]) -> Vec<(u32, u32)> {
+    let mut ranges = vec![(first, last)];
+    for &(a, b) in out {
+        ranges = ranges
+            .into_iter()
+            .flat_map(|(start, end)| {
+                let mut parts = vec![];
+                if start < a {
+                    parts.push((start, end.min(a - 1)));
+                }
+                if end > b {
+                    parts.push((start.max(b + 1), end));
+                }
+                if b < start || a > end {
+                    parts = vec![(start, end)];
+                }
+                parts
+            })
+            .collect();
+    }
+    ranges
+}
+
+/// Where a file's functions hold mutexes (see `held_regions`), as lines, if
+/// they do.
+pub fn file_locks(file: &super::frontend::FileIr) -> Option<FileLocks> {
+    let mut locks = vec![];
+    for func in &file.funcs {
+        for region in held_regions(func) {
+            let mut out = region.released.clone();
+            out.extend(region.lambdas.iter().copied());
+            let name = match region.kind {
+                LockKind::Proof => format!(
+                    "{}'s mutex",
+                    region
+                        .param
+                        .and_then(|param| func.params.get(param))
+                        .map_or("a proof", |param| param.name.as_str())
+                ),
+                _ => mutex_name(region.mutex.as_deref(), &region.mutex_text),
+            };
+            locks.push(LineLock {
+                held: ranges_without(region.line, region.end_line, &out),
+                mutex: region.mutex,
+                name,
+                kind: region.kind,
+            });
+        }
+    }
+    (!locks.is_empty()).then(|| FileLocks {
+        path: file.path.clone(),
+        locks,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_line_locks() {
+        assert_eq!(
+            ranges_without(1, 14, &[(8, 10), (11, 11)]),
+            vec![(1, 7), (12, 14)]
+        );
+        assert_eq!(ranges_without(5, 9, &[]), vec![(5, 9)]);
+        assert_eq!(ranges_without(5, 9, &[(1, 3)]), vec![(5, 9)]);
+        assert_eq!(ranges_without(5, 9, &[(5, 9)]), vec![]);
+        assert_eq!(
+            mutex_name(Some("F_<T_mozilla::dom::Worker>_mMutex"), "mMutex"),
+            "Worker::mMutex"
+        );
+        assert_eq!(mutex_name(Some("_ZL6sMutex"), "sMutex"), "sMutex");
+        let locks = FileLocks {
+            path: "a.cpp".to_string(),
+            locks: vec![
+                LineLock {
+                    held: vec![(2, 9)],
+                    mutex: None,
+                    name: "Worker::mMonitor".to_string(),
+                    kind: LockKind::Acquire,
+                },
+                LineLock {
+                    held: vec![(4, 5), (8, 9)],
+                    mutex: None,
+                    name: "Worker::mMutex".to_string(),
+                    kind: LockKind::Acquire,
+                },
+            ],
+        };
+        assert_eq!(locks.held_at(4), vec!["Worker::mMonitor", "Worker::mMutex"]);
+        assert_eq!(locks.held_at(6), vec!["Worker::mMonitor"]);
+        assert!(locks.held_at(10).is_empty());
+    }
 
     #[test]
     fn test_guard_kinds() {

@@ -488,6 +488,32 @@ impl AbstractServer for LocalIndex {
         crate::crash_stack::fetch_crash_report(&template, id).await
     }
 
+    fn lock_regions(&self, path: &str) -> Option<Arc<crate::dataflow::locks::FileLocks>> {
+        type Locks = HashMap<String, Arc<crate::dataflow::locks::FileLocks>>;
+        // (Each index's, read once: it doesn't change while it's served.)
+        static LOCKS: std::sync::LazyLock<std::sync::Mutex<HashMap<String, Arc<Locks>>>> =
+            std::sync::LazyLock::new(Default::default);
+        let index_path = &self.config_paths.index_path;
+        let locks = LOCKS
+            .lock()
+            .unwrap()
+            .entry(index_path.clone())
+            .or_insert_with(|| {
+                let text = std::fs::read_to_string(format!("{}/lock-regions", index_path))
+                    .unwrap_or_default();
+                Arc::new(
+                    text.lines()
+                        .filter_map(|line| {
+                            serde_json::from_str::<crate::dataflow::locks::FileLocks>(line).ok()
+                        })
+                        .map(|locks| (locks.path.clone(), Arc::new(locks)))
+                        .collect(),
+                )
+            })
+            .clone();
+        locks.get(path).cloned()
+    }
+
     fn crash_sets(&self) -> Option<crate::crash_sets::CrashSetStore> {
         let cfg = self.tree_config_loaded();
         let root = cfg

@@ -14,7 +14,7 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_size.cpp/f
             "structured": 1,
             "pretty": "field_layout::platform_specific_size::S::f1",
             "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
-            "type_pretty": null,
+            "type_pretty": "unsigned long",
             "kind": "field",
             "subsystem": null,
             "parentsym": "T_field_layout::platform_specific_size::S",

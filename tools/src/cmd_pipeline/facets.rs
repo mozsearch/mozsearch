@@ -804,10 +804,49 @@ pub struct CtxtraFacet {
     shown: HashSet<String>,
 }
 
+/// What a hierarchical facet of lines' keys (see `CtxtraFacet`) is called:
+/// its key and label, its lines without keys' value's name and title, and
+/// its folded values' title.
+pub struct HierarchyLabels {
+    pub key: &'static str,
+    pub label: &'static str,
+    pub none_name: &'static str,
+    pub none_title: &'static str,
+    pub other_title: &'static str,
+}
+
+/// The "Placement" facet's (see `CtxtraFacet`).
+pub const CTXTRA_LABELS: HierarchyLabels = HierarchyLabels {
+    key: "ctxtra",
+    label: "Placement",
+    none_name: "None",
+    none_title: "Lines with no place in a context beyond its symbol (ex: textual occurrences)",
+    other_title: "The other places",
+};
+
+/// The "Lock held" facet's: the mutexes held where the lines are, outer
+/// ones first (see the tools' `dataflow::locks::FileLocks`).
+pub const LOCK_LABELS: HierarchyLabels = HierarchyLabels {
+    key: "lock",
+    label: "Lock held",
+    none_name: "None",
+    none_title: "Lines where no mutex is held (that a scoped guard in its block holds)",
+    other_title: "The other mutexes",
+};
+
 impl CtxtraFacet {
     /// The facet, if any of the lines (paths and keys) have keys, and the
     /// values of each file's lines, by path.
     pub fn new<'a>(
+        lines: impl IntoIterator<Item = (&'a str, &'a [String])>,
+    ) -> Option<(CtxtraFacet, HashMap<String, Vec<String>>)> {
+        Self::labeled(&CTXTRA_LABELS, lines)
+    }
+
+    /// `new`, for a facet of other keys, as `labels` call it (ex: the
+    /// "Lock held" facet's).
+    pub fn labeled<'a>(
+        labels: &HierarchyLabels,
         lines: impl IntoIterator<Item = (&'a str, &'a [String])>,
     ) -> Option<(CtxtraFacet, HashMap<String, Vec<String>>)> {
         let lines: Vec<(&str, &[String])> = lines.into_iter().collect();
@@ -825,9 +864,9 @@ impl CtxtraFacet {
             }
         }
         let mut shown = HashSet::new();
-        let values = ctxtra_views(&String::new(), 0, &paths, &nested, &mut shown);
+        let values = ctxtra_views(labels, &String::new(), 0, &paths, &nested, &mut shown);
         let facet = CtxtraFacet {
-            view: FacetView::new("ctxtra", "Placement".to_string(), values),
+            view: FacetView::new(labels.key, labels.label.to_string(), values),
             shown,
         };
         let mut file_values: HashMap<String, BTreeSet<String>> = HashMap::new();
@@ -870,6 +909,7 @@ fn all_ctxtra_values(keys: &[String]) -> Vec<String> {
 }
 
 fn ctxtra_views(
+    labels: &HierarchyLabels,
     parent: &String,
     depth: usize,
     paths: &HashMap<String, HashSet<&str>>,
@@ -893,9 +933,8 @@ fn ctxtra_views(
         shown.insert(String::new());
         views.push(FacetValueView {
             value: String::new(),
-            name: "None".to_string(),
-            title: "Lines with no place in a context beyond its symbol (ex: textual occurrences)"
-                .to_string(),
+            name: labels.none_name.to_string(),
+            title: labels.none_title.to_string(),
             count: count(&String::new()),
             values: vec![],
             sparkline: None,
@@ -910,7 +949,7 @@ fn ctxtra_views(
             name: truncated(name, 60),
             title: format!("› {}", value.replace('\n', " › ")),
             count: count(value),
-            values: ctxtra_views(value, depth + 1, paths, nested, shown),
+            values: ctxtra_views(labels, value, depth + 1, paths, nested, shown),
             sparkline: None,
             ..Default::default()
         });
@@ -927,7 +966,7 @@ fn ctxtra_views(
                 format!("{}\n*", parent)
             },
             name: "other".to_string(),
-            title: "The other places".to_string(),
+            title: labels.other_title.to_string(),
             count: files.len() as u32,
             values: vec![],
             sparkline: None,

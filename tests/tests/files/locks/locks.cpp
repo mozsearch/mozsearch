@@ -1,7 +1,9 @@
 // Code holding mutexes (see mutex.h), for the dataflow frontend's lock
 // regions and the lock-held: view: a worker whose mMutex guards its queue and
-// status, held by guards, released by an unlock, proven held by a parameter
-// (DispatchLockHeld's), and acquired after its monitor; and a static mutex.
+// status (by its annotations), held by guards, released by an unlock, proven
+// held by a parameter (DispatchLockHeld's), required held (Status), acquired
+// after its monitor, and held as a reporter's reference to it; a guarded
+// field read without it (UnsafePeek); and a static mutex.
 
 #include "mutex.h"
 
@@ -22,8 +24,11 @@ class Worker {
   void Notify();
   bool Close();
   int Status() MOZ_REQUIRES(mMutex);
+  int UnsafePeek();
 
  private:
+  friend class Reporter;
+
   void DispatchLockHeld(int aRunnable, const MutexAutoLock& aProofOfLock);
 
   Mutex mMutex;
@@ -70,6 +75,23 @@ bool Worker::Close() {
 }
 
 int Worker::Status() { return mStatus; }
+
+int Worker::UnsafePeek() { return mStatus; }
+
+class Reporter {
+ public:
+  explicit Reporter(Worker* aWorker) : mMutex(aWorker->mMutex) {}
+  void Report();
+
+ private:
+  Mutex& mMutex;
+  int mReports = 0;
+};
+
+void Reporter::Report() {
+  MutexAutoLock lock(mMutex);
+  mReports = mReports + 1;
+}
 
 static StaticMutex sCountMutex;
 static int sCount;
