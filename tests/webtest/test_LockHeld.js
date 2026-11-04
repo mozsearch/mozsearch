@@ -9,7 +9,8 @@
 // (Increment's); the fields accessed with it held, guarded by it or not;
 // its guarded field read without it (in UnsafePeek); the diagrams of how
 // they're called; and the navigation panel's facets filtering them.  And
-// a retrier's lock (test_LockHeldRetrier).
+// a retrier's lock (test_LockHeldRetrier), whose diagram has a record
+// (test_LockHeldRecords).
 const MUTEX = "F_<T_mozilla::dom::Worker>_mMutex";
 
 function doc() {
@@ -170,4 +171,28 @@ add_task(async function test_LockHeldRetrier() {
   ok(funcs.includes("mozilla::dom::FileSink::Write"), "The sink's implementation is called with it held");
   ok(!funcs.includes("mozilla::dom::FakeSink::Write"), "but not a gtest's fake's");
   ok(!doc().querySelector(".lock-held-unguarded"), "Init's write where the analysis is ignored isn't unguarded");
+});
+
+// A row's functions of the same class in a diagram are a record of them, its
+// cells read down its column, and the calls of them from the same region are
+// one bus, along its raceway, whose stubs peel off to them (see
+// static/js/graph-records.js): Retry's calls of its settings' methods.
+add_task(async function test_LockHeldRecords() {
+  await TestUtils.loadQuery("tests", "lock-held:F_<T_mozilla::dom::Retrier>_mLock");
+  await waitForCondition(() => doc().querySelector(".graph-record"), "The diagram is drawn, with a record");
+  const record = doc().querySelector(".graph-record");
+  is(record.querySelector(".graph-record-scope-name").textContent, "Settings", "under its class's name");
+  const cells = [...record.querySelectorAll(".graph-record-cell")];
+  is(cells.map(cell => cell.querySelector(".crash-graph-node-text").firstChild.textContent).sort().join(","),
+     "GetRetries,Reset,SetRetries", "its methods called with it held, its cells");
+  ok(cells.every(cell => cell.classList.contains("lock-held-node-callee")), "as the nodes they'd be");
+  is(doc().querySelectorAll(".graph-bus").length, 1, "The calls of them are one bus");
+  is(doc().querySelectorAll(".graph-stub").length, 3, "whose stubs peel off to them");
+  cells[0].dispatchEvent(new MouseEvent("mouseenter"));
+  is(doc().querySelectorAll(".graph-stub.graph-edge-hot").length, 1, "Hovering over a cell highlights its edges");
+  ok(doc().querySelector(".graph-bus").classList.contains("graph-edge-hot"), "its bus too");
+  cells[0].dispatchEvent(new MouseEvent("mouseleave"));
+  ok(!doc().querySelector(".graph-edge-hot"), "until it's left");
+  // (Its click goes to its card.)
+  ok(cells[0].getAttribute("href").includes("locks/locks.cpp"), "A cell links to its function");
 });

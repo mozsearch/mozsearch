@@ -11,8 +11,9 @@
 // (Target::Run).  And a retrier whose lock a lambda capturing `this` holds
 // (where it first uses `this`, which clang defines the capture's field at),
 // whose guarded field is set where the analysis is ignored (Init's pragmas),
-// and whose sink is a file's or a gtest's fake's (gtest/FakeSink.cpp's, test
-// code, which Retry doesn't run).
+// whose sink is a file's or a gtest's fake's (gtest/FakeSink.cpp's, test
+// code, which Retry doesn't run), and which calls 3 of its settings' methods
+// with it held (a record of them in its diagram).
 
 #include "mutex.h"
 #include "sink.h"
@@ -178,6 +179,16 @@ class FileSink : public Sink {
   void Write() override {}
 };
 
+class Settings {
+ public:
+  int GetRetries() { return mRetries; }
+  void SetRetries(int aRetries) { mRetries = aRetries; }
+  void Reset() { mRetries = 0; }
+
+ private:
+  int mRetries = 0;
+};
+
 class Retrier {
  public:
   void Init(int aInfo);
@@ -187,6 +198,7 @@ class Retrier {
   Mutex mLock;
   int mInfo MOZ_GUARDED_BY(mLock);
   Sink* mSink;
+  Settings mSettings;
 };
 
 void Retrier::Init(int aInfo) {
@@ -205,6 +217,8 @@ void Retrier::Retry() {
   reset();
   MutexAutoLock lock(mLock);
   mSink->Write();
+  mSettings.SetRetries(mSettings.GetRetries() + 1);
+  mSettings.Reset();
 }
 
 }  // namespace mozilla::dom

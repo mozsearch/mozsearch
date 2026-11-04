@@ -5,7 +5,8 @@
 // connected part of the graph of the regions holding the mutex and the
 // functions they call with it held (and pass its proof to), callers over
 // callees, with their unlocks and the other locks they acquire, laid out by
-// graph.js's `RowLayout`, is a box of its own, as crash-set.js's are.  Each
+// graph.js's `RowLayout`, is a box of its own, as crash-set.js's are, a row's
+// functions of the same class in a record of them (graph-records.js's).  Each
 // node's color says how many of the cards shown it stands for (a heat map,
 // on one scale for all of them); as the navigation panel's facets filter the
 // cards (facets.js's "facetschange"), the nodes without any dim, the edges
@@ -15,15 +16,15 @@
 (function () {
   const data = document.getElementById("lock-held-graphs");
   const box = document.querySelector(".lock-held-graphs");
-  if (!data || !box || typeof RowLayout == "undefined") {
+  if (!data || !box || typeof drawRecordGraph == "undefined") {
     return;
   }
-  const NS = "http://www.w3.org/2000/svg";
   const graphs = JSON.parse(data.textContent);
   const card = i => document.getElementById(`lock-held-card-${i}`);
   const plural = (n, one, many) => `${n} ${n == 1 ? one : many}`;
 
-  // Lays out `graph` in a box of its own.
+  // Lays out `graph` in a box of its own, its functions of the same class in
+  // a row as records of them (see graph-records.js).
   function draw(graph) {
     const figure = document.createElement("figure");
     figure.className = "crash-graph lock-held-graph";
@@ -33,7 +34,8 @@
     figure.append(caption, canvas);
     box.append(figure);
 
-    const blocks = graph.nodes.map(node => {
+    const blocks = [];
+    const makeNode = node => {
       const element = document.createElement("a");
       element.className = `crash-graph-node lock-held-node lock-held-node-${node.kind}`;
       element.href = node.link;
@@ -57,7 +59,6 @@
       sub.className = "lock-held-node-sub";
       sub.textContent = node.sub;
       element.append(sub);
-      canvas.append(element);
       // (Measured with the widest count it can have.)
       count.textContent = String(node.cards.length);
       // (Its first card shown, rather than its source, unless none is.)
@@ -68,44 +69,16 @@
           target.scrollIntoView({ block: "start", behavior: "smooth" });
         }
       });
-      return { node, element, count, width: element.offsetWidth, height: element.offsetHeight };
-    });
-    const edges = graph.edges.map(edge => ({ edge, pred: blocks[edge.from], succ: blocks[edge.to] }));
-    const size = new RowLayout(blocks, edges, { margin: 6 }).run();
-    canvas.style.width = `${size.x}px`;
-    canvas.style.height = `${size.y}px`;
-    for (const block of blocks) {
-      block.element.style.left = `${block.layoutLeft}px`;
-      block.element.style.top = `${block.layoutTop}px`;
-    }
-
-    const svg = document.createElementNS(NS, "svg");
-    svg.classList.add("crash-graph-edges");
-    svg.setAttribute("width", size.x);
-    svg.setAttribute("height", size.y);
-    for (const edge of edges) {
-      const points = edge.layoutPoints;
-      if (!points || points.length < 2) {
-        continue;
-      }
-      const path = document.createElementNS(NS, "path");
-      path.classList.add("crash-graph-edge");
-      path.setAttribute("d", roundedPath(points));
-      const title = document.createElementNS(NS, "title");
-      title.textContent = `Line${edge.edge.lines.length == 1 ? "" : "s"} ${edge.edge.lines.join(", ")}`;
-      path.append(title);
-      // (Its head at its callee, its succ.)
-      const end = edge.upward ? points[0] : points[points.length - 1];
-      const before = edge.upward ? points[1] : points[points.length - 2];
-      const dy = before.y > end.y ? 1 : -1;
-      const head = document.createElementNS(NS, "path");
-      head.classList.add("crash-graph-edge-head");
-      head.setAttribute("d", `M ${end.x} ${end.y} L ${end.x - 3} ${end.y + 7 * dy} L ${end.x + 3} ${end.y + 7 * dy} Z`);
-      svg.append(path, head);
-      edge.paths = [path, head];
-    }
-    canvas.prepend(svg);
-    return { graph, figure, caption, blocks, edges };
+      blocks.push({ node, element, count });
+      return element;
+    };
+    // (Functions called with it held, by their classes: not its guards'
+    // regions, its unlocks, or the other locks.)
+    const scopeOf = node => (["callee", "proof", "contract"].includes(node.kind)
+      ? graphNameLines(node.label)[0] || null : null);
+    const edgeTitle = edge => `Line${edge.lines.length == 1 ? "" : "s"} ${edge.lines.join(", ")}`;
+    const layout = drawRecordGraph(canvas, graph.nodes, graph.edges, { makeNode, scopeOf, edgeTitle });
+    return { graph, figure, caption, blocks, edges: layout.edges, cables: layout.cables };
   }
 
   const drawn = graphs.map(draw);
@@ -131,12 +104,19 @@
         block.count.textContent = count;
         block.element.title = `${block.node.label}\n${block.node.sub}\n${plural(count, "card", "cards")} shown`;
       });
-      diagram.edges.forEach(edge => {
-        const none = counts[edge.edge.from] == 0 || counts[edge.edge.to] == 0;
-        for (const path of edge.paths || []) {
-          path.classList.toggle("crash-graph-edge-none", none);
+      // (An edge without cards shown at either end dims, and a bus all of
+      // whose edges do.)
+      const none = diagram.graph.edges.map(edge => counts[edge.from] == 0 || counts[edge.to] == 0);
+      diagram.edges.forEach((edge, e) => {
+        for (const path of edge.paths) {
+          path.classList.toggle("crash-graph-edge-none", none[e]);
         }
       });
+      for (const cable of diagram.cables) {
+        for (const path of cable.paths) {
+          path.classList.toggle("crash-graph-edge-none", cable.edges.every(e => none[e]));
+        }
+      }
     });
     // (The biggest of those shown first, else as they were.)
     const size = i => new Set(drawn[i].graph.nodes.flatMap(node => node.cards).filter(shown)).size;

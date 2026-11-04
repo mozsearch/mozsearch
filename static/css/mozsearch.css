@@ -6490,6 +6490,52 @@ textarea.monospace {
 .crash-graph-node-none {
   opacity: 0.35;
 }
+/* (A record of a row's functions of a class, its cells in columns beside its
+   raceways, which its edges' lanes run along; see graph-records.js.) */
+.graph-record {
+  position: absolute;
+  display: grid;
+  width: max-content;
+  row-gap: 2px;
+  padding: 2px 4px 4px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 4px;
+}
+.graph-record-scope {
+  padding: 0 2px 2px;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  font-family: monospace;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.graph-record-scope-name {
+  color: var(--page-foreground);
+  font-size: 11px;
+  font-weight: bold;
+}
+.graph-record .graph-record-cell {
+  position: relative;
+  border-radius: 2px;
+}
+.graph-record-cell .crash-graph-node-scope,
+.graph-record-cell .lock-held-node-sub {
+  display: none;
+}
+/* (A bus: the edges between the same two places, one line.) */
+.graph-bus {
+  stroke-width: 3;
+}
+.crash-graph-edge.graph-edge-hot {
+  stroke: currentColor;
+  opacity: 1;
+}
+.crash-graph-edge-head.graph-edge-hot {
+  fill: currentColor;
+  opacity: 1;
+}
+.graph-node-hot {
+  outline: 1px solid currentColor;
+}
 
 /* The crash sets' form and their ingestions' status (see
    crash_set_form.liquid). */

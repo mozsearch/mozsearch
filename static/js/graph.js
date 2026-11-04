@@ -741,12 +741,27 @@ class RowLayout {
       passes.push(true, false);
     }
     passes.push(true);
+    // (Where a segment's port is from its node's center: an item's own
+    // port's, else at its center.)
+    const offset = (node, segment, side) =>
+      (node.item?.portX ? node.item.portX(segment.edge, side) - node.width / 2 : 0);
     for (const down of passes) {
       for (let k = 1; k < this.rows.length; k++) {
         const row = this.rows[down ? k : this.rows.length - 1 - k];
         const neighbors = row.map(node => (down ? node.ups : node.downs));
-        const desired = row.map((node, i) =>
-          (neighbors[i].length ? median(neighbors[i].map(other => other.x)) : node.x));
+        // (Each one's center such that its port is under, or over, the
+        // other end's.)
+        const desired = row.map((node, i) => {
+          if (!neighbors[i].length) {
+            return node.x;
+          }
+          const segments = down ? node.upSegs : node.downSegs.filter(segment => !segment.sameRow);
+          return median(segments.map(segment => {
+            const other = down ? segment.top : segment.bottom;
+            return other.x + offset(other, segment, down ? "bottom" : "top") -
+              offset(node, segment, down ? "top" : "bottom");
+          }));
+        });
         // (Nodes with no neighbors that way stay about where they are.)
         const weights = row.map((node, i) =>
           (node.dummy ? ROW_DUMMY_WEIGHT : 1) * (neighbors[i].length ? 1 : 0.1));
@@ -775,6 +790,14 @@ class RowLayout {
       }
       return;
     }
+    // (An item's own ports, ex: a record's raceways' lanes; see
+    // graph-records.js.)
+    if (node.item.portX) {
+      for (const end of ends) {
+        end.set(Math.round(node.x - node.width / 2 + node.item.portX(end.edge, end.side)));
+      }
+      return;
+    }
     const low = node.x - node.width / 2 + PORT_MARGIN;
     const high = node.x + node.width / 2 - PORT_MARGIN;
     ends.sort((a, b) => a.desired - b.desired);
@@ -799,7 +822,7 @@ class RowLayout {
     for (const row of this.rows) {
       for (const node of row) {
         this.placePorts(node, node.upSegs.map(segment => ({
-          desired: segment.fromX, set: x => { segment.toX = x; },
+          desired: segment.fromX, set: x => { segment.toX = x; }, edge: segment.edge, side: "top",
         })));
       }
       for (const node of row) {
@@ -809,6 +832,8 @@ class RowLayout {
           return {
             desired: other.x,
             set: fromTop ? x => { segment.fromX = x; } : x => { segment.toX = x; },
+            edge: segment.edge,
+            side: "bottom",
           };
         }));
       }

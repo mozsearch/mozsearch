@@ -3,18 +3,18 @@ source: src/bin/test-index.rs
 expression: "&fb.contents"
 input_file: inputs/dataflow/cpp/ir-lock-Notify
 ---
-mozilla::dom::Worker::Notify (locks/locks.cpp:102-115)
-    103:6   status init {0}
-    105:22  call#0 Construct mozilla::detail::BaseAutoLock::BaseAutoLock<T>({this->mMutex}@this->mMutex) -> _ZN7mozilla6detail12BaseAutoLockC1ET_
-    105:18  lock init {mozilla::detail::BaseAutoLock::BaseAutoLock<T>(…)}
-    106:4   status = {this->mStatus}
-    108:28  call#1 Construct mozilla::detail::BaseAutoUnlock::BaseAutoUnlock<T>({this->mMutex}@this->mMutex) -> _ZN7mozilla6detail14BaseAutoUnlockC1ET_
-    108:22  unlock init {mozilla::detail::BaseAutoUnlock::BaseAutoUnlock<T>(…)}
-    109:6   call#2 Call mozilla::dom::CallOut({status}@status) -> _ZN7mozilla3dom7CallOutEi
-    111:28  λ this->mUnguarded = {1}
-    111:9   later init {lambda@111}
-    112:4   call#3 Call later() -> ?
-    114:2   this->mUnguarded = {status}
-  lock Acquire mozilla::MutexAutoLock this->mMutex events 3..10 lines 105-113, 1 lambda(s) made in it
-  lock Release mozilla::MutexAutoUnlock this->mMutex events 6..7 lines 108-110
-  ?   112 UnresolvedCall: call of later
+mozilla::dom::Worker::Notify (locks/locks.cpp:103-116)
+    104:6   status init {0}
+    106:22  call#0 Construct mozilla::detail::BaseAutoLock::BaseAutoLock<T>({this->mMutex}@this->mMutex) -> _ZN7mozilla6detail12BaseAutoLockC1ET_
+    106:18  lock init {mozilla::detail::BaseAutoLock::BaseAutoLock<T>(…)}
+    107:4   status = {this->mStatus}
+    109:28  call#1 Construct mozilla::detail::BaseAutoUnlock::BaseAutoUnlock<T>({this->mMutex}@this->mMutex) -> _ZN7mozilla6detail14BaseAutoUnlockC1ET_
+    109:22  unlock init {mozilla::detail::BaseAutoUnlock::BaseAutoUnlock<T>(…)}
+    110:6   call#2 Call mozilla::dom::CallOut({status}@status) -> _ZN7mozilla3dom7CallOutEi
+    112:28  λ this->mUnguarded = {1}
+    112:9   later init {lambda@112}
+    113:4   call#3 Call later() -> ?
+    115:2   this->mUnguarded = {status}
+  lock Acquire mozilla::MutexAutoLock this->mMutex events 3..10 lines 106-114, 1 lambda(s) made in it
+  lock Release mozilla::MutexAutoUnlock this->mMutex events 6..7 lines 109-111
+  ?   113 UnresolvedCall: call of later

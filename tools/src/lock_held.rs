@@ -1467,7 +1467,7 @@ pub fn render_lock_held(
     html.push_str("</div></div>");
     // (graph.js's layout, for the diagrams.)
     html.push_str(&format!(
-        r#"<script defer src="/{tree}/static/js/graph.js"></script><script defer src="/{tree}/static/js/lock-held.js"></script>"#,
+        r#"<script defer src="/{tree}/static/js/graph.js"></script><script defer src="/{tree}/static/js/graph-records.js"></script><script defer src="/{tree}/static/js/lock-held.js"></script>"#,
         tree = escape(tree_name)
     ));
     html
