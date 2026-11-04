@@ -8,14 +8,17 @@ set -o pipefail # Check all commands in a pipeline
 # runs this with its environment, and tools/src/try_delta.rs): its stack
 # (PUSH_REVS, as the import's) rebased onto the indexed revision (here, the
 # tree's head) is compiled with the indexer (all of the tree's C++, since it's
-# small; see build), and its semantic delta built from that analysis.  Its steps are "semantic::" steps,
-# which the push's page names if it fails (see try_import's
-# `semantic_failure`).
+# small; see build), its JS analyzed as the tree's is (see
+# try-analyze-js.sh), and its semantic delta built from that analysis.  Its
+# steps are "semantic::" steps, which the push's page names if it fails (see
+# try_import's `semantic_failure`).
 #
 # Usage: analyze-try NAME HEAD_REV
 
 NAME=$1
 HEAD_REV=$2
+# (The tree's, before the build's environment below replaces it.)
+TREE_INDEX_ROOT=$INDEX_ROOT
 
 echo "Performing semantic::rebase step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 if ! REBASED=$("$MOZSEARCH_PATH/scripts/rebase-try-push.sh" "$GIT_ROOT" "$NAME" "$HEAD_REV"); then
@@ -44,6 +47,12 @@ pushd "$WORK"
     merge-analyses "analysis-linux64/$FILE" > "tip-analysis/$FILE"
 done
 popd
+
+# (And its JS, which the compilation doesn't analyze.)
+echo "Performing semantic::js step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+git -C "$GIT_ROOT" diff --name-only HEAD "$REBASED" > "$WORK/changed.lst"
+"$MOZSEARCH_PATH/scripts/try-analyze-js.sh" "$TREE_INDEX_ROOT" "$WORK/files" \
+    "$WORK/changed.lst" "$WORK/tip-analysis"
 
 echo "Performing semantic::delta step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 # (A stack on a newer trunk revision which needs its changes is analyzed with

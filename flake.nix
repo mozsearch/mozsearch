@@ -113,6 +113,9 @@
         ];
 
         serverPackages = with pkgs; [
+          # (For try imports' JS analysis, whose js-analyze.js analyzes CSS in
+          # HTML with it; see scripts/try-analyze-js.sh.)
+          mozsearch-wasm-css-analyzer
         ];
       in {
         packages = {

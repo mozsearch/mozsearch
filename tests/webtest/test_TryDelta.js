@@ -5,10 +5,10 @@
 // tests/trydelta/analyze-try and tools/src/try_delta.rs): 0123456789ab changes
 // Widget::Frob's signature (which user.cpp's call and gadget.h's then use,
 // though they don't change), adds Widget::Wobble, and adds wobbler.cpp, which
-// calls it.  It also renames hello.js's greetPerson, which its analysis (only
-// of the tree's C++) doesn't cover, and changes unpoke.cpp's implementation
-// of the tests tree's example spec's unpoke algorithm (the tree's `SPEC_`
-// symbols are the tests tree's), whose step it cites.  (Not the poke
+// calls it.  It also renames hello.js's greetPerson, which its JS analysis
+// covers (see scripts/try-analyze-js.sh), and changes unpoke.cpp's
+// implementation of the tests tree's example spec's unpoke algorithm (the
+// tree's `SPEC_` symbols are the tests tree's), whose step it cites.  (Not the poke
 // algorithm, whose citations in the searchfox tree, which has this file too,
 // test_SpecCitations.js's diagram has as many of as it shows.)
 
@@ -285,19 +285,21 @@ add_task(async function test_TryDeltaExcerpts() {
   ok(doc().querySelector("#panel-excerpt .excerpt-removed"), "with the lines it removed");
 });
 
-add_task(async function test_TryDeltaUnanalyzedFiles() {
+// The push's JS is analyzed as the tree's is (see scripts/try-analyze-js.sh),
+// besides its compiled C++: hello.js renames greetPerson to welcomePerson.
+add_task(async function test_TryDeltaJsAnalysis() {
   const head = await importPush();
 
   await TestUtils.loadPath("/trydelta/query/default?q=greetPerson");
   ok(doc().querySelector('a[href$="/hello.js"]'),
-     "The indexed revision has the symbols of a file the push changes");
+     "The indexed revision has the symbols of a JS file the push changes");
   await TestUtils.loadPath(`/trydelta/query/default?q=greetPerson&rev=${head}`);
-  ok(!doc().querySelector('a[href$="/hello.js"]'),
-     "but in the push's context, when its analysis doesn't cover the file, the file has none");
+  ok(!doc().querySelector('a[href$="/hello.js"]'), "but in the push's context, the name it renames isn't there");
+  await TestUtils.loadPath(`/trydelta/query/default?q=welcomePerson&rev=${head}`);
+  ok(doc().querySelector('a[href$="/hello.js"]'), "and its new name is");
   await TestUtils.loadPath(`/trydelta/rev/${head}/hello.js`);
-  ok(doc().querySelector("#line-2"), "The file's page at the head shows it");
-  ok(!doc().querySelector(".source-line span[data-symbols]"),
-     "without the indexed revision's symbols, at its lines");
+  ok(doc().querySelector('#line-2 span[data-symbols]')?.textContent == "welcomePerson",
+     "The file's page at the head has its symbols, at its lines");
 });
 
 // The push's citations of web specs are its analysis's too, as the indexed
