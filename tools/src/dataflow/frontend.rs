@@ -576,6 +576,14 @@ struct Builder<'c, 'a> {
     /// block depth), which their blocks' ends close.
     block_depth: usize,
     open_guards: Vec<(usize, usize, usize)>,
+    /// The scoped lock guards (see `LockRegion`) whose blocks haven't ended,
+    /// with their blocks' depths and the lambda depth they're at; the
+    /// parameters proving a mutex is held (see `LockKind::Proof`), by index,
+    /// with their types; and the events of the lambdas made in the function
+    /// (`start..end`), outermost ones only.
+    open_locks: Vec<(LockRegion, usize, u32)>,
+    proof_params: Vec<(usize, String)>,
+    lambda_ranges: Vec<(usize, usize)>,
 }
 
 impl<'c, 'a> Builder<'c, 'a> {
@@ -600,6 +608,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 calls: vec![],
                 questions: vec![],
                 guards: vec![],
+                locks: vec![],
                 names: HashMap::new(),
                 types: HashMap::new(),
             },
@@ -610,6 +619,9 @@ impl<'c, 'a> Builder<'c, 'a> {
             nested: vec![],
             block_depth: 0,
             open_guards: vec![],
+            open_locks: vec![],
+            proof_params: vec![],
+            lambda_ranges: vec![],
         }
     }
 
@@ -728,12 +740,49 @@ impl<'c, 'a> Builder<'c, 'a> {
             Lang::Js => self.js_function(node),
             Lang::Kotlin => self.kt_function(node),
         }
+        // (Guards whose blocks the walk didn't end, ex: a function-try-
+        // block's, end with the function.)
+        let end_line = self.ir.end_line;
+        self.block_depth = 0;
+        self.close_locks(end_line);
+        // A proof parameter's mutex is held for the whole body, but in the
+        // lambdas it makes.
+        for (param, guard) in std::mem::take(&mut self.proof_params) {
+            self.ir.locks.push(LockRegion {
+                kind: LockKind::Proof,
+                guard,
+                call: None,
+                param: Some(param),
+                local: self.ir.params.get(param).and_then(|p| match &p.place.root {
+                    Root::Local(sym) => Some(*sym),
+                    _ => None,
+                }),
+                mutex: None,
+                mutex_text: String::new(),
+                start: 0,
+                end: self.ir.events.len(),
+                line: self.ir.line,
+                end_line: self.ir.end_line,
+                lambdas: self.lambda_ranges.clone(),
+            });
+        }
+        self.ir.locks.sort_by_key(|lock| (lock.start, lock.end));
     }
 
     fn add_param(&mut self, name_node: Node, type_hint: Option<String>) {
         let name = self.t(name_node).to_string();
         let recs = self.recs(name_node);
         let rec = recs.iter().find(|r| !r.syms.is_empty());
+        // (A proof that a mutex is held: `const MutexAutoLock& aProofOfLock`.)
+        if self.cx.lang == Lang::Cpp
+            && let Some(rec) = rec
+            && super::locks::is_proof_type(rec.type_sym.as_deref(), rec.type_pretty.as_deref())
+        {
+            self.proof_params.push((
+                self.ir.params.len(),
+                rec.type_pretty.clone().unwrap_or_default(),
+            ));
+        }
         let place = match rec {
             Some(rec) => {
                 let sym = rec.sym();
@@ -834,6 +883,60 @@ impl<'c, 'a> Builder<'c, 'a> {
         shadowed
     }
 
+    /// A scoped lock guard's declaration, if its local (at `ident`, of a
+    /// guard's type; see `locks::guard_kind`), constructed by the call
+    /// `call`, is one: its region (see `LockRegion`) starts after it, until
+    /// its block ends (see `close_locks`).
+    fn cpp_lock_guard(&mut self, ident: Node, call: usize) {
+        let recs = self.recs(ident);
+        let Some(local) = recs.iter().find(|r| r.sym().starts_with("V_")) else {
+            return;
+        };
+        let Some(kind) =
+            super::locks::guard_kind(local.type_sym.as_deref(), local.type_pretty.as_deref())
+        else {
+            return;
+        };
+        let arg = self.ir.calls.get(call).and_then(|c| c.args.first());
+        let (mutex, mutex_text) = match arg {
+            Some(arg) => (arg.place.clone(), arg.text.clone()),
+            None => (None, String::new()),
+        };
+        let (line, _) = self.pos(ident);
+        let lock = LockRegion {
+            kind,
+            guard: local.type_pretty.clone().unwrap_or_default(),
+            call: Some(call),
+            param: None,
+            local: Some(local.sym()),
+            mutex,
+            mutex_text,
+            start: self.ir.events.len(),
+            end: 0,
+            line,
+            end_line: 0,
+            lambdas: vec![],
+        };
+        self.open_locks
+            .push((lock, self.block_depth, self.lambda_depth));
+    }
+
+    /// End the lock guards of the current block, whose last line is
+    /// `end_line` (see `cpp_lock_guard`).
+    fn close_locks(&mut self, end_line: u32) {
+        let depth = self.block_depth;
+        let end = self.ir.events.len();
+        let (closed, open): (Vec<_>, Vec<_>) = std::mem::take(&mut self.open_locks)
+            .into_iter()
+            .partition(|(_, d, _)| *d >= depth);
+        self.open_locks = open;
+        for (mut lock, _, _) in closed {
+            lock.end = end;
+            lock.end_line = end_line;
+            self.ir.locks.push(lock);
+        }
+    }
+
     /// Close the guards of the current block (see `open_guards`).
     fn close_guards(&mut self) {
         let depth = self.block_depth;
@@ -895,6 +998,7 @@ impl<'c, 'a> Builder<'c, 'a> {
 
     fn lambda_body(&mut self, body: Node<'c>, params: Option<Node<'c>>) {
         self.lambda_depth += 1;
+        let start = self.ir.events.len();
         if let Some(params) = params {
             for param in named(params) {
                 if let Some(ident) = self.param_ident(param) {
@@ -910,6 +1014,19 @@ impl<'c, 'a> Builder<'c, 'a> {
                 if !vals.is_empty() {
                     self.event(body, EventKind::Return { vals });
                 }
+            }
+        }
+        // (Its events run later, maybe without the mutexes held where it's
+        // made.)
+        let end = self.ir.events.len();
+        if start < end {
+            for (lock, _, depth) in &mut self.open_locks {
+                if *depth < self.lambda_depth {
+                    lock.lambdas.push((start, end));
+                }
+            }
+            if self.lambda_depth == 1 {
+                self.lambda_ranges.push((start, end));
             }
         }
         self.lambda_depth -= 1;
@@ -1112,6 +1229,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 self.block_depth += 1;
                 self.stmts(node);
                 self.close_guards();
+                self.close_locks(self.end_line(node));
                 self.block_depth -= 1;
             }
             "translation_unit" | "declaration_list" => self.stmts(node),
@@ -1377,6 +1495,9 @@ impl<'c, 'a> Builder<'c, 'a> {
             .collect();
         for decl in declarators {
             if decl.kind() == "init_declarator" {
+                // (A construction's call, for a lock guard's; see
+                // `cpp_lock_guard`.)
+                let mut constructed = None;
                 let vals = match decl.child_by_field_name("value") {
                     Some(value) => match value.kind() {
                         // `T x(a, b);`, `T x{a, b};`: a constructor's
@@ -1402,6 +1523,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                                     None,
                                     args,
                                 );
+                                constructed = Some(id);
                                 vec![Val::direct(Atom::Call(id))]
                             }
                         }
@@ -1411,6 +1533,11 @@ impl<'c, 'a> Builder<'c, 'a> {
                 };
                 if let Some(place) = self.cpp_declare_targets(decl, vals, decl) {
                     places.push(place);
+                }
+                if let Some(call) = constructed
+                    && let Some(ident) = cpp_declarator_ident(decl)
+                {
+                    self.cpp_lock_guard(ident, call);
                 }
             } else if decl.kind() == "function_declarator"
                 && let Some(ident) = cpp_declarator_ident(decl)
@@ -1485,6 +1612,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             vec![Val::direct(Atom::Call(id))],
             "init",
         );
+        self.cpp_lock_guard(ident, id);
         Some(place)
     }
 
@@ -2144,6 +2272,9 @@ impl<'c, 'a> Builder<'c, 'a> {
             nested: vec![],
             block_depth: self.block_depth,
             open_guards: std::mem::take(&mut self.open_guards),
+            open_locks: std::mem::take(&mut self.open_locks),
+            proof_params: vec![],
+            lambda_ranges: std::mem::take(&mut self.lambda_ranges),
         };
         let vals = if is_stmt {
             sub.stmt(body);
@@ -2165,6 +2296,8 @@ impl<'c, 'a> Builder<'c, 'a> {
         self.macro_cx = sub.macro_cx;
         self.scope = sub.scope;
         self.open_guards = sub.open_guards;
+        self.open_locks = sub.open_locks;
+        self.lambda_ranges = sub.lambda_ranges;
         vals
     }
 
@@ -3444,6 +3577,7 @@ fn empty_ir() -> FuncIr {
         calls: vec![],
         questions: vec![],
         guards: vec![],
+        locks: vec![],
         names: HashMap::new(),
         types: HashMap::new(),
     }
@@ -3832,5 +3966,207 @@ mod tests {
         assert_eq!(at(6), vec![vec![7], vec![7]], "{:?}", f.guards);
         // (Line 11's mixed condition guards nothing.)
         assert!(at(11).is_empty(), "{:?}", f.guards);
+    }
+
+    /// Lock guards' regions (see `LockRegion`): a guard's, from its
+    /// declaration to its block's end, but the lambdas made in it; an
+    /// unlock's in it; and a proof parameter's, the whole body.
+    #[test]
+    fn test_cpp_lock_regions() {
+        let source = "void Foo::Run(const MutexAutoLock& aProofOfLock) {\n  \
+                      Before();\n  \
+                      {\n    \
+                      MutexAutoLock lock(mMutex);\n    \
+                      mCount = 1;\n    \
+                      Held();\n    \
+                      {\n      \
+                      MutexAutoUnlock unlock(mMutex);\n      \
+                      Unheld();\n    \
+                      }\n    \
+                      auto f = [&]() { Later(); };\n  \
+                      }\n  \
+                      After();\n\
+                      }\n";
+        let mut values = vec![
+            rec(
+                source,
+                1,
+                "Run",
+                "def,function",
+                "function Foo::Run",
+                "_ZRun",
+                None,
+            ),
+            rec(
+                source,
+                1,
+                "aProofOfLock",
+                "",
+                "variable aProofOfLock",
+                "V_proof",
+                Some("const MutexAutoLock &"),
+            ),
+        ];
+        for (line, name, ty, sym) in [
+            (4, "lock", "mozilla::MutexAutoLock", "V_lock"),
+            (8, "unlock", "mozilla::MutexAutoUnlock", "V_unlock"),
+        ] {
+            values.push(rec(
+                source,
+                line,
+                name,
+                "constructor,use",
+                "constructor mozilla::detail::BaseAutoLock::BaseAutoLock<T>",
+                "_ZGuardC1",
+                None,
+            ));
+            values.push(rec(
+                source,
+                line,
+                name,
+                "",
+                &format!("variable {}", name),
+                sym,
+                Some(ty),
+            ));
+            values.push(rec(
+                source,
+                line,
+                "mMutex",
+                "field,use",
+                "field Foo::mMutex",
+                "F_<T_Foo>_mMutex",
+                Some("mozilla::Mutex"),
+            ));
+        }
+        values.push(rec(
+            source,
+            5,
+            "mCount",
+            "field,use",
+            "field Foo::mCount",
+            "F_<T_Foo>_mCount",
+            Some("int"),
+        ));
+        for (line, name) in [
+            (2, "Before"),
+            (6, "Held"),
+            (9, "Unheld"),
+            (11, "Later"),
+            (13, "After"),
+        ] {
+            values.push(rec(
+                source,
+                line,
+                name,
+                "function,use",
+                &format!("function {}", name),
+                &format!("_Z{}", name),
+                None,
+            ));
+        }
+        let recs = FileRecords::from_values(values);
+        let file = build_file_ir("a.cpp", source, &recs).unwrap();
+        let f = &file.funcs[0];
+        let lock = |kind: LockKind| f.locks.iter().find(|l| l.kind == kind).unwrap();
+        let lines = |l: &LockRegion| -> Vec<u32> {
+            (l.start..l.end)
+                .filter(|&e| !l.in_lambda(e))
+                .map(|e| f.events[e].line)
+                .collect()
+        };
+        assert_eq!(f.locks.len(), 3, "{}", f);
+        // (The guard holds its mutex from its declaration to its block's end,
+        // but in the lambda made in it.)
+        let held = lock(LockKind::Acquire);
+        assert_eq!(held.guard, "mozilla::MutexAutoLock");
+        assert_eq!(held.mutex_sym().as_deref(), Some("F_<T_Foo>_mMutex"));
+        assert_eq!(held.mutex_text, "mMutex");
+        assert_eq!(held.local.as_deref(), Some("V_lock"));
+        assert_eq!((held.line, held.end_line), (4, 12));
+        assert_eq!(held.lambdas.len(), 1);
+        let held_lines = lines(held);
+        assert!(
+            held_lines.contains(&5) && held_lines.contains(&6) && held_lines.contains(&9),
+            "{:?}",
+            held_lines
+        );
+        assert!(
+            !held_lines.contains(&2) && !held_lines.contains(&13),
+            "{:?}",
+            held_lines
+        );
+        assert!(
+            (held.start..held.end)
+                .filter(|&e| held.in_lambda(e))
+                .all(|e| f.events[e].line == 11)
+        );
+        // (The unlock releases it in its block.)
+        let released = lock(LockKind::Release);
+        assert_eq!(released.mutex_sym().as_deref(), Some("F_<T_Foo>_mMutex"));
+        assert_eq!((released.line, released.end_line), (8, 10));
+        assert_eq!(lines(released), vec![9]);
+        // (The proof parameter, the whole body, but its lambda.)
+        let proof = lock(LockKind::Proof);
+        assert_eq!(proof.param, Some(0));
+        assert_eq!(proof.mutex, None);
+        assert_eq!((proof.line, proof.end_line), (1, 14));
+        assert!(lines(proof).contains(&2) && lines(proof).contains(&13));
+        let later = f
+            .events
+            .iter()
+            .position(
+                |e| matches!(e.kind, EventKind::Call(c) if f.calls[c].callee_pretty == "Later"),
+            )
+            .unwrap();
+        assert!(proof.in_lambda(later) && held.in_lambda(later));
+
+        // What runs with the mutex held (see `locks::held_regions`): not
+        // what the unlock releases it for, nor the lambda's body.
+        let regions = super::super::locks::held_regions(f);
+        let guard = regions
+            .iter()
+            .find(|r| r.kind == LockKind::Acquire)
+            .unwrap();
+        assert_eq!(guard.mutex.as_deref(), Some("F_<T_Foo>_mMutex"));
+        assert_eq!(guard.mutex_text, "this->mMutex");
+        assert_eq!(guard.released, vec![(8, 10)]);
+        assert_eq!(guard.lambdas, vec![(11, 11)]);
+        assert!(
+            guard.held_lines.contains(&5) && !guard.held_lines.contains(&9),
+            "{:?}",
+            guard.held_lines
+        );
+        let callees: Vec<&str> = guard
+            .calls
+            .iter()
+            .map(|c| c.callee_pretty.as_str())
+            .collect();
+        assert_eq!(callees, vec!["Held"]);
+        // (Its mutex isn't one of the fields accessed.)
+        assert_eq!(guard.fields.len(), 1, "{:?}", guard.fields);
+        assert_eq!(guard.fields[0].name, "mCount");
+        assert_eq!(guard.fields[0].writes, vec![5]);
+        assert!(guard.fields[0].reads.is_empty());
+        assert!(guard.locks.is_empty());
+        // (A proof's whole body: its unlocks release it too, and the guard
+        // acquires another mutex with it held.)
+        let proof = regions.iter().find(|r| r.kind == LockKind::Proof).unwrap();
+        assert_eq!(proof.param, Some(0));
+        let callees: Vec<&str> = proof
+            .calls
+            .iter()
+            .map(|c| c.callee_pretty.as_str())
+            .collect();
+        assert_eq!(callees, vec!["Before", "Held", "After"]);
+        assert_eq!(proof.locks.len(), 1);
+        assert_eq!(proof.locks[0].mutex.as_deref(), Some("F_<T_Foo>_mMutex"));
+        assert_eq!(proof.locks[0].line, 4);
+        assert!(
+            f.to_string()
+                .contains("lock Acquire mozilla::MutexAutoLock this->mMutex"),
+            "{}",
+            f
+        );
     }
 }

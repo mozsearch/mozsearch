@@ -7,6 +7,7 @@
 pub mod frontend;
 pub mod impact;
 pub mod ir;
+pub mod locks;
 pub mod oracle;
 pub mod records;
 pub mod render;

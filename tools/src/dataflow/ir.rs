@@ -380,6 +380,71 @@ pub struct Guard {
     pub end: usize,
 }
 
+/// What a lock region does (see `LockRegion`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LockKind {
+    /// A scoped guard holding its mutex to the end of its block
+    /// (`MutexAutoLock lock(mMutex);`).
+    Acquire,
+    /// A scoped guard releasing it to the end of its block
+    /// (`MutexAutoUnlock unlock(mMutex);`).
+    Release,
+    /// A parameter proving a mutex is held for the function's whole body
+    /// (`const MutexAutoLock& aProofOfLock`); which mutex, its callers' guards
+    /// say.
+    Proof,
+}
+
+/// Where a function holds (or releases) a mutex, by the syntax (see
+/// `frontend`'s lock guards and `locks`): a scoped guard's events, from its
+/// construction to the end of its block (its destructor), or a proof
+/// parameter's, the whole body.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct LockRegion {
+    pub kind: LockKind,
+    /// The guard's type (ex: "mozilla::MutexAutoLock").
+    pub guard: String,
+    /// Its construction (one of the calls), or for a proof, its parameter.
+    pub call: Option<usize>,
+    pub param: Option<usize>,
+    /// The guard local.
+    pub local: Option<Ustr>,
+    /// The mutex: the guard's argument's place (ex: `this->mMutex`), if it's
+    /// one, and its text (ex: "mMutex", "GetMutex()").
+    pub mutex: Option<Place>,
+    pub mutex_text: String,
+    /// Its events, `start..end`, and its lines: from the guard's to its
+    /// block's last.
+    pub start: usize,
+    pub end: usize,
+    pub line: u32,
+    pub end_line: u32,
+    /// The events of the lambdas made in it (`start..end` each), which run
+    /// later, maybe without the mutex held.
+    pub lambdas: Vec<(usize, usize)>,
+}
+
+impl LockRegion {
+    /// The mutex's symbol: the field its place is in (ex:
+    /// `F_<T_mozilla::dom::WorkerPrivate>_mMutex` for `this->mMutex` or
+    /// `aWorkerPrivate->mMutex`), or the global it is (ex: a `StaticMutex`).
+    pub fn mutex_sym(&self) -> Option<Ustr> {
+        let place = self.mutex.as_ref()?;
+        place.last_field().or(match &place.root {
+            Root::Global(sym) => Some(*sym),
+            _ => None,
+        })
+    }
+
+    /// Whether one of its events is in a lambda made in it.
+    pub fn in_lambda(&self, event: usize) -> bool {
+        self.lambdas
+            .iter()
+            .any(|&(start, end)| start <= event && event < end)
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct FuncIr {
     pub sym: Ustr,
@@ -398,6 +463,9 @@ pub struct FuncIr {
     /// The calls whose success dominates some of its events (see `Guard`).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub guards: Vec<Guard>,
+    /// Where it holds or releases mutexes (see `LockRegion`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub locks: Vec<LockRegion>,
     /// Display names of the symbols in its places (locals, fields, globals).
     pub names: HashMap<Ustr, String>,
     /// The types of its locals and parameters, where the records have them
@@ -601,6 +669,30 @@ impl fmt::Display for FuncIr {
                 what
             )?;
         }
+        for lock in &self.locks {
+            writeln!(
+                f,
+                "  lock {:?} {} {}{} events {}..{} lines {}-{}{}",
+                lock.kind,
+                lock.guard,
+                match &lock.mutex {
+                    Some(place) => self.place_name(place),
+                    None => format!("{{{}}}", lock.mutex_text),
+                },
+                match lock.param {
+                    Some(i) => format!(" (param {})", i),
+                    None => String::new(),
+                },
+                lock.start,
+                lock.end,
+                lock.line,
+                lock.end_line,
+                match lock.lambdas.len() {
+                    0 => String::new(),
+                    n => format!(", {} lambda(s) made in it", n),
+                }
+            )?;
+        }
         for q in &self.questions {
             writeln!(f, "  ? {:>5} {:?}: {}", q.line, q.kind, q.text)?;
         }
@@ -630,6 +722,7 @@ mod tests {
             calls: vec![],
             questions: vec![],
             guards: vec![],
+            locks: vec![],
             names,
             types: HashMap::new(),
         }
