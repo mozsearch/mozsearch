@@ -8,7 +8,8 @@
 // requiring it held (Status, by its annotation), but not the static mutex's
 // (Increment's); the fields accessed with it held, guarded by it or not;
 // its guarded field read without it (in UnsafePeek); the diagrams of how
-// they're called; and the navigation panel's facets filtering them.
+// they're called; and the navigation panel's facets filtering them.  And
+// a retrier's lock (test_LockHeldRetrier).
 const MUTEX = "F_<T_mozilla::dom::Worker>_mMutex";
 
 function doc() {
@@ -152,4 +153,21 @@ add_task(async function test_LockHeldDataMutex() {
   ok(cards[0].querySelector(".lock-held-how").textContent.startsWith("holds it by AutoLock"), "by its AutoLock");
   const fields = [...doc().querySelectorAll(".lock-held-fields tbody tr")].map(row => row.cells[0].textContent);
   is(fields.join(","), "Counters::mHits", "the data reached through its guard accessed with it held");
+});
+
+// A lambda capturing `this` holds the retrier's lock (clang defines the
+// capture's field where the lambda first uses `this`, at the guard's
+// `mLock`: the name is the field's; see tools/src/dataflow/records.rs), its
+// guarded field set where the analysis is ignored (Init's
+// MOZ_PUSH_IGNORE_THREAD_SAFETY) isn't an unguarded access, and its sink's
+// implementation in a gtest (test code) isn't called with it held.
+add_task(async function test_LockHeldRetrier() {
+  await TestUtils.loadQuery("tests", "lock-held:F_<T_mozilla::dom::Retrier>_mLock");
+  const funcs = [...doc().querySelectorAll(".lock-held-card")]
+    .map(card => card.querySelector(".lock-held-func").textContent);
+  is(funcs.filter(func => func == "mozilla::dom::Retrier::Retry").length, 2,
+     "Both of Retry's guards hold it, its lambda's too");
+  ok(funcs.includes("mozilla::dom::FileSink::Write"), "The sink's implementation is called with it held");
+  ok(!funcs.includes("mozilla::dom::FakeSink::Write"), "but not a gtest's fake's");
+  ok(!doc().querySelector(".lock-held-unguarded"), "Init's write where the analysis is ignored isn't unguarded");
 });

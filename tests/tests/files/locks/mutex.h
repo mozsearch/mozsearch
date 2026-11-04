@@ -11,6 +11,8 @@
 #define MOZ_GUARDED_BY(x)
 #define MOZ_REQUIRES(...)
 #define MOZ_NO_THREAD_SAFETY_ANALYSIS
+#define MOZ_PUSH_IGNORE_THREAD_SAFETY
+#define MOZ_POP_THREAD_SAFETY
 
 namespace mozilla {
 

@@ -8,9 +8,14 @@
 // counters in a DataMutex, held by the guard its Lock() returns; and calls
 // with it held: a function's (Note), a logging macro's (WORKER_LOG's Log),
 // and an interface's with more implementations than calls are followed to
-// (Target::Run).
+// (Target::Run).  And a retrier whose lock a lambda capturing `this` holds
+// (where it first uses `this`, which clang defines the capture's field at),
+// whose guarded field is set where the analysis is ignored (Init's pragmas),
+// and whose sink is a file's or a gtest's fake's (gtest/FakeSink.cpp's, test
+// code, which Retry doesn't run).
 
 #include "mutex.h"
+#include "sink.h"
 
 namespace mozilla::dom {
 
@@ -166,6 +171,40 @@ class Cache {
 void Cache::Hit() {
   auto counters = mCounters.Lock();
   counters->mHits = counters->mHits + 1;
+}
+
+class FileSink : public Sink {
+ public:
+  void Write() override {}
+};
+
+class Retrier {
+ public:
+  void Init(int aInfo);
+  void Retry();
+
+ private:
+  Mutex mLock;
+  int mInfo MOZ_GUARDED_BY(mLock);
+  Sink* mSink;
+};
+
+void Retrier::Init(int aInfo) {
+  MOZ_PUSH_IGNORE_THREAD_SAFETY
+  mInfo = aInfo;
+  MOZ_POP_THREAD_SAFETY
+}
+
+void Retrier::Retry() {
+  auto reset = [&]() {
+    {
+      MutexAutoLock lock(mLock);
+      mInfo = 0;
+    }
+  };
+  reset();
+  MutexAutoLock lock(mLock);
+  mSink->Write();
 }
 
 }  // namespace mozilla::dom

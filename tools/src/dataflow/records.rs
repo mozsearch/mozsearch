@@ -47,6 +47,13 @@ impl SourceRec {
     pub fn short_name(&self) -> &str {
         short_name(&self.pretty)
     }
+
+    /// Whether it's the definition of a field of a lambda's class, its
+    /// capture's (ex: "PrepareConnInfoForRetry::(lambda class1)::(anonymous)",
+    /// `this`'s).
+    pub fn is_lambda_capture(&self) -> bool {
+        self.has_syntax("def") && self.has_syntax("field") && self.pretty.contains("(lambda class")
+    }
 }
 
 /// The last segment of a pretty name.
@@ -250,6 +257,12 @@ impl FileRecords {
                 recs.structured.insert(sym, obj);
             }
         }
+        // (A lambda's implicit capture's field is defined where the lambda
+        // first uses what it captures, ex: `this`'s at `mLock` in `[&] {
+        // MutexAutoLock lock(mLock); }`: the name is the other record's.)
+        for sources in recs.sources.values_mut() {
+            sources.sort_by_key(|rec| rec.is_lambda_capture());
+        }
         recs.function_defs.sort();
         recs.function_defs.dedup();
         recs
@@ -381,5 +394,28 @@ mod tests {
         // (SemanticDB's types, as they are.)
         assert_eq!(jvm_value_type("UrlSink", "sink"), "UrlSink");
         assert_eq!(jvm_value_type("int", "javaField"), "int");
+    }
+
+    #[test]
+    fn test_lambda_capture_last() {
+        // (clang's records of `mLock` in `[&] { MutexAutoLock lock(mLock); }`,
+        // the first use of `this` in the lambda.)
+        let recs = FileRecords::from_values([
+            serde_json::json!({
+                "loc": "01293:25-30", "source": 1, "syntax": "def,field",
+                "pretty": "field Foo::Run::(lambda class1)::(anonymous)",
+                "sym": "F_<T_834392f02c56cd99>_", "type": "class Foo *",
+            }),
+            serde_json::json!({
+                "loc": "01293:25-30", "source": 1, "syntax": "field,use",
+                "pretty": "field Foo::mLock", "sym": "F_<T_Foo>_mLock",
+                "type": "mozilla::Mutex",
+            }),
+        ]);
+        let syms: Vec<Ustr> = recs.sources_at(1293, 25).map(|rec| rec.sym()).collect();
+        assert_eq!(
+            syms,
+            vec![ustr("F_<T_Foo>_mLock"), ustr("F_<T_834392f02c56cd99>_")]
+        );
     }
 }

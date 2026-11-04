@@ -20,7 +20,7 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 use crate::crash_threads::slug;
 use crate::dataflow::frontend::FileIr;
 use crate::dataflow::ir::{LockKind, sym_short_name};
-use crate::dataflow::locks::{HeldRegion, field_parts, held_body, held_regions};
+use crate::dataflow::locks::{HeldRegion, field_parts, held_body, held_regions, mutex_name};
 use crate::dataflow::trace::{TraceOpts, Tracer};
 use crate::rendered_docs::escape;
 
@@ -39,14 +39,21 @@ const CALL_FANOUT: usize = 4;
 const MAX_CARD_LINES: u32 = 400;
 
 /// Callees whose bodies aren't worth cards of their own (smart pointers',
-/// containers', strings', assertions'), by their pretty names' prefixes:
-/// their calls are still listed (and faceted).
+/// containers', strings', time stamps', assertions'), by their pretty names'
+/// prefixes, and assertions by their names' (`Assert…`, ex: a mutex's
+/// `AssertCurrentThreadOwns`): their calls are still listed (and faceted).
 const UNCARDED_CALLEES: &[&str] = &[
     "RefPtr",
     "nsCOMPtr",
     "already_AddRefed",
+    "getter_AddRefs",
+    "do_QueryInterface",
     "mozilla::UniquePtr",
+    "mozilla::WrapUnique",
+    "mozilla::MakeUnique",
+    "mozilla::MakeRefPtr",
     "mozilla::Maybe",
+    "mozilla::Some",
     "mozilla::Atomic",
     "mozilla::detail::",
     "nsTArray",
@@ -55,10 +62,22 @@ const UNCARDED_CALLEES: &[&str] = &[
     "nsTString",
     "nsTAutoString",
     "nsTDependentString",
+    "EmptyCString",
+    "EmptyString",
     "mozilla::Span",
+    "mozilla::TimeStamp",
+    "mozilla::BaseTimeDuration",
     "std::",
     "MOZ_",
 ];
+
+/// Whether a callee isn't worth a card of its own (see `UNCARDED_CALLEES`).
+fn uncarded(callee_pretty: &str) -> bool {
+    UNCARDED_CALLEES
+        .iter()
+        .any(|prefix| callee_pretty.starts_with(prefix))
+        || short(callee_pretty.split('(').next().unwrap_or(callee_pretty)).starts_with("Assert")
+}
 
 /// How a region holds the mutex.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,6 +118,10 @@ pub struct ViewRegion {
     pub func_line: u32,
     pub func_end_line: u32,
     pub region: HeldRegion,
+    /// The other calls reaching its function (but `via`'s last), from the
+    /// view's other regions: its diagram node's other edges.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub callers: Vec<ViaStep>,
 }
 
 impl ViewRegion {
@@ -258,6 +281,8 @@ pub async fn lock_held_view(
     // which are it too, in theirs.
     let mut work: VecDeque<(Arc<FileIr>, usize, usize)> = VecDeque::new();
     let mut seen: HashSet<Ustr> = HashSet::new();
+    // (The regions of the functions reached by calls, by their functions.)
+    let mut reached: UstrMap<usize> = UstrMap::default();
     let mut mutexes: Vec<Ustr> = vec![sym];
     let mut done: HashSet<Ustr> = HashSet::new();
     while let Some(mutex) = mutexes.iter().find(|m| !done.contains(*m)).copied() {
@@ -291,6 +316,7 @@ pub async fn lock_held_view(
                         func_line: func.line,
                         func_end_line: func.end_line,
                         region,
+                        callers: vec![],
                     });
                     work.push_back((file.clone(), index, view.regions.len() - 1));
                 }
@@ -323,7 +349,9 @@ pub async fn lock_held_view(
                 func_line: func.line,
                 func_end_line: func.end_line,
                 region: held_body(func, Some(sym), &short(&view.mutex_pretty).to_string()),
+                callers: vec![],
             });
+            reached.insert(func.sym, view.regions.len() - 1);
             work.push_back((file.clone(), index, view.regions.len() - 1));
         }
     }
@@ -337,11 +365,7 @@ pub async fn lock_held_view(
             // (Not macros' expansions' calls, ex: logging's, assertions',
             // profiler markers'.)
             if !proof
-                && (from.depth >= CALLEE_DEPTH
-                    || call.in_macro
-                    || UNCARDED_CALLEES
-                        .iter()
-                        .any(|prefix| call.callee_pretty.starts_with(prefix)))
+                && (from.depth >= CALLEE_DEPTH || call.in_macro || uncarded(&call.callee_pretty))
             {
                 continue;
             }
@@ -366,7 +390,23 @@ pub async fn lock_held_view(
             }
             for (target_file, target) in targets.into_iter().take(CALL_FANOUT) {
                 let func = &target_file.funcs[target];
-                if func.sym == caller.sym || !func.has_body || seen.contains(&func.sym) {
+                if func.sym == caller.sym || !func.has_body {
+                    continue;
+                }
+                if seen.contains(&func.sym) {
+                    // (Another call reaching a function already in the view.)
+                    if let Some(&other) = reached.get(&func.sym) {
+                        let step = ViaStep {
+                            func: caller.sym,
+                            pretty: caller.pretty.clone(),
+                            path: caller.path.clone(),
+                            line: call.line,
+                        };
+                        let region = &mut view.regions[other];
+                        if region.via.last() != Some(&step) && !region.callers.contains(&step) {
+                            region.callers.push(step);
+                        }
+                    }
                     continue;
                 }
                 let region = match proof {
@@ -416,7 +456,9 @@ pub async fn lock_held_view(
                     func_line: func.line,
                     func_end_line: func.end_line,
                     region,
+                    callers: vec![],
                 });
+                reached.insert(func.sym, view.regions.len() - 1);
                 work.push_back((target_file.clone(), target, view.regions.len() - 1));
             }
         }
@@ -426,17 +468,38 @@ pub async fn lock_held_view(
     Ok(view)
 }
 
-/// How many overrides a call of `callees` has (their most).
+/// How many overrides a call of `callees` has (their most), but tests' (as
+/// the tracer follows them; but a test's method's), counted to just over
+/// `CALL_FANOUT`.
 async fn overrides(tracer: &mut Tracer<'_>, callees: &[Ustr]) -> usize {
     let mut most = 0;
     for callee in callees {
-        if let Some(xref) = tracer.crossref(callee).await {
-            most = most.max(
-                xref.meta
-                    .as_ref()
-                    .map_or(0, |meta| meta.overridden_by_syms.len()),
-            );
+        let Some(xref) = tracer.crossref(callee).await else {
+            continue;
+        };
+        let syms = xref
+            .meta
+            .as_ref()
+            .map(|meta| meta.overridden_by_syms.clone())
+            .unwrap_or_default();
+        if syms.len() <= CALL_FANOUT || xref.is_test_code() {
+            most = most.max(syms.len());
+            continue;
         }
+        let mut count = 0;
+        for sym in &syms {
+            if tracer
+                .crossref(sym)
+                .await
+                .is_some_and(|xref| !xref.is_test_code())
+            {
+                count += 1;
+                if count > CALL_FANOUT {
+                    break;
+                }
+            }
+        }
+        most = most.max(count);
     }
     most
 }
@@ -657,6 +720,8 @@ async fn unguarded_uses(tracer: &mut Tracer<'_>, view: &mut LockHeldView) {
     // symbol; see `symbol_annotations`.)
     let (_, name) = field_parts(&view.mutex);
     let mut annotated: BTreeMap<Ustr, bool> = BTreeMap::new();
+    // (The lines the analysis ignores, by file; see `ignored_ranges`.)
+    let mut ignored: BTreeMap<String, Vec<(u32, u32)>> = BTreeMap::new();
     for field in view.annotations.guarded.clone() {
         let Some(xref) = tracer.crossref(&field).await else {
             continue;
@@ -689,6 +754,17 @@ async fn unguarded_uses(tracer: &mut Tracer<'_>, view: &mut LockHeldView) {
                 if exempted {
                     continue;
                 }
+                // (Code the analysis ignores, by its file's pragmas.)
+                if !ignored.contains_key(uses.path.as_str()) {
+                    let source = tracer.source(&uses.path).await.unwrap_or_default();
+                    ignored.insert(uses.path.to_string(), ignored_ranges(&source));
+                }
+                if ignored[uses.path.as_str()]
+                    .iter()
+                    .any(|&(first, last)| first <= line.lineno && line.lineno <= last)
+                {
+                    continue;
+                }
                 // (Constructors and destructors, which nothing shares the
                 // object with yet, or anymore.)
                 let (class, method) = method_parts(&line.context);
@@ -710,6 +786,29 @@ async fn unguarded_uses(tracer: &mut Tracer<'_>, view: &mut LockHeldView) {
     view.unguarded_count = unguarded.len();
     unguarded.truncate(MAX_UNGUARDED);
     view.unguarded = unguarded;
+}
+
+/// The lines from `MOZ_PUSH_IGNORE_THREAD_SAFETY` to `MOZ_POP_THREAD_SAFETY`
+/// in a file's source, which the thread-safety analysis ignores (but not the
+/// macros' definitions, nor comments mentioning them).
+fn ignored_ranges(source: &str) -> Vec<(u32, u32)> {
+    let mut out = vec![];
+    let mut start = None;
+    for (i, line) in source.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("//") || trimmed.starts_with('#') {
+            continue;
+        }
+        let lineno = i as u32 + 1;
+        if trimmed.contains("MOZ_PUSH_IGNORE_THREAD_SAFETY") {
+            start.get_or_insert(lineno);
+        } else if trimmed.contains("MOZ_POP_THREAD_SAFETY")
+            && let Some(first) = start.take()
+        {
+            out.push((first, lineno));
+        }
+    }
+    out
 }
 
 /// A facet value's path from its facet's top (see `view_facets`): each level's
@@ -812,16 +911,7 @@ fn region_facet_values(
         .locks
         .iter()
         .map(|lock| {
-            let name = lock
-                .mutex
-                .map(|sym| {
-                    let (class, field) = field_parts(&sym);
-                    match class.is_empty() {
-                        true => field,
-                        false => format!("{}::{}", short(&class), field),
-                    }
-                })
-                .unwrap_or_else(|| lock.mutex_text.clone());
+            let name = mutex_name(lock.mutex.as_deref(), &lock.mutex_text);
             vec![(slug(&name), name)]
         })
         .collect();
@@ -1088,9 +1178,9 @@ pub fn region_graphs(tree_name: &str, view: &LockHeldView) -> Vec<RegionGraph> {
     for (i, region) in view.regions.iter().enumerate() {
         let held = &region.region;
         let at = region_nodes[i];
-        // The call reaching it, from its caller's region containing the
-        // call's line (or its caller's function).
-        if let Some(step) = region.via.last() {
+        // The calls reaching it, from their callers' regions containing the
+        // calls' lines (or their callers' functions).
+        for step in region.via.last().into_iter().chain(&region.callers) {
             let caller = view
                 .regions
                 .iter()
@@ -1122,16 +1212,7 @@ pub fn region_graphs(tree_name: &str, view: &LockHeldView) -> Vec<RegionGraph> {
         }
         // The other mutexes it acquires (the same mutex, one node).
         for lock in &held.locks {
-            let name = lock
-                .mutex
-                .map(|sym| {
-                    let (class, field) = field_parts(&sym);
-                    match class.is_empty() {
-                        true => field,
-                        false => format!("{}::{}", short(&class), field),
-                    }
-                })
-                .unwrap_or_else(|| lock.mutex_text.clone());
+            let name = mutex_name(lock.mutex.as_deref(), &lock.mutex_text);
             let acquired = node(
                 format!("lock:{}", name),
                 &|| GraphNode {
@@ -1347,7 +1428,7 @@ pub fn render_lock_held(
     // Its guarded fields' accesses without it held.
     if view.unguarded_count > 0 {
         html.push_str(&format!(
-            r#"<details class="lock-held-unguarded"><summary>Its guarded fields' accesses without it held, as far as this analysis sees ({})</summary><p class="lock-held-about">Outside the regions here (but in the methods requiring it, those without the thread-safety analysis, and constructors and destructors): ex: under an assertion that the current thread owns it, or in code only one thread runs.</p><ul>"#,
+            r#"<details class="lock-held-unguarded"><summary>Its guarded fields' accesses without it held, as far as this analysis sees ({})</summary><p class="lock-held-about">Outside the regions here (but in the methods requiring it, those without the thread-safety analysis, the code between <code>MOZ_PUSH_IGNORE_THREAD_SAFETY</code> and <code>MOZ_POP_THREAD_SAFETY</code>, and constructors and destructors): ex: under an assertion that the current thread owns it, or in code only one thread runs.</p><ul>"#,
             view.unguarded_count
         ));
         for use_ in &view.unguarded {
@@ -1418,15 +1499,33 @@ fn card_html(
         .map(|(key, paths)| (key, flat_values(&paths)))
         .filter(|(_, values)| !values.is_empty())
         .collect();
-    let caller = region.via.last();
-    let caller_html = |what: &str| match caller {
-        Some(step) => format!(
-            r#"{}, from <a href="{}">{}</a>"#,
-            what,
-            line_link(tree_name, &step.path, step.line),
-            escape(short(&step.pretty))
-        ),
-        None => what.to_string(),
+    // (The calls reaching it: a function's again, by their lines.)
+    let callers: Vec<&ViaStep> = region
+        .via
+        .last()
+        .into_iter()
+        .chain(&region.callers)
+        .collect();
+    let caller_html = |what: &str| {
+        if callers.is_empty() {
+            return what.to_string();
+        }
+        let links: Vec<String> = callers
+            .iter()
+            .enumerate()
+            .map(|(i, step)| {
+                let again = i > 0 && callers[i - 1].func == step.func;
+                format!(
+                    r#"<a href="{}">{}</a>"#,
+                    line_link(tree_name, &step.path, step.line),
+                    match again {
+                        true => format!("line {}", step.line),
+                        false => escape(short(&step.pretty)),
+                    }
+                )
+            })
+            .collect();
+        format!("{}, from {}", what, links.join(", "))
     };
     let how = match region.how {
         How::Guard => format!(
@@ -1677,6 +1776,30 @@ mod tests {
             ),
             vec!["mMutex", "mOther"]
         );
+    }
+
+    #[test]
+    fn test_ignored_ranges() {
+        let source = "// MOZ_PUSH_IGNORE_THREAD_SAFETY in a comment\n\
+                      void Init() {\n\
+                      \x20 MOZ_PUSH_IGNORE_THREAD_SAFETY\n\
+                      \x20 mCallbacks = aCallbacks;\n\
+                      \x20 MOZ_POP_THREAD_SAFETY\n\
+                      \x20 mOther = 1;\n\
+                      }\n";
+        assert_eq!(ignored_ranges(source), vec![(3, 5)]);
+        assert!(ignored_ranges("#define MOZ_PUSH_IGNORE_THREAD_SAFETY\n").is_empty());
+    }
+
+    #[test]
+    fn test_uncarded() {
+        assert!(uncarded("mozilla::TimeStamp::Now"));
+        assert!(uncarded(
+            "mozilla::OffTheBooksMutex::AssertCurrentThreadOwns"
+        ));
+        assert!(uncarded("mozilla::dom::AssertIsOnMainThread"));
+        assert!(!uncarded("mozilla::net::nsHttpConnectionInfo::Clone"));
+        assert!(!uncarded("mozilla::net::Assertion::Run"));
     }
 
     #[test]

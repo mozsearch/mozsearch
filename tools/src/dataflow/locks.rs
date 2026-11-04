@@ -606,19 +606,57 @@ pub fn field_parts(sym: &str) -> (String, String) {
 }
 
 /// How a mutex is named for people (ex: "Worker::mMutex"): its field's
-/// class's last name and its name, else (a global, or an expression) as the
-/// code spells it.
+/// class's last name and its name, a global's scope's last name and its name
+/// (see `global_parts`), else (an expression) as the code spells it.
 pub fn mutex_name(sym: Option<&str>, text: &str) -> String {
-    match sym {
-        Some(sym) if sym.starts_with("F_") => {
-            let (class, field) = field_parts(sym);
-            let class = class.rsplit("::").next().unwrap_or(&class).to_string();
-            match class.is_empty() {
-                true => field,
-                false => format!("{}::{}", class, field),
+    let (scope, name) = match sym {
+        Some(sym) if sym.starts_with("F_") => field_parts(sym),
+        Some(sym) => match global_parts(sym) {
+            Some(parts) => parts,
+            None => return text.to_string(),
+        },
+        None => return text.to_string(),
+    };
+    match scope.rsplit("::").next().unwrap_or(&scope) {
+        "" => name,
+        last => format!("{}::{}", last, name),
+    }
+}
+
+/// The scope and the name of a global's mangled symbol, a static member's
+/// or a namespace's variable (`_ZN7mozilla3net14SSLTokensCache5sLockE`:
+/// "mozilla::net::SSLTokensCache", "sLock"; `_ZL11sCountMutex`: "",
+/// "sCountMutex"), if it's only names.
+pub fn global_parts(sym: &str) -> Option<(String, String)> {
+    // (Its length-prefixed names, ex: "7mozilla", internal linkage's too,
+    // "L11sCountMutex".)
+    fn names(mut rest: &str) -> Option<(Vec<&str>, &str)> {
+        let mut out = vec![];
+        loop {
+            if rest.starts_with('L') && rest[1..].starts_with(|c: char| c.is_ascii_digit()) {
+                rest = &rest[1..];
             }
+            if !rest.starts_with(|c: char| c.is_ascii_digit()) {
+                break;
+            }
+            let digits = rest.find(|c: char| !c.is_ascii_digit())?;
+            let len: usize = rest[..digits].parse().ok()?;
+            let name = rest.get(digits..digits + len)?;
+            out.push(name);
+            rest = &rest[digits + len..];
         }
-        _ => text.to_string(),
+        Some((out, rest))
+    }
+    let nested = sym.strip_prefix("_ZN");
+    let (parts, rest) = names(nested.or_else(|| sym.strip_prefix("_Z"))?)?;
+    // (Not a function's, whose parameters' types follow.)
+    let done = match nested {
+        Some(_) => rest == "E",
+        None => rest.is_empty(),
+    };
+    match parts.split_last() {
+        Some((name, scope)) if done => Some((scope.join("::"), name.to_string())),
+        _ => None,
     }
 }
 
@@ -721,6 +759,35 @@ pub fn file_locks(file: &super::frontend::FileIr) -> Option<FileLocks> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_mutex_names() {
+        assert_eq!(
+            global_parts("_ZN7mozilla3net14SSLTokensCache5sLockE"),
+            Some((
+                "mozilla::net::SSLTokensCache".to_string(),
+                "sLock".to_string()
+            ))
+        );
+        assert_eq!(
+            mutex_name(Some("_ZN7mozilla3net14SSLTokensCache5sLockE"), "sLock"),
+            "SSLTokensCache::sLock"
+        );
+        assert_eq!(
+            mutex_name(Some("_ZN7mozilla3domL11sCountMutexE"), "sCountMutex"),
+            "dom::sCountMutex"
+        );
+        assert_eq!(mutex_name(Some("_ZL6sMutex"), "sMutex"), "sMutex");
+        assert_eq!(
+            mutex_name(Some("F_<T_mozilla::dom::Worker>_mMutex"), "mMutex"),
+            "Worker::mMutex"
+        );
+        // (Not a function's, nor what isn't mangled.)
+        assert_eq!(global_parts("_ZN7mozilla3dom4WakeEv"), None);
+        assert_eq!(global_parts("_Z4Wakev"), None);
+        assert_eq!(mutex_name(Some("V_1234"), "aMutex"), "aMutex");
+        assert_eq!(mutex_name(None, "self->mMutex"), "self->mMutex");
+    }
 
     #[test]
     fn test_line_locks() {

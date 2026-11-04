@@ -2066,19 +2066,30 @@ impl<'s> Tracer<'s> {
                     self.opts.fanout
                 ));
             }
-            self.prefetch_defs(
-                overridden_by
+            // (Not tests' overrides, ex: a gtest's fake connection's, which
+            // the code isn't run with, unless the method is test code too;
+            // see `TraceOpts::include_tests`.)
+            let skip_tests = self.skips_tests(&xref);
+            let mut followed = 0;
+            let mut next = 0;
+            while followed < self.opts.fanout && next < overridden_by.len() {
+                let batch: Vec<Ustr> = overridden_by[next..]
                     .iter()
-                    .take(self.opts.fanout)
+                    .take(self.opts.fanout - followed)
                     .copied()
-                    .collect(),
-            )
-            .await;
-            for o in overridden_by.iter().take(self.opts.fanout) {
-                out.extend(
-                    self.defs_of(o, Some("override".to_string()), ArgMap::Direct)
-                        .await,
-                );
+                    .collect();
+                next += batch.len();
+                self.prefetch_defs(batch.clone()).await;
+                for o in &batch {
+                    if skip_tests && self.xref(o).await.is_some_and(|xref| xref.is_test_code()) {
+                        continue;
+                    }
+                    followed += 1;
+                    out.extend(
+                        self.defs_of(o, Some("override".to_string()), ArgMap::Direct)
+                            .await,
+                    );
+                }
             }
         }
         if out.is_empty()
