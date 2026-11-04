@@ -3,7 +3,8 @@
 // status (by its annotations), held by guards, released by an unlock, proven
 // held by a parameter (DispatchLockHeld's), required held (Status), acquired
 // after its monitor, and held as a reporter's reference to it; a guarded
-// field read without it (UnsafePeek); and a static mutex.
+// field read without it (UnsafePeek); a static mutex; and a cache's counters
+// in a DataMutex, held by the guard its Lock() returns.
 
 #include "mutex.h"
 
@@ -99,6 +100,23 @@ static int sCount;
 void Increment() {
   StaticMutexAutoLock lock(sCountMutex);
   sCount = sCount + 1;
+}
+
+struct Counters {
+  int mHits = 0;
+};
+
+class Cache {
+ public:
+  void Hit();
+
+ private:
+  DataMutex<Counters> mCounters;
+};
+
+void Cache::Hit() {
+  auto counters = mCounters.Lock();
+  counters->mHits = counters->mHits + 1;
 }
 
 }  // namespace mozilla::dom

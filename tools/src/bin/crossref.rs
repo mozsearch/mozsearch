@@ -1612,6 +1612,35 @@ fn write_file_recency(index_path: &str, table: BTreeMap<String, FileRecency>) {
     ext_out.flush().unwrap();
 }
 
+/// Give the mutexes whose guards hold them in regions (see
+/// `dataflow::locks::FileLocks`, which dataflow-summarize writes into the
+/// index's `lock-regions` before crossref runs, for trees with dataflow
+/// summaries) their regions' count in their metadata (`lockRegions`), for
+/// their context menus' "Where it's held" (the `lock-held:` view; see
+/// lock_held.rs).
+fn add_lock_regions(index_path: &str, meta_table: &mut MetaTable) {
+    let Ok(text) = std::fs::read_to_string(format!("{}/lock-regions", index_path)) else {
+        return;
+    };
+    let mut counts: UstrMap<u32> = UstrMap::default();
+    for line in text.lines() {
+        let Ok(file) = serde_json::from_str::<tools::dataflow::locks::FileLocks>(line) else {
+            continue;
+        };
+        for lock in &file.locks {
+            if let (Some(mutex), tools::dataflow::ir::LockKind::Acquire) = (lock.mutex, lock.kind) {
+                *counts.entry(mutex).or_default() += 1;
+            }
+        }
+    }
+    for (mutex, count) in counts {
+        if let Some(meta) = meta_table.get_mut(&mutex) {
+            meta.extra
+                .insert("lockRegions".to_string(), serde_json::json!(count));
+        }
+    }
+}
+
 type FieldOwningClassRules = UstrMap<OntologyLabelOwningClass>;
 
 fn read_field_owning_class_rules(ontology: &OntologyMappingIngestion) -> FieldOwningClassRules {
@@ -3608,6 +3637,7 @@ async fn crossref_subset(
         &mut meta_table,
         field_owning_class_rules,
     );
+    add_lock_regions(&tree_config.paths.index_path, &mut meta_table);
     process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
     let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
     let tree_metas = tree_rollup_metas(base_index, &callees_table, &pretty_table);
@@ -3836,6 +3866,7 @@ async fn main() {
         &mut meta_table,
         field_owning_class_rules,
     );
+    add_lock_regions(&tree_config.paths.index_path, &mut meta_table);
 
     process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
 

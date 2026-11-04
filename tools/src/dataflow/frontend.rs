@@ -884,9 +884,11 @@ impl<'c, 'a> Builder<'c, 'a> {
     }
 
     /// A scoped lock guard's declaration, if its local (at `ident`, of a
-    /// guard's type; see `locks::guard_kind`), constructed by the call
-    /// `call`, is one: its region (see `LockRegion`) starts after it, until
-    /// its block ends (see `close_locks`).
+    /// guard's type; see `locks::guard_kind`), made by the call `call`, is
+    /// one: its region (see `LockRegion`) starts after it, until its block
+    /// ends (see `close_locks`).  Its mutex is a construction's first
+    /// argument (`MutexAutoLock lock(mMutex);`), or a call's receiver (`auto
+    /// lock = mData.Lock();`, a DataMutex's).
     fn cpp_lock_guard(&mut self, ident: Node, call: usize) {
         let recs = self.recs(ident);
         let Some(local) = recs.iter().find(|r| r.sym().starts_with("V_")) else {
@@ -897,7 +899,10 @@ impl<'c, 'a> Builder<'c, 'a> {
         else {
             return;
         };
-        let arg = self.ir.calls.get(call).and_then(|c| c.args.first());
+        let arg = self.ir.calls.get(call).and_then(|c| match c.kind {
+            CallKind::Construct => c.args.first(),
+            _ => c.receiver.as_ref(),
+        });
         let (mutex, mutex_text) = match arg {
             Some(arg) => (arg.place.clone(), arg.text.clone()),
             None => (None, String::new()),
@@ -1531,10 +1536,20 @@ impl<'c, 'a> Builder<'c, 'a> {
                     },
                     None => vec![],
                 };
+                // (Or a call's result, ex: a DataMutex's `Lock()`'s guard.)
+                let made = constructed.or(match vals.as_slice() {
+                    [
+                        Val {
+                            atom: Atom::Call(call),
+                            derived: false,
+                        },
+                    ] => Some(*call),
+                    _ => None,
+                });
                 if let Some(place) = self.cpp_declare_targets(decl, vals, decl) {
                     places.push(place);
                 }
-                if let Some(call) = constructed
+                if let Some(call) = made
                     && let Some(ident) = cpp_declarator_ident(decl)
                 {
                     self.cpp_lock_guard(ident, call);

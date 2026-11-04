@@ -104,22 +104,44 @@ add_task(async function test_LockHeldContext() {
   is(shown.join(","), "holding Worker::mMonitor › Worker::mMutex", "which filters the results");
 });
 
-// A mutex field's context menu goes to the code holding it (its metadata's
-// type, from its class's; see crossref.rs's `process_class_fields` and
-// context-menu.js's `isMutexType`), but another field's doesn't.
+// A mutex's context menu, under its diagrams, goes to where it's held, if
+// the dataflow analysis found its guards' regions (its metadata's
+// `lockRegions`, which crossref counts from dataflow-summarize's
+// lock-regions; see crossref.rs's `add_lock_regions`), but another field's
+// doesn't.
 add_task(async function test_LockHeldMenu() {
   await TestUtils.resetFeatureGate("semanticInfo");
+  await TestUtils.resetFeatureGate("diagramming");
   await TestUtils.loadPath("/tests/source/locks/locks.cpp");
   const menu = doc().querySelector("#context-menu");
   const item = () => [...menu.querySelectorAll(".contextmenu-row")]
-    .find(row => row.textContent.startsWith("Code holding "));
+    .find(row => row.textContent.startsWith("Where "));
   TestUtils.click(doc().querySelector(`span[data-symbols="${MUTEX}"]`));
   await waitForShown(menu, "The mutex field's click shows the context menu");
-  is(item()?.textContent, "Code holding mozilla::dom::Worker::mMutex", "which goes to the code holding it");
+  is(item()?.textContent, "Where mozilla::dom::Worker::mMutex is held (3 guards)",
+     "which goes to where it's held, saying how many guards hold it");
   is(item().querySelector(".contextmenu-link").getAttribute("href"),
      `/tests/query/default?q=${encodeURIComponent(`lock-held:${MUTEX}`)}`, "the lock-held: view");
   TestUtils.click(doc().body);
   TestUtils.click(doc().querySelector('span[data-symbols="F_<T_mozilla::dom::Worker>_mStatus"]'));
   await waitForShown(menu, "Another field's click shows the context menu");
   ok(!item(), "without it");
+  TestUtils.click(doc().body);
+  TestUtils.click(doc().querySelector('span[data-symbols="F_<T_mozilla::dom::Cache>_mCounters"]'));
+  await waitForShown(menu, "A DataMutex field's click shows the context menu");
+  is(item()?.textContent, "Where mozilla::dom::Cache::mCounters is held (1 guard)", "with it too");
+});
+
+// A DataMutex's guard, which its Lock() returns (`auto counters =
+// mCounters.Lock();`), holds it, and what's reached through the guard is
+// accessed with it held (see tools/src/dataflow/frontend.rs's
+// `cpp_lock_guard`).
+add_task(async function test_LockHeldDataMutex() {
+  await TestUtils.loadQuery("tests", "lock-held:F_<T_mozilla::dom::Cache>_mCounters");
+  const cards = [...doc().querySelectorAll(".lock-held-card")];
+  is(cards.map(card => card.querySelector(".lock-held-func").textContent).join(","), "mozilla::dom::Cache::Hit",
+     "A DataMutex's guard's region is a card");
+  ok(cards[0].querySelector(".lock-held-how").textContent.startsWith("holds it by AutoLock"), "by its AutoLock");
+  const fields = [...doc().querySelectorAll(".lock-held-fields tbody tr")].map(row => row.cells[0].textContent);
+  is(fields.join(","), "Counters::mHits", "the data reached through its guard accessed with it held");
 });

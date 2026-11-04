@@ -1,7 +1,7 @@
 // A stand-in for Gecko's mutexes and their scoped guards (xpcom/threads'
-// Mutex.h, Monitor.h, and xpcom/base/StaticMutex.h), for the dataflow
-// frontend's lock regions (tools/src/dataflow/locks.rs, which knows their
-// classes) and the lock-held: view: a guard holds its mutex from its
+// Mutex.h, Monitor.h and DataMutex.h, and xpcom/base/StaticMutex.h), for the
+// dataflow frontend's lock regions (tools/src/dataflow/locks.rs, which knows
+// their classes) and the lock-held: view: a guard holds its mutex from its
 // construction to the end of its block, and an unlock releases it there.
 
 #ifndef locks_mutex_h
@@ -73,6 +73,36 @@ class MonitorAutoLockBase {
 };
 
 using MonitorAutoLock = MonitorAutoLockBase<Monitor>;
+
+// A value only reached through its mutex's guard, which `Lock()` returns
+// (xpcom/threads/DataMutex.h): `auto lock = mData.Lock(); lock->mField`.
+template <typename T, typename MutexType>
+class DataMutexBase {
+ public:
+  template <typename V>
+  class AutoLockBase {
+   public:
+    V* operator->() const { return &mOwner->mValue; }
+    ~AutoLockBase() { mOwner->mMutex.Unlock(); }
+
+   private:
+    friend class DataMutexBase;
+    explicit AutoLockBase(DataMutexBase* aOwner) : mOwner(aOwner) {
+      mOwner->mMutex.Lock();
+    }
+    DataMutexBase* mOwner;
+  };
+
+  using AutoLock = AutoLockBase<T>;
+  AutoLock Lock() { return AutoLock(this); }
+
+ private:
+  MutexType mMutex;
+  T mValue;
+};
+
+template <typename T>
+using DataMutex = DataMutexBase<T, Mutex>;
 
 }  // namespace mozilla
 

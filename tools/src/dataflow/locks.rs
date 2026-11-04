@@ -9,6 +9,9 @@
 //! `ReentrantMonitorAutoEnter`, `RecursiveMutexAutoLock`, and RW locks'
 //! `AutoReadLock`/`AutoWriteLock`; and their releasing counterparts
 //! (`MutexAutoUnlock`, …).  The standard library's (in third-party code) too.
+//! And a `DataMutex`'s `AutoLock`, which its `Lock()` returns (`auto lock =
+//! mData.Lock();`), holding the DataMutex (the call's receiver) until its
+//! destructor.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -31,6 +34,9 @@ pub const ACQUIRING_GUARDS: &[&str] = &[
     "mozilla::BaseAutoWriteLock",
     "mozilla::BaseAutoTryReadLock",
     "mozilla::BaseAutoTryWriteLock",
+    // (A DataMutex's, which its `Lock()` and `ConstLock()` return: `auto lock
+    // = mData.Lock();`, of the call's receiver.)
+    "mozilla::DataMutexBase::AutoLockBase",
     "std::lock_guard",
     "std::unique_lock",
     "std::scoped_lock",
