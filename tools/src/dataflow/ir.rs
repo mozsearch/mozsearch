@@ -179,6 +179,10 @@ pub struct Call {
     pub receiver: Option<Arg>,
     pub args: Vec<Arg>,
     pub text: String,
+    /// Whether it's in a macro's expansion (ex: `MOZ_LOG`'s), whether the
+    /// frontend walked the expansion or took its callee's record there.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub in_macro: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]

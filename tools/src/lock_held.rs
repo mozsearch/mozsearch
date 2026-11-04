@@ -110,10 +110,18 @@ impl ViewRegion {
         )
     }
 
-    /// The lines its card shows: a guard's region's, or a function's.
+    /// The lines its card shows: a guard's region's (from the lambdas made
+    /// before it which it calls, if any), or a function's.
     pub fn lines(&self) -> (u32, u32) {
         match self.how {
-            How::Guard => (self.region.line, self.region.end_line),
+            How::Guard => (
+                self.region
+                    .called_lambdas
+                    .iter()
+                    .map(|&(first, _)| first)
+                    .fold(self.region.line, u32::min),
+                self.region.end_line,
+            ),
             _ => (self.func_line, self.func_end_line),
         }
     }
@@ -326,8 +334,11 @@ pub async fn lock_held_view(
         let from = view.regions[at].clone();
         for call in &from.region.calls {
             let proof = !call.proof_args.is_empty();
+            // (Not macros' expansions' calls, ex: logging's, assertions',
+            // profiler markers'.)
             if !proof
                 && (from.depth >= CALLEE_DEPTH
+                    || call.in_macro
                     || UNCARDED_CALLEES
                         .iter()
                         .any(|prefix| call.callee_pretty.starts_with(prefix)))
@@ -340,6 +351,18 @@ pub async fn lock_held_view(
                 if !targets.is_empty() {
                     break;
                 }
+            }
+            // (Nor an interface's method without a body of its own, whose
+            // overrides the call would be followed to, if it has more than
+            // that's followed to: some of them, not those called; ex:
+            // nsIEventTarget::Dispatch's.)
+            if !proof
+                && !targets
+                    .iter()
+                    .any(|(file, index)| call.callee.contains(&file.funcs[*index].sym))
+                && overrides(&mut tracer, &call.callee).await > CALL_FANOUT
+            {
+                continue;
             }
             for (target_file, target) in targets.into_iter().take(CALL_FANOUT) {
                 let func = &target_file.funcs[target];
@@ -401,6 +424,21 @@ pub async fn lock_held_view(
     // Its guarded fields' accesses outside the regions holding it.
     unguarded_uses(&mut tracer, &mut view).await;
     Ok(view)
+}
+
+/// How many overrides a call of `callees` has (their most).
+async fn overrides(tracer: &mut Tracer<'_>, callees: &[Ustr]) -> usize {
+    let mut most = 0;
+    for callee in callees {
+        if let Some(xref) = tracer.crossref(callee).await {
+            most = most.max(
+                xref.meta
+                    .as_ref()
+                    .map_or(0, |meta| meta.overridden_by_syms.len()),
+            );
+        }
+    }
+    most
 }
 
 /// The fields `func` initializes or assigns from `mutex` (its value, or its
@@ -483,21 +521,6 @@ async fn annotations(tracer: &mut Tracer<'_>, mutex: Ustr) -> Annotations {
         .flatten()
         .map(|def| def.path.to_string())
         .next();
-    // (Lines of a file, `first..=last`.)
-    async fn lines(tracer: &mut Tracer<'_>, path: &str, first: u32, last: u32) -> String {
-        let Some(source) = tracer.source(path).await else {
-            return String::new();
-        };
-        source
-            .lines()
-            .skip(first.saturating_sub(1) as usize)
-            .take((last.saturating_sub(first) + 1) as usize)
-            .collect::<Vec<_>>()
-            .join(
-                "
-",
-            )
-    }
     for field in &meta.fields {
         let (path, range) = match field.line_range.split_once('#') {
             Some((path, range)) if !path.is_empty() => (path.to_string(), range.to_string()),
@@ -517,50 +540,85 @@ async fn annotations(tracer: &mut Tracer<'_>, mutex: Ustr) -> Annotations {
         if first == 0 {
             continue;
         }
-        let text = lines(tracer, &path, first, last.max(first)).await;
+        // (To its declaration's end: the annotation can be on the next line,
+        // as `lineRange` is its name's.)
+        let text = source_lines(tracer, &path, first, last.max(first) + 3).await;
+        let text = match text.find(';') {
+            Some(end) => &text[..end],
+            None => &text,
+        };
         if ["MOZ_GUARDED_BY", "MOZ_PT_GUARDED_BY"]
             .iter()
-            .any(|annotation| annotation_args(&text, annotation).contains(&name.as_str()))
+            .any(|annotation| annotation_args(text, annotation).contains(&name.as_str()))
         {
             out.guarded.push(field.sym);
         }
     }
     for method in &meta.methods {
-        let Some(xref) = tracer.crossref(&method.sym).await else {
-            continue;
-        };
-        // (Its declaration, else its definition: from its line to its end,
-        // a few lines at most.)
-        let Some(at) = xref
-            .declarations
-            .iter()
-            .flatten()
-            .chain(xref.definitions.iter().flatten())
-            .find_map(|found| {
-                found
-                    .lines
-                    .first()
-                    .map(|line| (found.path.to_string(), line.lineno))
-            })
-        else {
-            continue;
-        };
-        let text = lines(tracer, &at.0, at.1, at.1 + 3).await;
-        let text = match text.find([';', '{']) {
-            Some(end) => &text[..end],
-            None => &text,
-        };
-        if ["MOZ_REQUIRES", "MOZ_REQUIRES_SHARED"]
-            .iter()
-            .any(|annotation| annotation_args(text, annotation).contains(&name.as_str()))
-        {
+        let (requires, unchecked) = symbol_annotations(tracer, method.sym, &name).await;
+        if requires {
             out.requires.push(method.sym);
         }
-        if text.contains("MOZ_NO_THREAD_SAFETY_ANALYSIS") {
+        if unchecked {
             out.unchecked.push(method.sym);
         }
     }
     out
+}
+
+/// A file's lines `first..=last`.
+async fn source_lines(tracer: &mut Tracer<'_>, path: &str, first: u32, last: u32) -> String {
+    let Some(source) = tracer.source(path).await else {
+        return String::new();
+    };
+    source
+        .lines()
+        .skip(first.saturating_sub(1) as usize)
+        .take((last.saturating_sub(first) + 1) as usize)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Whether a function's (or a lambda's) declaration or definition says it
+/// requires the mutex `name` held (`MOZ_REQUIRES`, `MOZ_REQUIRES_SHARED`),
+/// and whether it turns the thread-safety analysis off
+/// (`MOZ_NO_THREAD_SAFETY_ANALYSIS`): their texts from their lines to their
+/// ends (`;` or `{`, a few lines at most), as either can have them.
+async fn symbol_annotations(tracer: &mut Tracer<'_>, sym: Ustr, name: &str) -> (bool, bool) {
+    let Some(xref) = tracer.crossref(&sym).await else {
+        return (false, false);
+    };
+    let mut places: Vec<(String, u32)> = [&xref.declarations, &xref.definitions]
+        .into_iter()
+        .filter_map(|found| {
+            let found = found.as_ref()?.first()?;
+            Some((found.path.to_string(), found.lines.first()?.lineno))
+        })
+        .collect();
+    // (A lambda's operator() has neither: where it's written, its use.)
+    if places.is_empty()
+        && xref
+            .meta
+            .as_ref()
+            .is_none_or(|meta| meta.pretty.contains("(lambda"))
+        && let Some(found) = xref.uses.as_ref().and_then(|uses| uses.first())
+        && let Some(line) = found.lines.first()
+    {
+        places.push((found.path.to_string(), line.lineno));
+    }
+    let (mut requires, mut unchecked) = (false, false);
+    for (path, line) in places {
+        let text = source_lines(tracer, &path, line, line + 4).await;
+        let text = match text.find([';', '{']) {
+            Some(end) => &text[..end],
+            None => &text,
+        };
+        requires |= ["MOZ_REQUIRES", "MOZ_REQUIRES_SHARED"]
+            .iter()
+            .any(|annotation| annotation_args(text, annotation).contains(&name));
+        unchecked |= text.contains("MOZ_NO_THREAD_SAFETY_ANALYSIS");
+    }
+    (requires, unchecked)
 }
 
 /// The view's guarded fields' accesses outside the regions holding the
@@ -581,6 +639,7 @@ async fn unguarded_uses(tracer: &mut Tracer<'_>, view: &mut LockHeldView) {
                     region.region.end_line,
                     &out,
                 ));
+                ranges.extend(region.region.called_lambdas.iter().copied());
             }
             _ => ranges.push((region.func_line, region.func_end_line)),
         }
@@ -593,6 +652,11 @@ async fn unguarded_uses(tracer: &mut Tracer<'_>, view: &mut LockHeldView) {
         .copied()
         .collect();
     let mut unguarded = vec![];
+    let mut seen: HashSet<(Ustr, String, u32)> = HashSet::new();
+    // (The functions and lambdas whose own annotations exempt them, by
+    // symbol; see `symbol_annotations`.)
+    let (_, name) = field_parts(&view.mutex);
+    let mut annotated: BTreeMap<Ustr, bool> = BTreeMap::new();
     for field in view.annotations.guarded.clone() {
         let Some(xref) = tracer.crossref(&field).await else {
             continue;
@@ -604,7 +668,25 @@ async fn unguarded_uses(tracer: &mut Tracer<'_>, view: &mut LockHeldView) {
                         .iter()
                         .any(|&(first, last)| first <= line.lineno && line.lineno <= last)
                 });
-                if in_held || exempt.contains(&line.contextsym) {
+                if in_held
+                    || exempt.contains(&line.contextsym)
+                    || !seen.insert((field, uses.path.to_string(), line.lineno))
+                {
+                    continue;
+                }
+                // (A function or lambda requiring it, or without the analysis,
+                // by its own annotations, ex: a lambda's `MOZ_REQUIRES(mMutex)`,
+                // or a definition's `MOZ_NO_THREAD_SAFETY_ANALYSIS`.)
+                let exempted = match annotated.get(&line.contextsym) {
+                    Some(exempted) => *exempted,
+                    None => {
+                        let (requires, unchecked) =
+                            symbol_annotations(tracer, line.contextsym, &name).await;
+                        annotated.insert(line.contextsym, requires || unchecked);
+                        requires || unchecked
+                    }
+                };
+                if exempted {
                     continue;
                 }
                 // (Constructors and destructors, which nothing shares the
@@ -1159,7 +1241,11 @@ pub fn render_lock_held(
         said.push(format!(
             "{} of its class {} it held (<code>MOZ_REQUIRES</code>)",
             plural(count(How::Contract), "method", "methods"),
-            if count(How::Contract) == 1 { "requires" } else { "require" }
+            if count(How::Contract) == 1 {
+                "requires"
+            } else {
+                "require"
+            }
         ));
     }
     if !view.annotations.guarded.is_empty() {
@@ -1365,6 +1451,39 @@ fn card_html(
         How::Callee => caller_html("is called with it held"),
         How::Contract => "requires it held (<code>MOZ_REQUIRES</code>)".to_string(),
     };
+    // (The lambdas made before it which it runs.)
+    let how = match held.called_lambdas.as_slice() {
+        [] => how,
+        called => format!(
+            "{}, and runs the lambda{} made at {} with it held",
+            how,
+            if called.len() == 1 { "" } else { "s" },
+            called
+                .iter()
+                .map(|(first, last)| match first == last {
+                    true => format!("line {}", first),
+                    false => format!("lines {}-{}", first, last),
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
+    // (Where its unlocks release it, a guard's region's or a function's.)
+    let how = match (region.how, held.released.as_slice()) {
+        (How::Guard, _) | (_, []) => how,
+        (_, released) => format!(
+            "{}, but releases it at {}",
+            how,
+            released
+                .iter()
+                .map(|(first, last)| match first == last {
+                    true => format!("line {}", first),
+                    false => format!("lines {}-{}", first, last),
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
     let via = match region.via.len() {
         0 | 1 => String::new(),
         _ => format!(
@@ -1438,7 +1557,12 @@ fn card_html(
                 };
                 let class = if region.how == How::Guard && line == held.line {
                     Some("lock-held-guard-line")
-                } else if in_ranges(line, &held.released) {
+                } else if in_ranges(line, &held.released)
+                    || (region.how == How::Guard
+                        && line < held.line
+                        && !in_ranges(line, &held.called_lambdas))
+                {
+                    // (Released, or before its guard: not held.)
                     Some("lock-held-released")
                 } else if in_ranges(line, &held.lambdas) {
                     Some("lock-held-lambda")
@@ -1547,7 +1671,10 @@ mod tests {
         // (Not a longer macro's.)
         assert!(annotation_args("T* mP MOZ_PT_GUARDED_BY(mMutex);", "MOZ_GUARDED_BY").is_empty());
         assert_eq!(
-            annotation_args("void F() MOZ_REQUIRES(mMutex, this->mOther)", "MOZ_REQUIRES"),
+            annotation_args(
+                "void F() MOZ_REQUIRES(mMutex, this->mOther)",
+                "MOZ_REQUIRES"
+            ),
             vec!["mMutex", "mOther"]
         );
     }

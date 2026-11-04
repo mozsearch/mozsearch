@@ -82,6 +82,12 @@ fn region_text(func: &FuncIr, region: &HeldRegion) -> String {
     if !region.lambdas.is_empty() {
         out.push_str(&format!("    lambdas: {}\n", ranges(&region.lambdas)));
     }
+    if !region.called_lambdas.is_empty() {
+        out.push_str(&format!(
+            "    lambdas made outside it, called in it: {}\n",
+            ranges(&region.called_lambdas)
+        ));
+    }
     for call in &region.calls {
         out.push_str(&format!(
             "    call {} {}{}{}\n",

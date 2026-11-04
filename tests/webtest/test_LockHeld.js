@@ -36,10 +36,10 @@ add_task(async function test_LockHeld() {
      "and its card says so");
 
   const notice = doc().querySelector(".lock-held-notice").textContent;
-  ok(notice.includes("4 guards' regions in 4 functions, 1 function its guards' proofs are passed to"),
+  ok(notice.includes("5 guards' regions in 5 functions, 1 function its guards' proofs are passed to, and 1 function called with it held"),
      `The notice says how many regions hold it how: ${notice}`);
-  ok(notice.includes("1 method of its class requires it held (MOZ_REQUIRES); it guards 3 fields (MOZ_GUARDED_BY)"),
-     "and what its class's annotations say");
+  ok(notice.includes("1 method of its class requires it held (MOZ_REQUIRES); it guards 4 fields (MOZ_GUARDED_BY); 1 method of its class turns the thread-safety analysis off (MOZ_NO_THREAD_SAFETY_ANALYSIS)"),
+     "and what its class's annotations say (a field's on its declaration's next line, a method's on its definition)");
   ok(notice.includes("It's also Reporter::mMutex, initialized from it"), "and which fields are it too");
   const fields = Object.fromEntries([...doc().querySelectorAll(".lock-held-fields tbody tr")]
     .map(row => [row.cells[0].textContent, [...row.cells].slice(1).map(cell => cell.textContent).join(",")]));
@@ -48,9 +48,17 @@ add_task(async function test_LockHeld() {
   is(fields["Worker::mQueue"], "1,,,1,✓", "methods called on a field");
   is(fields["Worker::mUnguarded"], "1,,1,,", "in a lambda called with it held, not guarded by it");
   is(fields["Reporter::mReports"], "1,1,1,,", "and with it held as the field which is it too");
+  is(fields["Worker::mDeferred"], "1,,1,,✓", "guarded by its declaration's next line's annotation");
   const unguarded = [...doc().querySelectorAll(".lock-held-unguarded li")].map(item => item.textContent);
   is(unguarded.join("|"), "mStatus in mozilla::dom::Worker::UnsafePeek",
-     "Its guarded field's access without it held is listed (not the method requiring it held's)");
+     "Its guarded field's access without it held is listed (not the methods requiring it held's, nor without the analysis, nor a lambda requiring it)");
+  // (A function called with it held is a card, but not a logging macro's
+  // call, nor an interface's method's implementations.)
+  ok(card("Note")?.classList.contains("lock-held-callee"), "A function called with it held is a card");
+  ok(card("Worker::Drain")?.querySelector(".lock-held-how").textContent.includes("and runs the lambda made at line"),
+     "A guard's region running a lambda made before it says so");
+  is(fields["Worker::mQueueLength"], "2,2,1,,✓", "whose accesses are with it held");
+  ok(!card("Log") && !card("::Run"), "but not a macro's call, nor an interface's implementations");
   ok(!fields["Worker::mMutex"], "but not the mutex itself");
 
   // The diagrams of how they're called: Dispatch's region calling the
@@ -118,7 +126,7 @@ add_task(async function test_LockHeldMenu() {
     .find(row => row.textContent.startsWith("Where "));
   TestUtils.click(doc().querySelector(`span[data-symbols="${MUTEX}"]`));
   await waitForShown(menu, "The mutex field's click shows the context menu");
-  is(item()?.textContent, "Where mozilla::dom::Worker::mMutex is held (3 guards)",
+  is(item()?.textContent, "Where mozilla::dom::Worker::mMutex is held (4 guards)",
      "which goes to where it's held, saying how many guards hold it");
   is(item().querySelector(".contextmenu-link").getAttribute("href"),
      `/tests/query/default?q=${encodeURIComponent(`lock-held:${MUTEX}`)}`, "the lock-held: view");

@@ -3,8 +3,12 @@
 // status (by its annotations), held by guards, released by an unlock, proven
 // held by a parameter (DispatchLockHeld's), required held (Status), acquired
 // after its monitor, and held as a reporter's reference to it; a guarded
-// field read without it (UnsafePeek); a static mutex; and a cache's counters
-// in a DataMutex, held by the guard its Lock() returns.
+// field read without it (UnsafePeek), and in a method without the analysis
+// (Snapshot) and a lambda requiring it (Drain's); a static mutex; a cache's
+// counters in a DataMutex, held by the guard its Lock() returns; and calls
+// with it held: a function's (Note), a logging macro's (WORKER_LOG's Log),
+// and an interface's with more implementations than calls are followed to
+// (Target::Run).
 
 #include "mutex.h"
 
@@ -18,6 +22,34 @@ class Queue {
 
 void Wake();
 void CallOut(int aStatus);
+void Note(int aValue) { (void)aValue; }
+void Log(int aLevel) { (void)aLevel; }
+#define WORKER_LOG(level) Log(level)
+
+class Target {
+ public:
+  virtual void Run() = 0;
+};
+class TargetA : public Target {
+ public:
+  void Run() override {}
+};
+class TargetB : public Target {
+ public:
+  void Run() override {}
+};
+class TargetC : public Target {
+ public:
+  void Run() override {}
+};
+class TargetD : public Target {
+ public:
+  void Run() override {}
+};
+class TargetE : public Target {
+ public:
+  void Run() override {}
+};
 
 class Worker {
  public:
@@ -26,6 +58,8 @@ class Worker {
   bool Close();
   int Status() MOZ_REQUIRES(mMutex);
   int UnsafePeek();
+  int Snapshot();
+  void Drain();
 
  private:
   friend class Reporter;
@@ -37,13 +71,20 @@ class Worker {
   int mQueueLength MOZ_GUARDED_BY(mMutex);
   int mStatus MOZ_GUARDED_BY(mMutex);
   Queue mQueue MOZ_GUARDED_BY(mMutex);
+  int mDeferred
+      MOZ_GUARDED_BY(mMutex);
+  Target* mTarget;
   int mUnguarded;
 };
 
 void Worker::Dispatch(int aRunnable) {
   MutexAutoLock lock(mMutex);
   mQueueLength = mQueueLength + 1;
+  mDeferred = 0;
   mQueue.Push(aRunnable);
+  Note(aRunnable);
+  WORKER_LOG(aRunnable);
+  mTarget->Run();
   DispatchLockHeld(aRunnable, lock);
 }
 
@@ -78,6 +119,14 @@ bool Worker::Close() {
 int Worker::Status() { return mStatus; }
 
 int Worker::UnsafePeek() { return mStatus; }
+
+int Worker::Snapshot() MOZ_NO_THREAD_SAFETY_ANALYSIS { return mQueueLength; }
+
+void Worker::Drain() {
+  auto pending = [this]() MOZ_REQUIRES(mMutex) { return mQueueLength; };
+  MutexAutoLock lock(mMutex);
+  pending();
+}
 
 class Reporter {
  public:

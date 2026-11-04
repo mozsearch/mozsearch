@@ -10,6 +10,7 @@
 // (Clang's thread-safety attributes in Gecko; nothing here.)
 #define MOZ_GUARDED_BY(x)
 #define MOZ_REQUIRES(...)
+#define MOZ_NO_THREAD_SAFETY_ANALYSIS
 
 namespace mozilla {
 

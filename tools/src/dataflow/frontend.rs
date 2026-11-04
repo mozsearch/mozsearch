@@ -1149,6 +1149,8 @@ impl<'c, 'a> Builder<'c, 'a> {
             receiver,
             args,
             text: self.trunc(self.t(node), 80),
+            in_macro: self.macro_cx.is_some()
+                || (!callee_recs.is_empty() && callee_recs.iter().all(|rec| rec.in_expansion)),
         });
         self.event(node, EventKind::Call(id));
         id
@@ -4183,5 +4185,77 @@ mod tests {
             "{}",
             f
         );
+    }
+
+    /// A lambda made before a guard and called in its region runs with the
+    /// mutex held (see `locks::outside_called_lambdas`).
+    #[test]
+    fn test_cpp_lock_called_lambda() {
+        let source = "void Foo::Drain() {\n  \
+                      auto f = [this]() { mCount = 1; };\n  \
+                      MutexAutoLock lock(mMutex);\n  \
+                      f();\n\
+                      }\n";
+        let values = vec![
+            rec(
+                source,
+                1,
+                "Drain",
+                "def,function",
+                "function Foo::Drain",
+                "_ZDrain",
+                None,
+            ),
+            rec(source, 2, "f", "", "variable f", "V_f", Some("(lambda)")),
+            rec(
+                source,
+                2,
+                "mCount",
+                "field,use",
+                "field Foo::mCount",
+                "F_<T_Foo>_mCount",
+                Some("int"),
+            ),
+            rec(
+                source,
+                3,
+                "lock",
+                "constructor,use",
+                "constructor mozilla::detail::BaseAutoLock::BaseAutoLock<T>",
+                "_ZGuardC1",
+                None,
+            ),
+            rec(
+                source,
+                3,
+                "lock",
+                "",
+                "variable lock",
+                "V_lock",
+                Some("mozilla::MutexAutoLock"),
+            ),
+            rec(
+                source,
+                3,
+                "mMutex",
+                "field,use",
+                "field Foo::mMutex",
+                "F_<T_Foo>_mMutex",
+                Some("mozilla::Mutex"),
+            ),
+            rec(source, 4, "f", "", "variable f", "V_f", Some("(lambda)")),
+        ];
+        let recs = FileRecords::from_values(values);
+        let file = build_file_ir("a.cpp", source, &recs).unwrap();
+        let f = &file.funcs[0];
+        let regions = super::super::locks::held_regions(f);
+        assert_eq!(regions.len(), 1, "{}", f);
+        let region = &regions[0];
+        assert_eq!((region.line, region.end_line), (3, 5));
+        assert_eq!(region.called_lambdas, vec![(2, 2)], "{}", f);
+        assert_eq!(region.fields.len(), 1, "{:?}", region.fields);
+        assert_eq!(region.fields[0].name, "mCount");
+        assert_eq!(region.fields[0].writes, vec![2]);
+        assert!(region.held_lines.contains(&2) && region.held_lines.contains(&4));
     }
 }

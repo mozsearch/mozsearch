@@ -136,6 +136,10 @@ pub struct HeldRegion {
     /// made in it, as lines (first, last).
     pub released: Vec<(u32, u32)>,
     pub lambdas: Vec<(u32, u32)>,
+    /// The lambdas made before it (or after) which it calls, whose bodies run
+    /// with it held, as lines (first, last; see `outside_called_lambdas`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub called_lambdas: Vec<(u32, u32)>,
     /// The lines of what runs with it held.
     pub held_lines: Vec<u32>,
     /// The calls made with it held (but lock guards' constructions).
@@ -158,6 +162,10 @@ pub struct HeldCall {
     pub kind: CallKind,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proof_args: Vec<usize>,
+    /// Whether it's in a macro's expansion (ex: `MOZ_LOG`'s, `NS_WARN_IF`'s,
+    /// a profiler marker's), rather than the code's own.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub in_macro: bool,
 }
 
 /// A field accessed with a mutex held: the lines it's read on, written on,
@@ -204,21 +212,7 @@ fn called_lambdas(
     start: usize,
     end: usize,
 ) -> BTreeSet<usize> {
-    // (The locals initialized with lambdas, by name, and the lambdas' lines.)
-    let mut locals: BTreeMap<String, u32> = BTreeMap::new();
-    for event in &ir.events {
-        if let EventKind::Assign { place, vals, .. } = &event.kind
-            && place.path.is_empty()
-            && let Root::Local(sym) = &place.root
-            && let Some(line) = vals.iter().find_map(|val| match &val.atom {
-                Atom::Const(text) => text.strip_prefix("lambda@")?.parse::<u32>().ok(),
-                _ => None,
-            })
-            && let Some(name) = ir.names.get(sym)
-        {
-            locals.insert(name.clone(), line);
-        }
-    }
+    let locals = lambda_locals(ir);
     let mut called = BTreeSet::new();
     for event in ir
         .events
@@ -245,6 +239,68 @@ fn called_lambdas(
         }
     }
     called
+}
+
+/// The function's locals initialized with lambdas (`auto f = [&] { … };`),
+/// by name, and the lambdas' lines.
+fn lambda_locals(ir: &FuncIr) -> BTreeMap<String, u32> {
+    let mut locals: BTreeMap<String, u32> = BTreeMap::new();
+    for event in &ir.events {
+        if let EventKind::Assign { place, vals, .. } = &event.kind
+            && place.path.is_empty()
+            && let Root::Local(sym) = &place.root
+            && let Some(line) = vals.iter().find_map(|val| match &val.atom {
+                Atom::Const(text) => text.strip_prefix("lambda@")?.parse::<u32>().ok(),
+                _ => None,
+            })
+            && let Some(name) = ir.names.get(sym)
+        {
+            locals.insert(name.clone(), line);
+        }
+    }
+    locals
+}
+
+/// The lambdas made before (or after) the events `start..end` which the
+/// held ones of them call (`auto f = [&] { … }; MutexAutoLock lock(m);
+/// f();`): their events (the function's lambdas' outermost runs), which run
+/// there, with the mutex held.
+fn outside_called_lambdas(
+    ir: &FuncIr,
+    start: usize,
+    end: usize,
+    held: &dyn Fn(usize) -> bool,
+) -> Vec<(usize, usize)> {
+    let locals = lambda_locals(ir);
+    if locals.is_empty() {
+        return vec![];
+    }
+    let runs = lambda_runs(ir);
+    let mut out = vec![];
+    for e in start..end.min(ir.events.len()) {
+        if !held(e) {
+            continue;
+        }
+        let EventKind::Call(c) = &ir.events[e].kind else {
+            continue;
+        };
+        let Some(call) = ir.calls.get(*c) else {
+            continue;
+        };
+        let Some(&line) = locals.get(&call.callee_pretty) else {
+            continue;
+        };
+        if !call.callee.is_empty() {
+            continue;
+        }
+        if let Some(&run) = runs.iter().find(|&&(s, _)| {
+            (s < start || s >= end) && ir.events.get(s).is_some_and(|event| event.line == line)
+        }) && !out.contains(&run)
+        {
+            out.push(run);
+        }
+    }
+    out
 }
 
 /// The lines of some of a function's events: (first, last).
@@ -310,6 +366,13 @@ fn analyze(ir: &FuncIr, mut span: Span) -> HeldRegion {
         !span.lambdas.iter().any(|&(s, end)| s <= e && e < end)
             && !span.releases.iter().any(|l| l.start <= e && e < l.end)
     };
+    // (And the lambdas made outside it which it calls, all of whose events
+    // run with it held.)
+    let outside = outside_called_lambdas(ir, span.start, span.end, &held);
+    let events: Vec<usize> = (span.start..span.end.min(ir.events.len()))
+        .filter(|&e| held(e))
+        .chain(outside.iter().flat_map(|&(start, end)| start..end))
+        .collect();
     let mut held_lines = BTreeSet::new();
     let mut calls = vec![];
     let mut fields: BTreeMap<Ustr, FieldAccess> = BTreeMap::new();
@@ -355,10 +418,7 @@ fn analyze(ir: &FuncIr, mut span: Span) -> HeldRegion {
             access(*last, line, how);
         }
     };
-    for e in span.start..span.end.min(ir.events.len()) {
-        if !held(e) {
-            continue;
-        }
+    for &e in &events {
         let event = &ir.events[e];
         held_lines.insert(event.line);
         match &event.kind {
@@ -396,6 +456,7 @@ fn analyze(ir: &FuncIr, mut span: Span) -> HeldRegion {
                     callee_pretty: call.callee_pretty.clone(),
                     kind: call.kind,
                     proof_args,
+                    in_macro: event.macro_name.is_some() || call.in_macro,
                 });
                 for arg in &call.args {
                     reads(&arg.vals, event.line, &mut access);
@@ -442,6 +503,10 @@ fn analyze(ir: &FuncIr, mut span: Span) -> HeldRegion {
         released: span.releases.iter().map(|l| (l.line, l.end_line)).collect(),
         lambdas: span
             .lambdas
+            .iter()
+            .filter_map(|&(start, end)| event_lines(ir, start, end))
+            .collect(),
+        called_lambdas: outside
             .iter()
             .filter_map(|&(start, end)| event_lines(ir, start, end))
             .collect(),
@@ -637,8 +702,10 @@ pub fn file_locks(file: &super::frontend::FileIr) -> Option<FileLocks> {
                 ),
                 _ => mutex_name(region.mutex.as_deref(), &region.mutex_text),
             };
+            let mut held = ranges_without(region.line, region.end_line, &out);
+            held.extend(region.called_lambdas.iter().copied());
             locks.push(LineLock {
-                held: ranges_without(region.line, region.end_line, &out),
+                held,
                 mutex: region.mutex,
                 name,
                 kind: region.kind,

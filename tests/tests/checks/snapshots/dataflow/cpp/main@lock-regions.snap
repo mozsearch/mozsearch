@@ -3,43 +3,54 @@ source: src/bin/test-index.rs
 expression: "&fb.contents"
 input_file: inputs/dataflow/cpp/lock-regions
 ---
-mozilla::dom::Worker::Dispatch (locks/locks.cpp:43-48)
-  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 44-48
-    held lines: 45,46,47
-    call 46 mozilla::dom::Queue::Push
-    call 47 mozilla::dom::Worker::DispatchLockHeld, passing the proof as argument 1
-    field mQueue [F_<T_mozilla::dom::Worker>_mQueue]: methods called 46
-    field mQueueLength [F_<T_mozilla::dom::Worker>_mQueueLength]: read 45; written 45
-mozilla::dom::Worker::DispatchLockHeld (locks/locks.cpp:50-54)
-  proof const mozilla::MutexAutoLock & param aProofOfLock lines 50-54
-    held lines: 52,53
-    call 53 mozilla::dom::Wake
-    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: written 52
-mozilla::dom::Worker::Notify (locks/locks.cpp:56-69)
-  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 59-67
-    held lines: 60,62,65,66
-    released: 62-64
-    call 66 later
-    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 60
-    field mUnguarded [F_<T_mozilla::dom::Worker>_mUnguarded]: written 65
-mozilla::dom::Worker::Close (locks/locks.cpp:71-76)
-  held mozilla::MonitorAutoLock this->mMonitor [F_<T_mozilla::dom::Worker>_mMonitor] lines 72-76
-    held lines: 73,74,75
-    call 73 mozilla::Monitor::Notify
-    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 75
-    acquires mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] at 74
-  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 74-76
-    held lines: 75
-    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 75
-mozilla::dom::Reporter::Report (locks/locks.cpp:92-95)
-  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Reporter>_mMutex] lines 93-95
-    held lines: 94
-    field mReports [F_<T_mozilla::dom::Reporter>_mReports]: read 94; written 94
-mozilla::dom::Increment (locks/locks.cpp:100-103)
-  held mozilla::StaticMutexAutoLock sCountMutex [_ZN7mozilla3domL11sCountMutexE] lines 101-103
-    held lines: 102
-    field sCount [_ZN7mozilla3domL6sCountE]: read 102; written 102
-mozilla::dom::Cache::Hit (locks/locks.cpp:117-120)
-  held mozilla::DataMutexBase<struct mozilla::dom::Counters, class mozilla::Mutex>::AutoLock this->mCounters [F_<T_mozilla::dom::Cache>_mCounters] lines 118-120
-    held lines: 119
-    field mHits [F_<T_mozilla::dom::Counters>_mHits]: read 119; written 119
+mozilla::dom::Worker::Dispatch (locks/locks.cpp:80-89)
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 81-89
+    held lines: 82,83,84,85,86,87,88
+    call 84 mozilla::dom::Queue::Push
+    call 85 mozilla::dom::Note
+    call 86 mozilla::dom::Log
+    call 87 mozilla::dom::Target::Run
+    call 88 mozilla::dom::Worker::DispatchLockHeld, passing the proof as argument 1
+    field mDeferred [F_<T_mozilla::dom::Worker>_mDeferred]: written 83
+    field mQueue [F_<T_mozilla::dom::Worker>_mQueue]: methods called 84
+    field mQueueLength [F_<T_mozilla::dom::Worker>_mQueueLength]: read 82; written 82
+    field mTarget [F_<T_mozilla::dom::Worker>_mTarget]: methods called 87
+mozilla::dom::Worker::DispatchLockHeld (locks/locks.cpp:91-95)
+  proof const mozilla::MutexAutoLock & param aProofOfLock lines 91-95
+    held lines: 93,94
+    call 94 mozilla::dom::Wake
+    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: written 93
+mozilla::dom::Worker::Notify (locks/locks.cpp:97-110)
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 100-108
+    held lines: 101,103,106,107
+    released: 103-105
+    call 107 later
+    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 101
+    field mUnguarded [F_<T_mozilla::dom::Worker>_mUnguarded]: written 106
+mozilla::dom::Worker::Close (locks/locks.cpp:112-117)
+  held mozilla::MonitorAutoLock this->mMonitor [F_<T_mozilla::dom::Worker>_mMonitor] lines 113-117
+    held lines: 114,115,116
+    call 114 mozilla::Monitor::Notify
+    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 116
+    acquires mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] at 115
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 115-117
+    held lines: 116
+    field mStatus [F_<T_mozilla::dom::Worker>_mStatus]: read 116
+mozilla::dom::Worker::Drain (locks/locks.cpp:125-129)
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Worker>_mMutex] lines 127-129
+    held lines: 126,128
+    lambdas made outside it, called in it: 126-126
+    call 128 pending
+    field mQueueLength [F_<T_mozilla::dom::Worker>_mQueueLength]: read 126
+mozilla::dom::Reporter::Report (locks/locks.cpp:141-144)
+  held mozilla::MutexAutoLock this->mMutex [F_<T_mozilla::dom::Reporter>_mMutex] lines 142-144
+    held lines: 143
+    field mReports [F_<T_mozilla::dom::Reporter>_mReports]: read 143; written 143
+mozilla::dom::Increment (locks/locks.cpp:149-152)
+  held mozilla::StaticMutexAutoLock sCountMutex [_ZN7mozilla3domL11sCountMutexE] lines 150-152
+    held lines: 151
+    field sCount [_ZN7mozilla3domL6sCountE]: read 151; written 151
+mozilla::dom::Cache::Hit (locks/locks.cpp:166-169)
+  held mozilla::DataMutexBase<struct mozilla::dom::Counters, class mozilla::Mutex>::AutoLock this->mCounters [F_<T_mozilla::dom::Cache>_mCounters] lines 167-169
+    held lines: 168
+    field mHits [F_<T_mozilla::dom::Counters>_mHits]: read 168; written 168
