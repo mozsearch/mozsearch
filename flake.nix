@@ -8,6 +8,13 @@
       url = "github:mozsearch/scip-typescript";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # rust-analyzer's fork, with the patches we'd upstream (see
+    # nix/mozsearch/rust-analyzer.nix): its hyperblame branch is what this
+    # branch wants, force-pushed as its patches change.
+    rust-analyzer-src = {
+      url = "github:mozsearch/rust-analyzer/hyperblame";
+      flake = false;
+    };
   };
 
   nixConfig = {
@@ -25,6 +32,7 @@
     flake-utils,
     crane,
     scip-typescript,
+    rust-analyzer-src,
   }: (
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -77,6 +85,9 @@
         # requests' imports' renderings and analysis (render-spec-pr and
         # analyze-spec-pr).
         mozsearch-bikeshed = pkgs.callPackage ./nix/mozsearch/bikeshed.nix {};
+        mozsearch-rust-analyzer = pkgs.callPackage ./nix/mozsearch/rust-analyzer.nix {
+          inherit craneLib rust-analyzer-src;
+        };
         mozsearch-router = pkgs.callPackage ./nix/mozsearch/router {
           inherit llvmPackages;
         };
@@ -101,7 +112,7 @@
         ];
 
         indexerPackages = with pkgs; [
-          rust-analyzer
+          mozsearch-rust-analyzer
           scip-java
           scip-java-semanticdb
           scip-python
@@ -120,7 +131,7 @@
       in {
         packages = {
           inherit scip-java scip-java-semanticdb scip-python wasm-snip;
-          inherit mozsearch-git mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer mozsearch-router mozsearch-bikeshed;
+          inherit mozsearch-git mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer mozsearch-router mozsearch-bikeshed mozsearch-rust-analyzer;
 
           indexerPackages = pkgs.symlinkJoin {
             name = "indexerPackages";

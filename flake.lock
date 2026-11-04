@@ -54,7 +54,25 @@
         "crane": "crane",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
+        "rust-analyzer-src": "rust-analyzer-src",
         "scip-typescript": "scip-typescript"
+      }
+    },
+    "rust-analyzer-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793839235,
+        "narHash": "sha256-NcxWouHl1MYBdKKNQ/RFC0thXF1PUb1ABcSCZEygCIE=",
+        "owner": "mozsearch",
+        "repo": "rust-analyzer",
+        "rev": "68fe14bfb74efabcde5e8011d77fe710c739003e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mozsearch",
+        "ref": "hyperblame",
+        "repo": "rust-analyzer",
+        "type": "github"
       }
     },
     "scip-typescript": {
