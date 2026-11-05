@@ -329,6 +329,16 @@ args.ignore-nodes = "$0"
 # repeated), ex: `tree:wubspecs` on a spec algorithm's diagram for only the
 # specs, and those it leaves out, `-tree:firefox-disco` (which chew_query
 # makes `not-tree`; see `Traverse::trees`).
+# A test's JS environments, whose code a diagram is about (see `traverse
+# --test`): the callers in other environments' files are left out (ex: the
+# other tests' calls of their harness's `ok`), and a calls-from diagram goes
+# down from a hook to the test's definitions of it.  The context menu adds it
+# on a test's pages, and those with a `?test=`.
+[term.test]
+[[term.test.group.graph-traverse]]
+command = "traverse"
+args.test = "$0"
+
 [term.tree]
 [[term.tree.group.graph-traverse]]
 command = "traverse"

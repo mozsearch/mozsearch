@@ -1007,4 +1007,15 @@ mod tests {
         assert!(!traversal.contains("\"dataflow\"") && !traversal.contains("\"slicing\""));
         assert!(!values("follow-backward:Foo include-tests:true").contains("graph-traverse"));
     }
+
+    #[test]
+    fn test_test_environment() {
+        // (A diagram of a test's JS environments' code; see `traverse --test`.)
+        let traversal = values("calls-from:Foo test:dom/test/test_a.js");
+        assert!(
+            traversal.contains("\"test\":[\"dom/test/test_a.js\""),
+            "{traversal}"
+        );
+        assert!(!values("calls-from:Foo").contains("\"test\":"));
+    }
 }

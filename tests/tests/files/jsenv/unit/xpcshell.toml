@@ -2,3 +2,5 @@
 head = "head_jsenv.js"
 
 ["test_shared.js"]
+
+["test_other.js"]

@@ -1540,6 +1540,18 @@ fn analyze_using_scip(
 
         let mut nesting_stack: Vec<NestedSymbol> = vec![];
 
+        // The document's hooks' definers (see `AnalysisStructured::hooks`):
+        // its symbols with is_definition relationships to them, whose names
+        // their definitions are at, as their contexts.
+        let mut hook_definers: UstrMap<(Ustr, Ustr)> = UstrMap::default();
+        for info in &doc.symbols {
+            for rel in info.relationships.iter().filter(|rel| rel.is_definition) {
+                if let Some(definer) = scip_symbol_to_structured.get(&ustr(&info.symbol)) {
+                    hook_definers.insert(ustr(&rel.symbol), (definer.sym, definer.pretty));
+                }
+            }
+        }
+
         // Be chatty about the files we're outputting so that it's easier to follow
         // the path of rust analysis generation.
         info!(
@@ -1695,10 +1707,15 @@ fn analyze_using_scip(
             // TODO: Contextual info.
 
             if !no_crossref {
-                // (A hook's definition is at its defining symbol's name, a
-                // top-level declaration's, which can be on the stack already.)
+                // (A hook's definition is at its definer's name, whose
+                // symbol is its context, rather than what's on the stack,
+                // which can be the definer already: a calls-from diagram of a
+                // test goes down from the hook to it; see `traverse --test`.)
                 let (contextsym, context) = if kind == AnalysisKind::Def && sinfo.kind == "hook" {
-                    (ustr(""), ustr(""))
+                    hook_definers
+                        .get(&norm_scip_sym)
+                        .map(|(sym, pretty)| (*sym, *pretty))
+                        .unwrap_or((ustr(""), ustr("")))
                 } else if let Some(nested) = nesting_stack.last() {
                     (nested.sym, nested.pretty)
                 } else {

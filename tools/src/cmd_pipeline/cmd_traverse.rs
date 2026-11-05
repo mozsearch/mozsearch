@@ -131,6 +131,19 @@ pub struct Traverse {
     /// commas (`-tree:` terms; see `trees`).
     #[clap(long, value_parser)]
     pub exclude_trees: Option<String>,
+
+    /// A test (an environment's root, ex: an xpcshell test, or a mochitest
+    /// page; `test:` terms) whose JS environments' code the diagram is about
+    /// (see `js_environments::scope`): the uses in the files of other
+    /// environments (other tests', their head files') aren't callers, nor are
+    /// the symbols they define callees, as they can't share a global with it
+    /// (ex: the other tests' calls of their harness's `ok`), but the uses in
+    /// its environments' files are, test files or not, and those in files in
+    /// no environment (ex: modules, product code) are as without it.  And a
+    /// calls-from traversal goes down from a hook (see
+    /// `AnalysisStructured::hooks`) to the test's definitions of it.
+    #[clap(long, value_parser)]
+    pub test: Option<String>,
 }
 
 impl Traverse {
@@ -311,6 +324,12 @@ impl PipelineCommand for TraverseCommand {
         let mut sym_node_set = SymbolGraphNodeSet::new();
         let mut sym_edge_set = SymbolGraphEdgeSet::new();
         let mut graph = NamedSymbolGraph::new("only".to_string());
+
+        // (The test's environments, if it has any; see `Traverse::test`.)
+        let env_scope = match &self.args.test {
+            Some(test) => server.js_environment_scope(test).await?,
+            None => None,
+        };
 
         // A to-do list of nodes we have not yet traversed.
         let mut to_traverse = VecDeque::new();
@@ -1459,6 +1478,14 @@ impl PipelineCommand for TraverseCommand {
                     if !target_info.is_callable() {
                         continue;
                     }
+                    // (Not another JS environment's; see `Traverse::test`.)
+                    if let Some(scope) = &env_scope
+                        && target_info
+                            .get_definitions()
+                            .is_some_and(|defs| !defs.iter().any(|def| scope.allows(&def.path)))
+                    {
+                        continue;
+                    }
                     // (A citation of a callable symbol, ex: a Gecko function's
                     // citation of the web spec algorithm it implements, is an
                     // implementation of it; see `Callee::implements`.)
@@ -1490,6 +1517,57 @@ impl PipelineCommand for TraverseCommand {
                         continue;
                     }
                     trace!(sym = target.sym.as_str(), "scheduling callees");
+                    to_traverse.push_back((
+                        target_info.symbol,
+                        target_pretty,
+                        next_depth,
+                        all_traversals_valid,
+                    ));
+                }
+
+                // A hook's definitions in the test's environments, its
+                // definers' (their contexts; see `AnalysisStructured::hooks`),
+                // which are its callees there.  (Without a test, it has none:
+                // a calls-from diagram doesn't go down into every test.)
+                let sym_info = sym_node_set.get(&sym_id);
+                let hook_definers: Vec<(Ustr, String)> = match &env_scope {
+                    Some(scope) if sym_info.get_structured().is_some_and(|m| m.kind == "hook") => {
+                        sym_info
+                            .get_definitions()
+                            .into_iter()
+                            .flatten()
+                            .filter(|def| scope.contains(&def.path))
+                            .flat_map(|def| {
+                                def.lines
+                                    .iter()
+                                    .filter(|line| !line.contextsym.is_empty())
+                                    .map(|line| {
+                                        (line.contextsym, format!("{}#{}", def.path, line.lineno))
+                                    })
+                            })
+                            .collect()
+                    }
+                    _ => vec![],
+                };
+                for (definer, jump) in hook_definers {
+                    let (target_id, target_info) = sym_node_set
+                        .ensure_symbol(&definer, server, next_depth)
+                        .await?;
+                    let target_pretty = match target_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
+                        _ => ustr(""),
+                    };
+                    sym_edge_set.ensure_edge_in_graph(
+                        sym_id.clone(),
+                        target_id,
+                        EdgeKind::Implementation,
+                        vec![EdgeDetail::Jump(jump)],
+                        &mut graph,
+                    );
+                    if !considered.insert(target_info.symbol) || next_depth >= max_depth {
+                        continue;
+                    }
+                    trace!(sym = definer.as_str(), "scheduling hook definer");
                     to_traverse.push_back((
                         target_info.symbol,
                         target_pretty,
@@ -1550,8 +1628,14 @@ impl PipelineCommand for TraverseCommand {
                     .map(|hits| (hits, false))
                     .chain(implementations.into_iter().map(|hits| (hits, true)));
                 for (path_hits, implements) in uses {
-                    if skip_tests && path_hits.path_kind == "test" {
-                        continue;
+                    // (A test's environments' files' uses are callers, test
+                    // files or not, and other environments' files' aren't;
+                    // see `Traverse::test`.)
+                    match &env_scope {
+                        Some(scope) if scope.contains(&path_hits.path) => {}
+                        Some(scope) if !scope.allows(&path_hits.path) => continue,
+                        _ if skip_tests && path_hits.path_kind == "test" => continue,
+                        _ => {}
                     }
                     // (Nor those of the linked trees it leaves out.)
                     if !self.args.allows_tree(path_hits.tree) {

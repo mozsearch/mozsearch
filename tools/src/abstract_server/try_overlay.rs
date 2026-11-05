@@ -40,6 +40,7 @@ use crate::git_ops::{RevisionCoverage, git_time_to_chrono};
 use crate::hyperblame::journals::JournalKind;
 use crate::hyperblame::token_history::{TokenHistory, TokenHistoryOptions};
 use crate::hyperblame::token_timeline::{TokenTimeline, TokenTimelineOptions};
+use crate::js_environments::scope::EnvironmentScope;
 use crate::languages::select_formatting;
 use crate::try_delta::{FileChange, TryDelta};
 
@@ -461,6 +462,10 @@ impl AbstractServer for TryOverlay {
 
     async fn file_recency_lookup(&self, path: &str) -> Result<Option<FileRecency>> {
         self.base.file_recency_lookup(path).await
+    }
+
+    async fn js_environment_scope(&self, test: &str) -> Result<Option<EnvironmentScope>> {
+        self.base.js_environment_scope(test).await
     }
 
     async fn search_files(

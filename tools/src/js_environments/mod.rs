@@ -6,3 +6,4 @@ pub mod discover;
 pub mod projects;
 pub mod rules;
 pub mod scan;
+pub mod scope;

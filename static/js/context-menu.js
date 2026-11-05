@@ -64,6 +64,23 @@ function searchUrl(tree, encodedQuery) {
   return `/${tree}/search?q=${encodedQuery}&redirect=false`;
 }
 
+/**
+ * The test whose JS environments the page is about, for its calls diagrams
+ * (their `test:` terms, which leave out the callers in other environments,
+ * ex: other tests' calls of their harness's functions; see
+ * tools/src/js_environments/scope.rs): the page's `?test=` (see panel.js's
+ * `openTestEnvironment`), or its file, if it's a test (the root of one of the
+ * environments in its panel's "JS environments").
+ */
+function testContext() {
+  const param = new URLSearchParams(document.location.search).get("test");
+  if (param) {
+    return param;
+  }
+  return document.querySelector(".panel-js-environments .js-env-roots > li.js-env")
+    ?.dataset.root || null;
+}
+
 // A link to the pipeline-server's /query/default (diagrams, following
 // values), in the context of the try push whose code was clicked, or whose
 // pages these are, if any (data-search-rev; see `searchUrl`).
@@ -541,6 +558,9 @@ class DiagramMenuSection extends MenuItem {
     // Whether diagrams of the symbol are by its symbol rather than its pretty
     // name, which other symbols may share (ex: a web spec's terms').
     this.bySym = options.bySym;
+    // The test whose JS environments the page is about, which its calls
+    // diagrams are of (their `test:` terms; see `testContext`).
+    this.test = options.test;
 
     this.links = [];
 
@@ -561,6 +581,12 @@ class DiagramMenuSection extends MenuItem {
       return `${name}-sym:${quote(sym)}`;
     }
     return `${name}:${quote(pinned ? this.pinnedPretty : this.pretty)}`;
+  }
+
+  /** The calls diagrams' `test:` term, if the page is about a test's code. */
+  testTerm() {
+    const quote = value => `'${value.replace(/[\\']/g, c => `\\${c}`)}'`;
+    return this.test ? ` test:${quote(this.test)}` : "";
   }
 
   isFocusable() {
@@ -660,7 +686,7 @@ class DiagramMenuSection extends MenuItem {
       // affordance, especially since it's hard to concisely express the
       // differences in signatures for overloads (although we have some
       // tentative plans to).
-      const queryString = `${this.diagramTerm("calls-to")} depth:4`;
+      const queryString = `${this.diagramTerm("calls-to")} depth:4${this.testTerm()}`;
       link.href = queryUrl(this.tree, queryString);
       link.addEventListener("keydown", event => {
         this.onKeyDown(event, menu, link, pos);
@@ -676,7 +702,7 @@ class DiagramMenuSection extends MenuItem {
       const link = document.createElement("a");
       link.classList.add("contextmenu-button");
       link.setAttribute("role", "menuitem");
-      const queryString = `${this.diagramTerm("calls-from")} depth:4`;
+      const queryString = `${this.diagramTerm("calls-from")} depth:4${this.testTerm()}`;
       link.href = queryUrl(this.tree, queryString);
       link.addEventListener("keydown", event => {
         this.onKeyDown(event, menu, link, pos);
@@ -2447,8 +2473,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               isIpdl: isIpdlDataSym(jumpref.sym, jumpref),
               showInheritance,
               // (A web spec's terms' pretty names are "<spec> <term>", which
-              // its other definitions of the term, ex: a method's, share.)
-              bySym: jumpref?.meta?.implKind === "spec",
+              // its other definitions of the term, ex: a method's, share; and
+              // a test's functions', ex: run_test, its other tests'.)
+              bySym: jumpref?.meta?.implKind === "spec" || !!testContext(),
+              test: testContext(),
               confidence,
             }));
 

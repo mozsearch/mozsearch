@@ -108,7 +108,8 @@ add_task(async function test_JsEnvironmentsUnwrap() {
 // A test's function its harness calls by its name, in their global, is a
 // hook's definition (see scip-typescript's --hooks): the head's calls of
 // run_test are the hook's uses, whose context menu searches for its
-// definitions (and jumps to its only one, the test's).
+// definitions (test_shared.js's and test_other.js's), rather than jumping to
+// one of them.
 add_task(async function test_JsEnvironmentsHooks() {
   await TestUtils.loadPath("/tests/source/jsenv/unit/head_jsenv.js");
   const hook = "S_js_typescript_test-ts/jsenv/unit/head_jsenv.js/run_test:";
@@ -121,10 +122,38 @@ add_task(async function test_JsEnvironmentsHooks() {
   const links = [...menu.querySelectorAll("a")];
   ok(links.some(a => a.textContent == "Search for hook jsenv/unit/head_jsenv.js::run_test"),
      "which offers a search for the hook's definitions");
-  ok(links.some(a => a.textContent == "Go to definition of hook jsenv/unit/head_jsenv.js::run_test"
-                && a.getAttribute("href").includes("/jsenv/unit/test_shared.js#")),
-     "and jumps to its only one, the test's");
+  ok(!links.some(a => a.textContent.startsWith("Go to definition")),
+     "rather than jumping to one of them");
 
   await TestUtils.loadPath("/tests/source/jsenv/unit/test_shared.js");
   ok(symbolsOf("run_test").split(",").includes(hook), "The test's run_test is a definition of the hook");
+});
+
+// A test's page's calls diagrams are of its JS environments' code (`test:`;
+// see tools/src/js_environments/scope.rs), by symbol, as its run_test's
+// pretty name is its other tests' too; and so are those of a page with a
+// `?test=`.
+add_task(async function test_JsEnvironmentsDiagramContext() {
+  const diagramQuery = async (path, line, name, label) => {
+    await TestUtils.loadPath(path);
+    const span = [...frame.contentDocument.querySelectorAll(`#line-${line} span[data-symbols]`)]
+      .find(span => span.textContent == name);
+    TestUtils.click(span);
+    const menu = frame.contentDocument.querySelector("#context-menu");
+    await waitForShown(menu, `Context menu is shown for ${name}`);
+    const link = [...menu.querySelectorAll("a")].find(a => a.textContent == label);
+    return link && new URL(link.href).searchParams.get("q");
+  };
+  is(await diagramQuery("/tests/source/jsenv/unit/test_shared.js", 4, "run_test", "Calls to"),
+     "calls-to-sym:'S_js_typescript_test-ts/jsenv/unit/test_shared.js/run_test().' depth:4 " +
+     "test:'jsenv/unit/test_shared.js'",
+     "A test's calls diagrams are of its environments' code, by symbol");
+  is(await diagramQuery("/tests/source/jsenv/unit/head_jsenv.js?test=jsenv/unit/test_shared.js", 8,
+                        "runTests", "Calls from"),
+     "calls-from-sym:'S_js_typescript_test-ts/jsenv/unit/head_jsenv.js/runTests().' depth:4 " +
+     "test:'jsenv/unit/test_shared.js'",
+     "and so are a page's with a test context");
+  ok(!(await diagramQuery("/tests/source/jsenv/unit/head_jsenv.js", 8, "runTests", "Calls from"))
+       .includes("test:"),
+     "but not a harness's without one");
 });

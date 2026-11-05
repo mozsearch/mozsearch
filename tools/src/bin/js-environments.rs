@@ -3,7 +3,8 @@
 // its test manifests (by the moz.build variables declaring them, as RULES's
 // flavors say), its pages, web-platform-tests' variants, and the loads its
 // scripts make; written to INDEX_ROOT/js-environments.json (and each file's,
-// for its navigation panel, to js-environments-files.json), with an
+// for its navigation panel, to js-environments-files.json, and the files in
+// any, to js-environments-paths), with an
 // inventory: how many environments of each flavor and global, how many of
 // the tree's JS files are in one (and, given COVERED, a list of the files
 // TypeScript projects already cover, how many neither covers, by directory),
@@ -113,6 +114,18 @@ fn main() {
         serde_json::to_string(&files_json(&discovery, 30, 10)).unwrap(),
     )
     .expect("Couldn't write js-environments-files.json");
+    // (And every file in one, its root or one of its scripts, for diagrams of
+    // a test's environments, which leave out the callers in other
+    // environments' files; see `js_environments::scope`.)
+    let mut paths: BTreeSet<&str> = BTreeSet::new();
+    for env in &discovery.environments {
+        paths.insert(&env.root);
+        paths.extend(env.scripts.iter().map(|s| s.path.as_str()));
+    }
+    let mut paths_text = paths.into_iter().collect::<Vec<_>>().join("\n");
+    paths_text.push('\n');
+    fs::write(index_root.join("js-environments-paths"), paths_text)
+        .expect("Couldn't write js-environments-paths");
 
     // ## The inventory.
     let mut kinds: BTreeMap<(&str, &str), usize> = BTreeMap::new();

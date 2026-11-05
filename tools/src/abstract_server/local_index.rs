@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
 use serde_json::{Value, from_str};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::Read;
 use std::path::Path;
@@ -34,6 +34,7 @@ use crate::file_format::identifiers::IdentMap;
 use crate::file_format::jumpref::{JumprefData, TreeJumprefs};
 use crate::file_format::local_symbols::process_local_symbols;
 use crate::file_format::per_file_info::FileLookupMap;
+use crate::file_format::per_file_info::read_detailed_file_info;
 use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
 use crate::file_format::token_names::{NameMatch, TokenNameMatches, TokenNames};
@@ -45,6 +46,7 @@ use crate::hyperblame::token_history::{
     TokenHistory, TokenHistoryOptions, header_html, token_history,
 };
 use crate::hyperblame::token_timeline::{TokenTimeline, TokenTimelineOptions, token_timeline};
+use crate::js_environments::scope::EnvironmentScope;
 use crate::languages::select_formatting;
 use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
 use crate::try_delta::TryDelta;
@@ -216,6 +218,9 @@ pub struct LocalIndex {
     /// The history's token-name index, mapped when first needed (see
     /// `file_format::token_names`), if the index has one.
     token_names: Arc<OnceLock<Option<TokenNames>>>,
+    /// The files in any JS environment, read when first needed, if the index
+    /// has them (see `js_environments::scope`).
+    js_environment_paths: Arc<OnceLock<Option<Arc<HashSet<String>>>>>,
     /// The tree's path kinds' keys and names, in display order.
     path_kinds: Vec<(Ustr, Ustr)>,
     /// The subsystems whose nested values facets show at first (see
@@ -1180,6 +1185,30 @@ impl AbstractServer for LocalIndex {
         }
     }
 
+    async fn js_environment_scope(&self, test: &str) -> Result<Option<EnvironmentScope>> {
+        let index_path = &self.config_paths.index_path;
+        let in_any = self.js_environment_paths.get_or_init(|| {
+            let text = std::fs::read_to_string(Path::new(index_path).join("js-environments-paths"))
+                .ok()?;
+            Some(Arc::new(
+                text.lines()
+                    .filter(|line| !line.is_empty())
+                    .map(String::from)
+                    .collect(),
+            ))
+        });
+        let Some(in_any) = in_any.clone() else {
+            return Ok(None);
+        };
+        let Some(info) = read_detailed_file_info(test, index_path) else {
+            return Ok(None);
+        };
+        Ok(info
+            .info
+            .get("js_environments")
+            .and_then(|envs| EnvironmentScope::of_test(test, envs, in_any)))
+    }
+
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>> {
         let now = Instant::now();
         let result = self.jumprefs.lookup(symbol);
@@ -1522,6 +1551,7 @@ fn fab_server(
         file_recency_lookup_map,
         file_lookup_map: Arc::new(OnceLock::new()),
         token_names: Arc::new(OnceLock::new()),
+        js_environment_paths: Arc::new(OnceLock::new()),
         file_lookup_path,
         path_kinds,
         expanded_subsystems,

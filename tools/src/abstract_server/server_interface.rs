@@ -19,6 +19,7 @@ use crate::git_ops::RevisionCoverage;
 use crate::hyperblame::journals::JournalKind;
 use crate::hyperblame::token_history::{TokenHistory, TokenHistoryOptions};
 use crate::hyperblame::token_timeline::{TokenTimeline, TokenTimelineOptions};
+use crate::js_environments::scope::EnvironmentScope;
 
 pub type Result<T> = std::result::Result<T, ServerError>;
 
@@ -557,6 +558,13 @@ pub trait AbstractServer {
     /// A file's history digests, if the tree has a history (see
     /// `file_format::recency::FileRecency`).
     async fn file_recency_lookup(&self, _path: &str) -> Result<Option<FileRecency>> {
+        Ok(None)
+    }
+
+    /// A test's JS environments, as a diagram's scope (see
+    /// `js_environments::scope`), if it's the root of any, and the tree has
+    /// the files of its environments (`js-environments-paths`).
+    async fn js_environment_scope(&self, _test: &str) -> Result<Option<EnvironmentScope>> {
         Ok(None)
     }
 
