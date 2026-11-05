@@ -1,1 +1,1 @@
-search-identifiers kotlin::test::Test
+search-identifiers org::junit::jupiter::api::Test

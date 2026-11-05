@@ -11,6 +11,8 @@ plugins {
 
     // Apply the java-library plugin for API and implementation separation.
     `java-library`
+
+    id("ScipKotlinAnalysisPlugin")
 }
 
 repositories {
@@ -41,9 +43,8 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.19.1")
 
     //
-    compileOnly("org.scip-code:scip-javac:0.13.2")
-    testCompileOnly("org.scip-code:scip-javac:0.13.2")
-    kotlinCompilerPluginClasspath("org.scip-code:scip-kotlinc:0.13.2")
+    compileOnly("org.scip-code:scip-javac:0.14.1")
+    testCompileOnly("org.scip-code:scip-javac:0.14.1")
 }
 
 var sourceroot = rootProject.projectDir.getCanonicalPath()
@@ -53,12 +54,6 @@ tasks.withType<JavaCompile> {
     options.compilerArgs.add("-Xplugin:scip -sourceroot:${sourceroot} -targetroot:${targetroot}")
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    compilerOptions.freeCompilerArgs.addAll(listOf(
-        "-P", "plugin:scip-kotlinc:sourceroot=${sourceroot}",
-        "-P", "plugin:scip-kotlinc:targetroot=${targetroot}",
-    ))
-}
 
 val generatedSources = providers.gradleProperty("generatedSources")
 kotlin.sourceSets.getByName("main").generatedKotlin.srcDir(generatedSources.get())
