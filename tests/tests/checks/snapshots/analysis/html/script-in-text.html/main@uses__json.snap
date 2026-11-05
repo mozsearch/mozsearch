@@ -1,0 +1,22 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/html/script-in-text.html/uses__json
+---
+[
+  {
+    "loc": "21:21-37",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property handlerAfterText",
+    "sym": "#handlerAfterText"
+  },
+  {
+    "loc": "21:21-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "handlerAfterText",
+    "sym": "#handlerAfterText",
+    "context": ""
+  }
+]

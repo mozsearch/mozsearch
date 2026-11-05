@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>script in text <script>var varDeclInTitle = 10;</script></title>
+  </head>
+  <body>
+    <!-- Elements whose contents are text, not markup, as a spec's examples are. -->
+    <pre><xmp>
+      <script type="module">
+        var varDeclInXmp = 10;
+        paintCanvas() {
+        }
+      </script>
+      <button onclick="handlerInXmp()">Paint</button>
+      <style>.inXmp { color: red; }</style>
+    </xmp></pre>
+    <textarea><script>var varDeclInTextarea = 10;</script></textarea>
+    <iframe><script>var varDeclInIframe = 10;</script></iframe>
+    <script>var varDeclAfterText = 10;</script>
+    <button onclick="handlerAfterText()">Paint</button>
+  </body>
+</html>

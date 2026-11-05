@@ -3839,6 +3839,16 @@ class XULParser extends XMLParser {
   }
 }
 
+// The elements whose contents are text, not markup (the HTML tokenizer's
+// RCDATA, RAWTEXT and PLAINTEXT states, but `<script>`'s and `<style>`'s, and
+// `<noscript>`'s, whose styles apply without scripting): ex, a spec's example
+// of a `<script>` in an `<xmp>`.  The SAX parser knows only `<script>`'s, and
+// parses the others' contents as markup, so their `<script>`s, `<style>`s and
+// event handler attributes are left out (see `HTMLParser.inText`).
+const HTML_TEXT_ELEMENTS = new Set([
+  "IFRAME", "NOEMBED", "NOFRAMES", "PLAINTEXT", "TEXTAREA", "TITLE", "XMP",
+]);
+
 class HTMLParser extends BaseParser {
   constructor(filename, parser, text) {
     super(filename, parser, text);
@@ -3865,7 +3875,18 @@ class HTMLParser extends BaseParser {
     }
   }
 
+  // Whether the tag closing, the stack's last, is in an element whose contents
+  // are text (see HTML_TEXT_ELEMENTS).
+  inText() {
+    return this.stack.slice(0, -1).some(
+      tag => HTML_TEXT_ELEMENTS.has(tag.name.toUpperCase()));
+  }
+
   ontag(tagName, tag) {
+    if (this.inText()) {
+      this.inStyle = false;
+      return;
+    }
     switch (tagName) {
     case "SCRIPT":
       if ("SRC" in tag.attrs) {

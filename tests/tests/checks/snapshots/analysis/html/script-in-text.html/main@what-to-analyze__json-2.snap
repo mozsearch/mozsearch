@@ -1,0 +1,29 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/html/script-in-text.html/what-to-analyze__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file html/script-in-text.html",
+    "sym": "FILE_html/script@2Din@2Dtext@2Ehtml"
+  },
+  {
+    "loc": "20:16-32",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property varDeclAfterText",
+    "sym": "#varDeclAfterText"
+  },
+  {
+    "loc": "20:16-32",
+    "target": 1,
+    "kind": "def",
+    "pretty": "varDeclAfterText",
+    "sym": "#varDeclAfterText",
+    "context": ""
+  }
+]
