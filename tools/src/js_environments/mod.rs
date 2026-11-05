@@ -3,5 +3,6 @@
 //! TypeScript projects, and tests' cliques.
 
 pub mod discover;
+pub mod projects;
 pub mod rules;
 pub mod scan;

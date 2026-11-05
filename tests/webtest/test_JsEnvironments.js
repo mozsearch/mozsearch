@@ -58,3 +58,31 @@ add_task(async function test_JsEnvironmentsOfWorkerScript() {
        .endsWith("/tests/source/jsenv/worker_jsenv.js#1"),
      "where it's loaded from");
 });
+
+// Their scripts are analyzed with scip-typescript in their environments (see
+// scripts/js-environments-analyze.sh), merged as platforms': the test's call
+// of sharedHelper is of both of its environments' definitions.
+add_task(async function test_JsEnvironmentsAnalysis() {
+  await TestUtils.loadPath("/tests/source/jsenv/unit/test_shared.js");
+  const call = [...frame.contentDocument.querySelectorAll("#line-5 span[data-symbols]")]
+    .find(span => span.textContent == "sharedHelper");
+  const symbols = call?.dataset.symbols.split(",") || [];
+  ok(symbols.some(s => s.endsWith("jsenv/unit/head_jsenv.js/sharedHelper().")),
+     "A test's call is of its xpcshell environment's definition");
+  ok(symbols.some(s => s.endsWith("jsenv/helpers.js/sharedHelper().")),
+     "and of its mochitest page's");
+});
+
+// A browser-chrome test runs in its harness's scope (testScope; see
+// js-environments.toml's scope), whose members are the names it sees.
+add_task(async function test_JsEnvironmentsScope() {
+  await TestUtils.loadPath("/tests/source/jsenv/browser/browser_scope.js");
+  const symbolsOf = name => [...frame.contentDocument.querySelectorAll("#file span[data-symbols]")]
+    .find(span => span.textContent == name)?.dataset.symbols || "";
+  ok(symbolsOf("ok").endsWith("jsenv/harness/browser-test.js/testScope().ok."),
+     "The scope's members are its constructor's");
+  ok(symbolsOf("add_task").endsWith("jsenv/harness/browser-test.js/testScope().prototype.add_task()."),
+     "and its prototype's");
+  ok(symbolsOf("browserHelper").endsWith("jsenv/browser/head.js/browserHelper()."),
+     "and the test's head file's functions are globals");
+});

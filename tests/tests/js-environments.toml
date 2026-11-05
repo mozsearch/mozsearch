@@ -1,6 +1,6 @@
 # The tests tree's JS environments (see tools/src/js_environments/rules.rs
-# and files/jsenv/): xpcshell and mochitest tests, by the moz.build
-# variables declaring their manifests.
+# and files/jsenv/): xpcshell, mochitest and browser-chrome tests (with a
+# scope), by the moz.build variables declaring their manifests.
 load_globals = ["xpcshell"]
 
 [[flavors]]
@@ -13,5 +13,26 @@ name = "mochitest"
 manifest_variables = ["MOCHITEST_MANIFESTS"]
 global = "window"
 
+[[flavors]]
+name = "browser-chrome"
+manifest_variables = ["BROWSER_CHROME_MANIFESTS"]
+global = "browser-window"
+harness = ["jsenv/harness/browser-test.js"]
+implicit_head = ["head.js"]
+[flavors.scope]
+file = "jsenv/harness/browser-test.js"
+constructor = "testScope"
+
 [urls]
 "/tests/" = ""
+
+# (Their environments are analyzed with scip-typescript, with TypeScript's
+# types; see js_environments_analysis in config.json.)
+[globals.window]
+lib = ["ESNext", "DOM"]
+[globals.browser-window]
+lib = ["ESNext", "DOM"]
+[globals.xpcshell]
+lib = ["ESNext"]
+[globals.dedicatedworker]
+lib = ["ESNext", "WebWorker"]

@@ -90,6 +90,15 @@ struct ScipIndexerCli {
     #[arg(long)]
     no_leftovers: bool,
 
+    /// The name of a directory of shims (ex: js-environments-projects'
+    /// scope shims, `__jsenv_shims__`): their documents aren't written; each
+    /// of their definitions (ex: `var ok = new testScope().ok;`'s `ok`) is
+    /// instead an alias of its line's last reference (`testScope().ok.`),
+    /// which the other documents' occurrences of it are of (and those of
+    /// their definitions without one are dropped).
+    #[arg(long, value_parser)]
+    shims: Option<String>,
+
     /// rustc analysis directories or scip inputs
     #[arg(value_parser)]
     inputs: Vec<PathBuf>,
@@ -760,6 +769,52 @@ fn analyse_symbol(
     }
 }
 
+/// Resolve shims' definitions to their aliases (see `ScipIndexerCli::shims`).
+fn resolve_shims(index: &mut scip::types::Index, shims: &str) {
+    use std::collections::HashMap;
+    let is_shim =
+        |doc: &scip::types::Document| doc.relative_path.split('/').any(|part| part == shims);
+    let definition = scip::types::SymbolRole::Definition as i32;
+    let mut aliases: HashMap<String, Option<String>> = HashMap::new();
+    for doc in index.documents.iter().filter(|d| is_shim(d)) {
+        for def in doc
+            .occurrences
+            .iter()
+            .filter(|o| o.symbol_roles & definition != 0 && !o.symbol.starts_with("local "))
+        {
+            let line = def.range.first().copied();
+            let target = doc
+                .occurrences
+                .iter()
+                .filter(|o| {
+                    o.range.first().copied() == line
+                        && o.symbol != def.symbol
+                        && o.symbol_roles & definition == 0
+                        && !o.symbol.starts_with("local ")
+                })
+                .max_by_key(|o| o.range.get(1).copied().unwrap_or(0))
+                .map(|o| o.symbol.clone());
+            aliases.insert(def.symbol.clone(), target);
+        }
+    }
+    index.documents.retain(|d| !is_shim(d));
+    for doc in index.documents.iter_mut() {
+        doc.occurrences
+            .retain_mut(|o| match aliases.get(&o.symbol) {
+                Some(Some(target)) => {
+                    o.symbol = target.clone();
+                    true
+                }
+                Some(None) => false,
+                None => true,
+            });
+    }
+    index
+        .external_symbols
+        .retain(|s| !aliases.contains_key(&s.symbol));
+}
+
+#[allow(clippy::too_many_arguments)]
 fn analyze_using_scip(
     tree_config: &config::TreeConfig,
     subtree_name: Option<&str>,
@@ -767,6 +822,7 @@ fn analyze_using_scip(
     platform: &Option<String>,
     analysis_root: Option<&Path>,
     leftovers: bool,
+    shims: Option<&str>,
     scip_file: PathBuf,
 ) {
     use protobuf::Message;
@@ -776,7 +832,11 @@ fn analyze_using_scip(
     let byte_count = file.metadata().expect("Failed to get file metadata").len();
     let mut file = BufReader::new(file);
     let mut file = protobuf::CodedInputStream::from_buf_read(&mut file);
-    let index = Index::parse_from(&mut file).expect("Failed to read scip index");
+    let mut index = Index::parse_from(&mut file).expect("Failed to read scip index");
+    if let Some(shims) = shims {
+        resolve_shims(&mut index, shims);
+    }
+    let index = index;
 
     let mut scip_symbol_to_structured: UstrMap<AnalysisStructured> = UstrMap::default();
     let mut our_symbol_to_scip_sym: UstrMap<Ustr> = UstrMap::default();
@@ -1830,6 +1890,7 @@ fn main() {
             &cli.platform,
             cli.analysis_root.as_deref(),
             !cli.no_leftovers,
+            cli.shims.as_deref(),
             file,
         );
     }

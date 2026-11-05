@@ -18,7 +18,8 @@ TREE_NAME=$2
 # rules (`js_environments`, a path in the config repo): js-environments.json,
 # and each file's for the navigation panel (js-environments-files.json, which
 # per-file-info.toml ingests).  It runs after process-chrome-map, whose URL
-# map resolves chrome:// and resource:// URLs.
+# map resolves chrome:// and resource:// URLs, and before
+# js-environments-analyze.sh, which analyzes them.
 RULES=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].js_environments // empty' "$CONFIG_FILE")
 if [ -z "$RULES" ]; then
     echo "The tree has no JS environment rules."

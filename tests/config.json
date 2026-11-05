@@ -19,6 +19,7 @@
       "excluded_citation_paths": ["third_party/node/"],
       "semantic_coverage": "tests/semantic-coverage.toml",
       "js_environments": "tests/js-environments.toml",
+      "js_environments_analysis": true,
       "dataflow_summaries": true,
       "codesearch_path": "$WORKING/tests/livegrep.idx",
       "codesearch_port": 8080,

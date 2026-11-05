@@ -266,6 +266,13 @@ pub struct TreeConfigPaths {
     /// navigation panel shows (a test's, and those a script is in).
     #[serde(default)]
     pub js_environments: Option<String>,
+    /// Whether the tree's JS environments' scripts are analyzed with
+    /// scip-typescript, each in its environments (see
+    /// scripts/js-environments-analyze.sh), rather than by js-analyze (ex: not
+    /// a tree whose try pushes' analysis, which doesn't yet analyze them
+    /// so, would then differ from its own).
+    #[serde(default)]
+    pub js_environments_analysis: bool,
     /// Where the tree's pages send searches: router.py's `/search` (the
     /// default), or the pipeline-server's `/query/default` (`"query"`); see
     /// `SearchEndpoint` and `search_url`.

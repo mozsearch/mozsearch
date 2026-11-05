@@ -8,14 +8,14 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::rules::Rules;
 use super::scan::{Load, LoadKind, PageScan, scan_page, scan_script};
 use crate::file_metadata::test_manifests::{TestEntry, join_normalized};
 
 /// A script's role in an environment.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Role {
     /// The flavor's (or testharness's) harness.
@@ -34,14 +34,14 @@ pub enum Role {
     Loaded,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Script {
     pub path: String,
     pub role: Role,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub module: bool,
     /// For a page's inline scripts: their lines (first and last of each).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inline: Vec<(u32, u32)>,
     /// What loaded it, if a script did: (path, line).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -49,14 +49,14 @@ pub struct Script {
 }
 
 /// How an environment was started by another's script or page.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Started {
     /// "worker", "shared-worker", "chrome-worker", "service-worker", "frame".
     pub how: String,
     pub from: (String, u32),
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Environment {
     pub id: usize,
     /// Its global's kind (ex: "xpcshell", "window", "dedicatedworker").
@@ -81,7 +81,7 @@ pub struct Environment {
 }
 
 /// A load it couldn't follow: not a literal, or a file the tree doesn't have.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Unresolved {
     pub path: String,
     pub line: u32,
@@ -90,7 +90,7 @@ pub struct Unresolved {
     pub literal: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Discovery {
     pub environments: Vec<Environment>,
     pub unresolved: Vec<Unresolved>,

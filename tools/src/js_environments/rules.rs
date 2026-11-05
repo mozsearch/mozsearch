@@ -25,6 +25,39 @@ pub struct Rules {
     #[serde(default)]
     pub urls: BTreeMap<String, String>,
     pub wpt: Option<WptRules>,
+    /// Each global kind's TypeScript configuration, for its environments'
+    /// projects (see `projects`), by kind (ex: "window", "xpcshell").
+    #[serde(default)]
+    pub globals: BTreeMap<String, GlobalTypes>,
+}
+
+/// A global kind's TypeScript configuration: a tsconfig.json to extend
+/// (ex: Gecko's tools/@types/tsconfig.json, with its DOM and XPCOM types),
+/// or TypeScript's libraries (ex: `["ESNext", "WebWorker"]`), or both.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GlobalTypes {
+    pub extends: Option<String>,
+    #[serde(default)]
+    pub lib: Vec<String>,
+}
+
+/// A test flavor's scope (ex: browser-chrome's): its harness loads a test
+/// into an object, rather than into a global, whose members are the names it
+/// sees, before its global's: those its `constructor`'s instances have (its
+/// `this.name = ...` assignments, and its prototype's members), in `file`,
+/// and its `modules`' exports (by name: a module URL, ex:
+/// `BrowserTestUtils = "resource://testing-common/BrowserTestUtils.sys.mjs"`,
+/// or `"new <URL>"` for an instance of its exported class, ex: `Assert`).
+/// Its environments' projects declare them as globals in a generated shim,
+/// whose declarations are their definitions' (see `projects::scope_shim`).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Scope {
+    pub file: String,
+    pub constructor: String,
+    #[serde(default)]
+    pub modules: BTreeMap<String, String>,
 }
 
 /// A test flavor: the tests its manifests list run in a global of its kind,
@@ -47,6 +80,8 @@ pub struct Flavor {
     /// before its manifest's.
     #[serde(default)]
     pub implicit_head: Vec<String>,
+    /// Its tests' scope, if its harness loads them into an object.
+    pub scope: Option<Scope>,
 }
 
 /// Tests found by their paths rather than by manifests (ex: SpiderMonkey's

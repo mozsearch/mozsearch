@@ -159,6 +159,17 @@ if should_perform "process-chrome-map"; then
     $MOZSEARCH_PATH/scripts/process-chrome-map.py $GIT_ROOT $URL_MAP_PATH $INDEX_ROOT/*.chrome-map.json || handle_tree_error "process-chrome-map.py"
 fi
 
+# The JS environments (after process-chrome-map, whose URL map resolves
+# chrome:// and resource:// URLs), and their analysis, before js-analyze, which
+# leaves out the files it analyzes.
+if should_perform "js-environments"; then
+    $MOZSEARCH_PATH/scripts/js-environments.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments.sh"
+fi
+
+if should_perform "js-environments-analyze"; then
+    $MOZSEARCH_PATH/scripts/js-environments-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments-analyze.sh"
+fi
+
 if should_perform "summarize-test-results"; then
     $MOZSEARCH_PATH/scripts/summarize-test-results.py $INDEX_ROOT/test-results.json $INDEX_ROOT/xpcshell-issues.json $INDEX_ROOT/mochitest-issues.json || handle_tree_error "summarize-test-results.py"
 fi
@@ -220,10 +231,6 @@ fi
 
 if should_perform "metadata-analyze"; then
     $MOZSEARCH_PATH/scripts/metadata-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "metadata-analyze.sh"
-fi
-
-if should_perform "js-environments"; then
-    $MOZSEARCH_PATH/scripts/js-environments.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments.sh"
 fi
 
 ANALYSIS_FILES_PATH=$INDEX_ROOT/all-analysis-files
