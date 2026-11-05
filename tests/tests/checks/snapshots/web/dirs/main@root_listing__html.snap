@@ -512,6 +512,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/jsenv" class="mimetype-fixed-container mimetype-icon-folder">jsenv</a></td>
+          <td class="description"><a href="/tests/source/jsenv" title=""></td>
+          <td class="size"><a href="/tests/source/jsenv"></a></td>
+          <td class="coverage"><a href="/tests/source/jsenv" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/lambdas.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lambdas.cpp</a></td>
           <td class="description"><a href="/tests/source/lambdas.cpp" title=""></td>
           <td class="size"><a href="/tests/source/lambdas.cpp">608</a></td>

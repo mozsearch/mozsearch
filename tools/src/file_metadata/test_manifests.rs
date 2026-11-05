@@ -15,6 +15,10 @@ use super::{LineIndex, split_comment};
 /// The keys whose conditions we keep.
 pub const CONDITION_KEYS: &[&str] = &["skip-if", "run-if", "fail-if"];
 
+/// The keys whose values we keep, as lists of files: a test's `head` (its
+/// harness loads them before it, ex: xpcshell's), and `support-files`.
+pub const VALUE_KEYS: &[&str] = &["head", "support-files"];
+
 /// A condition (an element of a condition key's array, or its string), as
 /// manifestparser has it (stripped, without an inline ` # ...`), with its line
 /// and the comment after it on its line (ex: "Bug 1234").
@@ -33,6 +37,9 @@ pub struct Section {
     /// Its `path` key, if any (else its name is its file).
     pub path: Option<String>,
     pub conditions: BTreeMap<String, Vec<Condition>>,
+    /// Its VALUE_KEYS' values (an array's elements, or a string's
+    /// whitespace-separated words).
+    pub values: BTreeMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Default)]
@@ -64,6 +71,21 @@ pub fn read_manifest(source: &str) -> Result<Manifest, String> {
                 section.path = v.get_ref().as_str().map(str::to_string);
                 continue;
             }
+            if VALUE_KEYS.contains(&k) {
+                let words: Vec<String> = match v.get_ref() {
+                    DeValue::Array(array) => array
+                        .iter()
+                        .map(|e| manifest_value(e.get_ref()))
+                        .filter(|w| !w.is_empty())
+                        .collect(),
+                    other => manifest_value(other)
+                        .split_whitespace()
+                        .map(str::to_string)
+                        .collect(),
+                };
+                section.values.insert(k.to_string(), words);
+                continue;
+            }
             if !CONDITION_KEYS.contains(&k) {
                 continue;
             }
@@ -78,7 +100,9 @@ pub fn read_manifest(source: &str) -> Result<Manifest, String> {
                     // (The comment after it on its line.)
                     let line_text = source_lines.get(line - 1).copied().unwrap_or("");
                     let line_start = source[..span.start].rfind('\n').map_or(0, |i| i + 1);
-                    let after = line_text.get(span.end.saturating_sub(line_start)..).unwrap_or("");
+                    let after = line_text
+                        .get(span.end.saturating_sub(line_start)..)
+                        .unwrap_or("");
                     let comment = split_comment(after)
                         .1
                         .filter(|c| !c.is_empty())
@@ -160,6 +184,12 @@ pub struct TestEntry {
     /// layer's conditions each combine with each of the others' (`&&`);
     /// for fail-if, only the most local layer's apply.
     pub conditions: BTreeMap<String, Vec<AppliedCondition>>,
+    /// Its VALUE_KEYS' values, combined as manifestparser's `combine_fields`
+    /// does: `support-files` accumulate, and the most local `head` applies.
+    /// (Not in test-manifest-entries.json: a manifest's support files would
+    /// be repeated for each of its tests.)
+    #[serde(skip)]
+    pub values: BTreeMap<String, Vec<String>>,
 }
 
 impl TestEntry {
@@ -238,6 +268,21 @@ fn combine(
     }
 }
 
+/// Combine a layer's values into those so far (see `TestEntry::values`).
+fn combine_values(so_far: &mut BTreeMap<String, Vec<String>>, section: Option<&Section>) {
+    let Some(section) = section else {
+        return;
+    };
+    for (key, values) in &section.values {
+        let entry = so_far.entry(key.clone()).or_default();
+        if key == "support-files" {
+            entry.extend(values.iter().cloned());
+        } else {
+            *entry = values.clone();
+        }
+    }
+}
+
 /// A directory-relative path, normalized (`a/./b/../c` -> `a/c`).
 pub fn join_normalized(dir: &str, path: &str) -> String {
     let mut parts: Vec<&str> = if dir.is_empty() {
@@ -300,17 +345,31 @@ impl Manifests {
             parents.extend(ancestors.get(path).into_iter().flatten().map(Some));
             for parent in parents {
                 let mut defaults: BTreeMap<String, Vec<AppliedCondition>> = BTreeMap::new();
+                let mut default_values: BTreeMap<String, Vec<String>> = BTreeMap::new();
                 if let Some(parent) = parent
                     && let Some(pm) = self.manifests.get(parent)
                 {
-                    combine(&mut defaults, pm.default.as_ref(), From::AncestorDefault, parent);
+                    combine(
+                        &mut defaults,
+                        pm.default.as_ref(),
+                        From::AncestorDefault,
+                        parent,
+                    );
+                    combine_values(&mut default_values, pm.default.as_ref());
                     let include = Self::includes(parent, pm)
                         .into_iter()
                         .find(|(_, child)| child == path)
                         .map(|(s, _)| s);
                     combine(&mut defaults, include, From::Include, parent);
+                    combine_values(&mut default_values, include);
                 }
-                combine(&mut defaults, manifest.default.as_ref(), From::Default, path);
+                combine(
+                    &mut defaults,
+                    manifest.default.as_ref(),
+                    From::Default,
+                    path,
+                );
+                combine_values(&mut default_values, manifest.default.as_ref());
                 let dir = dir_of(path);
                 for section in &manifest.sections {
                     if section.name.starts_with("include:") {
@@ -322,12 +381,17 @@ impl Manifests {
                     }
                     let mut conditions = defaults.clone();
                     combine(&mut conditions, Some(section), From::Test, path);
-                    out.entry(join_normalized(dir, file)).or_default().push(TestEntry {
-                        manifest: path.clone(),
-                        ancestor: parent.cloned(),
-                        line: section.line,
-                        conditions,
-                    });
+                    let mut values = default_values.clone();
+                    combine_values(&mut values, Some(section));
+                    out.entry(join_normalized(dir, file))
+                        .or_default()
+                        .push(TestEntry {
+                            manifest: path.clone(),
+                            ancestor: parent.cloned(),
+                            line: section.line,
+                            conditions,
+                            values,
+                        });
                 }
             }
         }
@@ -342,6 +406,8 @@ mod tests {
     const PARENT: &str = r#"[DEFAULT]
 skip-if = ["os == 'android'"]
 run-if = ["!msix"]
+head = "head_parent.js"
+support-files = ["shared.js"]
 
 ["include:sub/child.toml"]
 skip-if = [
@@ -353,6 +419,7 @@ skip-if = [
 support-files = ["helper.js"]
 skip-if = ["http3"]
 run-if = ["os == 'linux'", "os == 'mac'"]
+head = "head_child.js head_more.js"
 
 ["test_a.html"]
 skip-if = [
@@ -360,16 +427,23 @@ skip-if = [
   "asan",
 ]
 fail-if = "xorigin"
+support-files = "file_a.html"
 
 ["test_b.html"]
 path = "../other/test_b.html"
+head = ["head_b.js"]
 "#;
 
     fn manifests() -> Manifests {
         let mut m = Manifests::default();
-        m.manifests.insert("dir/parent.toml".to_string(), read_manifest(PARENT).unwrap());
-        m.manifests
-            .insert("dir/sub/child.toml".to_string(), read_manifest(CHILD).unwrap());
+        m.manifests.insert(
+            "dir/parent.toml".to_string(),
+            read_manifest(PARENT).unwrap(),
+        );
+        m.manifests.insert(
+            "dir/sub/child.toml".to_string(),
+            read_manifest(CHILD).unwrap(),
+        );
         m
     }
 
@@ -377,24 +451,28 @@ path = "../other/test_b.html"
     fn test_read_manifest() {
         let m = read_manifest(CHILD).unwrap();
         assert_eq!(m.default.as_ref().unwrap().line, 1);
-        let names: Vec<(&str, usize)> = m.sections.iter().map(|s| (s.name.as_str(), s.line)).collect();
-        assert_eq!(names, vec![("test_a.html", 6), ("test_b.html", 13)]);
+        let names: Vec<(&str, usize)> = m
+            .sections
+            .iter()
+            .map(|s| (s.name.as_str(), s.line))
+            .collect();
+        assert_eq!(names, vec![("test_a.html", 7), ("test_b.html", 15)]);
         assert_eq!(
             m.sections[0].conditions["skip-if"],
             vec![
                 Condition {
                     text: "debug".to_string(),
-                    line: 8,
+                    line: 9,
                     comment: Some("Bug 123 - can't \"run\"".to_string())
                 },
                 Condition {
                     text: "asan".to_string(),
-                    line: 9,
+                    line: 10,
                     comment: None
                 },
             ]
         );
-        assert_eq!(m.sections[0].conditions["fail-if"][0].line, 11);
+        assert_eq!(m.sections[0].conditions["fail-if"][0].line, 12);
         assert_eq!(m.sections[1].path.as_deref(), Some("../other/test_b.html"));
     }
 
@@ -402,7 +480,10 @@ path = "../other/test_b.html"
     fn test_entries() {
         let m = manifests();
         let mut ancestors = BTreeMap::new();
-        ancestors.insert("dir/sub/child.toml".to_string(), vec!["dir/parent.toml".to_string()]);
+        ancestors.insert(
+            "dir/sub/child.toml".to_string(),
+            vec!["dir/parent.toml".to_string()],
+        );
         // (The child manifest is also read directly.)
         let top_level: BTreeSet<String> = ["dir/parent.toml", "dir/sub/child.toml"]
             .iter()
@@ -417,7 +498,7 @@ path = "../other/test_b.html"
         );
         let a = &entries["dir/sub/test_a.html"][1];
         assert_eq!(a.ancestor.as_deref(), Some("dir/parent.toml"));
-        assert_eq!(a.line, 6);
+        assert_eq!(a.line, 7);
         assert_eq!(
             a.manifestparser_value("skip-if"),
             "os == 'android'\nverify\nhttp3\ndebug\nasan"
@@ -429,10 +510,10 @@ path = "../other/test_b.html"
                 .collect::<Vec<_>>(),
             vec![
                 (&From::AncestorDefault, "dir/parent.toml", 2),
-                (&From::Include, "dir/parent.toml", 7),
+                (&From::Include, "dir/parent.toml", 9),
                 (&From::Default, "dir/sub/child.toml", 3),
-                (&From::Test, "dir/sub/child.toml", 8),
                 (&From::Test, "dir/sub/child.toml", 9),
+                (&From::Test, "dir/sub/child.toml", 10),
             ]
         );
         assert_eq!(
@@ -441,6 +522,15 @@ path = "../other/test_b.html"
         );
         assert_eq!(a.manifestparser_value("fail-if"), "xorigin");
         assert!(entries.contains_key("dir/other/test_b.html"));
+        // (The parent's head, replaced by the child's default's; the support
+        // files accumulate.)
+        assert_eq!(a.values["head"], vec!["head_child.js", "head_more.js"]);
+        assert_eq!(
+            a.values["support-files"],
+            vec!["shared.js", "helper.js", "file_a.html"]
+        );
+        let b = &entries["dir/other/test_b.html"][1];
+        assert_eq!(b.values["head"], vec!["head_b.js"]);
     }
 
     #[test]

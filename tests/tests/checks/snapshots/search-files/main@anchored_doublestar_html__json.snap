@@ -119,6 +119,20 @@ input_file: inputs/search-files/anchored_doublestar_html__json
       }
     },
     {
+      "path": "jsenv/test_shared.html",
+      "concise": {
+        "path_kind": "normal",
+        "is_dir": false,
+        "file_size": 269,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
       "path": "mobile/androidTest/asserts/inputs.html",
       "concise": {
         "path_kind": "test",

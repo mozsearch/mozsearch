@@ -1873,6 +1873,49 @@ html.fancy-bar-resizing {
 .panel-tests a.test-results-tiles {
   text-decoration: none;
 }
+/* A JS file's environments, in the panel (see
+   config_defaults/panel_sections/tests_environments.liquid). */
+.panel-js-environments {
+  padding: 0 0.5rem 0.5rem;
+  font-size: 90%;
+}
+.panel-js-environments a {
+  color: unset;
+  text-decoration: underline;
+}
+.panel-js-environments ul,
+.panel-js-environments ol {
+  padding-inline-start: 1rem;
+  margin: 0;
+}
+.panel-js-environments > ul {
+  padding-inline-start: 0;
+  list-style: none;
+}
+.panel-js-environments .js-env-script a {
+  overflow-wrap: anywhere;
+}
+.panel-js-environments .js-env-role,
+.panel-js-environments .js-env-from,
+.panel-js-environments .js-env-manifest {
+  opacity: 0.7;
+}
+/* (The harness's scripts matter less than the test's own.) */
+.panel-js-environments .js-env-role-harness {
+  opacity: 0.6;
+}
+.panel-js-environments .js-env-script[aria-current] > a {
+  font-weight: bold;
+}
+.panel-js-environments .js-env-flavor {
+  font-weight: bold;
+}
+.panel-js-environments .js-env-current {
+  background-color: var(--info-box-warning-background);
+}
+.panel-js-environments .js-env-in-heading {
+  margin: 0.5em 0 0;
+}
 /* (A directory's CI results' box, in the panel.) */
 .panel-tests .test-results-box {
   margin: 0;

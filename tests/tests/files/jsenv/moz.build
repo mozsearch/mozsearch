@@ -1,0 +1,2 @@
+XPCSHELL_TESTS_MANIFESTS += ["unit/xpcshell.toml"]
+MOCHITEST_MANIFESTS += ["mochitest.toml"]

@@ -202,6 +202,13 @@ input_file: inputs/web/files/nav-panel/test_otherthing__navpanel__html
     </li>
   </ul>
 </div>
+  <h4 id="panel-js-environments">JS environments</h4>
+<div class="panel-js-environments">
+  <ul class="js-env-roots">
+    <li class="js-env" data-root="tests/test_otherthing.html"><span class="js-env-flavor">mochitest</span> in a <span class="js-env-global">window</span> <span class="js-env-manifest">(<a href="/tests/source/tests/mochitest-common.toml">mochitest-common.toml</a>, included by <a href="/tests/source/tests/mochitest.toml">mochitest.toml</a>)</span> <span class="js-env-no-scripts">(no scripts)</span>
+</li>
+  </ul>
+</div>
   <h4>Revision control</h4>
   <ul>
   <li>

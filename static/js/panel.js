@@ -216,6 +216,31 @@ var Panel = new (class Panel {
     if (Settings.debug.ui) {
       this.addDebugSection();
     }
+
+    this.openTestEnvironment();
+  }
+
+  // A page's `?test=PATH` (a test's tree's links to the files it loads have
+  // it): that test's entries in the "JS environments" section (see
+  // config_defaults/panel_sections/tests_environments.liquid) are marked,
+  // and its folded trees opened.
+  openTestEnvironment() {
+    const test = new URLSearchParams(location.search).get("test");
+    const section = this.panel.querySelector(".panel-js-environments");
+    if (!test || !section) {
+      return;
+    }
+    for (const entry of section.querySelectorAll("[data-root]")) {
+      if (entry.dataset.root != test) {
+        continue;
+      }
+      entry.classList.add("js-env-current");
+      for (const details of [entry, ...entry.querySelectorAll(":scope > details")]) {
+        if (details.tagName == "DETAILS") {
+          details.open = true;
+        }
+      }
+    }
   }
 
   get acceleratorsEnabled() {

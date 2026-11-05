@@ -222,6 +222,10 @@ if should_perform "metadata-analyze"; then
     $MOZSEARCH_PATH/scripts/metadata-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "metadata-analyze.sh"
 fi
 
+if should_perform "js-environments"; then
+    $MOZSEARCH_PATH/scripts/js-environments.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments.sh"
+fi
+
 ANALYSIS_FILES_PATH=$INDEX_ROOT/all-analysis-files
 
 if should_perform "generate-analsysis-files-list"; then

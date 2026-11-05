@@ -1,0 +1,17 @@
+# The tests tree's JS environments (see tools/src/js_environments/rules.rs
+# and files/jsenv/): xpcshell and mochitest tests, by the moz.build
+# variables declaring their manifests.
+load_globals = ["xpcshell"]
+
+[[flavors]]
+name = "xpcshell"
+manifest_variables = ["XPCSHELL_TESTS_MANIFESTS"]
+global = "xpcshell"
+
+[[flavors]]
+name = "mochitest"
+manifest_variables = ["MOCHITEST_MANIFESTS"]
+global = "window"
+
+[urls]
+"/tests/" = ""

@@ -1,0 +1,37 @@
+{%- comment %}A JS file's environments, in the navigation panel
+(js-environments' detailed.info.js_environments; see tools/src/js_environments/):
+the globals it runs in, each with the scripts loaded into it, in order.  A
+test's or page's own (the roots: its test, by its flavor and manifest, or its
+page), each with the workers and frames it starts; and those it's loaded into
+(ex: a test's head file's, a page's script's), with their tests, the first few
+with their trees, folded.  A page's `?test=PATH` opens that test's (see
+panel.js's `openTestEnvironment`).  (Liquid fails on missing keys, hence the
+contains guards.){% endcomment -%}
+{%- if detailed.info contains "js_environments" -%}
+{%- assign envs = detailed.info.js_environments -%}
+<h4 id="panel-js-environments">JS environments</h4>
+<div class="panel-js-environments">
+{%- if envs contains "roots" %}
+  <ul class="js-env-roots">
+  {%- for env in envs.roots %}
+    <li class="js-env" data-root="{{ env.root }}"><span class="js-env-flavor">{{ env.flavor }}</span> in a {% include 'js_environments/environment.liquid' env: env, tree: tree, path: path, test_root: env.root %}</li>
+  {%- endfor %}
+  </ul>
+{%- endif %}
+{%- if envs contains "in" %}
+  <p class="js-env-in-heading">Loaded into {{ envs.in_count }} {% if envs.in_count == 1 %}environment{% else %}environments{% endif %}{% if envs.in_count > envs.in.size %} (the first {{ envs.in.size }} here){% endif %}:</p>
+  <ul class="js-env-ins">
+  {%- for entry in envs.in %}
+    <li class="js-env-in" data-root="{{ entry.root }}"><span class="js-env-flavor">{{ entry.flavor }}</span> <a href="/{{ tree }}/source/{{ entry.root }}">{{ entry.root }}</a>
+    {%- if entry contains "manifest" %} (<a href="/{{ tree }}/source/{{ entry.manifest }}">{{ entry.manifest | split: "/" | last }}</a>{% if entry contains "ancestor" %}, included by <a href="/{{ tree }}/source/{{ entry.ancestor }}">{{ entry.ancestor | split: "/" | last }}</a>{% endif %}){% endif -%}
+    , as its <span class="js-env-role">{{ entry.role }}</span>
+    {%- if entry.env_root != entry.root %} in <a href="/{{ tree }}/source/{{ entry.env_root }}">{{ entry.env_root | split: "/" | last }}</a>'s {{ entry.global }}{% else %} in a {{ entry.global }}{% endif -%}
+    {%- if entry contains "tree" %}
+      <details class="js-env-tree" data-root="{{ entry.root }}"><summary>Its environments</summary>{% include 'js_environments/environment.liquid' env: entry.tree, tree: tree, path: path, test_root: entry.root %}</details>
+    {%- endif %}
+    </li>
+  {%- endfor %}
+  </ul>
+{%- endif %}
+</div>
+{%- endif -%}

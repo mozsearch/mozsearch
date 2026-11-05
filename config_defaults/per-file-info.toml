@@ -205,6 +205,27 @@ nesting_key = "test"
 [jsonfile."test-manifest-entries.json".detailed.info]
 test_manifests.pointer = "/manifests"
 
+# ### js-environments-files.json (see tools/src/bin/js-environments.rs)
+#
+# A JS file's environments, for its navigation panel's "JS environments"
+# section (panel_sections/tests_environments.liquid): {"roots": [tree] (the
+# environments it's the root of: a test's, or a page's), "in": [{"root",
+# "env_root", "flavor", "global", "role", "manifest", "ancestor", "variant",
+# "tree" (the first few)}] (those it's loaded into), "in_count"}, a tree being
+# {"flavor", "global", "root", "manifest", "ancestor", "variant", "started",
+# "scripts": [{"path", "role", "module", "inline", "from"}], "children":
+# [tree] (the workers and frames it starts)}.
+[jsonfile."js-environments-files.json"]
+source = [{ root = "index", file = "js-environments-files.json" }]
+
+[jsonfile."js-environments-files.json".ingestion]
+root = "/files"
+nesting = "boring-dict-of-arrays"
+nesting_key = "path"
+
+[jsonfile."js-environments-files.json".detailed.info]
+js_environments.pointer = ""
+
 # ### test-results.json
 #
 # Results of the xpcshell and mochitest tests in CI over the last 21 days, as

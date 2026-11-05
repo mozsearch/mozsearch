@@ -1,0 +1,9 @@
+[DEFAULT]
+support-files = [
+  "helpers.js",
+  "unit/test_shared.js",
+  "worker_jsenv.js",
+  "worker_helper.js",
+]
+
+["test_shared.html"]

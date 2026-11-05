@@ -260,6 +260,12 @@ pub struct TreeConfigPaths {
     /// `semantic_coverage`).
     #[serde(default)]
     pub semantic_coverage: Option<String>,
+    /// The tree's JS environment rules, a path in the config repo (ex:
+    /// "firefox-shared/js-environments.toml"), for js-environments (see
+    /// `js_environments`), whose environments the source listings'
+    /// navigation panel shows (a test's, and those a script is in).
+    #[serde(default)]
+    pub js_environments: Option<String>,
     /// Where the tree's pages send searches: router.py's `/search` (the
     /// default), or the pipeline-server's `/query/default` (`"query"`); see
     /// `SearchEndpoint` and `search_url`.
