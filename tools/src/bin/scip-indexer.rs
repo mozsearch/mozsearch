@@ -963,7 +963,13 @@ fn analyze_using_scip(
                         Regex::new(r"^([^ ]+) (.+)\$").unwrap();
                 }
 
+                // (A hook's, scip-typescript's --hooks: `(hook) testSteps`.)
                 if lang == ScipLang::Typescript
+                    && let Some(name) = doc.text.strip_prefix("(hook) ")
+                {
+                    fallback_kind = Some("hook");
+                    doc_name = Some(name.to_string());
+                } else if lang == ScipLang::Typescript
                     && let Some(caps) = RE_TS_TYPED.captures(&doc.text)
                 {
                     if let Some(s) = caps.get(1) {
@@ -1033,9 +1039,34 @@ fn analyze_using_scip(
             {
                 symbol_info.kind = Some("method");
             }
+            // (A hook's descriptor is a meta descriptor, its using script's,
+            // whose path its pretty has, ex: `testing/xpcshell/head.js::run_test`,
+            // as a namespace: its definitions, the tests' declarations, have
+            // its name as theirs.)
+            if fallback_kind == Some("hook") {
+                symbol_info.kind = Some("hook");
+                let path = scip_sym
+                    .descriptors
+                    .iter()
+                    .filter(|d| {
+                        matches!(
+                            d.suffix.enum_value(),
+                            Ok(Suffix::Namespace | Suffix::Package)
+                        )
+                    })
+                    .map(|d| d.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join("/");
+                if let Some(last) = scip_sym.descriptors.last()
+                    && !path.is_empty()
+                {
+                    symbol_info.pretty = ustr(&format!("{}::{}", path, last.name));
+                }
+            }
 
             let mut supers = vec![];
             let mut overrides = vec![];
+            let mut hooks = vec![];
 
             // SCIP provides the full transitive closure of relationships,
             // but our current model favors only having the immediate links.
@@ -1054,6 +1085,17 @@ fn analyze_using_scip(
                     relative_path,
                     None,
                 );
+
+                // (A definition of a hook, ex: a test's function its
+                // harness calls by its name; see `AnalysisStructured::hooks`.)
+                if rel.is_definition {
+                    hooks.push(ustr(&parent_symbol_info.norm_sym));
+                    let urel_sym = ustr(&rel.symbol);
+                    if !scip_symbol_to_structured.contains_key(&urel_sym) {
+                        possible_unknown_scip_symbols.insert(urel_sym, parent_symbol_info);
+                    }
+                    continue;
+                }
 
                 // If our symbol is a local (or if we failed to unwrap its kind for any reason),
                 // fallback to the kind of the symbol it is related to
@@ -1088,6 +1130,8 @@ fn analyze_using_scip(
             // Ensure that supers and overrides are sorted to avoid flaky tests
             supers.sort_unstable_by_key(|r| r.sym);
             overrides.sort_unstable_by_key(|r| r.sym);
+            hooks.sort_unstable();
+            hooks.dedup();
 
             let (slot_owner, binding_slots) = binding_links(scip_sym_info, lang);
 
@@ -1134,6 +1178,7 @@ fn analyze_using_scip(
 
                 subclass_syms: vec![],
                 overridden_by_syms: vec![],
+                hooks,
                 variants: vec![],
                 supplement: false,
                 docs: vec![],
@@ -1308,6 +1353,7 @@ fn analyze_using_scip(
 
                 subclass_syms: vec![],
                 overridden_by_syms: vec![],
+                hooks: vec![],
                 variants: vec![],
                 supplement: false,
                 docs: external_docs(&lang, &symbol),
@@ -1592,8 +1638,10 @@ fn analyze_using_scip(
                 }
             }
 
-            // If we match the name, then push this.
-            let starts_nest = if next_parse_loc == loc {
+            // If we match the name, then push this.  (Not a hook's definition,
+            // at its defining symbol's name: it's no nesting's symbol, and
+            // nothing in its definer's body is its.)
+            let starts_nest = if next_parse_loc == loc && sinfo.kind != "hook" {
                 // Note that it's possible this current approach could result
                 // with us defining the start of 2+ nesting ranges on the same
                 // line.  format.rs handles this and we similarly require any
@@ -1647,7 +1695,11 @@ fn analyze_using_scip(
             // TODO: Contextual info.
 
             if !no_crossref {
-                let (contextsym, context) = if let Some(nested) = nesting_stack.last() {
+                // (A hook's definition is at its defining symbol's name, a
+                // top-level declaration's, which can be on the stack already.)
+                let (contextsym, context) = if kind == AnalysisKind::Def && sinfo.kind == "hook" {
+                    (ustr(""), ustr(""))
+                } else if let Some(nested) = nesting_stack.last() {
                     (nested.sym, nested.pretty)
                 } else {
                     (ustr(""), ustr(""))
@@ -1713,6 +1765,7 @@ fn analyze_using_scip(
 
             subclass_syms: vec![],
             overridden_by_syms: vec![],
+            hooks: vec![],
             variants: vec![],
             supplement: false,
             docs,

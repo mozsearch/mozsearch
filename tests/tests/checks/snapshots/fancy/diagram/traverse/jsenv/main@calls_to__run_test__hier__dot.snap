@@ -1,0 +1,14 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/traverse/jsenv/calls_to__run_test__hier__dot
+---
+digraph g {
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+  "S_js_typescript_test-ts/jsenv/unit/head_jsenv.js/run_test:"[id=Gidn1 label=<jsenv/unit/head_jsenv.js::run_test <U>hook</U>> class="diagram-depth-1"]
+  "S_js_typescript_test-ts/jsenv/unit/head_jsenv.js/runTests()."[id=Gidn2 label=<runTests> class="diagram-depth-2"]
+  "S_js_typescript_test-ts/jsenv/unit/test_shared.js/run_test()."[id=Gidn0 label=<run_test> class="diagram-depth-0"]
+  "S_js_typescript_test-ts/jsenv/unit/head_jsenv.js/run_test:" -> "S_js_typescript_test-ts/jsenv/unit/test_shared.js/run_test()." [style=dashed arrowhead=onormal id=Gide0]
+  "S_js_typescript_test-ts/jsenv/unit/head_jsenv.js/runTests()." -> "S_js_typescript_test-ts/jsenv/unit/head_jsenv.js/run_test:" [style=solid arrowhead=normal id=Gide1]
+}

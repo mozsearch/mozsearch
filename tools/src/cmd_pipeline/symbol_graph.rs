@@ -154,6 +154,9 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
         // whose uses of other tasks (ex: fetching their toolchains) are
         // dependencies, and of their task-defaults are inheritance.
         "task" => true,
+        // Hooks, the names harnesses call their tests' functions by (see
+        // `AnalysisStructured::hooks`), which calls-from diagrams stop at.
+        "hook" => true,
         _ => false,
     }
 }
@@ -2681,6 +2684,22 @@ impl SymbolGraphNodeSet {
                     });
                 }
             }
+        }
+        // (A hook, a name a harness calls its tests' functions by, has a
+        // badge: a calls-from diagram stops at it, as it has no definitions
+        // of its own; see `AnalysisStructured::hooks`.  Its context menu
+        // searches for its definitions, its tests'.)
+        if sym_info
+            .crossref_info
+            .as_ref()
+            .and_then(|ci| ci.meta.as_ref())
+            .is_some_and(|meta| meta.kind == "hook")
+        {
+            sym_info.badges.push(SymbolBadge {
+                pri: 30,
+                label: ustr("hook"),
+                source_jump: None,
+            });
         }
         // Insert the symbol and issue a node id.
         let index = self.symbol_crossref_infos.len();

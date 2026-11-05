@@ -283,6 +283,7 @@ fn event_structured(sym: Ustr, pretty: Ustr) -> AnalysisStructured {
         labels: BTreeSet::default(),
         subclass_syms: vec![],
         overridden_by_syms: vec![],
+        hooks: vec![],
         variants: vec![],
         supplement: false,
         docs: vec![],
@@ -600,6 +601,7 @@ fn make_subsystem(
 
             subclass_syms: vec![],
             overridden_by_syms: vec![],
+            hooks: vec![],
             variants: vec![],
             supplement: false,
             docs: vec![],
@@ -2783,6 +2785,7 @@ fn subsystem_structured(sym: Ustr, subsystem: Ustr) -> AnalysisStructured {
         labels: BTreeSet::default(),
         subclass_syms: vec![],
         overridden_by_syms: vec![],
+        hooks: vec![],
         variants: vec![],
         supplement: false,
         docs: vec![],

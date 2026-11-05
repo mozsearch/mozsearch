@@ -2183,9 +2183,14 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             def: symInfo?.jumps?.def,
           });
         } else {
-          jumpify(symInfo, symInfo.pretty);
+          // (A hook, a name a harness calls its tests' functions by, has no
+          // definition of its own: its search's definitions are the tests',
+          // which diagrams don't go down into; see
+          // `AnalysisStructured::hooks`.)
+          const label = symInfo.meta?.kind === "hook" ? `hook ${symInfo.pretty}` : symInfo.pretty;
+          jumpify(symInfo, label);
           searches.push({
-            label: symInfo.pretty,
+            label,
             syms: [sym],
             def: symInfo?.jumps?.def,
           });

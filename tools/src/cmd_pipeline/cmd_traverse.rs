@@ -256,6 +256,7 @@ bitflags! {
 /// - "meta/ontologySlots":
 /// - "meta/overrides":
 /// - "meta/overriddenBy":
+/// - "meta/hooks": (upwards only)
 /// - "meta/slotOwner":
 /// - "uses":
 ///
@@ -436,6 +437,12 @@ impl PipelineCommand for TraverseCommand {
             // case; only downwards in the "overridden_by" case above.
             _ => false,
         };
+        // A test's function a harness calls by its name, a hook's definition
+        // (see `AnalysisStructured::hooks`), is called where the hook is used:
+        // upwards in the "uses" case, as overrides are.  But not downwards
+        // from a hook, which has no list of its definitions: a calls-from
+        // diagram stops at it, rather than going into every test.
+        let traverse_hooks = self.args.edge == "uses";
         let traverse_subclasses = match self.args.edge.as_str() {
             "class" => true,
             "inheritance" => true,
@@ -1301,6 +1308,48 @@ impl PipelineCommand for TraverseCommand {
                         continue;
                     }
                     trace!(sym = target.sym.as_str(), "scheduling overrides");
+                    to_traverse.push_back((
+                        target_info.symbol,
+                        target_pretty,
+                        next_depth,
+                        all_traversals_valid,
+                    ));
+                }
+            }
+
+            if traverse_hooks {
+                let sym_info = sym_node_set.get(&sym_id);
+                let hooks = sym_info
+                    .get_structured()
+                    .map(|meta| meta.hooks.clone())
+                    .unwrap_or_default();
+
+                for hook in hooks {
+                    let (target_id, target_info) = sym_node_set
+                        .ensure_symbol(&hook, server, next_depth)
+                        .await?;
+                    let target_pretty = match target_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
+                        _ => ustr(""),
+                    };
+                    if ignore_node_set.contains(&*target_pretty) {
+                        continue;
+                    }
+                    if !considered.insert(target_info.symbol) {
+                        continue;
+                    }
+                    // (The hook's uses call its definition.)
+                    sym_edge_set.ensure_edge_in_graph(
+                        target_id,
+                        sym_id.clone(),
+                        EdgeKind::Implementation,
+                        vec![],
+                        &mut graph,
+                    );
+                    if next_depth >= max_depth {
+                        continue;
+                    }
+                    trace!(sym = hook.as_str(), "scheduling hook");
                     to_traverse.push_back((
                         target_info.symbol,
                         target_pretty,

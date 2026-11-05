@@ -104,3 +104,27 @@ add_task(async function test_JsEnvironmentsUnwrap() {
   ok(symbolsOf("Error") && !symbolsOf("Error").includes("jsenv/shell"),
      "but not the builtin the harness keeps a reference to");
 });
+
+// A test's function its harness calls by its name, in their global, is a
+// hook's definition (see scip-typescript's --hooks): the head's calls of
+// run_test are the hook's uses, whose context menu searches for its
+// definitions (and jumps to its only one, the test's).
+add_task(async function test_JsEnvironmentsHooks() {
+  await TestUtils.loadPath("/tests/source/jsenv/unit/head_jsenv.js");
+  const hook = "S_js_typescript_test-ts/jsenv/unit/head_jsenv.js/run_test:";
+  const call = [...frame.contentDocument.querySelectorAll("#line-10 span[data-symbols]")]
+    .find(span => span.textContent == "run_test");
+  is(call?.dataset.symbols, hook, "The head's call of its test's run_test is a hook's use");
+  TestUtils.click(call);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the hook");
+  const links = [...menu.querySelectorAll("a")];
+  ok(links.some(a => a.textContent == "Search for hook jsenv/unit/head_jsenv.js::run_test"),
+     "which offers a search for the hook's definitions");
+  ok(links.some(a => a.textContent == "Go to definition of hook jsenv/unit/head_jsenv.js::run_test"
+                && a.getAttribute("href").includes("/jsenv/unit/test_shared.js#")),
+     "and jumps to its only one, the test's");
+
+  await TestUtils.loadPath("/tests/source/jsenv/unit/test_shared.js");
+  ok(symbolsOf("run_test").split(",").includes(hook), "The test's run_test is a definition of the hook");
+});

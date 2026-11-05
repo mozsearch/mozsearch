@@ -22,13 +22,14 @@ TREE_NAME=$2
 # default, as each process loads its global's types once), in parallel
 # (JS_ENVIRONMENTS_JOBS processes, by default half the cores), documenting
 # each script once per kind, but those whose analysis there is already (ex:
-# TypeScript projects'); each kind's analysis (with scip-indexer, whose
-# --shims makes the uses of a flavor's scope's members uses of their
-# definitions) merged as platforms' into the tree's analysis
-# (merge-analyses), so that a script in several kinds of environments has
-# each one's definitions.  js-analyze, which runs after it, leaves out the
-# files it analyzes.  (JS_ENVIRONMENTS_FLAVORS, a comma-separated list,
-# limits it to some flavors.)
+# TypeScript projects'), with --hooks (the names harnesses call their tests'
+# functions by are hooks, whose definitions are the tests'); each kind's
+# analysis (with scip-indexer, whose --shims makes the uses of a flavor's
+# scope's members uses of their definitions) merged as platforms' into the
+# tree's analysis (merge-analyses), so that a script in several kinds of
+# environments has each one's definitions.  js-analyze, which runs after it,
+# leaves out the files it analyzes.  (JS_ENVIRONMENTS_FLAVORS, a
+# comma-separated list, limits it to some flavors.)
 RULES=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].js_environments // empty' "$CONFIG_FILE")
 ANALYSIS=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].js_environments_analysis // false' "$CONFIG_FILE")
 if [ -z "$RULES" ] || [ "$ANALYSIS" != "true" ] || [ ! -f "$INDEX_ROOT/js-environments.json" ]; then
@@ -60,7 +61,7 @@ index_projects() {
     # (Its --cwd is FILES_ROOT as the projects name their files, though it's a
     # symbolic link, whose real path the process's working directory is.)
     (cd "$FILES_ROOT" && timeout "${JS_ENVIRONMENTS_TIMEOUT:-900}" scip-typescript index \
-         --cwd "$FILES_ROOT" --no-progress-bar --stable-type-ordering --classic-scripts \
+         --cwd "$FILES_ROOT" --no-progress-bar --stable-type-ordering --classic-scripts --hooks \
          --max-file-byte-size 200kb --output "$WORK/scip/$name.scip" "$@") \
         > "$WORK/scip/$name.log" 2>&1 || return 1
     scip-indexer "$CONFIG_FILE" "$TREE_NAME" --subtree-name typescript --subtree-root "" \

@@ -668,6 +668,14 @@ where
     pub fields: Vec<StructuredFieldInfo<StrT>>,
     #[serde(default)]
     pub overrides: Vec<StructuredOverrideInfo<StrT>>,
+    /// The hooks it's a definition of (ex: a test's `testSteps`, which its
+    /// harness calls by its name; see scip-typescript's --hooks): symbols
+    /// without definitions of their own, whose definitions are those of the
+    /// symbols which define them.  Calls-to traverses up from it to their
+    /// uses, as it does to the methods it overrides, but calls-from doesn't
+    /// go down from them, as they've no list of their definitions.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hooks: Vec<StrT>,
     #[serde(default)]
     pub props: Vec<StrT>,
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]

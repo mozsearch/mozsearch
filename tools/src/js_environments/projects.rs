@@ -7,8 +7,10 @@
 //! syntax, so that each one's own declarations are its own (as they are:
 //! tests aren't loaded into each other's globals), as a project per
 //! environment was ~5 times slower for Firefox; with its global kind's types
-//! (see `rules::GlobalTypes`), and the scripts it unwraps (`scipUnwrapFiles`;
-//! see `rules::Rules::unwrap`); documenting (`scipOnlyFiles`) each script once
+//! (see `rules::GlobalTypes`), the scripts it unwraps (`scipUnwrapFiles`;
+//! see `rules::Rules::unwrap`), and the names its scripts can use as hooks
+//! (`scipHookNames`: its tests' functions their harness calls by their
+//! names); documenting (`scipOnlyFiles`) each script once
 //! per kind, but those which other analysis already covers (ex: TypeScript
 //! projects').  The documents' analyses are then merged as platforms' (a kind's
 //! analysis directory each; see scripts/js-environments-analyze.sh), so that
@@ -17,11 +19,12 @@
 //! aren't documented yet.  Projects are written in batches by kind, for
 //! scip-typescript processes each indexing a batch.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use rayon::prelude::*;
 use serde_json::json;
 use tree_sitter::{Node, Parser};
 
@@ -59,6 +62,82 @@ pub struct ProjectsSummary {
 /// members (`Constructor.prototype = { ... }`'s, and `Constructor.prototype.name
 /// = ...`'s), but those whose names start with `_` (its private ones), each
 /// once, its instances' first.
+/// A script's top-level declarations' names (its functions', classes' and
+/// variables'), unless it's a module by its syntax (whose declarations aren't
+/// its global's): the names a harness can look up by name in its global, as
+/// hooks (see scip-typescript's --hooks).
+pub fn top_level_names(source: &str) -> Vec<String> {
+    let mut parser = Parser::new();
+    let language: tree_sitter::Language = tree_sitter_typescript::LANGUAGE_TSX.into();
+    if parser.set_language(&language).is_err() {
+        return vec![];
+    }
+    let Some(tree) = parser.parse(source, None) else {
+        return vec![];
+    };
+    let root = tree.root_node();
+    let mut names = vec![];
+    for i in 0..root.named_child_count() {
+        let Some(node) = root.named_child(i as u32) else {
+            continue;
+        };
+        match node.kind() {
+            "import_statement" | "export_statement" => return vec![],
+            "function_declaration" | "generator_function_declaration" | "class_declaration" => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    names.push(source[name.byte_range()].to_string());
+                }
+            }
+            "lexical_declaration" | "variable_declaration" => {
+                for j in 0..node.named_child_count() {
+                    if let Some(declarator) = node.named_child(j as u32)
+                        && declarator.kind() == "variable_declarator"
+                        && let Some(name) = declarator.child_by_field_name("name")
+                        && name.kind() == "identifier"
+                    {
+                        names.push(source[name.byte_range()].to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// The identifiers a script mentions, of `names`.
+fn mentioned_names<'a>(source: &str, names: &HashSet<&'a str>) -> HashSet<&'a str> {
+    let mut parser = Parser::new();
+    let language: tree_sitter::Language = tree_sitter_typescript::LANGUAGE_TSX.into();
+    let mut mentioned = HashSet::new();
+    if parser.set_language(&language).is_err() {
+        return mentioned;
+    }
+    let Some(tree) = parser.parse(source, None) else {
+        return mentioned;
+    };
+    let mut cursor = tree.walk();
+    'walk: loop {
+        let node = cursor.node();
+        if node.kind() == "identifier"
+            && let Some(name) = names.get(&source[node.byte_range()])
+        {
+            mentioned.insert(*name);
+        }
+        if cursor.goto_first_child() {
+            continue;
+        }
+        while !cursor.goto_next_sibling() {
+            if !cursor.goto_parent() {
+                break 'walk;
+            }
+        }
+    }
+    mentioned
+}
+
 pub fn scope_members(source: &str, constructor: &str) -> (Vec<String>, Vec<String>) {
     let mut parser = Parser::new();
     let language: tree_sitter::Language = tree_sitter_typescript::LANGUAGE_TSX.into();
@@ -274,8 +353,7 @@ pub fn write_projects(
         roots: Vec<String>,
     }
     let mut groups: Vec<Group> = vec![];
-    let mut group_of: std::collections::HashMap<(String, String, Vec<String>), usize> =
-        std::collections::HashMap::new();
+    let mut group_of: HashMap<(String, String, Vec<String>), usize> = HashMap::new();
     for env in &discovery.environments {
         if !selected(&env.flavor) {
             continue;
@@ -333,6 +411,56 @@ pub fn write_projects(
             groups[i].roots.push(root);
         }
     }
+    // The names each context script can use as hooks, by kind (its project's
+    // `scipHookNames`; see scip-typescript's --hooks, which finds those it
+    // uses but doesn't declare, in the one project of its kind documenting
+    // it, whose roots are only some of those it's loaded before): the
+    // top-level names of its kind's environments' roots, which it mentions.
+    let read = |path: &str| fs::read_to_string(opts.files_root.join(path)).ok();
+    let roots: BTreeSet<&str> = groups
+        .iter()
+        .flat_map(|g| g.roots.iter().map(String::as_str))
+        .collect();
+    let root_names: HashMap<&str, Vec<String>> = roots
+        .par_iter()
+        .map(|root| {
+            let names = read(root).map(|s| top_level_names(&s)).unwrap_or_default();
+            (*root, names)
+        })
+        .collect();
+    let all_root_names: HashSet<&str> = root_names.values().flatten().map(String::as_str).collect();
+    let contexts: BTreeSet<&str> = groups
+        .iter()
+        .flat_map(|g| g.context.iter().map(String::as_str))
+        .collect();
+    let mentioned: HashMap<&str, HashSet<&str>> = contexts
+        .par_iter()
+        .map(|context| {
+            let names = read(context)
+                .map(|s| mentioned_names(&s, &all_root_names))
+                .unwrap_or_default();
+            (*context, names)
+        })
+        .collect();
+    let mut hook_names: HashMap<(&str, &str), BTreeSet<&str>> = HashMap::new();
+    for group in &groups {
+        for context in &group.context {
+            let Some(mentions) = mentioned.get(context.as_str()).filter(|m| !m.is_empty()) else {
+                continue;
+            };
+            for root in &group.roots {
+                for name in root_names.get(root.as_str()).into_iter().flatten() {
+                    if mentions.contains(name.as_str()) {
+                        hook_names
+                            .entry((group.kind.as_str(), context.as_str()))
+                            .or_default()
+                            .insert(name.as_str());
+                    }
+                }
+            }
+        }
+    }
+
     let unwrap_globs = glob_set(&rules.unwrap);
     let mut documented: HashSet<(String, String)> = HashSet::new();
     // (Each kind's projects, with their costs: their documented files' sizes.)
@@ -377,6 +505,17 @@ pub fn write_projects(
             .collect();
         if !unwrap.is_empty() {
             project["scipUnwrapFiles"] = json!(unwrap);
+        }
+        let hooks: serde_json::Map<String, serde_json::Value> = only
+            .iter()
+            .filter(|path| group.context.contains(path))
+            .filter_map(|path| {
+                let names = hook_names.get(&(group.kind.as_str(), path.as_str()))?;
+                Some((abs(path), json!(names)))
+            })
+            .collect();
+        if !hooks.is_empty() {
+            project["scipHookNames"] = serde_json::Value::Object(hooks);
         }
         if let Some(extends) = types.and_then(|t| t.extends.as_ref()) {
             project["extends"] = json!(abs(extends));
@@ -425,6 +564,25 @@ pub fn write_projects(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_top_level_names() {
+        let script = r#"
+function testSteps() { function inner() {} }
+function* gen() {}
+var a = 1, b;
+let { destructured } = obj;
+const c = () => {};
+class K {}
+add_task(async function test_task() {});
+"#;
+        assert_eq!(
+            top_level_names(script),
+            vec!["K", "a", "b", "c", "gen", "testSteps"]
+        );
+        // (A module's declarations aren't its global's.)
+        assert!(top_level_names("export function f() {}\nfunction g() {}\n").is_empty());
+    }
 
     #[test]
     fn test_scope_members() {
