@@ -7,11 +7,12 @@
 // too.
 add_task(async function test_SidecarFiles() {
   // (A revision of a file whose page and sidecars other tests don't request:
-  // the parent of its newest change.)
+  // the parent of its newest change but a merge, which has none, ex: of the
+  // master branch's changes of it.)
   await TestUtils.loadPath("/searchfox/source/scripts/nginx-setup.py");
   const timeline = frame.contentWindow.FileTimeline;
-  const newest = timeline.commits[timeline.commits.length - 1];
   const headers = await (await frame.contentWindow.fetch(`${timeline.info.dataUrl}/commits.json`)).json();
+  const newest = timeline.commits.findLast(commit => headers[commit.index]?.parent);
   const page = `/searchfox/rev/${headers[newest.index].parent}/scripts/nginx-setup.py`;
 
   // (Not from the browser's cache, which keeps the web-server's responses for

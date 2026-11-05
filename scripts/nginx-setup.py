@@ -209,9 +209,36 @@ default_type application/octet-stream;
 
 ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
 ssl_prefer_server_ciphers on;
-
-gzip on;
 ''')
+
+# Compression Settings.
+#
+# - gzip on - nginx's gzip filter compresses responses as it sends them and
+#   never keeps the result, so every response with a body gets compressed anew,
+#   even for a file that hasn't changed on disk.  (Hits in `proxy_cache` below
+#   get compressed anew too, as it keeps the uncompressed responses of the
+#   servers we proxy to, but the data API's, which it asks for gzip and keeps
+#   as they are; see `/{repo}/api/` below.)  At the default level 1, that's a
+#   few milliseconds at most for our static JS and CSS, and ~30ms for
+#   firefox-main's 38MB `file-lists/repo-files`.  Revalidations cost nothing,
+#   as their 304s have no bodies.  And since there's no compressed copy, a
+#   static file that's updated on disk gets served (and compressed) as updated
+#   by the next request for it, once browsers' copies expire; there's no ".gz"
+#   to regenerate, unlike for the indexer's pre-gzipped files that the
+#   `gzip_static` locations below serve.
+# - gzip_types - Only text/html is compressed by default; these are the other
+#   types we serve that compress well: our static JS, CSS and SVGs, the JSON of
+#   the servers we proxy to (ex: search results, ~7x smaller), and the
+#   text/plain file lists (~9x).  (bug 2079525)
+# - gzip_vary - Says "Vary: Accept-Encoding" on whatever responses we compress
+#   for some clients and not others, including the `gzip_static` locations', so
+#   that shared caches don't give either kind to clients that asked for the
+#   other.  (Fastly says so itself for the servers behind it, but it doesn't
+#   cache our responses anyway; this is for the ones that aren't.)
+print('gzip on;')
+print('gzip_types text/css application/javascript application/json image/svg+xml text/plain;')
+print('gzip_vary on;')
+print('')
 
 if nginx_cache_dir:
     # Proxy Cache Settings.
