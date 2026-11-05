@@ -7,7 +7,8 @@
 //! syntax, so that each one's own declarations are its own (as they are:
 //! tests aren't loaded into each other's globals), as a project per
 //! environment was ~5 times slower for Firefox; with its global kind's types
-//! (see `rules::GlobalTypes`); documenting (`scipOnlyFiles`) each script once
+//! (see `rules::GlobalTypes`), and the scripts it unwraps (`scipUnwrapFiles`;
+//! see `rules::Rules::unwrap`); documenting (`scipOnlyFiles`) each script once
 //! per kind, but those which other analysis already covers (ex: TypeScript
 //! projects').  The documents' analyses are then merged as platforms' (a kind's
 //! analysis directory each; see scripts/js-environments-analyze.sh), so that
@@ -25,7 +26,7 @@ use serde_json::json;
 use tree_sitter::{Node, Parser};
 
 use super::discover::{Discovery, Role};
-use super::rules::{Flavor, Rules, Scope};
+use super::rules::{Flavor, Rules, Scope, glob_set};
 
 /// The directory of the scope shims, which scip-indexer's `--shims` doesn't
 /// write analysis files for (see `scope_shim`).
@@ -238,9 +239,25 @@ pub fn write_projects(
             shims.insert(&flavor.name, path);
         }
     }
+    // (A flavor's own global: its rule's; web-platform-tests' is a window.)
+    let flavor_global = |name: &str| -> Option<&str> {
+        rules
+            .flavors
+            .iter()
+            .find(|f| f.name == name)
+            .map(|f| f.global.as_str())
+            .or_else(|| {
+                rules
+                    .path_flavors
+                    .iter()
+                    .find(|f| f.name == name)
+                    .map(|f| f.global.as_str())
+            })
+            .or_else(|| (name == "wpt" && rules.wpt.is_some()).then_some("window"))
+    };
     let selected = |name: &str| match &opts.flavors {
         Some(flavors) => flavors.contains(name),
-        None => rules.flavors.iter().any(|f| f.name == name),
+        None => flavor_global(name).is_some(),
     };
     let mut summary = ProjectsSummary::default();
     // The environments, grouped by their kinds and contexts: the scripts
@@ -263,9 +280,12 @@ pub fn write_projects(
         if !selected(&env.flavor) {
             continue;
         }
-        let flavor = rules.flavors.iter().find(|f| f.name == env.flavor);
-        let own_global = flavor.is_some_and(|f| f.global == env.global);
-        let kind = if own_global || flavor.is_none() && env.parent.is_none() {
+        // (Its kind: its flavor, in its flavor's own global, else with its
+        // global, ex: a mochitest's worker's, or a web-platform-test's worker
+        // variant's, so that a script in both, ex: a `.any.js` test, has
+        // each one's definitions.)
+        let own_global = flavor_global(&env.flavor) == Some(env.global.as_str());
+        let kind = if own_global {
             env.flavor.clone()
         } else {
             format!("{}-{}", env.flavor, env.global)
@@ -313,8 +333,10 @@ pub fn write_projects(
             groups[i].roots.push(root);
         }
     }
+    let unwrap_globs = glob_set(&rules.unwrap);
     let mut documented: HashSet<(String, String)> = HashSet::new();
-    let mut by_kind: BTreeMap<String, Vec<PathBuf>> = BTreeMap::new();
+    // (Each kind's projects, with their costs: their documented files' sizes.)
+    let mut by_kind: BTreeMap<String, Vec<(PathBuf, u64)>> = BTreeMap::new();
     for (n, group) in groups.iter().enumerate() {
         let only: Vec<&String> = group
             .context
@@ -347,6 +369,15 @@ pub fn write_projects(
             "scipOnlyFiles": documented_files,
             "scipModuleFiles": group.roots.iter().map(|p| abs(p)).collect::<Vec<_>>(),
         });
+        let unwrap: Vec<String> = group
+            .context
+            .iter()
+            .filter(|path| unwrap_globs.is_match(path.as_str()))
+            .map(|p| abs(p))
+            .collect();
+        if !unwrap.is_empty() {
+            project["scipUnwrapFiles"] = json!(unwrap);
+        }
         if let Some(extends) = types.and_then(|t| t.extends.as_ref()) {
             project["extends"] = json!(abs(extends));
         }
@@ -354,23 +385,40 @@ pub fn write_projects(
         fs::write(&path, serde_json::to_string_pretty(&project).unwrap())?;
         *summary.projects.entry(group.kind.clone()).or_default() += 1;
         *summary.documents.entry(group.kind.clone()).or_default() += only.len();
-        by_kind.entry(group.kind.clone()).or_default().push(path);
+        let cost: u64 = only
+            .iter()
+            .filter_map(|p| fs::metadata(opts.files_root.join(p)).ok())
+            .map(|m| m.len())
+            .sum();
+        by_kind
+            .entry(group.kind.clone())
+            .or_default()
+            .push((path, cost));
     }
+    // (And batches.lst, the batches' files in order of their costs, the
+    // costliest first, so that their processes end at about the same time.)
+    let mut batches: Vec<(u64, PathBuf)> = vec![];
     for (kind, projects) in &by_kind {
         for (n, chunk) in projects.chunks(opts.batch_size.max(1)).enumerate() {
             let list: Vec<String> = chunk
                 .iter()
-                .map(|p| p.to_string_lossy().to_string())
+                .map(|(p, _)| p.to_string_lossy().to_string())
                 .collect();
-            fs::write(
-                opts.out_dir
-                    .join("batches")
-                    .join(format!("{}.{}.lst", kind, n)),
-                list.join("\n") + "\n",
-            )?;
+            let path = opts
+                .out_dir
+                .join("batches")
+                .join(format!("{}.{}.lst", kind, n));
+            fs::write(&path, list.join("\n") + "\n")?;
+            batches.push((chunk.iter().map(|(_, cost)| cost).sum(), path));
             summary.batches += 1;
         }
     }
+    batches.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    let list: Vec<String> = batches
+        .iter()
+        .map(|(_, p)| p.to_string_lossy().to_string())
+        .collect();
+    fs::write(opts.out_dir.join("batches.lst"), list.join("\n") + "\n")?;
     Ok(summary)
 }
 

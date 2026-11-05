@@ -29,6 +29,30 @@ pub struct Rules {
     /// projects (see `projects`), by kind (ex: "window", "xpcshell").
     #[serde(default)]
     pub globals: BTreeMap<String, GlobalTypes>,
+    /// The scripts whose functions are in functions they call at once,
+    /// exposing them as their global's properties (ex: web-platform-tests'
+    /// testharness.js, `(function (global_scope) { ... })(self);`), which
+    /// their projects unwrap (scip-typescript's `scipUnwrapFiles`), so that
+    /// their declarations are the globals the scripts after them see; by
+    /// globs.
+    #[serde(default)]
+    pub unwrap: Vec<String>,
+}
+
+/// Globs' set (`*` not matching `/`; an invalid glob matching nothing).
+pub fn glob_set(patterns: &[String]) -> globset::GlobSet {
+    let mut builder = globset::GlobSetBuilder::new();
+    for pattern in patterns {
+        if let Ok(glob) = globset::GlobBuilder::new(pattern)
+            .literal_separator(true)
+            .build()
+        {
+            builder.add(glob);
+        }
+    }
+    builder
+        .build()
+        .unwrap_or_else(|_| globset::GlobSet::empty())
 }
 
 /// A global kind's TypeScript configuration: a tsconfig.json to extend

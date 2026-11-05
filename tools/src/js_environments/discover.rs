@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
-use super::rules::Rules;
+use super::rules::{Rules, glob_set};
 use super::scan::{Load, LoadKind, PageScan, scan_page, scan_script};
 use crate::file_metadata::test_manifests::{TestEntry, join_normalized};
 
@@ -592,21 +592,7 @@ impl<'a> Discoverer<'a> {
         let rules = self.inputs.rules;
         let files = self.inputs.files;
         for flavor in &rules.path_flavors {
-            let globs = |patterns: &[String]| {
-                let mut builder = globset::GlobSetBuilder::new();
-                for pattern in patterns {
-                    if let Ok(glob) = globset::GlobBuilder::new(pattern)
-                        .literal_separator(true)
-                        .build()
-                    {
-                        builder.add(glob);
-                    }
-                }
-                builder
-                    .build()
-                    .unwrap_or_else(|_| globset::GlobSet::empty())
-            };
-            let (include, exclude) = (globs(&flavor.include), globs(&flavor.exclude));
+            let (include, exclude) = (glob_set(&flavor.include), glob_set(&flavor.exclude));
             let mut tests: Vec<&String> = files
                 .iter()
                 .filter(|p| include.is_match(p.as_str()) && !exclude.is_match(p.as_str()))

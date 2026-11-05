@@ -145,7 +145,8 @@ pub enum LoadKind {
     ImportScripts,
     /// `*.loadSubScript(url, ...)` (the subscript loader's).
     SubScript,
-    /// xpcshell's `load(path)`.
+    /// `load(path)` (xpcshell's, and the JS shell's), and the JS shell's
+    /// `loadRelativeToScript(path)`.
     Load,
     /// A module's `import`s (static, re-exports, and `import()`s).
     Import,
@@ -272,7 +273,9 @@ pub fn scan_script(source: &str, first_line: u32) -> Vec<Load> {
             {
                 LoadKind::SubScript
             }
-            ("call_expression", "load") if object.is_none() => LoadKind::Load,
+            ("call_expression", "load" | "loadRelativeToScript") if object.is_none() => {
+                LoadKind::Load
+            }
             ("call_expression", "import") if object.is_none() => LoadKind::Import,
             _ => continue,
         };
@@ -349,6 +352,7 @@ load("head_extra.js");
 new SharedWorker(url);
 load(libdir + "asserts.js");
 obj.load("not-xpcshell.js");
+loadRelativeToScript("../../tests/non262/shell.js");
 import { a } from "./fixture_FIXTURE.js";
 export * from "../reexported.mjs";
 const m = await import("./lazy.mjs");
@@ -374,9 +378,10 @@ const m = await import("./lazy.mjs");
                 (LoadKind::Load, lit("head_extra.js"), 6),
                 (LoadKind::SharedWorker, None, 7),
                 (LoadKind::Load, lit("${libdir}asserts.js"), 8),
-                (LoadKind::Import, lit("./fixture_FIXTURE.js"), 10),
-                (LoadKind::Import, lit("../reexported.mjs"), 11),
-                (LoadKind::Import, lit("./lazy.mjs"), 12),
+                (LoadKind::Load, lit("../../tests/non262/shell.js"), 10),
+                (LoadKind::Import, lit("./fixture_FIXTURE.js"), 11),
+                (LoadKind::Import, lit("../reexported.mjs"), 12),
+                (LoadKind::Import, lit("./lazy.mjs"), 13),
             ]
         );
     }

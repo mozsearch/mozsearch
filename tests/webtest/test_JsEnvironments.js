@@ -11,6 +11,11 @@ function section() {
   return frame.contentDocument.querySelector(".panel-js-environments");
 }
 
+function symbolsOf(name) {
+  return [...frame.contentDocument.querySelectorAll("#file span[data-symbols]")]
+    .find(span => span.textContent == name)?.dataset.symbols || "";
+}
+
 function scripts(env) {
   return [...env.querySelectorAll(":scope > ol.js-env-scripts > li")]
     .map(li => `${li.querySelector("a").textContent} ${li.querySelector(".js-env-role").textContent}`);
@@ -77,12 +82,25 @@ add_task(async function test_JsEnvironmentsAnalysis() {
 // js-environments.toml's scope), whose members are the names it sees.
 add_task(async function test_JsEnvironmentsScope() {
   await TestUtils.loadPath("/tests/source/jsenv/browser/browser_scope.js");
-  const symbolsOf = name => [...frame.contentDocument.querySelectorAll("#file span[data-symbols]")]
-    .find(span => span.textContent == name)?.dataset.symbols || "";
   ok(symbolsOf("ok").endsWith("jsenv/harness/browser-test.js/testScope().ok."),
      "The scope's members are its constructor's");
   ok(symbolsOf("add_task").endsWith("jsenv/harness/browser-test.js/testScope().prototype.add_task()."),
      "and its prototype's");
   ok(symbolsOf("browserHelper").endsWith("jsenv/browser/head.js/browserHelper()."),
      "and the test's head file's functions are globals");
+});
+
+// A JS shell test's helpers are its directories' shell.js's, which defines
+// them in a function it calls at once (unwrapped; see js-environments.toml's
+// `unwrap`), and those of a script it loads relative to itself.
+add_task(async function test_JsEnvironmentsUnwrap() {
+  await TestUtils.loadPath("/tests/source/jsenv/shell/tests/test_helpers.js");
+  ok(symbolsOf("assertSame").endsWith("jsenv/shell/shell.js/assertSame()."),
+     "A function its harness exposes is the harness's");
+  ok(symbolsOf("assertAbout").endsWith("jsenv/shell/shell.js/assertAbout."),
+     "and so is one it assigns to its global");
+  ok(symbolsOf("assertNear").endsWith("jsenv/shell/lib/near.js/assertNear."),
+     "and the loaded script's");
+  ok(symbolsOf("Error") && !symbolsOf("Error").includes("jsenv/shell"),
+     "but not the builtin the harness keeps a reference to");
 });
