@@ -11,7 +11,7 @@ const PUSH = "0123456789ab";
 const OLD_FROB = "_ZN8trydelta6Widget4FrobEi";
 const NEW_FROB = "_ZN8trydelta6Widget4FrobEib";
 // "Let widgets shrink".
-const LANDED = "3b6f1c8f943932e006c9b03d8978879e05dfc4fc";
+const LANDED = "37df61a61bd687259e53b9de011784aed2d6c2cb";
 
 function doc() {
   return frame.contentDocument;

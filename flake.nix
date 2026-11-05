@@ -4,8 +4,11 @@
     nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
     flake-utils.url = github:numtide/flake-utils;
     crane.url = "github:ipetkov/crane";
+    # scip-typescript's fork: its hyperblame branch has what this branch
+    # wants (ex: --only-files, for try pushes' TypeScript and JS; see
+    # scripts/try-analyze-typescript.sh), force-pushed as its patches change.
     scip-typescript = {
-      url = "github:mozsearch/scip-typescript";
+      url = "github:mozsearch/scip-typescript/hyperblame";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # rust-analyzer's fork, with the patches we'd upstream (see
@@ -127,6 +130,10 @@
           # (For try imports' JS analysis, whose js-analyze.js analyzes CSS in
           # HTML with it; see scripts/try-analyze-js.sh.)
           mozsearch-wasm-css-analyzer
+          # (For try imports' TypeScript and JS analysis, and their projects'
+          # npm packages; see scripts/try-analyze-typescript.sh.)
+          nodejs
+          scip-typescript.packages.${system}.default
         ];
       in {
         packages = {

@@ -5,8 +5,9 @@
 // tests/trydelta/analyze-try and tools/src/try_delta.rs): 0123456789ab changes
 // Widget::Frob's signature (which user.cpp's call and gadget.h's then use,
 // though they don't change), adds Widget::Wobble, and adds wobbler.cpp, which
-// calls it.  It also renames hello.js's greetPerson, which its JS analysis
-// covers (see scripts/try-analyze-js.sh), and changes unpoke.cpp's
+// calls it.  It also renames hello.js's greetPerson, which greetEveryone
+// calls, which its TypeScript analysis covers (see
+// scripts/try-analyze-typescript.sh), and changes unpoke.cpp's
 // implementation of the tests tree's example spec's unpoke algorithm (the
 // tree's `SPEC_` symbols are the tests tree's), whose step it cites.  (Not the poke
 // algorithm, whose citations in the searchfox tree, which has this file too,
@@ -166,7 +167,7 @@ add_task(async function test_TryDeltaSlicing() {
 
   // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp,
   // whose includes and namespace aren't dataflow.
-  await TestUtils.loadQuery("trydelta", "slice-rev:3b6f1c8f943932e006c9b03d8978879e05dfc4fc slice-format:svg");
+  await TestUtils.loadQuery("trydelta", "slice-rev:37df61a61bd687259e53b9de011784aed2d6c2cb slice-format:svg");
   ok(sliceLinks().includes("/trydelta/source/widget.cpp#7"),
      "A landed commit's slicing links to the indexed revision's lines");
   ok(doc().querySelector(".query-result svg").textContent.includes("without dataflow"),
@@ -285,8 +286,9 @@ add_task(async function test_TryDeltaExcerpts() {
   ok(doc().querySelector("#panel-excerpt .excerpt-removed"), "with the lines it removed");
 });
 
-// The push's JS is analyzed as the tree's is (see scripts/try-analyze-js.sh),
-// besides its compiled C++: hello.js renames greetPerson to welcomePerson.
+// The push's JS is analyzed as the tree's is, by scip-typescript (see
+// scripts/try-analyze-typescript.sh), besides its compiled C++: hello.js
+// renames greetPerson to welcomePerson.
 add_task(async function test_TryDeltaJsAnalysis() {
   const head = await importPush();
 
@@ -298,8 +300,11 @@ add_task(async function test_TryDeltaJsAnalysis() {
   await TestUtils.loadPath(`/trydelta/query/default?q=welcomePerson&rev=${head}`);
   ok(doc().querySelector('a[href$="/hello.js"]'), "and its new name is");
   await TestUtils.loadPath(`/trydelta/rev/${head}/hello.js`);
-  ok(doc().querySelector('#line-2 span[data-symbols]')?.textContent == "welcomePerson",
+  const welcome = doc().querySelector('#line-2 span[data-symbols]');
+  ok(welcome?.textContent == "welcomePerson",
      "The file's page at the head has its symbols, at its lines");
+  ok(welcome?.dataset.symbols.startsWith("S_js_typescript_"),
+     "which are scip-typescript's, as the tree's are");
 });
 
 // The push's citations of web specs are its analysis's too, as the indexed
@@ -390,7 +395,7 @@ add_task(async function test_TryCanvas() {
      "A card's code marks the lines the push adds or changes");
   ok(card("trydelta::Unpoke").querySelector(".rc-lineno")?.getAttribute("href")
        .startsWith(`/trydelta/rev/${head}/unpoke.cpp#`), "which link to its head's lines");
-  is(doc().querySelectorAll("#interactive-graph-container g.edge").length, 5,
+  is(doc().querySelectorAll("#interactive-graph-container g.edge").length, 6,
      "The cards are connected by the calls among them");
   ok(doc().querySelector(".interactive-graph-buttons"), "and can be zoomed");
   is(doc().querySelectorAll(".rc-legend .rc-legend-item").length, 5,
@@ -431,7 +436,29 @@ add_task(async function test_TryCanvas() {
   const response = await fetch(`/trydelta/rev-canvas/${head}/canvas.json`);
   is(response.headers.get("Access-Control-Allow-Origin"), "*",
      "Its model is JSON which other sites can read");
-  is((await response.json()).nodes.length, 7, "with its cards");
+  is((await response.json()).nodes.length, 9, "with its cards");
+});
+
+// Its JS's functions are cards too, as its C++'s are, from its TypeScript
+// analysis (see scripts/try-analyze-typescript.sh): hello.js's welcomePerson,
+// which it adds (renaming greetPerson), and greetEveryone, which it changes
+// to call it.
+add_task(async function test_TryCanvasJs() {
+  const head = await importPush();
+  await TestUtils.loadPath(`/trydelta/rev-canvas/${head}`);
+  await waitForCondition(() => doc().documentElement.dataset.canvasReady, "The canvas is laid out");
+  const card = name => [...doc().querySelectorAll(".rc-card")]
+    .find(c => c.querySelector(".rc-name")?.textContent == name);
+  const status = name => card(name)?.querySelector(".rc-badge")?.textContent;
+  is(status("welcomePerson"), "added", "A JS function it adds is a card");
+  is(status("greetEveryone"), "changed", "as is one it changes");
+  ok(!card("greetPerson"), "but not the one it renames");
+  const model = await (await fetch(`/trydelta/rev-canvas/${head}/canvas.json`, { cache: "no-store" })).json();
+  const welcome = model.nodes.find(node => node.pretty == "welcomePerson");
+  const everyone = model.nodes.find(node => node.pretty == "greetEveryone");
+  ok(model.edges.some(edge => edge.from == everyone?.id && edge.to == welcome?.id),
+     "connected by its call");
+  ok(!model.other_files.some(file => file.path == "hello.js"), "and the file isn't another file");
 });
 
 // The definitions of other functions with the same lines are one card (see

@@ -63,6 +63,12 @@
       "codesearch_path": "$WORKING/trydelta/livegrep.idx",
       "codesearch_port": 8085,
       "search_endpoint": "query",
+      "scip_subtrees": {
+        "typescript": {
+          "scip_index_path": "$WORKING/trydelta/typescript.scip",
+          "subtree_root": ""
+        }
+      },
       "linked_trees": {
         "SPEC_": "tests"
       },

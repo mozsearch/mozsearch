@@ -123,7 +123,8 @@ pub struct CanvasEdge {
 pub struct CanvasFile {
     pub path: String,
     pub change: FileChange,
-    /// Why it has none, ex: "no definitions changed".
+    /// Why it has none, ex: "no definitions changed", or "no functions in its
+    /// analysis".
     pub note: &'static str,
     pub link: String,
 }
@@ -349,7 +350,9 @@ pub async fn build_canvas(
         // versions of a library (ex: FFmpeg's), are the same code: one card,
         // whose id is the first of their symbols.)
         let mut by_lines: BTreeMap<(u32, u32), Vec<Function>> = BTreeMap::new();
-        for function in file_functions(overlay, path).await {
+        let head_functions = file_functions(overlay, path).await;
+        let has_functions = !head_functions.is_empty();
+        for function in head_functions {
             let (first, last) = function.lines;
             if touched.range(first..=last).next().is_none() {
                 continue;
@@ -383,7 +386,14 @@ pub async fn build_canvas(
             });
         }
         if nodes.len() == before {
-            other_files.push(other("no definitions changed"));
+            // (Or its analysis says nothing is a function, ex: js-analyze's,
+            // of a JS file which the tree's TypeScript projects don't include;
+            // see scripts/try-analyze-typescript.sh.)
+            other_files.push(other(if has_functions {
+                "no definitions changed"
+            } else {
+                "no functions in its analysis"
+            }));
         }
     }
 

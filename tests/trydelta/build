@@ -28,3 +28,11 @@ pushd $INDEX_ROOT
 done
 popd
 rm -rf $INDEX_ROOT/analysis-linux64
+
+# And its JS, with scip-typescript, for its typescript scip subtree (whose
+# try pushes' analysis is of only the files they change, with the projects
+# at their heads, listed as these are; see analyze-try).
+echo "Performing build::scip-typescript step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+(cd $FILES_ROOT && find . -name '[tj]sconfig.json' | LC_ALL=C sort) > $INDEX_ROOT/typescript-projects
+$MOZSEARCH_PATH/scripts/scip-typescript-index.sh $FILES_ROOT $INDEX_ROOT/typescript-projects \
+    $INDEX_ROOT/typescript.scip

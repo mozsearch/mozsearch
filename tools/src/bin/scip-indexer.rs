@@ -72,6 +72,24 @@ struct ScipIndexerCli {
     #[arg(long, value_parser)]
     platform: Option<String>,
 
+    /// Where to write the documents' analysis files, rather than the tree's
+    /// index's analysis directory (ex: a try push's delta's; see
+    /// scripts/try-analyze-typescript.sh).
+    #[arg(long, value_parser)]
+    analysis_root: Option<PathBuf>,
+
+    /// Where the documents' source files are, rather than the tree's files
+    /// (ex: a try push's checkout).
+    #[arg(long, value_parser)]
+    files_root: Option<String>,
+
+    /// Leave out the structured records of the symbols that the documents
+    /// don't define (written to a file named after the SCIP index), as an
+    /// index of only some files' (ex: scip-typescript's `--only-files`)
+    /// should, since the tree's analysis has them.
+    #[arg(long)]
+    no_leftovers: bool,
+
     /// rustc analysis directories or scip inputs
     #[arg(value_parser)]
     inputs: Vec<PathBuf>,
@@ -747,6 +765,8 @@ fn analyze_using_scip(
     subtree_name: Option<&str>,
     subtree_root: &str,
     platform: &Option<String>,
+    analysis_root: Option<&Path>,
+    leftovers: bool,
     scip_file: PathBuf,
 ) {
     use protobuf::Message;
@@ -789,327 +809,346 @@ fn analyze_using_scip(
     // write anything out during this pass.  This is just as well as we can make
     // sure to only emit structured information at the point of definition
     // (which we do not know until we look at the occurrences).
-    for doc in &index.documents {
-        info!(
-            "Processing symbols/definitions for '{}'",
-            &doc.relative_path,
-        );
+    // (The documents' symbols, and the index's external symbols: an index of
+    // only some files' has the symbols its documents use that other files
+    // define, as their documents would; see scip-typescript's --only-files.)
+    let symbol_infos = index
+        .documents
+        .iter()
+        .flat_map(|doc| {
+            doc.symbols
+                .iter()
+                .map(move |info| (doc.relative_path.as_str(), info))
+        })
+        .chain(index.external_symbols.iter().map(|info| ("", info)));
+    for (relative_path, scip_sym_info) in symbol_infos {
+        // Process each symbol to:
+        // - Derive a canonical mozsearch symbol name and map it.
+        // - Derive structured analysis information that we will emit in the
+        //   next pass if/when we see the definition.
+        if let Ok(scip_sym) = scip::symbol::parse_symbol(&scip_sym_info.symbol) {
+            // ### Extract Metadata from Documentation Markdown
+            //
+            // The documentation is what VS Code shows in tooltips for
+            // symbols, which means there's dense information in there that
+            // can be quite useful, but that it's intended for human
+            // consumption, which means we need to regex it out.
 
-        for scip_sym_info in &doc.symbols {
-            // Process each symbol to:
-            // - Derive a canonical mozsearch symbol name and map it.
-            // - Derive structured analysis information that we will emit in the
-            //   next pass if/when we see the definition.
-            if let Ok(scip_sym) = scip::symbol::parse_symbol(&scip_sym_info.symbol) {
-                // ### Extract Metadata from Documentation Markdown
-                //
-                // The documentation is what VS Code shows in tooltips for
-                // symbols, which means there's dense information in there that
-                // can be quite useful, but that it's intended for human
-                // consumption, which means we need to regex it out.
+            // XXX these should be made Option<u32>, but StructuredFieldInfo
+            // needs to have its signature updated.  Right now this is hacky.
+            let size_bytes = 0;
+            //let mut align_bytes = 0;
+            let offset_bytes = 0;
 
-                // XXX these should be made Option<u32>, but StructuredFieldInfo
-                // needs to have its signature updated.  Right now this is hacky.
-                let size_bytes = 0;
-                //let mut align_bytes = 0;
-                let offset_bytes = 0;
+            // High confidence identifier name of what's being defined for
+            // fallback use in the case of locals as extracted from the doc
+            // strings.
+            //
+            // Because the doc strings are intended to be human-readable
+            // rather than machine-readable, this may not always be
+            // something we can reliably parse.  In particular, rust-analyzer
+            // likes to excerpt the declaration, and our whole point in
+            // using SCIP is to not be writing our own rust parser, although
+            // we can probably evolve good-enough regexps, etc.
+            //
+            // TODO: Consider allowing for a fix-up pass when processing the
+            // occurrences when we can potentially have the underlying token
+            // available and/or a full tree-sitter parse.
+            let mut fallback_kind = None;
+            let mut doc_name = None;
+            let mut type_pretty = None;
 
-                // High confidence identifier name of what's being defined for
-                // fallback use in the case of locals as extracted from the doc
-                // strings.
-                //
-                // Because the doc strings are intended to be human-readable
-                // rather than machine-readable, this may not always be
-                // something we can reliably parse.  In particular, rust-analyzer
-                // likes to excerpt the declaration, and our whole point in
-                // using SCIP is to not be writing our own rust parser, although
-                // we can probably evolve good-enough regexps, etc.
-                //
-                // TODO: Consider allowing for a fix-up pass when processing the
-                // occurrences when we can potentially have the underlying token
-                // available and/or a full tree-sitter parse.
-                let mut fallback_kind = None;
-                let mut doc_name = None;
-                let mut type_pretty = None;
+            lazy_static! {
+                // used for modules, classes
+                static ref RE_KT_FUNCTION: Regex =
+                    Regex::new(r"^```kt\n([^ ]+) ([^ ]+) fun ([^ ]+)\(.*\)(?:: (.*))?\n```$").unwrap();
+            }
 
-                lazy_static! {
-                    // used for modules, classes
-                    static ref RE_KT_FUNCTION: Regex =
-                        Regex::new(r"^```kt\n([^ ]+) ([^ ]+) fun ([^ ]+)\(.*\)(?:: (.*))?\n```$").unwrap();
-                }
-
-                // TODO: Consider trying to do something where the documentation
-                // is actually a real docstring.
-                for (i, doc) in scip_sym_info.documentation.iter().enumerate() {
-                    if i == 0 {
-                        match &lang {
-                            ScipLang::Python => {
-                                // TODO: try and extract some info from here;
-                                // It looks like this could be very descriptor-dependent.
-                            }
-                            ScipLang::Rust => {}
-                            ScipLang::Typescript => {}
-                            ScipLang::Jvm => {
-                                if let Some(caps) = RE_KT_FUNCTION.captures(doc) {
-                                    fallback_kind = Some("method");
-                                    if let Some(s) = caps.get(3) {
-                                        doc_name = Some(s.as_str().to_string());
-                                    }
+            // TODO: Consider trying to do something where the documentation
+            // is actually a real docstring.
+            for (i, doc) in scip_sym_info.documentation.iter().enumerate() {
+                if i == 0 {
+                    match &lang {
+                        ScipLang::Python => {
+                            // TODO: try and extract some info from here;
+                            // It looks like this could be very descriptor-dependent.
+                        }
+                        ScipLang::Rust => {}
+                        ScipLang::Typescript => {}
+                        ScipLang::Jvm => {
+                            if let Some(caps) = RE_KT_FUNCTION.captures(doc) {
+                                fallback_kind = Some("method");
+                                if let Some(s) = caps.get(3) {
+                                    doc_name = Some(s.as_str().to_string());
                                 }
                             }
                         }
                     }
-                    // Otherwise this is an extracted docstring, which we can't
-                    //use yet.
+                }
+                // Otherwise this is an extracted docstring, which we can't
+                //use yet.
+            }
+
+            // Signature documentation is new and a more reliable source of
+            // type information.
+            if let Some(doc) = scip_sym_info.signature_documentation.as_ref()
+                && !doc.text.is_empty()
+            {
+                lazy_static! {
+                    // used for fields, methods, arguments/parameters
+                    static ref RE_TS_TYPED: Regex =
+                        Regex::new(r"^([^ ]+) (.+): ([^\n]+)$").unwrap();
+                    // used for modules, classes
+                    static ref RE_TS_UNTYPED: Regex =
+                        Regex::new(r"^([^ ]+) (.+)\$").unwrap();
                 }
 
-                // Signature documentation is new and a more reliable source of
-                // type information.
-                if let Some(doc) = scip_sym_info.signature_documentation.as_ref()
-                    && !doc.text.is_empty()
+                if lang == ScipLang::Typescript
+                    && let Some(caps) = RE_TS_TYPED.captures(&doc.text)
                 {
-                    lazy_static! {
-                        // used for fields, methods, arguments/parameters
-                        static ref RE_TS_TYPED: Regex =
-                            Regex::new(r"^([^ ]+) (.+): ([^\n]+)$").unwrap();
-                        // used for modules, classes
-                        static ref RE_TS_UNTYPED: Regex =
-                            Regex::new(r"^([^ ]+) (.+)\$").unwrap();
+                    if let Some(s) = caps.get(1) {
+                        fallback_kind = Some(s.as_str().trim_matches(|c| c == '(' || c == ')'));
                     }
-
-                    if lang == ScipLang::Typescript
-                        && let Some(caps) = RE_TS_TYPED.captures(&doc.text)
-                    {
-                        if let Some(s) = caps.get(1) {
-                            fallback_kind = Some(s.as_str().trim_matches(|c| c == '(' || c == ')'));
-                        }
-                        if let Some(s) = caps.get(2) {
-                            doc_name = Some(s.as_str().to_string());
-                        }
-                        if let Some(s) = caps.get(3) {
-                            type_pretty = Some(ustr(s.as_str()));
-                        }
-                    } else if lang == ScipLang::Typescript
-                        && let Some(caps) = RE_TS_UNTYPED.captures(&doc.text)
-                        && let Some(s) = caps.get(2)
-                    {
+                    if let Some(s) = caps.get(2) {
                         doc_name = Some(s.as_str().to_string());
-                    } else {
-                        type_pretty = Some(ustr(&doc.text));
                     }
+                    if let Some(s) = caps.get(3) {
+                        type_pretty = Some(ustr(s.as_str()));
+                    }
+                } else if lang == ScipLang::Typescript
+                    && let Some(caps) = RE_TS_UNTYPED.captures(&doc.text)
+                    && let Some(s) = caps.get(2)
+                {
+                    doc_name = Some(s.as_str().to_string());
+                } else {
+                    type_pretty = Some(ustr(&doc.text));
                 }
+            }
 
-                let display_name = if !scip_sym_info.display_name.is_empty() {
-                    Some(scip_sym_info.display_name.as_str())
-                } else {
-                    doc_name.as_deref()
-                };
+            let display_name = if !scip_sym_info.display_name.is_empty() {
+                Some(scip_sym_info.display_name.as_str())
+            } else {
+                doc_name.as_deref()
+            };
 
-                let enclosing_symbol = if !scip_sym_info.enclosing_symbol.is_empty() {
-                    if let Ok(enclosing_symbol) =
-                        scip::symbol::parse_symbol(&scip_sym_info.enclosing_symbol)
-                    {
-                        let enclosing_symbol_info = analyse_symbol(
-                            &enclosing_symbol,
-                            None,
-                            &lang,
-                            lang_name,
-                            subtree_name,
-                            &doc.relative_path,
-                            None,
-                        );
-                        Some(enclosing_symbol_info.norm_sym)
-                    } else {
-                        info!("bad enclosing symbol: {}", scip_sym_info.enclosing_symbol);
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                let mut symbol_info = analyse_symbol(
-                    &scip_sym,
-                    enclosing_symbol,
-                    &lang,
-                    lang_name,
-                    subtree_name,
-                    &doc.relative_path,
-                    display_name,
-                );
-
-                let mut supers = vec![];
-                let mut overrides = vec![];
-
-                // SCIP provides the full transitive closure of relationships,
-                // but our current model favors only having the immediate links.
-                // TODO: filter out indirect ancestors
-                for rel in &scip_sym_info.relationships {
-                    let Ok(rel_scip_sym) = scip::symbol::parse_symbol(&rel.symbol) else {
-                        info!("bad relationship symbol: {}", rel.symbol);
-                        continue;
-                    };
-                    let parent_symbol_info = analyse_symbol(
-                        &rel_scip_sym,
+            let enclosing_symbol = if !scip_sym_info.enclosing_symbol.is_empty() {
+                if let Ok(enclosing_symbol) =
+                    scip::symbol::parse_symbol(&scip_sym_info.enclosing_symbol)
+                {
+                    let enclosing_symbol_info = analyse_symbol(
+                        &enclosing_symbol,
                         None,
                         &lang,
                         lang_name,
                         subtree_name,
-                        &doc.relative_path,
+                        relative_path,
                         None,
                     );
-
-                    // If our symbol is a local (or if we failed to unwrap its kind for any reason),
-                    // fallback to the kind of the symbol it is related to
-                    if symbol_info.kind.is_none() {
-                        symbol_info.kind = parent_symbol_info.kind;
-                    }
-                    match symbol_info.kind {
-                        Some("class") => {
-                            supers.push(StructuredSuperInfo {
-                                sym: ustr(&parent_symbol_info.norm_sym),
-                                offset_bytes: Some(0),
-                                props: vec![],
-                                layout: None,
-                            });
-                        }
-                        Some("method") => {
-                            overrides.push(StructuredOverrideInfo {
-                                sym: ustr(&parent_symbol_info.norm_sym),
-                            });
-                        }
-                        _ => {}
-                    }
-                    // Add this symbol to consideration for needing a fake structured rep generated
-                    // if we don't already know about it.  (We will also remove things from the map
-                    // as we add entries to scip_symbol_to_structured.)
-                    let urel_sym = ustr(&rel.symbol);
-                    if !scip_symbol_to_structured.contains_key(&urel_sym) {
-                        possible_unknown_scip_symbols.insert(urel_sym, parent_symbol_info);
-                    }
-                }
-
-                // Ensure that supers and overrides are sorted to avoid flaky tests
-                supers.sort_unstable_by_key(|r| r.sym);
-                overrides.sort_unstable_by_key(|r| r.sym);
-
-                let (slot_owner, binding_slots) = binding_links(scip_sym_info, lang);
-
-                let js_sym = if lang == ScipLang::Typescript
-                    && let Some(last_descriptor) = scip_sym.descriptors.last()
-                    && let Ok(suffix) = last_descriptor.suffix.enum_value()
-                {
-                    use Suffix::*;
-                    match suffix {
-                        Type | Term | Method => Some(format!("#{}", last_descriptor.name).into()),
-                        UnspecifiedSuffix | Namespace | Package | TypeParameter | Parameter
-                        | Meta | Local | Macro => None,
-                    }
+                    Some(enclosing_symbol_info.norm_sym)
                 } else {
+                    info!("bad enclosing symbol: {}", scip_sym_info.enclosing_symbol);
                     None
-                };
-
-                let structured = AnalysisStructured {
-                    structured: StructuredTag::Structured,
-                    pretty: symbol_info.pretty,
-                    sym: symbol_info.norm_sym,
-                    js_sym,
-                    type_pretty,
-                    kind: ustr(symbol_info.kind.or(fallback_kind).unwrap_or("")),
-                    subsystem: None,
-                    parent_sym: symbol_info.parent_sym,
-                    slot_owner,
-                    impl_kind: ustr("impl"),
-                    size_bytes: if size_bytes > 0 {
-                        Some(size_bytes)
-                    } else {
-                        None
-                    },
-                    alignment_bytes: None,
-                    own_vf_ptr_bytes: None,
-                    binding_slots,
-                    ontology_slots: vec![],
-                    supers,
-                    methods: vec![],
-                    fields: vec![],
-                    overrides,
-                    props: vec![],
-                    labels: BTreeSet::default(),
-
-                    subclass_syms: vec![],
-                    overridden_by_syms: vec![],
-                    variants: vec![],
-                    supplement: false,
-                    docs: vec![],
-                    extra: Map::default(),
-
-                    can_gc: None,
-                    gc_path: None,
-                };
-                // for local symbols we use our own symbol because the SCIP symbol is not
-                // actually unique; we also need to update our helper mapping.
-                if scip_sym_info.symbol.starts_with("local ") {
-                    scip_symbol_to_structured.insert(symbol_info.norm_sym, structured);
-                    // I don't think there should potentially be such a key, but there's no harm.
-                    possible_unknown_scip_symbols.remove(&symbol_info.norm_sym);
-                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, symbol_info.norm_sym);
-                } else {
-                    let usym = ustr(&scip_sym_info.symbol);
-                    scip_symbol_to_structured.insert(usym, structured);
-                    possible_unknown_scip_symbols.remove(&usym);
-                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, usym);
-                }
-
-                if symbol_info.contributes_to_parent
-                    && let Some(psym) = symbol_info.parent_sym
-                    && let Some(scip_psym) = our_symbol_to_scip_sym.get(&psym)
-                    && let Some(pstruct) = scip_symbol_to_structured.get_mut(scip_psym)
-                {
-                    match &symbol_info.kind {
-                        Some("method") => {
-                            pstruct.methods.push(StructuredMethodInfo {
-                                pretty: symbol_info.pretty,
-                                sym: symbol_info.norm_sym,
-                                props: vec![],
-                                labels: BTreeSet::default(),
-                                // TODO: see about trying to extract args from markdown?
-                                args: vec![],
-                            });
-                        }
-                        Some("field") => {
-                            pstruct.fields.push(StructuredFieldInfo {
-                                line_range: ustr(""),
-                                pretty: symbol_info.pretty,
-                                sym: symbol_info.norm_sym,
-                                type_pretty: type_pretty.unwrap_or_else(|| ustr("")),
-                                type_sym: ustr(""),
-                                offset_bytes: Some(offset_bytes),
-                                bit_positions: None,
-                                size_bytes: if size_bytes > 0 {
-                                    Some(size_bytes)
-                                } else {
-                                    None
-                                },
-                                labels: BTreeSet::default(),
-                                pointer_info: vec![],
-                            });
-                        }
-                        _ => {}
-                    }
                 }
             } else {
-                warn!(
-                    "Unable to parse SCIP symbol: {}\n:{:?}",
-                    scip_sym_info.symbol,
-                    scip::symbol::parse_symbol(&scip_sym_info.symbol)
-                );
+                None
+            };
+
+            let mut symbol_info = analyse_symbol(
+                &scip_sym,
+                enclosing_symbol,
+                &lang,
+                lang_name,
+                subtree_name,
+                relative_path,
+                display_name,
+            );
+
+            // A TypeScript property or variable whose value is a function, ex: an
+            // object literal's `init() {}`, is a method, as its signature says
+            // (`(method) init(): void`), though its descriptor (a meta or term
+            // descriptor) says it's a field.
+            if lang == ScipLang::Typescript
+                && symbol_info.kind == Some("field")
+                && matches!(fallback_kind, Some("method" | "function"))
+            {
+                symbol_info.kind = Some("method");
             }
+
+            let mut supers = vec![];
+            let mut overrides = vec![];
+
+            // SCIP provides the full transitive closure of relationships,
+            // but our current model favors only having the immediate links.
+            // TODO: filter out indirect ancestors
+            for rel in &scip_sym_info.relationships {
+                let Ok(rel_scip_sym) = scip::symbol::parse_symbol(&rel.symbol) else {
+                    info!("bad relationship symbol: {}", rel.symbol);
+                    continue;
+                };
+                let parent_symbol_info = analyse_symbol(
+                    &rel_scip_sym,
+                    None,
+                    &lang,
+                    lang_name,
+                    subtree_name,
+                    relative_path,
+                    None,
+                );
+
+                // If our symbol is a local (or if we failed to unwrap its kind for any reason),
+                // fallback to the kind of the symbol it is related to
+                if symbol_info.kind.is_none() {
+                    symbol_info.kind = parent_symbol_info.kind;
+                }
+                match symbol_info.kind {
+                    Some("class") => {
+                        supers.push(StructuredSuperInfo {
+                            sym: ustr(&parent_symbol_info.norm_sym),
+                            offset_bytes: Some(0),
+                            props: vec![],
+                            layout: None,
+                        });
+                    }
+                    Some("method") => {
+                        overrides.push(StructuredOverrideInfo {
+                            sym: ustr(&parent_symbol_info.norm_sym),
+                        });
+                    }
+                    _ => {}
+                }
+                // Add this symbol to consideration for needing a fake structured rep generated
+                // if we don't already know about it.  (We will also remove things from the map
+                // as we add entries to scip_symbol_to_structured.)
+                let urel_sym = ustr(&rel.symbol);
+                if !scip_symbol_to_structured.contains_key(&urel_sym) {
+                    possible_unknown_scip_symbols.insert(urel_sym, parent_symbol_info);
+                }
+            }
+
+            // Ensure that supers and overrides are sorted to avoid flaky tests
+            supers.sort_unstable_by_key(|r| r.sym);
+            overrides.sort_unstable_by_key(|r| r.sym);
+
+            let (slot_owner, binding_slots) = binding_links(scip_sym_info, lang);
+
+            let js_sym = if lang == ScipLang::Typescript
+                && let Some(last_descriptor) = scip_sym.descriptors.last()
+                && let Ok(suffix) = last_descriptor.suffix.enum_value()
+            {
+                use Suffix::*;
+                match suffix {
+                    Type | Term | Method => Some(format!("#{}", last_descriptor.name).into()),
+                    UnspecifiedSuffix | Namespace | Package | TypeParameter | Parameter | Meta
+                    | Local | Macro => None,
+                }
+            } else {
+                None
+            };
+
+            let structured = AnalysisStructured {
+                structured: StructuredTag::Structured,
+                pretty: symbol_info.pretty,
+                sym: symbol_info.norm_sym,
+                js_sym,
+                type_pretty,
+                kind: ustr(symbol_info.kind.or(fallback_kind).unwrap_or("")),
+                subsystem: None,
+                parent_sym: symbol_info.parent_sym,
+                slot_owner,
+                impl_kind: ustr("impl"),
+                size_bytes: if size_bytes > 0 {
+                    Some(size_bytes)
+                } else {
+                    None
+                },
+                alignment_bytes: None,
+                own_vf_ptr_bytes: None,
+                binding_slots,
+                ontology_slots: vec![],
+                supers,
+                methods: vec![],
+                fields: vec![],
+                overrides,
+                props: vec![],
+                labels: BTreeSet::default(),
+
+                subclass_syms: vec![],
+                overridden_by_syms: vec![],
+                variants: vec![],
+                supplement: false,
+                docs: vec![],
+                extra: Map::default(),
+
+                can_gc: None,
+                gc_path: None,
+            };
+            // for local symbols we use our own symbol because the SCIP symbol is not
+            // actually unique; we also need to update our helper mapping.
+            if scip_sym_info.symbol.starts_with("local ") {
+                scip_symbol_to_structured.insert(symbol_info.norm_sym, structured);
+                // I don't think there should potentially be such a key, but there's no harm.
+                possible_unknown_scip_symbols.remove(&symbol_info.norm_sym);
+                our_symbol_to_scip_sym.insert(symbol_info.norm_sym, symbol_info.norm_sym);
+            } else {
+                let usym = ustr(&scip_sym_info.symbol);
+                scip_symbol_to_structured.insert(usym, structured);
+                possible_unknown_scip_symbols.remove(&usym);
+                our_symbol_to_scip_sym.insert(symbol_info.norm_sym, usym);
+            }
+
+            if symbol_info.contributes_to_parent
+                && let Some(psym) = symbol_info.parent_sym
+                && let Some(scip_psym) = our_symbol_to_scip_sym.get(&psym)
+                && let Some(pstruct) = scip_symbol_to_structured.get_mut(scip_psym)
+            {
+                match &symbol_info.kind {
+                    Some("method") => {
+                        pstruct.methods.push(StructuredMethodInfo {
+                            pretty: symbol_info.pretty,
+                            sym: symbol_info.norm_sym,
+                            props: vec![],
+                            labels: BTreeSet::default(),
+                            // TODO: see about trying to extract args from markdown?
+                            args: vec![],
+                        });
+                    }
+                    Some("field") => {
+                        pstruct.fields.push(StructuredFieldInfo {
+                            line_range: ustr(""),
+                            pretty: symbol_info.pretty,
+                            sym: symbol_info.norm_sym,
+                            type_pretty: type_pretty.unwrap_or_else(|| ustr("")),
+                            type_sym: ustr(""),
+                            offset_bytes: Some(offset_bytes),
+                            bit_positions: None,
+                            size_bytes: if size_bytes > 0 {
+                                Some(size_bytes)
+                            } else {
+                                None
+                            },
+                            labels: BTreeSet::default(),
+                            pointer_info: vec![],
+                        });
+                    }
+                    _ => {}
+                }
+            }
+        } else {
+            warn!(
+                "Unable to parse SCIP symbol: {}\n:{:?}",
+                scip_sym_info.symbol,
+                scip::symbol::parse_symbol(&scip_sym_info.symbol)
+            );
         }
     }
 
-    let analysis_root = Path::new(&tree_config.paths.index_path).join(match platform {
-        None => "analysis".to_string(),
-        Some(platform) => format!("analysis-{}", platform),
-    });
+    let analysis_root = match analysis_root {
+        Some(analysis_root) => analysis_root.to_owned(),
+        None => Path::new(&tree_config.paths.index_path).join(match platform {
+            None => "analysis".to_string(),
+            Some(platform) => format!("analysis-{}", platform),
+        }),
+    };
 
     // The occurrences' symbols as we store them: locals' normalized to
     // include the file path, consistent with how we handled them in the prior
@@ -1626,7 +1665,7 @@ fn analyze_using_scip(
     }
 
     // ## Emit any external structured records we didn't already emit
-    {
+    if leftovers {
         // Let's name the analysis file after the SCIP file.
         let output_file = analysis_root.join(scip_file.file_name().unwrap());
         if let Err(err) = create_output_dir(&output_file) {
@@ -1773,17 +1812,24 @@ fn main() {
 
     let tree_name = &cli.tree_name;
     let cfg = config::load(&cli.config_file, false, Some(tree_name), None, None);
-    let tree_config = cfg.trees.get(tree_name).unwrap();
+    // (Its sources can be elsewhere; see `files_root`.)
+    let mut paths = cfg.trees.get(tree_name).unwrap().paths.clone();
+    if let Some(files_root) = cli.files_root {
+        paths.files_path = files_root;
+    }
+    let tree_config = config::TreeConfig { paths, git: None };
 
     for file in cli.inputs {
         if file.to_str() == Some("null") {
             continue;
         }
         analyze_using_scip(
-            tree_config,
+            &tree_config,
             cli.subtree_name.as_deref(),
             &cli.subtree_root,
             &cli.platform,
+            cli.analysis_root.as_deref(),
+            !cli.no_leftovers,
             file,
         );
     }
