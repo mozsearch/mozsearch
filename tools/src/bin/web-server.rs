@@ -671,10 +671,13 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         ("explore" | "try", Some(&"excerpts")) => 5..7,
         _ => 0..0,
     };
-    if let Some(segments) = path.get(rev_segments)
-        && !segments
-            .iter()
-            .all(|segment| segment.split(',').all(git_ops::is_hex_rev))
+    // (An outline diff's baseline can be by date, ex: `since:2026-10-01`.)
+    let since = matches!(&kind[..], "rev-outline" | "outline-diff");
+    if let Some(segments) = path.get(rev_segments.clone())
+        && !segments.iter().enumerate().all(|(i, segment)| {
+            (since && i == 0 && git_ops::is_since_rev(segment))
+                || segment.split(',').all(git_ops::is_hex_rev)
+        })
     {
         return WebResponse::internal_error("Bad revision".to_owned());
     }

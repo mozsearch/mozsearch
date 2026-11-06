@@ -71,6 +71,13 @@ pub fn is_hex_rev(rev: &str) -> bool {
     (4..=40).contains(&rev.len()) && rev.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+/// Whether a revision from a request is a baseline by date (`since:YYYY-MM-DD`,
+/// the newest revision before that day; see `format::outline_diff_data`).
+pub fn is_since_rev(rev: &str) -> bool {
+    rev.strip_prefix("since:")
+        .is_some_and(|day| day.len() == 10 && day.bytes().all(|b| b.is_ascii_digit() || b == b'-'))
+}
+
 /// Whether a revision from a request is a ref name (ex: a branch's, `main`, a
 /// tag's, or one with slashes, `release/esr128`), in git's rules for them but
 /// only of letters, digits, `.`, `_`, `-` and `/`, so not any of git's other
@@ -145,6 +152,20 @@ fn test_git_time_to_chrono() {
     let expected = chrono::DateTime::parse_from_rfc3339("2026-03-13T04:47:54+02:00").unwrap();
     let actual = git_time_to_chrono(source);
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn test_is_since_rev() {
+    assert!(is_since_rev("since:2026-10-01"));
+    for rev in [
+        "since:",
+        "since:2026-10-01x",
+        "since:../../x",
+        "2026-10-01",
+        "since:2026/10/01",
+    ] {
+        assert!(!is_since_rev(rev), "{}", rev);
+    }
 }
 
 #[test]

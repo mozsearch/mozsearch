@@ -912,6 +912,13 @@ pub async fn respond(
         if name == "from" && route.name == "map-rev" {
             continue;
         }
+        // (An outline diff's baseline can be by date.)
+        if name == "from"
+            && route.name == "outline-diff"
+            && params.get(name).is_some_and(crate::git_ops::is_since_rev)
+        {
+            continue;
+        }
         if let Some(value) = params.get(name)
             && !value.split(',').all(crate::git_ops::is_hex_rev)
         {

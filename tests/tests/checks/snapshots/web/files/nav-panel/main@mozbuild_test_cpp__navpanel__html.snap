@@ -15,7 +15,7 @@ input_file: inputs/web/files/nav-panel/mozbuild_test_cpp__navpanel__html
   <h4>Source code</h4>
   <ul>
   <li class="with-extra">
-  <a id="panel-file-bug" href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Core&component=Build Fixtures" title="Open the new bug form for the Core :: Build Fixtures component in bugzilla" class="icon item">File a bug in Core :: Build Fixtures<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/mozbuild/moz.build#51" title="Go to the rule giving this file its component, in mozbuild/moz.build on line 51">moz.build</a>
+  <a id="panel-file-bug" href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Core&amp;component=Build Fixtures" title="Open the new bug form for the Core :: Build Fixtures component in bugzilla" class="icon item">File a bug in Core :: Build Fixtures<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/mozbuild/moz.build#51" title="Go to the rule giving this file its component, in mozbuild/moz.build on line 51">moz.build</a>
   </li>
   <li class="with-extra">
   <a href="/tests/rendered/docs/md_test/index.md" title="How to review the build fixtures' C++." class="icon item">Review skill: Build fixtures<button class="copy" title="Copy to clipboard" data-copy="docs/md_test/index.md"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#6" title="Go to the rule, in review-context.toml on line 6">rule</a>

@@ -341,7 +341,7 @@ add_task(async function test_DiagramInteractive_RootlessCycle() {
     nodes: ["Root", "Leaf", "A", "B", "C"].map(node),
     edges: [edge("Root", "Leaf"), edge("A", "B"), edge("B", "A"), edge("B", "C"), edge("C", "Leaf")],
   };
-  const graph = new (frame.contentWindow.eval("Graph"))(viewport, container, input, [], [], []);
+  const graph = new frame.contentWindow.Graph(viewport, container, input, [], [], []);
   const depths = graph.blocks.map(block => `${block.pretty}: ${block.depth}`).join(", ");
   ok(graph.blocks.every(block => block.depth >= 0), `Every block has a depth: ${depths}`);
   is(container.querySelectorAll(".interactive-graph-block").length, 5, "and a node");

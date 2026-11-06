@@ -21,7 +21,7 @@ add_task(async function test_CrashSetCarryOver() {
                                    "The set's fetched, and its view shows", 100, 100);
   const set = new URLSearchParams(doc().location.search).get("q").replace(/^crash-set:/, "");
   ok(/^[0-9a-f]{16}$/.test(set), `at its query: ${set}`);
-  ok([...doc().querySelectorAll("script")].some(script => script.textContent.includes(`/searchfox/crash-sets/touch/${set}`)),
+  ok([...doc().querySelectorAll("script[data-touch-url]")].some(script => script.dataset.touchUrl == `/searchfox/crash-sets/touch/${set}`),
      "whose view notes its use");
 
   const touch = id => fetch(`/searchfox/crash-sets/touch/${id}`, { method: "POST", cache: "no-store" });

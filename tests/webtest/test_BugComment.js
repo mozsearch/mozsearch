@@ -62,8 +62,10 @@ add_task(async function test_BugComment() {
   ok(changedCard.querySelectorAll("[data-line-number]").length > 0, "but where they would be is shown");
 
   const [current, other] = cards(now);
-  is(note(current), "Not a permalink, so its lines are those when the comment was written.",
-     "A link which isn't a permalink is to its lines when the comment was written");
+  // (Its lines now, `(lines N-M)`, are the searchfox tree's checkout's, which
+  // can differ.)
+  ok(/^Not a permalink, so its lines are those when the comment was written( \(lines \d+(-\d+)?\))?\.$/.test(note(current)),
+     `A link which isn't a permalink is to its lines when the comment was written: ${note(current)}`);
   ok(highlighted(current).includes("fn find_phab_rev"), "which are highlighted");
   is(other?.querySelector(".crash-code-missing")?.textContent, "Not a file in this tree.",
      "A nested list's link is its item's, and a file the tree doesn't have says so");
@@ -231,7 +233,7 @@ add_task(async function test_BugCommentPlain() {
      "and it isn't Markdown");
   is(linking.querySelector("a.bmo-mention")?.getAttribute("href"),
      "https://bugzilla.mozilla.org/show_bug.cgi?id=1234567#c0", "as are bugs' comments");
-  is(note(cards(linking)[0]), "Not a permalink, so its lines are those when the comment was written.",
+  ok(/^Not a permalink, so its lines are those when the comment was written( \(lines \d+(-\d+)?\))?\.$/.test(note(cards(linking)[0])),
      "and its code links are excerpts");
   is(text(".bmo-role"), "Reporter", "(by the bug's reporter)");
 });

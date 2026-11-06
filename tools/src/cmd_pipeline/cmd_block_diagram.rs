@@ -474,16 +474,6 @@ fn arc_diagram_svg(
     let _ = write!(
         svg,
         r##"<svg class="arcs" xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" font-family="sans-serif" font-size="11">
-<style>
-.arcs .arcs-arc {{ fill: none; stroke-opacity: 0.45; }}
-.arcs .arcs-down {{ stroke: #3b78d8; }}
-.arcs .arcs-up {{ stroke: #d8783b; }}
-.arcs:hover .arcs-arc {{ stroke-opacity: 0.1; }}
-.arcs .arcs-row:hover .arcs-arc {{ stroke-opacity: 1; }}
-.arcs .arcs-row:hover text {{ font-weight: bold; }}
-.arcs .arcs-band {{ fill: #8881; }}
-.arcs a text {{ fill: currentColor; }}
-</style>
 <defs>
 <marker id="arcs-head-down" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3b78d8"/></marker>
 <marker id="arcs-head-up" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#d8783b"/></marker>

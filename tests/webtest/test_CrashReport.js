@@ -39,7 +39,9 @@ add_task(async function test_CrashReport() {
      "which isn't the tree's code if its file isn't (Rust's standard library's)");
 
   ok(crashText(find).includes("line.strip_prefix(PREFIX)"), "A frame's line from the report is highlighted");
-  is(where(find), "At line 12 (at the build's revision, as now).", "as it was");
+  // (Its line now is the searchfox tree's checkout's, which can differ.)
+  ok(/^At line 12( \(at the build's revision, as now\)| at the build's revision, which is line \d+ now)\.$/.test(where(find)),
+     `as it was: ${where(find)}`);
   is(find.querySelector(".crash-frame-build").getAttribute("href"), `/searchfox/rev/${REV}/tools/src/blame.rs#12`,
      "with a link to the code at the build's revision");
   is(find.querySelector(".crash-frame-name").tagName, "A", "and its function, found in the file");

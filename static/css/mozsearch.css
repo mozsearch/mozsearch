@@ -2798,6 +2798,17 @@ span[data-symbols].selected {
 .rd-image-link, .sp-image-link {
   font-style: italic;
 }
+/* The whole tree's block diagram's column of arcs (see the tools'
+   cmd_block_diagram.rs), an inline SVG, which can't have a `<style>`. */
+.arcs .arcs-arc { fill: none; stroke-opacity: 0.45; }
+.arcs .arcs-down { stroke: #3b78d8; }
+.arcs .arcs-up { stroke: #d8783b; }
+.arcs:hover .arcs-arc { stroke-opacity: 0.1; }
+.arcs .arcs-row:hover .arcs-arc { stroke-opacity: 1; }
+.arcs .arcs-row:hover text { font-weight: bold; }
+.arcs .arcs-band { fill: #8881; }
+.arcs a text { fill: currentColor; }
+
 /* Outline rows' depths (`data-outline-depth`; see explore_file.liquid and
    outline_diff.liquid), as their markup can't have style attributes. */
 [data-outline-depth="1"] { --outline-depth: 1; }

@@ -31,6 +31,10 @@ class TestHarness {
    */
   static cleanupFunctions = [];
 
+  // The paths of the documents the frame loaded in the test file (see
+  // `checkCspReports`).
+  static loadedPaths = new Set();
+
   /**
    * Add log, this is sent to webtest command and also shown in console.
    *
@@ -101,14 +105,26 @@ class TestHarness {
 
   /**
    * Fail the test file if its pages made Content-Security-Policy violations
-   * (reported asynchronously, after those `before` had).
+   * (reported asynchronously, after those `before` had): those of the
+   * documents it loaded (`loadedPaths`), as the log is all of the browsers'
+   * tests'.
    */
   static async checkCspReports(before) {
     await new Promise(resolve => setTimeout(resolve, 500));
     const after = await this.cspReports();
-    if (after.length > before.length) {
-      for (const report of after.slice(before.length).trim().split("\n")) {
-        this.fail(`Content-Security-Policy violation: ${report}`);
+    if (after.length <= before.length) {
+      return;
+    }
+    for (const line of after.slice(before.length).trim().split("\n")) {
+      // (`TIME BODY`, the body JSON-escaped; see nginx-setup.py's
+      // `csp_report`.)
+      let path = null;
+      try {
+        const body = JSON.parse(JSON.parse(`"${line.slice(line.indexOf(" ") + 1)}"`));
+        path = new URL(body["csp-report"]["document-uri"]).pathname;
+      } catch (e) {}
+      if (path === null || this.loadedPaths.has(path)) {
+        this.fail(`Content-Security-Policy violation: ${line}`);
       }
     }
   }
@@ -188,6 +204,9 @@ class TestHarness {
     const updateLocationAndTitle = () => {
       frameLocation.value = window.frame.contentDocument.location.href;
       frameTitle.value = window.frame.contentDocument.title;
+      // (For the test file's Content-Security-Policy violations; see
+      // `checkCspReports`.)
+      TestHarness.loadedPaths.add(window.frame.contentDocument.location.pathname);
     };
     const onFrameLoad = () => {
       updateLocationAndTitle();
@@ -269,6 +288,7 @@ class TestHarness {
     window.addEventListener("error", onError);
     script.addEventListener("load", async () => {
       window.removeEventListener("error", onError);
+      this.loadedPaths = new Set();
       const cspReports = await this.cspReports();
       await this.runTests();
       await this.checkCspReports(cspReports);

@@ -55,7 +55,8 @@ add_task(async function test_ExploreOutlines() {
   const file = doc.querySelector('.explore-file[data-path="clang-plugin/MozsearchIndexer.cpp"]');
   const rows = [...file.querySelectorAll(".explore-outline-rows tr")];
   const name = row => row.querySelector(".explore-outline-name").textContent;
-  const depth = row => row.style.getPropertyValue("--outline-depth");
+  // (By its `data-outline-depth`, which CSS makes its `--outline-depth`.)
+  const depth = row => frame.contentWindow.getComputedStyle(row).getPropertyValue("--outline-depth").trim();
   is(name(rows[0]), "IndexConsumer", "The class the changed methods are in is first");
   ok(rows[0].matches(".outline-unchanged.outline-context"), "unchanged");
   const members = rows.slice(1);

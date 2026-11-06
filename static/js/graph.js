@@ -2390,6 +2390,9 @@ class Graph {
     this.graphContainer.style.transform = `translate(${Math.round(this.translation.x)}px, ${Math.round(this.translation.y)}px) scale(${this.zoom})`;
   }
 }
+// (A property of the window too, for the webtests, which can't evaluate a
+// name in the page, as its Content-Security-Policy has no 'unsafe-eval'.)
+window.Graph = Graph;
 
 var GRAPH_EXTRA = [];
 
