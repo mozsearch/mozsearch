@@ -53,6 +53,26 @@ impl Filter for JsonScriptFilter {
 
 #[derive(Clone, ParseFilter, FilterReflection)]
 #[filter(
+    name = "escape_script_json",
+    description = "Escape already serialized JSON (a string, ex: a subway map's model) for a JSON data block, as `json_script` does (see `html_escape::escape_json_for_script`).",
+    parsed(EscapeScriptJsonFilter)
+)]
+pub struct EscapeScriptJsonFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "escape_script_json"]
+struct EscapeScriptJsonFilter;
+
+impl Filter for EscapeScriptJsonFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        Ok(Value::scalar(crate::html_escape::escape_json_for_script(
+            &input.to_kstr(),
+        )))
+    }
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
     name = "fileext",
     description = "Extract the file extension from a path string, defaulting to the empty string.",
     parsed(FileExtFilter)

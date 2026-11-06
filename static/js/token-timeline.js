@@ -333,7 +333,7 @@ var TokenTimeline = new (class TokenTimeline {
       if (commit.header) {
         const header = this.el("span", "token-timeline-header");
         // (The header's HTML, escaped and with its bugs linked by the server.)
-        header.innerHTML = commit.header;
+        TrustedHTML.set(header, commit.header);
         item.append(": ", header);
       }
       const changed = this.el("div", "token-timeline-commit-changes");

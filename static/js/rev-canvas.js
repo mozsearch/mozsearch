@@ -371,7 +371,7 @@ var RevCanvas = new (class RevCanvas {
       const rows = document.createElement("div");
       rows.className = "file rc-rows";
       rows.setAttribute("role", "table");
-      rows.innerHTML = node.rows;
+      TrustedHTML.set(rows, node.rows);
       element.append(rows);
       if (!node.complete) {
         const more = document.createElement("a");

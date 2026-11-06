@@ -7,8 +7,7 @@ use ustr::{Ustr, UstrMap};
 use super::interface::{JsonValue, PipelineCommand, PipelineValues, TextFile};
 use crate::abstract_server::{AbstractServer, Result, ServerError, sym_info};
 use crate::lock_held::{
-    CARDS_SCRIPT, LOCK_HELD_MIME, LockHeldView, card_line_requests, lock_held_view,
-    render_lock_held, view_facets,
+    LOCK_HELD_MIME, LockHeldView, card_line_requests, lock_held_view, render_lock_held, view_facets,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, ValueEnum)]
@@ -75,11 +74,15 @@ impl PipelineCommand for LockHeldCommand {
         let mut info = BTreeMap::new();
         let mut traversed = UstrMap::default();
         sym_info::add_syms_info(server, syms, &mut info, &mut traversed).await;
+        // (And its cards' folded lines' script.)
         let contents = format!(
-            "{}<script>window.SYM_INFO = Object.assign(window.SYM_INFO || {{}}, {});</script>{}",
+            r#"{}{}<script src="/{}/static/js/folded-lines.js"></script>"#,
             render_lock_held(&tree, &view, &rows),
-            sym_info::script_json(&info),
-            CARDS_SCRIPT
+            crate::html_escape::json_merge_block_from_json(
+                "SYM_INFO",
+                &sym_info::script_json(&info)
+            ),
+            crate::rendered_docs::escape(&tree)
         );
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: LOCK_HELD_MIME.to_string(),

@@ -1,8 +1,9 @@
 {% if results.TextFile.mime_type == "image/svg+xml" %}
     {{ results.TextFile.contents }}
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.subway+json" %}
-{%- comment %}(A subway map's model, with its "<"s escaped; see subway.js.){% endcomment %}
-<script>var SUBWAY = {{ results.TextFile.contents }}; var GRAPH_EXTRA = [];</script>
+{%- comment %}(A subway map's model, a JSON data block, whose global page-data.js sets before graph.js and subway.js run, deferred.){% endcomment %}
+<script type="application/json" data-global="SUBWAY">{{ results.TextFile.contents | escape_script_json }}</script>
+<script type="application/json" data-global="GRAPH_EXTRA">[]</script>
 <div id="interactive-graph-base" class="sw-base">
 <div id="interactive-graph-viewport">
 <div id="interactive-graph-container">
@@ -10,11 +11,11 @@
 </div>
 <div id="sw-legend" class="sw-legend"></div>
 </div>
-<script src="/{{tree}}/static/js/graph.js"></script>
-<script src="/{{tree}}/static/js/subway.js"></script>
+<script defer src="/{{tree}}/static/js/graph.js"></script>
+<script defer src="/{{tree}}/static/js/subway.js"></script>
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.token-timeline+json" %}
-{%- comment %}(Tokens' timelines' model, with its "<"s escaped; see token-timeline.js.){% endcomment %}
-<script>var TOKEN_TIMELINE = {{ results.TextFile.contents }};</script>
+{%- comment %}(Tokens' timelines' model, a JSON data block; see token-timeline.js.){% endcomment %}
+<script type="application/json" data-global="TOKEN_TIMELINE">{{ results.TextFile.contents | escape_script_json }}</script>
 <div id="token-timeline" class="token-timeline"></div>
 <script defer src="/{{tree}}/static/js/token-timeline.js"></script>
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.crash-stack+html" %}

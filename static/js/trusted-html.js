@@ -56,6 +56,17 @@ var TrustedHTML = new (class TrustedHTML {
     }
   }
 
+  /**
+   * A stylesheet for rules a script makes (ex: blame's colors), adopted by the
+   * document (`replaceSync` its rules), as the page's Content-Security-Policy
+   * allows no `<style>` elements.
+   */
+  adoptStyleSheet() {
+    const sheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    return sheet;
+  }
+
   /** Escape text for HTML text or a quoted attribute value. */
   escape(text) {
     return String(text)

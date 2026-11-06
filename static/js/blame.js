@@ -621,7 +621,9 @@ var BlamePopup = new (class BlamePopup {
  */
 var BlameColorizer = new (class BlameColorizer {
   constructor() {
-    this.style = null;
+    // (Its rules' stylesheet, and their text; see `TrustedHTML.adoptStyleSheet`.)
+    this.sheet = null;
+    this.cssText = "";
     // A diff has a blame for each version of the file, and a page of several
     // rendered documents' sections one for each of their files (see
     // `HyperblameContexts` in hyperblame.js, which loads after this), whose
@@ -708,11 +710,11 @@ var BlameColorizer = new (class BlameColorizer {
         );
       });
     });
-    if (!this.style) {
-      this.style = document.createElement("style");
-      document.head.appendChild(this.style);
+    if (!this.sheet) {
+      this.sheet = TrustedHTML.adoptStyleSheet();
     }
-    this.style.textContent = rules.join("\n");
+    this.cssText = rules.join("\n");
+    this.sheet.replaceSync(this.cssText);
     document.documentElement.classList.toggle("blame-colorized", rules.length > 0);
     this.sinceTime = time;
   }
@@ -739,11 +741,11 @@ var BlameColorizer = new (class BlameColorizer {
         }
       });
     });
-    if (!this.style) {
-      this.style = document.createElement("style");
-      document.head.appendChild(this.style);
+    if (!this.sheet) {
+      this.sheet = TrustedHTML.adoptStyleSheet();
     }
-    this.style.textContent = rules.join("\n");
+    this.cssText = rules.join("\n");
+    this.sheet.replaceSync(this.cssText);
     document.documentElement.classList.toggle("blame-colorized", rules.length > 0);
   }
 })();

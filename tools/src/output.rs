@@ -698,7 +698,10 @@ pub fn generate_panel(
         F::S("</div>"),
         // (Docking it as the fancy bar before the page's contents come; see
         // `EarlyLayout` in settings.js.)
-        F::S(r#"<script>typeof EarlyLayout != "undefined" && EarlyLayout.panel();</script>"#),
+        F::T(format!(
+            r#"<script src="/{}/static/js/early-layout-panel.js"></script>"#,
+            opt.tree_name
+        )),
     ]);
 
     generate_formatted(writer, &f, 0)?;

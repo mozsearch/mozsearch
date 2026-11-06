@@ -2798,6 +2798,29 @@ span[data-symbols].selected {
 .rd-image-link, .sp-image-link {
   font-style: italic;
 }
+/* Outline rows' depths (`data-outline-depth`; see explore_file.liquid and
+   outline_diff.liquid), as their markup can't have style attributes. */
+[data-outline-depth="1"] { --outline-depth: 1; }
+[data-outline-depth="2"] { --outline-depth: 2; }
+[data-outline-depth="3"] { --outline-depth: 3; }
+[data-outline-depth="4"] { --outline-depth: 4; }
+[data-outline-depth="5"] { --outline-depth: 5; }
+[data-outline-depth="6"] { --outline-depth: 6; }
+[data-outline-depth="7"] { --outline-depth: 7; }
+[data-outline-depth="8"] { --outline-depth: 8; }
+[data-outline-depth="9"] { --outline-depth: 9; }
+[data-outline-depth="10"] { --outline-depth: 10; }
+[data-outline-depth="11"] { --outline-depth: 11; }
+[data-outline-depth="12"] { --outline-depth: 12; }
+[data-outline-depth="13"] { --outline-depth: 13; }
+[data-outline-depth="14"] { --outline-depth: 14; }
+[data-outline-depth="15"] { --outline-depth: 15; }
+[data-outline-depth="16"] { --outline-depth: 16; }
+[data-outline-depth="17"] { --outline-depth: 17; }
+[data-outline-depth="18"] { --outline-depth: 18; }
+[data-outline-depth="19"] { --outline-depth: 19; }
+[data-outline-depth="20"] { --outline-depth: 20; }
+
 /* (Markdown tables' columns' alignments.) */
 .rendered-doc .rd-align-left {
   text-align: left;
@@ -7105,10 +7128,15 @@ textarea.monospace {
   width: 15em;
   margin-right: 0.4em;
 }
+/* (An SVG, its rect's width the bar's, of 100, as the page allows no style
+   attributes.) */
 .token-history-bar {
   display: inline-block;
+  width: 100%;
   height: 0.8em;
-  background-color: color-mix(in srgb, var(--link-color) 45%, transparent);
+}
+.token-history-bar rect {
+  fill: color-mix(in srgb, var(--link-color) 45%, transparent);
 }
 .token-history-added {
   color: #2f8d46;

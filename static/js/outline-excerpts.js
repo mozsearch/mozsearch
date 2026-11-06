@@ -408,7 +408,7 @@
       }
       const code = document.createElement("code");
       code.className = "source-line";
-      code.innerHTML = candidate.html || " ";
+      TrustedHTML.set(code, candidate.html || " ");
       div.append(lineno, code);
       return div;
     };

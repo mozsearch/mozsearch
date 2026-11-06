@@ -9,7 +9,8 @@
     return;
   }
   const status = root.querySelector(".explore-status");
-  const defaultStatus = status?.innerHTML;
+  // (Its contents, as nodes, to restore.)
+  const defaultStatus = status ? [...status.childNodes].map(node => node.cloneNode(true)) : [];
   const commits = [...root.querySelectorAll(".explore-commit")];
   const slot = parseInt(root.dataset.slot, 10);
   let current = -1;
@@ -33,7 +34,7 @@
     if (index < 0) {
       root.style.removeProperty("--explore-cursor");
       if (status) {
-        status.innerHTML = defaultStatus;
+        status.replaceChildren(...defaultStatus.map(node => node.cloneNode(true)));
       }
       return;
     }
@@ -41,9 +42,16 @@
     const commit = commits[index];
     commit.classList.add("explore-current");
     if (status) {
-      status.innerHTML = `Commit ${index + 1}: ` +
-        commit.querySelector(".explore-commit-summary").innerHTML +
-        ` <a href="#${commit.id}">(in the list)</a>`;
+      const summary = commit.querySelector(".explore-commit-summary");
+      const link = document.createElement("a");
+      link.href = `#${commit.id}`;
+      link.textContent = "(in the list)";
+      status.replaceChildren(
+        `Commit ${index + 1}: `,
+        ...[...summary.childNodes].map(node => node.cloneNode(true)),
+        " ",
+        link
+      );
     }
   });
 

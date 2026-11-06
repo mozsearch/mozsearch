@@ -39,7 +39,7 @@
       <td>{{ year.year | escape }}</td>
       <td class="token-history-added">{% if year.added > 0 %}+{{ year.added | thousands | escape }}{% endif %}</td>
       <td class="token-history-removed">{% if year.removed > 0 %}&minus;{{ year.removed | thousands | escape }}{% endif %}</td>
-      <td class="token-history-relative"><span class="token-history-bar-box">{% if year.relative > 0 %}{% assign width = year.relative | times: 100 | divided_by: max %}<span class="token-history-bar" style="width: {{ width | escape }}%"></span>{% endif %}</span>{{ year.relative | thousands | escape }}</td>
+      <td class="token-history-relative"><span class="token-history-bar-box">{% if year.relative > 0 %}{% assign width = year.relative | times: 100 | divided_by: max %}<svg class="token-history-bar" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true"><rect width="{{ width | escape }}" height="1"/></svg>{% endif %}</span>{{ year.relative | thousands | escape }}</td>
     </tr>
   {%- endfor %}
   </tbody>

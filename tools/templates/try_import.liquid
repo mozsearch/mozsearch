@@ -37,34 +37,5 @@
   {%- endif %}
 </div>
 {%- if status.state == "queued" or status.state == "running" %}
-<script>
-  (() => {
-    const root = document.querySelector(".try-import");
-    const line = root.querySelector(".try-import-status");
-    const poll = async () => {
-      let status;
-      try {
-        status = await (await fetch(root.dataset.statusUrl)).json();
-      } catch (e) {
-        setTimeout(poll, 5000);
-        return;
-      }
-      if (status.state == "queued") {
-        line.textContent = status.ahead > 0
-          ? `Waiting to be imported, after ${status.ahead} other${status.ahead == 1 ? "" : "s"}.`
-          : "Waiting to be imported.";
-      } else if (status.state == "running") {
-        line.textContent = `Importing (${status.seconds}s so far): `;
-        const step = document.createElement("code");
-        step.textContent = status.step;
-        line.append(step);
-      } else {
-        location.reload();
-        return;
-      }
-      setTimeout(poll, 2000);
-    };
-    setTimeout(poll, 2000);
-  })();
-</script>
+<script src="/{{ tree }}/static/js/try-import.js"></script>
 {%- endif %}

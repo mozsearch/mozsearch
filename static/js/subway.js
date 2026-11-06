@@ -211,8 +211,7 @@ var SubwayMap = new (class SubwayMap {
   }
 
   addStyles() {
-    const style = document.createElement("style");
-    style.textContent = this.model.lines.map(line =>
+    TrustedHTML.adoptStyleSheet().replaceSync(this.model.lines.map(line =>
       `.interactive-graph-edge-line-${line.id}:not(.clicktarget),
        .interactive-graph-edge-line-${line.id}-tainted:not(.clicktarget) {
          stroke: ${this.colors.get(line.id)}; stroke-width: 3px; stroke-opacity: 1;
@@ -221,19 +220,17 @@ var SubwayMap = new (class SubwayMap {
       [class*="interactive-graph-edge-line-"][class$="-tainted"]:not(.clicktarget) {
         stroke-dasharray: 6 3;
         filter: drop-shadow(0 0 1.5px rgb(210, 0, 0));
-      }`;
-    document.head.append(style);
-    this.focusStyle = document.createElement("style");
-    document.head.append(this.focusStyle);
+      }`);
+    this.focusSheet = TrustedHTML.adoptStyleSheet();
   }
 
   /** Highlight a line, or lines (or stop, with null). */
   focus(ids) {
     ids = ids == null ? [] : [].concat(ids);
-    this.focusStyle.textContent = !ids.length ? "" :
+    this.focusSheet.replaceSync(!ids.length ? "" :
       `.interactive-graph-edge${ids.map(id =>
         `:not(.interactive-graph-edge-line-${id}):not(.interactive-graph-edge-line-${id}-tainted)`).join("")},
-       .sw-track${ids.map(id => `:not([data-line="${id}"])`).join("")} { opacity: 0.15; }`;
+       .sw-track${ids.map(id => `:not([data-line="${id}"])`).join("")} { opacity: 0.15; }`);
   }
 
   /** A card's node: its function's symbol, else its id. */
@@ -562,7 +559,7 @@ var SubwayMap = new (class SubwayMap {
         const code = document.createElement("code");
         code.className = "sw-code";
         if (row.html) {
-          code.innerHTML = row.html;
+          TrustedHTML.set(code, row.html);
         } else {
           code.textContent = row.text;
         }

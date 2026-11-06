@@ -1673,20 +1673,18 @@ pub fn render_crash_stack(
     // nothing uses; see `sym_info::script_json`.)
     writeln!(
         writer,
-        r#"<script>window.SYM_INFO = Object.assign(window.SYM_INFO || {{}}, {});
-// (A frame's folded lines show on request.)
-document.addEventListener("click", event => {{
-  const unfold = event.target.closest(".crash-unfold");
-  if (!unfold) {{
-    return;
-  }}
-  unfold.previousElementSibling.hidden = false;
-  unfold.remove();
-}});{}</script>"#,
-        sym_info::script_json(sym_info),
+        r#"{}<script src="/{}/static/js/folded-lines.js"></script>{}"#,
+        crate::html_escape::json_merge_block_from_json(
+            "SYM_INFO",
+            &sym_info::script_json(sym_info)
+        ),
+        escape(tree_name),
         match has_then {
-            true => THEN_NOW_SCRIPT,
-            false => "",
+            true => format!(
+                r#"<script src="/{}/static/js/then-now.js"></script>"#,
+                escape(tree_name)
+            ),
+            false => String::new(),
         }
     )
     .map_err(|_| "Write error")?;
@@ -1765,7 +1763,7 @@ fn crumbs_html(
     };
     let thread = report.crashing_thread.as_ref();
     let mut html = format!(
-        r#"<div class="crash-crumbs" hidden data-report="{}" data-report-url="{}" data-signature-url="{}" data-analyze-url="{}" data-threads-url="{}" data-threads-label="{}"><span class="path-separator">/</span><a class="crash-crumb-report" href="{}" title="The crash report on crash-stats">{}</a><button type="button" class="crash-crumb-button" id="crash-report-menu-button" title="Open the crash report's menu" aria-expanded="false" aria-haspopup="true" aria-controls="crash-report-menu"></button><div id="crash-report-menu" title="The crash report" role="menu" class="context-menu" style="display: none"></div>"#,
+        r#"<div class="crash-crumbs" hidden data-report="{}" data-report-url="{}" data-signature-url="{}" data-analyze-url="{}" data-threads-url="{}" data-threads-label="{}"><span class="path-separator">/</span><a class="crash-crumb-report" href="{}" title="The crash report on crash-stats">{}</a><button type="button" class="crash-crumb-button" id="crash-report-menu-button" title="Open the crash report's menu" aria-expanded="false" aria-haspopup="true" aria-controls="crash-report-menu"></button><div id="crash-report-menu" title="The crash report" role="menu" class="context-menu initially-hidden"></div>"#,
         escape(&report.id),
         escape(&report_url),
         escape(&signature_url),
@@ -1786,7 +1784,7 @@ fn crumbs_html(
         ));
         match (all_shown, report.thread_count > 1) {
             (true, _) if !stack.thread_list.is_empty() => html.push_str(
-                r#"<button type="button" class="crash-crumb-button" id="crash-thread-picker" title="Pick a thread" aria-expanded="false" aria-haspopup="true" aria-controls="crash-thread-menu"></button><div id="crash-thread-menu" title="The threads" role="menu" class="context-menu" style="display: none"></div>"#,
+                r#"<button type="button" class="crash-crumb-button" id="crash-thread-picker" title="Pick a thread" aria-expanded="false" aria-haspopup="true" aria-controls="crash-thread-menu"></button><div id="crash-thread-menu" title="The threads" role="menu" class="context-menu initially-hidden"></div>"#,
             ),
             (false, true) => html.push_str(&format!(
                 r#" <a class="crash-crumb-all" href="{}">(with all threads)</a>"#,
@@ -2297,7 +2295,7 @@ pub(crate) fn then_html(tree_name: &str, then: &ThenExcerpt, label: &str) -> Str
     html
 }
 
-/// The buttons choosing which code a view shows (see `THEN_NOW_SCRIPT`): the
+/// The buttons choosing which code a view shows (see static/js/then-now.js): the
 /// code then (as `then` says, as HTML), now (as `now` says), or both side by
 /// side; the view's root is a `then-now-view`, its `data-then-now` the mode,
 /// "then" at first.
@@ -2309,53 +2307,6 @@ pub(crate) fn then_now_modes_html(then: &str, now: &str) -> String {
 }
 
 /// The script of `then_now_modes_html`'s buttons.
-pub(crate) const THEN_NOW_SCRIPT: &str = r#"
-// (Which code the view shows beside what it's of: then, now, or both side by
-// side; see crash_stack.rs's `then_now_modes_html`.  At first, both if there's
-// room for two columns of code beside what they're of, else then, again as the
-// window's resized, until a button's pressed.)
-function showThenNow(view, mode) {
-  view.dataset.thenNow = mode;
-  for (const button of view.querySelectorAll(".then-now-modes button[data-mode]")) {
-    button.setAttribute("aria-pressed", String(button.dataset.mode == mode));
-  }
-}
-function fitThenNow() {
-  for (const view of document.querySelectorAll(".then-now-view:not([data-then-now-chosen])")) {
-    const pair = view.querySelector(".then-now");
-    const area = pair?.closest(".bug-comment-cards, .crash-stack");
-    const line = pair?.querySelector(".source-line");
-    if (!area || !line) {
-      continue;
-    }
-    // (A column of code is about 100 of its characters, and the crash view's
-    // frames' info is beside them.)
-    const probe = document.createElement("span");
-    probe.style.cssText = "position: absolute; visibility: hidden; white-space: pre";
-    probe.style.font = getComputedStyle(line).font;
-    probe.textContent = "0".repeat(100);
-    document.body.append(probe);
-    const column = probe.getBoundingClientRect().width;
-    probe.remove();
-    let room = area.clientWidth;
-    const info = area.matches(".crash-stack") && area.querySelector(".crash-frame-info");
-    if (info) {
-      room -= info.getBoundingClientRect().width + 24;
-    }
-    showThenNow(view, room >= 2 * column + 16 ? "both" : "then");
-  }
-}
-fitThenNow();
-window.addEventListener("resize", fitThenNow);
-document.addEventListener("click", event => {
-  const button = event.target.closest(".then-now-modes button[data-mode]");
-  if (!button) {
-    return;
-  }
-  const view = button.closest(".then-now-view");
-  view.dataset.thenNowChosen = "";
-  showThenNow(view, button.dataset.mode);
-});"#;
 
 /// A frame's row of the crash view (see `render_crash_stack`; and of a
 /// Bugzilla comment's frames, see `bug_comment`), with its id: its code (its

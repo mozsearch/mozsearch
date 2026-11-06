@@ -436,7 +436,7 @@ var FileTimeline = new (class FileTimeline {
       link.href = `/${tree}/commit/${commit.rev}`;
       // (The header's summary's text, without its author line or links.)
       const header = document.createElement("template");
-      header.innerHTML = (headers[commit.index]?.header ?? commit.rev.slice(0, 12)).split("<br>")[0];
+      TrustedHTML.set(header, (headers[commit.index]?.header ?? commit.rev.slice(0, 12)).split("<br>")[0]);
       link.textContent = header.content.textContent;
       // (The commit's diff of the file, the file then, how its outline
       // changed, and highlighting the changes since it.)
@@ -663,7 +663,7 @@ var PermalinkFuture = new (class PermalinkFuture {
           status.append(link);
         } else if (future.outcome == "removed" || future.outcome == "deleted") {
           const header = document.createElement("template");
-          header.innerHTML = (commits[future.rev]?.header || future.rev.slice(0, 12)).split("<br>")[0];
+          TrustedHTML.set(header, (commits[future.rev]?.header || future.rev.slice(0, 12)).split("<br>")[0]);
           const link = document.createElement("a");
           link.href = `/${tree}/commit/${future.rev}`;
           link.textContent = header.content.textContent;

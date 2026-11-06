@@ -31,7 +31,7 @@
     {%- endfor %}
   </ul>
 </details>
-<script>(() => { const box = document.currentScript.previousElementSibling; const open = localStorage.getItem(storageKey("spPrListOpen")); if (open !== null) { box.open = open == "true"; } })();</script>
+<script src="/{{ tree }}/static/js/sp-pr-list-open.js"></script>
 {%- endif %}
 {%- else %}
 <section class="sp-prs-header">

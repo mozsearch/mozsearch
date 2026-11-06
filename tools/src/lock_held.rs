@@ -1745,18 +1745,6 @@ fn card_html(
     html
 }
 
-/// The script of the view's cards' folded lines.
-pub const CARDS_SCRIPT: &str = r#"<script>
-document.addEventListener("click", event => {
-  const unfold = event.target.closest(".lock-held-unfold");
-  if (!unfold) {
-    return;
-  }
-  unfold.previousElementSibling.hidden = false;
-  unfold.remove();
-});
-</script>"#;
-
 #[cfg(test)]
 mod tests {
     use super::*;

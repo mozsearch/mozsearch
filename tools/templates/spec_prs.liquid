@@ -116,93 +116,12 @@
   {%- endif %}
 </div>
 {%- if status.state == "queued" or status.state == "running" %}
-<script>
-  (() => {
-    const root = document.querySelector(".spec-prs");
-    const line = root.querySelector(".spec-prs-status");
-    const poll = async () => {
-      let status;
-      try {
-        status = await (await fetch(root.dataset.statusUrl, { cache: "no-store" })).json();
-      } catch (e) {
-        setTimeout(poll, 5000);
-        return;
-      }
-      if (status.state == "queued") {
-        line.textContent = "Waiting to sync.";
-      } else if (status.state == "running") {
-        line.textContent = `Syncing (${status.seconds}s so far): `;
-        const step = document.createElement("code");
-        step.textContent = status.step;
-        line.append(step);
-      } else {
-        location.reload();
-        return;
-      }
-      setTimeout(poll, 2000);
-    };
-    setTimeout(poll, 2000);
-  })();
-</script>
+<script src="/{{ tree }}/static/js/spec-prs-sync.js"></script>
 {%- endif %}
 {%- if imports.needed > 0 %}
-<script>
-  (() => {
-    // (The button imports those of them the facets show which need it, if
-    // they're few enough, saying how many.)
-    const form = document.querySelector(".spec-prs-import-form");
-    const button = form.querySelector("button");
-    const limit = document.querySelector(".spec-prs-import-limit");
-    const max = Number(form.dataset.maxBatch);
-    const shown = () => [...document.querySelectorAll('.spec-pr[data-needed="true"]')].filter(pr => !pr.hidden);
-    const update = () => {
-      const count = shown().length;
-      button.hidden = !count || count > max;
-      limit.hidden = count <= max;
-      button.textContent = count == 1 ? "Import this pull request" : `Import these ${count} pull requests`;
-    };
-    form.addEventListener("submit", () => {
-      const url = new URL(form.action, location.href);
-      url.searchParams.set("numbers", shown().map(pr => pr.dataset.path).join(","));
-      form.action = url.toString();
-    });
-    new MutationObserver(update).observe(document.querySelector(".spec-pr-list"), {
-      attributes: true,
-      attributeFilter: ["hidden"],
-      subtree: true,
-    });
-    update();
-  })();
-</script>
+<script src="/{{ tree }}/static/js/spec-prs-import.js"></script>
 {%- endif %}
 {%- if imports.pending > 0 %}
-<script>
-  (() => {
-    // (Each pull request's import's status, until none wait or run.)
-    const root = document.querySelector(".spec-prs-imports");
-    const poll = async () => {
-      let imports;
-      try {
-        imports = await (await fetch(root.dataset.statusUrl, { cache: "no-store" })).json();
-      } catch (e) {
-        setTimeout(poll, 5000);
-        return;
-      }
-      for (const { number, state, text } of imports) {
-        const badge = document.querySelector(`.spec-pr[data-path="${number}"] .spec-pr-import`);
-        if (badge) {
-          badge.dataset.state = state;
-          badge.textContent = text;
-        }
-      }
-      if (!imports.some(({ state }) => state == "queued" || state == "running")) {
-        location.reload();
-        return;
-      }
-      setTimeout(poll, 3000);
-    };
-    setTimeout(poll, 3000);
-  })();
-</script>
+<script src="/{{ tree }}/static/js/spec-prs-imports.js"></script>
 {%- endif %}
 {%- endif %}

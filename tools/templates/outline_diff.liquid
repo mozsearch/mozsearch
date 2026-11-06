@@ -14,7 +14,7 @@
     <thead><tr><th>{{ from.short | escape }}</th><th>Changes</th><th>{{ to.short | escape }}</th></tr></thead>
     <tbody>
     {%- for row in rows %}
-      <tr class="outline-diff-row outline-{{ row.status | escape }}{% if row.context %} outline-context{% endif %}" style="--outline-depth: {{ row.depth | escape }}" title="{{ row.title | escape }}">
+      <tr class="outline-diff-row outline-{{ row.status | escape }}{% if row.context %} outline-context{% endif %}" data-outline-depth="{{ row.depth | escape }}" title="{{ row.title | escape }}">
         <td class="outline-diff-from">{% if row.from_name %}{% if row.from_link %}<a href="{{ row.from_link | escape }}">{{ row.from_name | escape }}</a>{% else %}{{ row.from_name | escape }}{% endif %}{% if row.from_note %} <span class="outline-diff-note">in {{ row.from_note | escape }}</span>{% endif %}{% endif %}</td>
         <td class="outline-diff-change">{% if row.badge != "" %}<span class="outline-badge">{{ row.badge | escape }}</span>{% endif %}{% for commit in row.commits %} <a class="outline-diff-commit" href="{{ commit.link | escape }}" title="{{ commit.title | escape }}">{{ commit.label | escape }}</a>{% endfor %}</td>
         <td class="outline-diff-to">{% if row.to_name %}{% if row.to_link %}<a href="{{ row.to_link | escape }}">{{ row.to_name | escape }}</a>{% else %}{{ row.to_name | escape }}{% endif %}{% if row.to_note %} <span class="outline-diff-note">in {{ row.to_note | escape }}</span>{% endif %}{% endif %}</td>

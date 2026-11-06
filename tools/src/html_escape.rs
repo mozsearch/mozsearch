@@ -111,6 +111,17 @@ pub fn json_data_block_from_json(global: &str, json: &str) -> String {
     )
 }
 
+/// A JSON data block whose properties static/js/page-data.js adds to its
+/// global's object (`data-merge`), ex: a view's own symbols' information,
+/// beside the page's `SYM_INFO`.
+pub fn json_merge_block_from_json(global: &str, json: &str) -> String {
+    format!(
+        r#"<script type="application/json" data-global="{}" data-merge>{}</script>"#,
+        escape_html(global),
+        escape_json_for_script(json)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

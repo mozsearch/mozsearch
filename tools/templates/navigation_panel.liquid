@@ -24,7 +24,7 @@ panel.js's `setupLensToggles`.){% endcomment -%}
     <button type="button" class="lens-toggle" data-lens="{{ lens.key | escape }}" aria-pressed="false" title="{{ lens.title | escape }}">{{ lens.name | escape }}</button>
     {%- endfor %}
   </div>
-  <script>typeof EarlyLayout != "undefined" && EarlyLayout.lenses();</script>
+  <script src="/{{ tree }}/static/js/early-layout-lenses.js"></script>
 {%- endif %}
 {%- comment %}(The facets filtering the page's list of files, if it has
 one, ex: an explore page's or a query's results, and its choices of grouping
@@ -85,4 +85,4 @@ tests' CI results.){% endcomment -%}
 {%- endif %}
   </section>
 </div>
-<script>typeof EarlyLayout != "undefined" && EarlyLayout.panel();</script>
+<script src="/{{ tree }}/static/js/early-layout-panel.js"></script>

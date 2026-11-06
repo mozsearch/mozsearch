@@ -789,7 +789,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     lanes.classList.add("hb-lanes");
     root.append(lanes, upper, replica, details);
 
-    popup.innerHTML = "";
+    popup.replaceChildren();
     popup.classList.add("hb-popup-host");
     popup.append(root);
     popup.style.display = "";
@@ -840,7 +840,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     for (const elt of root.querySelectorAll(".hb-hot")) {
       elt.classList.remove("hb-hot");
     }
-    lanes.innerHTML = "";
+    lanes.replaceChildren();
     const followedTokens = new Set(followed.map(String));
     for (const span of replica.querySelectorAll(".hb-token")) {
       const token = this.current.tokens[span.dataset.token];
@@ -879,7 +879,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       tokenIndices, `Loading the history of this ${what}…`);
     const legend = document.createElement("div");
     legend.className = "hb-history-legend";
-    legend.innerHTML = `Each step shows the code after a commit, with the tokens it <span class="hb-step-changed">added</span> highlighted and the ${what == "line" ? "line's identifiers" : "token"} being followed <span class="hb-step-anchor">underlined</span>.`;
+    TrustedHTML.set(legend, `Each step shows the code after a commit, with the tokens it <span class="hb-step-changed">added</span> highlighted and the ${what == "line" ? "line's identifiers" : "token"} being followed <span class="hb-step-anchor">underlined</span>.`);
     status.after(legend);
     const state = {
       history,
@@ -981,7 +981,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       elt.className = "hb-step";
       const header = document.createElement("div");
       header.className = "hb-step-header";
-      header.innerHTML = commits[change.rev]?.header || change.rev.substring(0, 8);
+      TrustedHTML.set(header, commits[change.rev]?.header || change.rev.substring(0, 8));
       const what = document.createElement("div");
       what.append(`This commit ${describe[change.kind]}${change.kind == "evolved" ? "" : " " + change.path}: `);
       const view = document.createElement("a");
@@ -1003,7 +1003,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     } else if (future.outcome == "removed" || future.outcome == "deleted") {
       status.append(future.outcome == "removed" ? "This token was removed by:" : "This token's file was deleted by:");
       const header = document.createElement("div");
-      header.innerHTML = commits[future.rev]?.header || future.rev.substring(0, 8);
+      TrustedHTML.set(header, commits[future.rev]?.header || future.rev.substring(0, 8));
       const view = document.createElement("a");
       view.textContent = "view";
       view.href = `/${this.tree}/commit/${future.rev}`;
@@ -1061,7 +1061,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     elt.className = "hb-step";
     const header = document.createElement("div");
     header.className = "hb-step-header";
-    header.innerHTML = info ? info.header : step.rev.substring(0, 8);
+    TrustedHTML.set(header, info ? info.header : step.rev.substring(0, 8));
     const last = step.firstToken + step.tokens.length - 1;
     const view = document.createElement("a");
     view.className = "deemphasize";
@@ -1106,7 +1106,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     summary.className = "hb-row-summary";
     // The header is the summary line (with bug links) and then the author and
     // date; see `blame::commit_info_json`.
-    summary.innerHTML = info ? info.header.split("\n<br>")[0] : rev.substring(0, 8);
+    TrustedHTML.set(summary, info ? info.header.split("\n<br>")[0] : rev.substring(0, 8));
     const meta = document.createElement("span");
     meta.className = "hb-row-meta";
     meta.textContent = `${this.info.authors[author]}, ${this.relativeDate(time)}`;
@@ -1196,7 +1196,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       }[elt.dataset.interp] || "the lines around it, whose tokens were";
       note.append(` It's colored like ${neighbors} last changed in:`);
       const header = document.createElement("div");
-      header.innerHTML = commits[commit]?.header || this.info.commits[commit][0];
+      TrustedHTML.set(header, commits[commit]?.header || this.info.commits[commit][0]);
       note.append(header);
     }
     return note;
@@ -1209,7 +1209,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     entry.dataset.commit = commit;
     entry.style.setProperty("--hb-color", this.commitColor(commit));
     const header = document.createElement("div");
-    header.innerHTML = info ? info.header : rev;
+    TrustedHTML.set(header, info ? info.header : rev);
     entry.append(header);
 
     // A rendered document's markup (ex: a link's target) isn't shown.
@@ -1310,7 +1310,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     }
     entry.append(`${text} in:`);
     const header = document.createElement("div");
-    header.innerHTML = info ? info.header : this.info.commits[removal.commit][0];
+    TrustedHTML.set(header, info ? info.header : this.info.commits[removal.commit][0]);
     entry.append(header);
     if (info?.parent) {
       const first = removal.firstToken;

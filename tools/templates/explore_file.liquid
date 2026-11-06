@@ -17,7 +17,7 @@
     {%- if file.outline_rows.size > 0 %}
     <table class="explore-outline-rows">
       {%- for row in file.outline_rows %}
-      <tr class="outline-{{ row.status | escape }}{% if row.context %} outline-context{% endif %}" style="--outline-depth: {{ row.depth | escape }}" title="{{ row.title | escape }}"{% if row.range %} data-range="{{ row.range | escape }}"{% endif %}>
+      <tr class="outline-{{ row.status | escape }}{% if row.context %} outline-context{% endif %}" data-outline-depth="{{ row.depth | escape }}" title="{{ row.title | escape }}"{% if row.range %} data-range="{{ row.range | escape }}"{% endif %}>
         <td class="explore-outline-name">{% if row.link %}<a href="{{ row.link | escape }}">{{ row.name | escape }}</a>{% else %}{{ row.name | escape }}{% endif %}{% if row.note %} <span class="outline-diff-note">{{ row.note | escape }}</span>{% endif %}</td>
         <td class="explore-outline-change">{% if row.badge != "" %}<span class="outline-badge">{{ row.badge | escape }}</span>{% endif %}{% for commit in row.commits %} <a class="outline-diff-commit" href="{{ commit.link | escape }}" title="{{ commit.title | escape }}">{{ commit.label | escape }}</a>{% endfor %}</td>
       </tr>

@@ -271,7 +271,7 @@ add_task(async function test_TokenBlameColors() {
   const colorizer = frame.contentWindow.BlameColorizer;
   const alternating = frame.contentWindow.getComputedStyle(strip(1)).backgroundColor;
   colorizer.apply("age");
-  ok(colorizer.style.textContent.includes(".bc-0 {"), "There are rules for the commits");
+  ok(colorizer.cssText.includes(".bc-0 {"), "There are rules for the commits");
   isnot(frame.contentWindow.getComputedStyle(strip(1)).backgroundColor, alternating,
         "The strip is colored by age");
   colorizer.apply("alternating");
