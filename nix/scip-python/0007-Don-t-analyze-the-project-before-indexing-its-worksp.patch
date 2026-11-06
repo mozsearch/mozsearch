@@ -1,0 +1,36 @@
+From cf33d0c43fb8df57807bb865b21ff300efa64974 Mon Sep 17 00:00:00 2001
+From: Andrew Sutherland <asutherland@asutherland.org>
+Date: Thu, 5 Nov 2026 23:24:23 -0500
+Subject: [PATCH 7/7] Don't analyze the project before indexing its workspace
+
+indexWorkspace parses and binds each project file itself, resolving its
+imports, which it tracks, and then every project file is marked dirty and
+analyzed again, so that the checking which the first analysis did was
+discarded.  On mozilla-central's Python (5,891 files), the index is
+byte-for-byte the same without it but for a document of an excluded file
+which only checking imported (pip's vendored code), in 5:58 rather than
+9:02.
+---
+ packages/pyright-scip/src/indexer.ts | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/packages/pyright-scip/src/indexer.ts b/packages/pyright-scip/src/indexer.ts
+index 09350c651..fafd33db1 100644
+--- a/packages/pyright-scip/src/indexer.ts
++++ b/packages/pyright-scip/src/indexer.ts
+@@ -187,8 +187,10 @@ export class Indexer {
+             })
+         );
+ 
+-        // Run program analysis once.
+-        withStatus('Parse and search for dependencies', analyzer_fn);
++        // (No analysis before indexing the workspace: indexWorkspace parses
++        // and binds each project file itself, resolving its imports, and each
++        // is marked dirty after it, so that the analysis below would check it
++        // again, discarding what checking it before did.)
+ 
+         // let projectSourceFiles: SourceFile[] = this.program.getTracked().map((f) => f.sourceFile);
+         let projectSourceFiles: SourceFile[] = [];
+-- 
+2.55.0
+

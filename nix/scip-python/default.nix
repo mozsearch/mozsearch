@@ -32,6 +32,8 @@ buildNpmPackage rec {
     ./0003-Fix-build.patch
     ./0004-Lambda-arguments-should-be-locals-when-the-lambda-is.patch
     ./0005-Silence-spurious-Could-not-find-package-information-.patch
+    ./0006-Add-config-the-pyright-configuration-file-to-use.patch
+    ./0007-Don-t-analyze-the-project-before-indexing-its-worksp.patch
   ];
 
   npmDepsHash = "sha256-PAHhFWfxx8NfDUbplHv93bWH+06zYhReMKR7V2YlJFA=";

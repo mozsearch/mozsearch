@@ -1,0 +1,68 @@
+From ac46fbf692e12fd3fffdd7da65083cfd930e39d2 Mon Sep 17 00:00:00 2001
+From: Andrew Sutherland <asutherland@asutherland.org>
+Date: Thu, 5 Nov 2026 23:24:05 -0500
+Subject: [PATCH 6/7] Add --config: the pyright configuration file to use
+
+So that several processes can index parts of one project side by side
+(ex: the same extraPaths, each including some of its directories), each
+with its own configuration file, rather than the project root's
+pyrightconfig.json.  As with pyright's --project, its include, exclude
+and extraPaths are relative to its directory, while documents' paths
+stay relative to --cwd.
+---
+ packages/pyright-scip/src/MainCommand.ts | 5 +++++
+ packages/pyright-scip/src/config.ts      | 8 ++++++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/packages/pyright-scip/src/MainCommand.ts b/packages/pyright-scip/src/MainCommand.ts
+index a94e52687..b71aa87d6 100644
+--- a/packages/pyright-scip/src/MainCommand.ts
++++ b/packages/pyright-scip/src/MainCommand.ts
+@@ -10,6 +10,7 @@ export interface IndexOptions {
+     output: string;
+     cwd: string;
+     targetOnly?: string;
++    config?: string;
+     infer?: { projectVersionFromCommit: boolean };
+ 
+     // Progress reporting configuration
+@@ -64,6 +65,10 @@ export function mainCommand(
+         .option('--project-namespace <namespace>', 'A prefix to prepend to all module definitions in the current index')
+         .option('--cwd <path>', 'working directory for executing scip-python', process.cwd())
+         .option('--target-only <path>', 'limit analysis to the following path')
++        .option(
++            '--config <path>',
++            "the pyright configuration file (relative to --cwd), rather than the project root's pyrightconfig.json; its include, exclude and extraPaths are relative to its directory"
++        )
+         .option(
+             '--output <path>',
+             'Path to the output file. If this path is relative, it is interpreted relative to the value for --cwd.',
+diff --git a/packages/pyright-scip/src/config.ts b/packages/pyright-scip/src/config.ts
+index 342f67c09..d4c9cab6d 100644
+--- a/packages/pyright-scip/src/config.ts
++++ b/packages/pyright-scip/src/config.ts
+@@ -34,6 +34,7 @@ export class ScipPyrightConfig {
+ 
+     constructor(scipConfig: ScipConfig, fs: PyrightFileSystem) {
+         this.fs = fs;
++        this._configFilePath = scipConfig.config;
+ 
+         this._configOptions = new ConfigOptions(scipConfig.projectRoot);
+         this._configOptions.checkOnlyOpenFiles = false;
+@@ -46,6 +47,13 @@ export class ScipPyrightConfig {
+ 
+         // TODO: This probably should be ScipConfig.workspaceroot or similar?
+         const options = new CommandLineOptions(process.cwd(), false);
++        if (this._configFilePath) {
++            const configFilePath = combinePaths(process.cwd(), normalizePath(this._configFilePath));
++            if (!this.fs.existsSync(configFilePath)) {
++                throw new Error(`Configuration file not found at ${configFilePath}.`);
++            }
++            options.configFilePath = this._configFilePath;
++        }
+ 
+         let config = this._getConfigOptions(host, options);
+         config.checkOnlyOpenFiles = false;
+-- 
+2.55.0
+
