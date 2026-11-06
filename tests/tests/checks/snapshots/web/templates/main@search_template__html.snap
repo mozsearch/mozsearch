@@ -81,6 +81,7 @@ input_file: inputs/web/templates/search_template__html
   </div>
   
 <script src="/tree-list.js"></script>
+<script src="/tests/static/js/trusted-html.js"></script>
 <script src="/tests/static/js/settings.js"></script>
 <script src="/tests/static/js/search.js"></script>
 <script src="/tests/static/js/context-menu.js"></script>

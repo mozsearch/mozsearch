@@ -658,7 +658,9 @@ var Panel = new (class Panel {
       }
 
       const url = this.getEditorURL();
-      if (url) {
+      // (An editor's URL, from the user's template, can be any scheme but
+      // those which would run script here.)
+      if (url && !/^\s*(javascript|data|vbscript):/i.test(url)) {
         window.location.href = url;
       }
     });
