@@ -1,0 +1,97 @@
+{
+  "count": 5,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 1358828,
+      "provider_id": "PHID-DIFF-pwvkmz6doimuhqweswq4",
+      "revision": {
+        "id": 836273,
+        "provider": "phabricator",
+        "provider_id": 333833,
+        "title": "Bug 2075548 - Cache API: move common strings constants to unique place. r?#dom-storage",
+        "url": "https://phabricator.services.mozilla.com/D333833"
+      },
+      "repository": {
+        "id": 100,
+        "slug": "try",
+        "url": "https://hg.mozilla.org/try"
+      },
+      "mercurial_hash": "eb82baaeebe8569e0a6c37fa9f12289a9fe7e850",
+      "created": "2026-11-03T21:55:52.781404Z"
+    },
+    {
+      "id": 1354671,
+      "provider_id": "PHID-DIFF-cnb25lbi3eznt5qpocdt",
+      "revision": {
+        "id": 836273,
+        "provider": "phabricator",
+        "provider_id": 333833,
+        "title": "Bug 2075548 - Cache API: move common strings constants to unique place. r?#dom-storage",
+        "url": "https://phabricator.services.mozilla.com/D333833"
+      },
+      "repository": {
+        "id": 100,
+        "slug": "try",
+        "url": "https://hg.mozilla.org/try"
+      },
+      "mercurial_hash": "6cecd3ef48df0709726721b2ff549a66bb242928",
+      "created": "2026-10-27T17:50:14.919973Z"
+    },
+    {
+      "id": 1352837,
+      "provider_id": "PHID-DIFF-ia7t6vzkcrtztrohp6wj",
+      "revision": {
+        "id": 836273,
+        "provider": "phabricator",
+        "provider_id": 333833,
+        "title": "Bug 2075548 - Cache API: move common strings constants to unique place. r?#dom-storage",
+        "url": "https://phabricator.services.mozilla.com/D333833"
+      },
+      "repository": {
+        "id": 100,
+        "slug": "try",
+        "url": "https://hg.mozilla.org/try"
+      },
+      "mercurial_hash": "2737271c979fc8731421098f2eedffd47cf8ee72",
+      "created": "2026-10-21T10:49:54.294704Z"
+    },
+    {
+      "id": 1349267,
+      "provider_id": "PHID-DIFF-rzfkfucx7bd7vqx73rgn",
+      "revision": {
+        "id": 836273,
+        "provider": "phabricator",
+        "provider_id": 333833,
+        "title": "Bug 2075548 - Cache API: move common strings constants to unique place. r?#dom-storage",
+        "url": "https://phabricator.services.mozilla.com/D333833"
+      },
+      "repository": {
+        "id": 100,
+        "slug": "try",
+        "url": "https://hg.mozilla.org/try"
+      },
+      "mercurial_hash": "9ba489d3c2042004c2ddffaf3ba042287b05eba8",
+      "created": "2026-10-14T20:03:50.657692Z"
+    },
+    {
+      "id": 1333833,
+      "provider_id": "PHID-DIFF-tejjm2tv3wdnheml4xfy",
+      "revision": {
+        "id": 806181,
+        "provider": "phabricator",
+        "provider_id": 325508,
+        "title": "Bug 2071295 - Fix for saving calendar on conflicts -> [JavaScript Error: \"can't access property \"formatValueSync\", this.l10n is undefined\". r=#thunderbird-reviewers",
+        "url": "https://phabricator.services.mozilla.com/D325508"
+      },
+      "repository": {
+        "id": 1002,
+        "slug": "try-comm-central",
+        "url": "https://hg.mozilla.org/try-comm-central"
+      },
+      "mercurial_hash": "07d7ca6f3dab139c86baf28aa89121e50c3afd9a",
+      "created": "2026-09-11T19:34:23.392401Z"
+    }
+  ]
+}

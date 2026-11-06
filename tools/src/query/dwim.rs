@@ -238,6 +238,7 @@ mod tests {
                 let names: &[&str] = match kind {
                     "spec-pr" => &["repo", "number"],
                     "treeherder-try" => &["params"],
+                    "try-phabricator" => &["number"],
                     "explore-bug" => &["bug"],
                     "rev-at" => &["time"],
                     _ => &["rev"],
@@ -351,6 +352,23 @@ mod tests {
             (
                 "https://treeherder.mozilla.org/jobs?repo=try&revision=0123456789abcdef",
                 "lookup:treeherder-try:repo=try&revision=0123456789abcdef",
+            ),
+            // (After "try", which Firefox's address bar searches for, rather
+            // than going to a pasted URL: try pushes by their Treeherder URLs,
+            // revisions, hg's URLs and Phabricator revisions.)
+            (
+                "try https://treeherder.mozilla.org/jobs?repo=try&revision=0123456789abcdef",
+                "lookup:treeherder-try:repo=try&revision=0123456789abcdef",
+            ),
+            ("try 0123456789abcdef", "lookup:try-rev:0123456789abcdef"),
+            (
+                "try https://hg.mozilla.org/try/rev/0123456789ab",
+                "lookup:try-rev:0123456789ab",
+            ),
+            ("try D333833", "lookup:try-phabricator:333833"),
+            (
+                "try  https://phabricator.services.mozilla.com/D333833?id=1371224",
+                "lookup:try-phabricator:333833",
             ),
             (
                 "https://github.com/mozilla-firefox/firefox/commit/7af81fe47ac81825fa31f451dddfaeb736e109ba",

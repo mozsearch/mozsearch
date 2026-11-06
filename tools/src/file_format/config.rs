@@ -147,6 +147,12 @@ pub struct ConfigJson {
     #[serde(default)]
     pub bugzilla_url: Option<String>,
 
+    /// Where the code review bot's API is, if not api.code-review.moz.tools
+    /// (`code_review::CODE_REVIEW_URL`), for DWIM's `try D123456`: ex: tests'
+    /// fixtures, `file://...`.
+    #[serde(default)]
+    pub code_review_url: Option<String>,
+
     /// Where the crash sets' store is (see `crash_sets`), if not
     /// `crash-sets/` beside the trees' index directories.
     #[serde(default)]
@@ -611,6 +617,8 @@ pub struct Config {
     pub crash_reports_url: Option<String>,
     /// See `ConfigJson::bugzilla_url`.
     pub bugzilla_url: Option<String>,
+    /// See `ConfigJson::code_review_url`.
+    pub code_review_url: Option<String>,
     /// See `ConfigJson::crash_sets_path`.
     pub crash_sets_path: Option<String>,
     /// See `ConfigJson::crash_sets_seed`.
@@ -932,6 +940,7 @@ pub fn load(
         query_limits: config.query_limits,
         crash_reports_url: config.crash_reports_url,
         bugzilla_url: config.bugzilla_url,
+        code_review_url: config.code_review_url,
         crash_sets_path: config.crash_sets_path,
         crash_sets_seed: config.crash_sets_seed,
         crash_stats_api: config.crash_stats_api,

@@ -81,6 +81,8 @@ pub mod bug_comment;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod cinnabar;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod code_review;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod commit_index;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod crash_sets;

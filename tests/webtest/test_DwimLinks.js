@@ -5,8 +5,12 @@
 // (trydelta) goes to at once: a Bugzilla bug's and a Phabricator revision's
 // commits' explore pages, a GitHub commit's page (in another tree, the
 // searchfox tree, whose repository has it), and a try push's page from
-// Treeherder's (but not another repository's push, which is searched for);
-// and the route an hg commit goes to.
+// Treeherder's (but not another repository's push, which is searched for),
+// or after "try" (which Firefox's address bar searches for, rather than going
+// to a pasted URL), its Treeherder URL, its revision, its hg URL, or a
+// Phabricator revision, whose try push is the code review bot's of its latest
+// diff (by its API, tests/code-review's fixture); and the route an hg commit
+// goes to.
 
 function doc() {
   return frame.contentDocument;
@@ -33,6 +37,16 @@ add_task(async function test_DwimLinks() {
      "A try push on Treeherder goes to its page");
   is(await search("https://treeherder.mozilla.org/jobs?repo=autoland&revision=deadbeefdead"), "/trydelta/query/default",
      "but another repository's push is searched for");
+  for (const input of ["try https://treeherder.mozilla.org/jobs?repo=try&revision=deadbeefdead",
+                       "try deadbeefdead", "try https://hg.mozilla.org/try/rev/deadbeefdead"]) {
+    is(await search(input), "/trydelta/try/hg/deadbeefdead", `"${input}" goes to the try push's page`);
+  }
+  const push = "eb82baaeebe8569e0a6c37fa9f12289a9fe7e850";
+  for (const input of ["try https://phabricator.services.mozilla.com/D333833", "try D333833"]) {
+    is(await search(input), `/trydelta/try/hg/${push}`,
+       `"${input}" goes to the code review bot's try push of the revision's latest diff`);
+  }
+  is(await search("try D1"), "/trydelta/query/default", "but a revision it didn't push is searched for");
 
   // (The "hg-commit" rule's route, which nginx sends to the web server: the
   // searchfox tree's repository isn't hg's, so it doesn't know the revision.)

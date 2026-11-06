@@ -2334,15 +2334,46 @@ pub fn dwim_lookup(
             if params.get("repo").map(String::as_str) != Some("try") {
                 return None;
             }
-            let rev = crate::try_import::normalize_rev(params.get("revision")?)?;
-            let importing = crate::try_import::importing_tree(cfg, tree_name)
-                .unwrap_or_else(|| tree_name.to_string());
-            crate::try_import::hook(cfg, &importing)?;
-            crate::try_import::url_push(cfg, &importing, "hg", &rev)?;
-            Some(format!("/{}/try/hg/{}", tree_name, rev))
+            try_push_page(cfg, tree_name, params.get("revision")?)
+        }
+        "try-rev" => try_push_page(cfg, tree_name, &capture("rev")?),
+        // (The latest of the revision's diffs' try pushes, by the code review
+        // bot's API, as its "CI (Treeherder) Jobs" link has it.)
+        "try-phabricator" => {
+            let number: u64 = capture("number")?.parse().ok()?;
+            // (Asking the bot only in a tree whose try pushes are imported.)
+            hg_try_importing(cfg, tree_name)?;
+            let base = cfg
+                .code_review_url
+                .clone()
+                .unwrap_or_else(|| crate::code_review::CODE_REVIEW_URL.to_string());
+            let rev = run_on_runtime(async move {
+                crate::code_review::try_push_of_revision(&base, number).await
+            })?;
+            try_push_page(cfg, tree_name, &rev)
         }
         _ => None,
     }
+}
+
+/// The tree importing the tree's pushes to hg's try (itself or another; see
+/// `try_import::importing_tree`), if one does: one with a hook, whose pushes
+/// aren't spec repositories' pull requests (see `try_import::url_push`).
+fn hg_try_importing(cfg: &Config, tree_name: &str) -> Option<String> {
+    let importing =
+        crate::try_import::importing_tree(cfg, tree_name).unwrap_or_else(|| tree_name.to_string());
+    crate::try_import::hook(cfg, &importing)?;
+    crate::try_import::spec_repos(cfg, &importing)
+        .is_empty()
+        .then_some(importing)
+}
+
+/// The page of a try push (its revision on try) in the tree, if a tree imports
+/// its try pushes (see `hg_try_importing`).
+fn try_push_page(cfg: &Config, tree_name: &str, rev: &str) -> Option<String> {
+    let rev = crate::try_import::normalize_rev(rev)?;
+    hg_try_importing(cfg, tree_name)?;
+    Some(format!("/{}/try/hg/{}", tree_name, rev))
 }
 
 /// Where the view of an algorithm (see `format_algorithm`) is if the tree
@@ -12605,6 +12636,7 @@ mod tests {
             crash_sets_seed: None,
             crash_stats_api: None,
             bugzilla_url: None,
+            code_review_url: None,
         };
         let lookup = |tree: &str, kind: &str, captures: &[(&str, &str)]| {
             let capture = |name: &str| {
@@ -12648,6 +12680,15 @@ mod tests {
         );
         assert_eq!(
             lookup("dwim-specs", "commit", &[("rev", "0123456789ab")]),
+            None
+        );
+        // (Nor try's, without asking the code review bot.)
+        assert_eq!(
+            lookup("dwim-specs", "try-rev", &[("rev", "0123456789ab")]),
+            None
+        );
+        assert_eq!(
+            lookup("dwim-specs", "try-phabricator", &[("number", "333833")]),
             None
         );
         std::fs::remove_dir_all(&dir).ok();

@@ -1103,6 +1103,7 @@ pub fn remote_trees_config(
         crash_sets_seed: None,
         crash_stats_api: None,
         bugzilla_url: None,
+        code_review_url: None,
     }
 }
 

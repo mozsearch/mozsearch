@@ -39,9 +39,23 @@ go = "always"
 
 [[rule]]
 name = "treeherder-try"
-description = "A try push on Treeherder: its page (its import), in the tree importing this tree's try pushes."
-pattern = '^https?://treeherder\.mozilla\.org/(?:#/)?jobs\?(?P<params>\S+)$'
+description = "A try push on Treeherder (or, as for try's other rules, after \"try\", which keeps Firefox's address bar from going to the URL rather than searching for it): its page (its import), in the tree importing this tree's try pushes."
+pattern = '^(?:try\s+)?https?://treeherder\.mozilla\.org/(?:#/)?jobs\?(?P<params>\S+)$'
 lookup = "treeherder-try"
+go = "always"
+
+[[rule]]
+name = "try-rev"
+description = "\"try\" and a try push's revision (or its URL on hg.mozilla.org/try): its page (its import), in the tree importing this tree's try pushes."
+pattern = '^try\s+(?:https?://hg(?:-edge)?\.mozilla\.org/try/(?:rev|raw-rev|diff|json-rev)/)?(?P<rev>[0-9a-f]{12,40})(?:[/?#]\S*)?$'
+lookup = "try-rev"
+go = "always"
+
+[[rule]]
+name = "try-phabricator"
+description = "\"try\" and a Phabricator revision (or its URL): the code review bot's try push of its latest diff (its \"CI (Treeherder) Jobs\" link), its page (its import), in the tree importing this tree's try pushes."
+pattern = '^try\s+(?:https?://phabricator\.services\.mozilla\.com/)?D(?P<number>\d+)(?:[/?#]\S*)?$'
+lookup = "try-phabricator"
 go = "always"
 
 [[rule]]

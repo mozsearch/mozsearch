@@ -175,6 +175,7 @@ mod tests {
             crash_sets_seed: None,
             crash_stats_api: None,
             bugzilla_url: None,
+            code_review_url: None,
         };
         let boxes = InfoBoxes::load(&cfg);
         assert_eq!(boxes.names().collect::<Vec<_>>(), vec!["a", "b", "d", "e"]);
