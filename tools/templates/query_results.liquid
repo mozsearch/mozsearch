@@ -49,13 +49,13 @@
       </fieldset>
     </div>
   </div>
-  <script>
-var SYM_INFO = {{ SYM_INFO_STR }};
-var QUERY_RESULTS_JSON = {{ results | json_script }};
-// Debug logs are always available for queries, so always set the variable to true;
-// other pages will not have the variable defined and so the page will see undefined as false.
-var IS_DEBUG_LOGS_AVAILABLE = true;
-</script>
+  {%- comment %}(JSON data blocks, which static/js/page-data.js makes the
+  globals; IS_DEBUG_LOGS_AVAILABLE because debug logs are always available
+  for queries, which other pages don't define, so they see it as false.){%
+  endcomment %}
+  <script type="application/json" data-global="SYM_INFO">{{ SYM_INFO_STR }}</script>
+  <script type="application/json" data-global="QUERY_RESULTS_JSON">{{ results | json_script }}</script>
+  <script type="application/json" data-global="IS_DEBUG_LOGS_AVAILABLE">true</script>
   {% include 'scroll_footer.liquid' search: "query" %}
 </div>
 {% include 'footer.liquid' %}

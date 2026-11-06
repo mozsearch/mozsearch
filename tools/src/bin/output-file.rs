@@ -439,7 +439,8 @@ fn main() {
                         tooltip: "Hover over the gray bar on the left to see blame information"
                             .to_owned(),
                         id: "panel-blame",
-                        link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
+                        // (A button, which panel.js explains blame for.)
+                        link: String::new(),
                         update_link_lineno: "",
                         accel_key: None,
                         copyable: false,

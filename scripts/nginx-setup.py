@@ -60,7 +60,52 @@ binary_types = {
 
 binary_types_str = " ".join((mime + " " + exts + ";") for (exts, mime) in binary_types.items())
 
-def location(route, directives):
+# Content Security Policy.
+#
+# Searchfox's pages show the source trees' contents, which must never become
+# active content in the browser, so on top of escaping everything we
+# generate, every response says that the only scripts which may run are our
+# own static files (no inline scripts, no event handler attributes, no
+# `javascript:` URLs, no eval), and so on for styles, plugins and the like:
+#
+# - script-src 'self' - Our scripts are all files under `static/js/` (and
+#   `/tree-list.js`).  Nothing else on our origin can be loaded as a script:
+#   the files we serve from the trees are either HTML pages we generated,
+#   text/plain (`raw`, `raw-analysis`), or the binary types above, and
+#   `X-Content-Type-Options: nosniff` (below) means browsers refuse to run any
+#   of them as a script.
+# - style-src 'self' - Our stylesheets; no `<style>` elements or `style`
+#   attributes in our pages.  (Scripts setting `element.style` properties
+#   aren't affected.)
+# - img-src 'self' data: - Our images, and the trees' images (only ever as
+#   images; see `binary_types`), and data: URLs for those our stylesheets and
+#   scripts make.
+# - object-src 'none', base-uri 'none', form-action 'self' - No plugins, no
+#   `<base>` redirecting our relative URLs, and our forms only submit to us.
+# - frame-ancestors 'self' - Our pages can only be framed by our own (ex:
+#   the webtest harness's frame).
+# - require-trusted-types-for 'script', trusted-types searchfox - Strings
+#   can't be assigned to HTML sinks (ex: `innerHTML`); our scripts' only way
+#   to insert HTML is their `searchfox` Trusted Types policy (see
+#   static/js/trusted-html.js), or the sanitizer API's `setHTML`.
+# - report-uri - Violations are logged to `csp-reports.log` in the log
+#   directory (see `/csp-report` below), which the webtests check (see
+#   tests/webtest/head.js).
+csp = '; '.join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "img-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+    "require-trusted-types-for 'script'",
+    "trusted-types searchfox",
+    "report-uri /csp-report",
+])
+
+def location(route, directives, csp_header=True):
     print(f'  location {route} {{')
 
     # Use HSTS in release - ELB sets http_x_forwarded_proto, so this
@@ -69,6 +114,10 @@ def location(route, directives):
     # won't be inherited if a location sets any headers of its own.
     if use_hsts:
         print('    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;')
+    # The CSP (see above) and nosniff, for the same reason in every location.
+    if csp_header:
+        print(f'    add_header Content-Security-Policy "{csp}" always;')
+    print('    add_header X-Content-Type-Options nosniff always;')
 
     for directive in directives:
         print(f'    {directive}')
@@ -274,6 +323,8 @@ if nginx_cache_dir:
 
 print('''# we are in the "http" context here.
 log_format custom_cache_log '[$time_local] [Cache:$upstream_cache_status] [$request_time] [$host] [Remote_Addr: $remote_addr] - $remote_user - $server_name to: $upstream_addr: "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' ;
+# (CSP violation reports; see `csp`.)
+log_format csp_report escape=json '$time_iso8601 $request_body';
 
 map $host $favicon {
   default            testing.png;
@@ -453,10 +504,29 @@ location('= /tree-list.js', [
     'add_header Cache-Control "must-revalidate";',
 ])
 
+# Where browsers report CSP violations (see `csp` above): their reports are
+# logged to csp-reports.log, as nginx reads a request's body for proxying (to
+# itself, a request from outside, so its location can't be `internal`).
+location('= /csp-report', [
+    'client_max_body_size 64k;',
+    f'access_log {nginx_log_dir}/csp-reports.log csp_report;',
+    'proxy_pass http://127.0.0.1:16995/csp-report-received;',
+])
+location('= /csp-report-received', ['return 204;'])
+
 if config.get("allow_webtest"):
+    # (The harness, unlike the pages it tests in its frame, has an inline
+    # style and an onload attribute, and isn't served in production.)
     location(f'/tests/webtest', [
         f'root {mozsearch_path};',
         'add_header Cache-Control "no-cache";',
+    ], csp_header=False)
+    # The violations reported so far, for the webtests to check (see
+    # tests/webtest/head.js's `checkCspReports`).
+    location('= /tests/webtest/csp-reports.log', [
+        f'alias {nginx_log_dir}/csp-reports.log;',
+        'default_type text/plain;',
+        'add_header Cache-Control "no-store";',
     ])
 
 # close "server"

@@ -74,9 +74,11 @@ add_task(async function test_BreadcrumbsOnLoad() {
     const breadcrumbs = frame.contentDocument.querySelector(".breadcrumbs");
     ok(!!breadcrumbs, `Breadcrumbs node exists on ${path}`);
     if (hidden) {
-      is(breadcrumbs.style.display, "none", `Breadcrumbs is hidden on ${path}`);
+      is(frame.contentWindow.getComputedStyle(breadcrumbs).display, "none",
+         `Breadcrumbs is hidden on ${path}`);
     } else {
-      isnot(breadcrumbs.style.display, "none", `Breadcrumbs is shown on ${path}`);
+      isnot(frame.contentWindow.getComputedStyle(breadcrumbs).display, "none",
+            `Breadcrumbs is shown on ${path}`);
       let breadcrumbsText = breadcrumbs.textContent.trim().replaceAll("\n", " ");
       while (breadcrumbsText.includes("  ")) {
         breadcrumbsText = breadcrumbsText.replace("  ", " ");
@@ -95,7 +97,7 @@ add_task(async function test_BreadcrumbsOnLoad() {
     ok(!!treeSwitcher, `Tree switcher node exists on ${path}`);
     const treeSwitcherMenu = breadcrumbs.querySelector("#tree-switcher-menu");
     ok(!!treeSwitcherMenu, `Tree switcher menu node exists on ${path}`);
-    is(treeSwitcherMenu.style.display, "none",
+    is(frame.contentWindow.getComputedStyle(treeSwitcherMenu).display, "none",
        `Tree switcher menu is hidden on ${path}`);
 
     if (!hidden) {
@@ -196,7 +198,7 @@ add_task(async function test_BreadcrumbsAfterSearch() {
 
     const breadcrumbs = frame.contentDocument.querySelector(".breadcrumbs");
     ok(!!breadcrumbs, `Breadcrumbs node exists on the search result from ${path}`);
-    isnot(breadcrumbs.style.display, "none",
+    isnot(frame.contentWindow.getComputedStyle(breadcrumbs).display, "none",
           `Breadcrumbs is shown on the search result from ${path}`);
     is(breadcrumbs.textContent.trim(), tree,
        `Breadcrumbs shows the tree name on the search result from ${path}`);

@@ -1,5 +1,5 @@
-<script>var GRAPH_OPTIONS = {{ options | json_script }};</script>
-<script>var GRAPH_OVERLOADS = {{ overloads_hit | json_script }};</script>
+<script type="application/json" data-global="GRAPH_OPTIONS">{{ options | json_script }}</script>
+<script type="application/json" data-global="GRAPH_OVERLOADS">{{ overloads_hit | json_script }}</script>
 <div id="diagram-panel" class="hidden"></div>
 {%- if overloads_hit != empty -%}
 
@@ -15,7 +15,7 @@
 {%- if has_other_overloads == true -%}
 <div class="diagram-limit-warning">
 <h3>Limits Hit:</h3>
-<p>Some items hit the limit, and the result is incomplete. <button id="diagram-limit-warning-overload-list-toggle" onclick="Diagram.toggleOverloadList()">Show details</button></p>
+<p>Some items hit the limit, and the result is incomplete. <button id="diagram-limit-warning-overload-list-toggle">Show details</button></p>
 <ul id="diagram-limit-warning-overload-list" class="hidden">
   {%- for overload in overloads_hit -%}
   {%- assign kind_prefix = overload.kind | truncate: 10, "" -%}
@@ -44,7 +44,7 @@
     {%- if overload.global_limit > 0 %} >= {{ overload.global_limit | escape }}{% endif -%}
     </span>: only {{ overload.included | escape }} included.
     {% if overload.kind == "UsesPaths" or overload.kind == "UsesLines" or overload.kind == "NodeLimit" -%}
-    <button onclick="Diagram.liftLimit('{{overload.kind}}', {{overload.exist}})">Lift the limit</button>
+    <button class="diagram-lift-limit" data-kind="{{ overload.kind | escape }}" data-exist="{{ overload.exist | escape }}">Lift the limit</button>
     {%- endif -%}
   </li>
   {%- endfor -%}

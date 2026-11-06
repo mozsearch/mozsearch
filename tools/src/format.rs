@@ -900,11 +900,11 @@ pub fn format_file_data(
     let f = F::Seq(vec![F::S("</div>")]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    // (Escaped so that no string, ex: a pretty name, can end the script.)
+    // (A JSON data block, which static/js/page-data.js makes the global.)
     writeln!(
         writer,
-        "<script>var SYM_INFO = {};</script>",
-        crate::html_escape::escape_json_for_script(&sym_json)
+        "{}",
+        crate::html_escape::json_data_block_from_json("SYM_INFO", &sym_json)
     )
     .unwrap();
 
@@ -969,7 +969,8 @@ pub fn add_coverage_panel_item(
         )),
         tooltip: "Show the test coverage graph".to_owned(),
         id: "panel-coverage",
-        link: "javascript:CoverageGraph.open()".to_owned(),
+        // (A button, which coverage-history.js opens the graph for.)
+        link: String::new(),
         update_link_lineno: "",
         accel_key: None,
         copyable: false,
@@ -1342,9 +1343,8 @@ fn format_blob(
             label: PanelItemLabel::Plaintext("Blame".to_owned()),
             tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
             id: "panel-blame",
-            link:
-                "javascript:alert('Hover over the gray bar on the left to see blame information.')"
-                    .to_owned(),
+            // (A button, which panel.js explains blame for.)
+            link: String::new(),
             update_link_lineno: "",
             accel_key: None,
             copyable: false,

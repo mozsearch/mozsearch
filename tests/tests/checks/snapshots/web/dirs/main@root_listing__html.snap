@@ -60,7 +60,7 @@ input_file: inputs/web/dirs/root_listing__html
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
   <div class="breadcrumbs">
-    <a href="/tests/source/">tests</a><button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button><div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div>
+    <a href="/tests/source/">tests</a><button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button><div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu initially-hidden"></div>
   </div>
 
     <div class="panel" id="panel">
@@ -71,12 +71,12 @@ input_file: inputs/web/dirs/root_listing__html
       <a id="open-help" title="Open help page" href="https://firefox-source-docs.mozilla.org/contributing/searchfox.html" target="_blank"><span class="navpanel-icon icon-help-circled" aria-hidden="false"></span></a><a id="show-settings" title="Go to settings page" href="/tests/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>
     </span>
   </button>
-  <section id="panel-content" aria-expanded="false" aria-hidden="true" style="display: none;">
+  <section id="panel-content" aria-expanded="false" aria-hidden="true" class="initially-hidden">
     <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
   <h4>Revision control</h4>
   <ul>
     <li>
-      <a id="panel-coverage" href="javascript:CoverageGraph.open()" title="Show the test coverage graph" class="icon item">Coverage:&nbsp;<span class="cov-percentage cov-percentage-10">96 %</span><span id="coverage-sparkline"></span></a>
+      <button id="panel-coverage" title="Show the test coverage graph" class="icon item">Coverage:&nbsp;<span class="cov-percentage cov-percentage-10">96 %</span><span id="coverage-sparkline"></span></button>
     </li>
 </ul>
 
@@ -962,6 +962,7 @@ Spread over multiple lines.
   
 <script src="/tree-list.js"></script>
 <script src="/tests/static/js/trusted-html.js"></script>
+<script src="/tests/static/js/page-data.js"></script>
 <script src="/tests/static/js/settings.js"></script>
 <script src="/tests/static/js/search.js"></script>
 <script src="/tests/static/js/context-menu.js"></script>

@@ -553,6 +553,7 @@ var Diagram = new (class Diagram {
   constructor() {
     this.calculateOverload();
 
+    this.addButtonListeners();
     this.addControl();
     this.addBadgeTooltips();
     this.addOverloadIcons();
@@ -561,14 +562,14 @@ var Diagram = new (class Diagram {
     this.setScrollPosition();
   }
 
-  toggleOverloadList() {
-    const list = document.querySelector("#diagram-limit-warning-overload-list");
-    const toggle = document.querySelector("#diagram-limit-warning-overload-list-toggle");
-    list.classList.toggle("hidden");
-    if (list.classList.contains("hidden")) {
-      toggle.textContent = "Show";
-    } else {
-      toggle.textContent = "Hide";
+  // (Rather than inline handlers, which our Content-Security-Policy doesn't
+  // allow; see scripts/nginx-setup.py.)
+  addButtonListeners() {
+    document.getElementById("diagram-panel-toggle")?.addEventListener("click", () => this.togglePanel());
+    document.getElementById("diagram-limit-warning-overload-list-toggle")
+      ?.addEventListener("click", () => this.toggleOverloadList());
+    for (const button of document.querySelectorAll("button.diagram-lift-limit")) {
+      button.addEventListener("click", () => this.liftLimit(button.dataset.kind, Number(button.dataset.exist)));
     }
   }
 
@@ -1370,7 +1371,7 @@ function populateResults(data, full, jumpToSingle) {
     if (fileResult.lines && fileResult.lines.length > 0) {
       html += `<div class="expando open" data-klass="${escape(fileSpecificClass)}">&#9660;</div>`;
     } else {
-      html += "<div class='expando' style='visibility: hidden'>&#9660;</div>";
+      html += `<div class="expando expando-placeholder">&#9660;</div>`;
     }
 
     html += `<div class="mimetype-icon-${escape(chooseIcon(fileResult.path))} mimetype-floating-container"></div></td>`;
@@ -1863,6 +1864,14 @@ window.showSearchResults = function (results) {
   var jumpToSingle = window.location.search.indexOf("&redirect=false") == -1;
   populateResults(results, true, jumpToSingle);
 };
+
+// A search page's results (see search_template.liquid's data block, and
+// page-data.js).
+window.addEventListener("load", function () {
+  if (typeof SEARCH_RESULTS !== "undefined") {
+    showSearchResults(SEARCH_RESULTS);
+  }
+});
 
 /**
  * Adds a leading 0 to numbers less than 10 and greater that 0
