@@ -84,6 +84,7 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
     let git = tree_config.get_git()?;
     let mut infos = vec![];
     for rev in revs.split(',') {
+        let rev = &git_ops::canonical_rev(&git.repo, rev)?;
         let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
         let commit = commit_obj.as_commit().ok_or("Bad revision")?;
         let (msg, phab_rev, pr) = commit_header_patch(commit)?;

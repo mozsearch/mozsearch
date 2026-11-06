@@ -92,6 +92,51 @@ impl WebResponse {
             ..WebResponse::default()
         }
     }
+
+    /// A redirect which isn't permanent (ex: a ref name's, whose commit
+    /// changes).
+    fn redirect_temporarily(url: String) -> WebResponse {
+        WebResponse {
+            status: StatusCode::FOUND,
+            redirect_location: Some(url),
+            ..WebResponse::default()
+        }
+    }
+}
+
+/// A `/rev/`, `/diff/` or `/commit/` URL whose revision is a ref name rather
+/// than a commit id (see `git_ops::is_ref_name`), as a redirect to the same
+/// URL with the ref's commit's id, so that the page is a permalink.  As a ref
+/// name can have slashes (ex: `release/esr128`), it's the fewest of the URL's
+/// segments after its kind (up to 4) which are a ref's name.
+fn redirect_ref_name(
+    cfg: &config::Config,
+    tree_name: &str,
+    kind: &str,
+    raw_path: &str,
+) -> WebResponse {
+    let bad_revision = || WebResponse::internal_error("Bad revision".to_owned());
+    let Some(git) = cfg
+        .trees
+        .get(tree_name)
+        .and_then(|tree| tree.get_git().ok())
+    else {
+        return bad_revision();
+    };
+    // (Still percent-encoded, as the redirect's are.)
+    let segments = raw_path[1..].split('/').skip(2).collect::<Vec<_>>();
+    for count in 1..=segments.len().min(4) {
+        let name = url_decode_path(&segments[..count].join("/"));
+        if let Some(id) = git_ops::resolve_ref_name(&git.repo, &name) {
+            let mut location = format!("/{}/{}/{}", tree_name, kind, id);
+            for segment in &segments[count..] {
+                location.push('/');
+                location.push_str(segment);
+            }
+            return WebResponse::redirect_temporarily(location);
+        }
+    }
+    bad_revision()
 }
 
 fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
@@ -164,6 +209,9 @@ fn handle(
             }
 
             let rev = &path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(cfg, tree_name, kind, req.path);
+            }
             let path = path.clone().split_off(3);
             let path = path.join("/");
 
@@ -186,6 +234,10 @@ fn handle(
             };
 
             let hg_rev = path[2];
+            // (Mercurial's revisions are hex.)
+            if !git_ops::is_hex_rev(hg_rev) {
+                return WebResponse::not_found();
+            }
             let output_result = Command::new("git")
                 .arg("cinnabar")
                 .arg("hg2git")
@@ -241,6 +293,9 @@ fn handle(
             }
 
             let rev = &path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(cfg, tree_name, kind, req.path);
+            }
             let path = path.clone().split_off(3);
             let path = path.join("/");
 
@@ -278,6 +333,9 @@ fn handle(
             }
 
             let rev = &path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(cfg, tree_name, kind, req.path);
+            }
 
             let mut writer = Vec::new();
             match format::format_commit(cfg, tree_name, rev, &mut writer) {

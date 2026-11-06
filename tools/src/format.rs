@@ -1076,6 +1076,7 @@ pub fn format_path(
     // Get the file data.
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
+    let rev = &git_ops::canonical_rev(&git.repo, rev)?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let path = Path::new(path.trim_end_matches('/'));
 
@@ -1423,9 +1424,13 @@ pub fn format_diff(
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let rev = &git_ops::canonical_rev(&tree_config.get_git()?.repo, rev)?;
 
     let git_path = tree_config.get_git_path()?;
+    // (The path is a path, not a pathspec, ex: `:(exclude)...`, which would
+    // match every other path.)
     let output = Command::new("git")
+        .env("GIT_LITERAL_PATHSPECS", "1")
         .arg("diff-tree")
         .arg("-p")
         .arg("--cc")
@@ -1894,6 +1899,7 @@ pub fn format_commit(
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
     let git = tree_config.get_git()?;
+    let rev = &git_ops::canonical_rev(&git.repo, rev)?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
     let date = git_time_to_chrono(commit.time());
