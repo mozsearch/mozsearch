@@ -23,7 +23,7 @@ use std::collections::BTreeSet;
 use fancy_regex::{Assertion, Expr};
 
 use crate::file_format::history::timeline_tokens::{
-    KeyRules, is_host_part, is_prose_stopword, is_trackable_token,
+    KeyRules, is_hex_hash, is_host_part, is_prose_stopword, is_trackable_token,
 };
 
 /// Marks a token boundary in a literal (see the module's comment).  It's
@@ -1106,6 +1106,32 @@ fn compound_terms(literal: &Literal) -> Vec<TokenQuery> {
         }
         let bounded_before = ends(start.checked_sub(1), start.checked_sub(2));
         let bounded_after = ends(Some(end), Some(end + 1));
+        // (A run with hashes isn't a compound, but their buckets and its
+        // other words (see `timeline_tokens::compound_keys`): an SRI value, a
+        // UUID (or a run of hex words), a run with a hash, or with a hex word
+        // at an end the literal doesn't, which may go on into one.)
+        let words: Vec<String> = chars[start..end]
+            .split(|&c| c == '-' || c == '.')
+            .map(|word| word.iter().collect())
+            .collect();
+        let hexish = |word: &String| word.bytes().all(|b| b.is_ascii_hexdigit());
+        // (Any compound of hex words joined by hyphens may be a UUID's.)
+        let hex_compound = chars[start..end].split(|&c| c == '.').any(|part| {
+            part.contains(&'-')
+                && part
+                    .split(|&c| c == '-')
+                    .all(|word| word.iter().all(|c| c.is_ascii_hexdigit()))
+        });
+        if ["sha1", "sha256", "sha384", "sha512"]
+            .iter()
+            .any(|known| known.eq_ignore_ascii_case(&words[0]))
+            || hex_compound
+            || words.iter().any(|word| is_hex_hash(word))
+            || !bounded_before && hexish(&words[0])
+            || !bounded_after && words.last().is_some_and(hexish)
+        {
+            continue;
+        }
         let mut push = |text: &[char], before: bool, after: bool| {
             let text: String = text.iter().collect();
             let term = match (before, after) {
@@ -1158,10 +1184,118 @@ fn compound_terms(literal: &Literal) -> Vec<TokenQuery> {
     terms
 }
 
+/// How a literal's word is a hash's (see `hash_terms`).
+enum HashTerms {
+    /// It isn't.
+    None,
+    /// It may be in one which isn't its bucket's, so it says nothing.
+    Skip,
+    /// It's its bucket's.
+    Only(TokenQuery),
+    /// It's its bucket's, or the word's (if the word has a journal, else, if
+    /// `alone`, the bucket's).
+    Or { term: TokenQuery, alone: bool },
+}
+
+/// How a literal's word, `chars[start..end]`, is a hash's, with V2's keys,
+/// which track hashes by their buckets (see `timeline_tokens::hash_bucket`):
+/// - a word of 8 or more hex digits, with a digit and a letter, starting a
+///   token (after a non-word character, or the literal's start, assumed, as
+///   well as a piece of another word), is the start of a hash (`~hex-` and
+///   its first 4 characters'), if it's a hash (12 or more), or could start one
+///   (the literal ends with it), or could start a UUID (8, and a `-` may
+///   follow), as well as its own word, if it can be one;
+/// - a word after an SRI value's algorithm (`sha512-`) is its digest
+///   (`~b64-` and its first 2 characters');
+/// - another hex word after a `-` may be a UUID's later group or a
+///   compound's hash, which say nothing.
+///
+/// Not the rest of a hash's words, inside it (ex: `face` in `3faceb…`), nor a
+/// hash matched from inside a longer one, nor a word starting with 12 or more
+/// hex digits and continuing with others, nor a UUID's later groups: their
+/// matches can be missed.
+fn hash_terms(chars: &[char], start: usize, end: usize, word: &str, fold_case: bool) -> HashTerms {
+    use crate::file_format::history::timeline_tokens::{b64_bucket, hex_bucket};
+    // (The characters before and after, past boundaries; None if there are
+    // only boundaries, or nothing.)
+    let before = chars[..start]
+        .iter()
+        .rev()
+        .find(|&&c| c != BOUNDARY)
+        .copied();
+    let after = chars[end..].iter().find(|&&c| c != BOUNDARY).copied();
+    let hexish = word.bytes().all(|b| b.is_ascii_hexdigit());
+    let term = |term: TokenTerm, fold_case: bool| TokenQuery::Term { term, fold_case };
+    if before == Some('-') {
+        // (The word before the `-`.)
+        let dash = chars[..start].iter().rposition(|&c| c == '-').unwrap();
+        let algorithm: String = chars[..dash]
+            .iter()
+            .rev()
+            .skip_while(|&&c| c == BOUNDARY)
+            .take_while(|&&c| is_word_char(c))
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+        if ["sha1", "sha256", "sha384", "sha512"]
+            .iter()
+            .any(|known| known.eq_ignore_ascii_case(&algorithm))
+        {
+            let bucket = term(TokenTerm::Whole(b64_bucket(word)), fold_case);
+            // (The value ends with it, unless another `-` follows, or the
+            // literal ends.)
+            return match after {
+                Some(c) if c != '-' && c != '.' => HashTerms::Only(bucket),
+                _ => HashTerms::Or {
+                    term: bucket,
+                    alone: true,
+                },
+            };
+        }
+        return if hexish {
+            HashTerms::Skip
+        } else {
+            HashTerms::None
+        };
+    }
+    if !(hexish
+        && word.len() >= 8
+        && word.bytes().any(|b| b.is_ascii_digit())
+        && word.bytes().any(|b| b.is_ascii_alphabetic()))
+    {
+        return HashTerms::None;
+    }
+    let bucket = term(TokenTerm::Whole(hex_bucket(word)), false);
+    // (At the literal's start, it may also end another word: see
+    // `literal_terms`.)
+    if start == 0 {
+        return HashTerms::Or {
+            term: bucket,
+            alone: false,
+        };
+    }
+    if end == chars.len() {
+        // (It may go on, into a hash, or a UUID, or another word.)
+        return HashTerms::Or {
+            term: bucket,
+            alone: is_hex_hash(word),
+        };
+    }
+    match after {
+        _ if is_hex_hash(word) => HashTerms::Only(bucket),
+        Some('-') | None if word.len() == 8 => HashTerms::Or {
+            term: bucket,
+            alone: false,
+        },
+        _ => HashTerms::None,
+    }
+}
+
 /// The token terms of a literal: its runs of word characters, whole where a
 /// boundary or non-word character is on both sides within the literal, and
 /// otherwise pieces of tokens; and with V2's keys, its compound words' (see
-/// `compound_terms`).
+/// `compound_terms`), and its hashes' (see `hash_terms`).
 fn literal_terms(literal: &Literal, rules: KeyRules) -> TokenQuery {
     let chars: Vec<char> = literal.text.chars().collect();
     let mut terms = vec![];
@@ -1178,25 +1312,45 @@ fn literal_terms(literal: &Literal, rules: KeyRules) -> TokenQuery {
         let word: String = chars[start..i].iter().collect();
         let bounded_before = start > 0;
         let bounded_after = i < chars.len();
+        // (With V2's keys, a hash's journal is its bucket's.)
+        let mut bucket = None;
+        if rules >= KeyRules::V2 {
+            match hash_terms(&chars, start, i, &word, literal.fold_case) {
+                HashTerms::None => {}
+                HashTerms::Skip => continue,
+                HashTerms::Only(term) => {
+                    terms.push(term);
+                    continue;
+                }
+                HashTerms::Or { term, alone } => bucket = Some((term, alone)),
+            }
+        }
         // (A piece can be the whole token too, so it must be one whose
         // journal covers code, ex: not `case`, whose matches are often the
         // keyword; and a piece must be long enough to narrow the tokens
-        // down.)
-        if !journaled(&word, rules)
-            || !(bounded_before && bounded_after) && word.chars().count() < 3
-        {
-            continue;
+        // down.  A piece of hex digits at the literal's start may also be in
+        // another word, whose journal is its own, whatever the piece's first
+        // character.)
+        let in_word = bucket.is_some() && !bounded_before;
+        let word_term = ((journaled(&word, rules) || in_word)
+            && (bounded_before && bounded_after || word.chars().count() >= 3))
+            .then(|| TokenQuery::Term {
+                term: match (bounded_before, bounded_after) {
+                    (true, true) => TokenTerm::Whole(word),
+                    (true, false) => TokenTerm::Prefix(word),
+                    (false, true) => TokenTerm::Suffix(word),
+                    (false, false) => TokenTerm::Contains(word),
+                },
+                fold_case: literal.fold_case,
+            });
+        match (word_term, bucket) {
+            (Some(word_term), Some((bucket, _))) => {
+                terms.push(TokenQuery::or(vec![word_term, bucket]))
+            }
+            (Some(word_term), None) => terms.push(word_term),
+            (None, Some((bucket, true))) => terms.push(bucket),
+            (None, _) => {}
         }
-        let term = match (bounded_before, bounded_after) {
-            (true, true) => TokenTerm::Whole(word),
-            (true, false) => TokenTerm::Prefix(word),
-            (false, true) => TokenTerm::Suffix(word),
-            (false, false) => TokenTerm::Contains(word),
-        };
-        terms.push(TokenQuery::Term {
-            term,
-            fold_case: literal.fold_case,
-        });
     }
     if rules >= KeyRules::V2 {
         terms.extend(compound_terms(literal));
@@ -1395,6 +1549,27 @@ mod tests {
             query(&regex::escape(r#""moz-icon""#)).tokens(KeyRules::V1),
             and(vec![whole("moz"), whole("icon")])
         );
+        // (Hashes are their buckets'.)
+        let contains = |text: &str| term(TokenTerm::Contains(text.to_string()));
+        let or = |terms: Vec<TokenQuery>| TokenQuery::Or(terms);
+        assert_eq!(tokens(r#""9631de8e5f1a""#), whole("~hex-9631"));
+        assert_eq!(
+            tokens("9631de8e5f1a"),
+            or(vec![contains("9631de8e5f1a"), whole("~hex-9631")])
+        );
+        assert_eq!(
+            tokens("rev/9631de8e5f1a"),
+            and(vec![suffix("rev"), whole("~hex-9631")])
+        );
+        assert_eq!(
+            tokens(r#""d5b4b2a0-1234-4567-89ab-cdef01234567""#),
+            or(vec![whole("d5b4b2a0"), whole("~hex-d5b4")])
+        );
+        assert_eq!(
+            tokens(r#""sha512-UzGt8zg7Ny8d/"#),
+            and(vec![whole("sha512"), whole("~b64-Uz")])
+        );
+        assert_eq!(tokens("face"), contains("face"));
         // (Hosts' `www` and `org` aren't compounds' parts.)
         assert_eq!(
             tokens(r#""www.mozilla.org""#),
@@ -1458,11 +1633,15 @@ mod tests {
         start..start + found.len()
     }
 
-    /// A text's tokens, as a history with the key `rules` has them (as
-    /// ranges): its runs of word characters (identifiers in code, and parts of
-    /// compounds in strings), and with V2's, the compounds whose keys its
-    /// strings (between `"`s) have (see `timeline_tokens::compound_keys`).
-    fn model_tokens(text: &str, rules: KeyRules) -> Vec<(usize, usize)> {
+    /// A text's tokens, as a history with the key `rules` has them (their
+    /// ranges and keys): its runs of word characters (identifiers in code, and
+    /// parts of compounds in strings), and with V2's, the compounds whose keys
+    /// its strings (between `"`s) have (see `timeline_tokens::compound_keys`),
+    /// and hashes' buckets (see `timeline_tokens::hash_bucket`), for hex
+    /// hashes, and UUIDs in strings (not their groups).
+    fn model_tokens(text: &str, rules: KeyRules) -> Vec<(usize, usize, String)> {
+        use crate::file_format::history::timeline_tokens::hash_bucket;
+        let v2 = rules >= KeyRules::V2;
         let mut tokens = vec![];
         let mut start = None;
         for (i, c) in text
@@ -1472,13 +1651,18 @@ mod tests {
             match (is_word_char(c), start) {
                 (true, None) => start = Some(i),
                 (false, Some(s)) => {
-                    tokens.push((s, i));
+                    let word = &text[s..i];
+                    let key = match is_hex_hash(word) && v2 {
+                        true => hash_bucket(word).unwrap(),
+                        false => word.to_string(),
+                    };
+                    tokens.push((s, i, key));
                     start = None;
                 }
                 _ => {}
             }
         }
-        if rules < KeyRules::V2 {
+        if !v2 {
             return tokens;
         }
         let quotes: Vec<usize> = text.match_indices('"').map(|(i, _)| i).collect();
@@ -1499,9 +1683,18 @@ mod tests {
                 &mut |key| keys.push(key.into_owned()),
             );
             // (The runs of words joined by `-` or `.`, their parts joined by
-            // hyphens, and where they are, if the string has their keys.)
+            // hyphens, and where they are, if the string has their keys; and
+            // UUIDs, whose groups aren't the string's tokens.)
             let joined = regex::Regex::new(r"[\w$]+(?:[-.][\w$]+)+").unwrap();
             for run in joined.find_iter(string) {
+                let (run_start, run_end) = (open + run.start(), open + run.end());
+                if let Some(bucket) =
+                    hash_bucket(run.as_str()).filter(|_| run.as_str().contains('-'))
+                {
+                    tokens.retain(|&(s, e, _)| e <= run_start || run_end <= s);
+                    tokens.push((run_start, run_end, bucket));
+                    continue;
+                }
                 let mut candidates = vec![(run.start(), run.end())];
                 let mut at = run.start();
                 for part in run.as_str().split('.') {
@@ -1512,7 +1705,7 @@ mod tests {
                     if keys.iter().any(|key| key == &string[s..e])
                         && string[s..e].contains(['-', '.'])
                     {
-                        tokens.push((open + s, open + e));
+                        tokens.push((open + s, open + e, string[s..e].to_string()));
                     }
                 }
             }
@@ -1520,20 +1713,35 @@ mod tests {
         tokens
     }
 
+    /// Whether a match at `range` starts inside a hash (or a UUID) of
+    /// `tokens`, not at its start, whose matches the plans can miss (see
+    /// `hash_terms`).
+    fn inside_hash(tokens: &[(usize, usize, String)], range: &std::ops::Range<usize>) -> bool {
+        // (Or a word starting with a hash's digits and going on with others.)
+        let hex_led = |key: &str| {
+            let hex: String = key.chars().take_while(|c| c.is_ascii_hexdigit()).collect();
+            hex.len() < key.len() && is_hex_hash(&hex)
+        };
+        tokens.iter().any(|(s, e, key)| {
+            (key.starts_with('~') && *s < range.start && range.start < *e)
+                || (hex_led(key) && *s < range.end && range.start < *e)
+        })
+    }
+
     /// Whether `query` holds for a match at `range` of `text`, whose `tokens`
     /// overlapping the match are its tokens (see `model_tokens`).
     fn tokens_hold(
         query: &TokenQuery,
         text: &str,
-        tokens: &[(usize, usize)],
+        tokens: &[(usize, usize, String)],
         range: &std::ops::Range<usize>,
     ) -> bool {
         let overlapping = tokens
             .iter()
-            .filter(|&&(s, e)| s < range.end && range.start < e);
+            .filter(|&&(s, e, _)| s < range.end && range.start < e);
         match query {
             TokenQuery::All => true,
-            TokenQuery::Term { term, fold_case } => overlapping.into_iter().any(|&(s, e)| {
+            TokenQuery::Term { term, fold_case } => overlapping.into_iter().any(|(s, e, key)| {
                 let fold = |t: &str| {
                     if *fold_case {
                         t.to_lowercase()
@@ -1541,11 +1749,14 @@ mod tests {
                         t.to_string()
                     }
                 };
-                let run = fold(&text[s..e]);
+                let run = fold(key);
                 let piece = fold(term.text());
                 match term {
+                    // (A bucket's hash overlaps the match, which has its
+                    // start.)
+                    TokenTerm::Whole(_) if key.starts_with('~') => run == piece,
                     // (A whole token is inside the match.)
-                    TokenTerm::Whole(_) => range.start <= s && e <= range.end && run == piece,
+                    TokenTerm::Whole(_) => range.start <= *s && *e <= range.end && run == piece,
                     TokenTerm::Prefix(_) => run.starts_with(&piece),
                     TokenTerm::Suffix(_) => run.ends_with(&piece),
                     TokenTerm::Contains(_) => run.contains(&piece),
@@ -1669,6 +1880,9 @@ mod tests {
                     if found.is_empty() {
                         continue;
                     }
+                    if inside_hash(&text_tokens, &found.range()) {
+                        continue;
+                    }
                     checked += 1;
                     compounds += has_compound(&tokens) as usize;
                     assert!(
@@ -1739,6 +1953,41 @@ mod tests {
             ],
         );
         assert!(compounds > 150, "{}", compounds);
+        // (Hashes, in strings and code.)
+        let hashes = check_plans(
+            KeyRules::V2,
+            &[
+                " 3fa4b2c1d9e0 ",
+                " 9631de8e5f1a2b3c ",
+                " d5b4b2a0 ",
+                "foo",
+                "Bar",
+                "a",
+                "12",
+                " cafe ",
+            ],
+            &[" ", "-", ".", "/", "(", "\"", "\n"],
+            &[
+                "-",
+                " ",
+                "/",
+                "d5b4b2a0-1234-4567-89ab-cdef01234567",
+                "3fa4b2c1d9e0",
+                "0220-ca351238d719fd07",
+                "main.3fa4b2c1d9e0.js",
+                "0d7668a8-c3f4-cfee-cbc8-536511528937.json",
+            ],
+            &[
+                "\"3fa4b2c1d9e0",
+                "3fa4b2c1d9e0\"",
+                "\"d5b4b2a0-",
+                "\"d5b4b2a0-1234-4567-89ab-cdef01234567\"",
+                "/9631de8e5f1a",
+                "3fa4b2c1",
+                "\"0d7668a8-c3f4-cfee-cbc8-536511528937.json\"",
+            ],
+        );
+        assert!(hashes > 150, "{}", hashes);
     }
 
     #[test]

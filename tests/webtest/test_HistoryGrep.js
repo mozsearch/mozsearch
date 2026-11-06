@@ -71,6 +71,18 @@ add_task(async function test_TextHistoryCompound() {
   }
 });
 
+add_task(async function test_TextHistoryHash() {
+  // (A hash is its bucket's, the hashes starting with its first 4 characters,
+  // whose journal has its matches; see timeline_tokens.rs's `hash_bucket`.
+  // This one, the clap v3 upgrade's, is in the token history webtests.)
+  await TestUtils.loadQuery("searchfox", `text-history:'"0f2a4938884c2ce7e2637363c5577f095ef0d074'`);
+  await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
+  ok([...doc().querySelectorAll(".history-grep-plan code")].some(code => code.textContent == "~hex-0f2a"),
+     "The plan is the hash's bucket's journal");
+  ok(rows().some(row => row.textContent.includes("tests/webtest/test_TokenHistory.js")),
+     "finding where a webtest got it");
+});
+
 add_task(async function test_ReHistoryValues() {
   await TestUtils.loadQuery("searchfox",
                             `re-history:'^clap = .*version = "([^"]+)"' path:tools/Cargo.toml`);

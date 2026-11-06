@@ -54,7 +54,8 @@ use super::token_history::{
 };
 use crate::file_format::history::timeline_common::TokenDeltaDetails;
 use crate::file_format::history::timeline_tokens::{
-    TokenDeltaRecord, is_bug_key, is_journal_key, journal_key, token_timeline_path,
+    KeyRules, TokenDeltaRecord, hash_bucket, is_bug_key, is_journal_key, journal_key,
+    token_timeline_path,
 };
 
 /// How many tokens (case-insensitively distinct) a timeline has at most.
@@ -386,12 +387,17 @@ fn token_timeline_within(
     };
     let tree = head.tree().map_err(|e| e.to_string())?;
 
-    // The tokens, as their journals' keys (see `journal_key`),
-    // case-insensitively distinct, up to MAX_TOKENS.
+    // The tokens, as their journals' keys (see `journal_key`; with V2's keys,
+    // a hash's is its bucket's, see `hash_bucket`), case-insensitively
+    // distinct, up to MAX_TOKENS.
+    let buckets = KeyRules::of_tree(repo, &tree).unwrap_or_default() >= KeyRules::V2;
     let mut seen = HashSet::new();
     let mut asked = vec![];
     for token in tokens {
-        let token = &journal_key(token).unwrap_or(token).to_string();
+        let token = &match buckets.then(|| hash_bucket(token)).flatten() {
+            Some(bucket) => bucket,
+            None => journal_key(token).unwrap_or(token).to_string(),
+        };
         if !seen.insert(case_key(token, opts.case_sensitive)) {
             continue;
         }

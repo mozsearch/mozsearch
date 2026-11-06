@@ -371,7 +371,14 @@ fn string_text(token: &str) -> &str {
 /// in `moz-icon://stock/gtk-foo`, `moz-box` in `-moz-box`, and
 /// `network.proxy.type`.
 fn joined_runs<'a>(text: &'a str, mut run: impl FnMut(&'a str)) {
-    if !text.contains(['-', '.']) {
+    runs(text, false, |found, _| run(found));
+}
+
+/// Call `run` with each of `text`'s runs of words joined by `-` or `.` (see
+/// `joined_runs`), and whether it has a joiner, and with each word which isn't
+/// in one, if `singles`.
+fn runs<'a>(text: &'a str, singles: bool, mut run: impl FnMut(&'a str, bool)) {
+    if !singles && !text.contains(['-', '.']) {
         return;
     }
     // (The current run's start, whether it has a joiner, and where the joiner
@@ -393,16 +400,16 @@ fn joined_runs<'a>(text: &'a str, mut run: impl FnMut(&'a str)) {
             joiner = Some(at);
             continue;
         }
-        if joined {
-            run(&text[from..joiner.unwrap_or(at)]);
+        if joined || singles {
+            run(&text[from..joiner.unwrap_or(at)], joined);
         }
         start = None;
         joiner = None;
     }
     if let Some(from) = start
-        && joined
+        && (joined || singles)
     {
-        run(&text[from..joiner.unwrap_or(text.len())]);
+        run(&text[from..joiner.unwrap_or(text.len())], joined);
     }
 }
 
@@ -437,6 +444,81 @@ pub fn is_host_part(word: &str) -> bool {
         .any(|part| part.eq_ignore_ascii_case(word))
 }
 
+/// How long a word of hex digits must be to be a hash (see `is_hex_hash`):
+/// as long as hg's short revisions.
+const HEX_HASH_MIN: usize = 12;
+/// How many of a hash's first characters name its bucket (see `hex_bucket`).
+const HEX_BUCKET_CHARS: usize = 4;
+/// How many of an SRI digest's first characters name its bucket (see
+/// `sri_digest`).
+const B64_BUCKET_CHARS: usize = 2;
+
+/// Whether `word` is a hash of hex digits, which V2's keys track by its
+/// bucket (see `hex_bucket`): 12 or more hex digits, a digit and a letter
+/// among them (ex: a revision `9631de8e5f1a`, a sha256 checksum), whatever
+/// its first character.
+pub fn is_hex_hash(word: &str) -> bool {
+    word.len() >= HEX_HASH_MIN
+        && word.bytes().all(|b| b.is_ascii_hexdigit())
+        && word.bytes().any(|b| b.is_ascii_digit())
+        && word.bytes().any(|b| b.is_ascii_alphabetic())
+}
+
+/// The key of the bucket of hashes (and UUIDs; see `is_uuid`) starting with
+/// `hex`'s first 4 characters, which share its journal, ex: `~hex-9631` (no
+/// other key has a `~`).  In the full firefox history's (V1's) journals, its
+/// 319,424 hex ones (4.5% of them, but only those starting with a letter)
+/// would be 24,576 buckets of 12 each (the median).
+pub fn hex_bucket(hex: &str) -> String {
+    format!("~hex-{}", hex[..HEX_BUCKET_CHARS].to_ascii_lowercase())
+}
+
+/// Whether `run` is a UUID (`8-4-4-4-12` hex digits), which V2's keys track by
+/// the bucket of its first group's characters (see `hex_bucket`), not by its
+/// parts.
+fn is_uuid(run: &str) -> bool {
+    let mut groups = run.split('-');
+    [8, 4, 4, 4, 12].iter().all(|&len| {
+        groups
+            .next()
+            .is_some_and(|group| group.len() == len && group.bytes().all(|b| b.is_ascii_hexdigit()))
+    }) && groups.next().is_none()
+}
+
+/// An SRI integrity value's algorithm and digest (its base64's first word),
+/// ex: `sha512` and `UzGt8zg7` in package-lock.json's
+/// `"sha512-UzGt8zg7Ny8d/jbY+…"`, which V2's keys track as the algorithm and
+/// the bucket of the digest's first 2 characters (`~b64-Uz`; see
+/// `b64_bucket`), rather than as a compound and a word each unique.
+fn sri_digest(run: &str) -> Option<(&str, &str)> {
+    let (algorithm, digest) = run.split_once('-')?;
+    (["sha1", "sha256", "sha384", "sha512"]
+        .iter()
+        .any(|known| known.eq_ignore_ascii_case(algorithm))
+        && !digest.is_empty()
+        && !digest.contains(['-', '.']))
+    .then_some((algorithm, digest))
+}
+
+/// The key of the bucket of SRI digests starting with `digest`'s first 2
+/// characters (see `sri_digest`), ex: `~b64-Uz`.
+pub fn b64_bucket(digest: &str) -> String {
+    let end = digest
+        .char_indices()
+        .nth(B64_BUCKET_CHARS)
+        .map_or(digest.len(), |(at, _)| at);
+    format!("~b64-{}", &digest[..end])
+}
+
+/// The bucket whose journal V2's histories track `token` by, if it's a hash,
+/// a UUID or an SRI value (see `is_hex_hash`, `is_uuid` and `sri_digest`).
+pub fn hash_bucket(token: &str) -> Option<String> {
+    if is_hex_hash(token) || is_uuid(token) {
+        return Some(hex_bucket(token));
+    }
+    sri_digest(token).map(|(_, digest)| b64_bucket(digest))
+}
+
 /// The bug number of a compound of hyphens `bug-NNNNNNN` (any case), which is
 /// the bug's key (see `bug_number`).
 fn bug_compound(word: &str) -> Option<&str> {
@@ -458,6 +540,11 @@ fn bug_compound(word: &str) -> Option<&str> {
 /// - but no part which is one of the `HOST_PARTS` (`www.mozilla.org` is
 ///   itself and `mozilla`).
 ///
+/// And hashes, in runs or alone, are their buckets (see `hash_bucket`): a hex
+/// hash (`is_hex_hash`), a UUID (`is_uuid`, not its parts), an SRI value's
+/// digest (`sri_digest`, with its algorithm), and a compound with a hash isn't
+/// one whole (ex: `0220-ca351238d719fd07` is `0220`'s and the hash's).
+///
 /// (2 parts joined by a dot aren't a compound, as file names and members
 /// would be noise, ex: `foo.js`, `this.foo`, but a whole token which is a
 /// qualified name has its parts; see `qualified_parts`.)
@@ -468,16 +555,36 @@ fn compound_keys<'a>(
     key: &mut impl FnMut(Cow<'a, str>),
 ) {
     let tracked = |word: &str| tracked(word) && !is_host_part(word);
-    joined_runs(text, |run| {
-        let dotted = is_dotted_compound(run);
+    runs(text, true, |run, joined| {
+        if !joined || is_uuid(run) {
+            if is_hex_hash(run) || is_uuid(run) {
+                key(Cow::Owned(hex_bucket(run)));
+            }
+            return;
+        }
+        if let Some((algorithm, digest)) = sri_digest(run) {
+            if tracked(algorithm) {
+                key(Cow::Borrowed(algorithm));
+            }
+            key(Cow::Owned(b64_bucket(digest)));
+            return;
+        }
+        let hashes = run.split(['-', '.']).any(is_hex_hash) || run.split('.').any(is_uuid);
+        let dotted = !hashes && is_dotted_compound(run);
         if dotted {
             key(Cow::Borrowed(run));
         }
         for part in run.split('.') {
             if !part.contains('-') {
-                if dotted && tracked(part) {
+                if is_hex_hash(part) {
+                    key(Cow::Owned(hex_bucket(part)));
+                } else if dotted && tracked(part) {
                     key(Cow::Borrowed(part));
                 }
+                continue;
+            }
+            if is_uuid(part) {
+                key(Cow::Owned(hex_bucket(part)));
                 continue;
             }
             if let Some(bug) = bug_compound(part) {
@@ -486,11 +593,16 @@ fn compound_keys<'a>(
                 }
                 continue;
             }
-            if part.len() <= 128 && part.split('-').any(is_trackable_token) {
+            if !part.split('-').any(is_hex_hash)
+                && part.len() <= 128
+                && part.split('-').any(is_trackable_token)
+            {
                 key(Cow::Borrowed(part));
             }
             for word in part.split('-') {
-                if tracked(word) {
+                if is_hex_hash(word) {
+                    key(Cow::Owned(hex_bucket(word)));
+                } else if tracked(word) {
                     key(Cow::Borrowed(word));
                 }
             }
@@ -517,9 +629,10 @@ pub fn journal_key(token: &str) -> Option<&str> {
 /// Whether `token` could have a token journal (see `tracked_token_keys`): a
 /// word (see `is_trackable_token`), or a compound word, whose journals V2's
 /// histories have (see `compound_keys`; ex: `moz-icon`,
-/// `network.proxy.type`), or a bug's key (`bug-1620052`).
+/// `network.proxy.type`), or a bug's key (`bug-1620052`), or a hash, whose
+/// bucket's journal V2's histories have (see `hash_bucket`).
 pub fn is_journal_key(token: &str) -> bool {
-    if is_trackable_token(token) {
+    if is_trackable_token(token) || hash_bucket(token).is_some() {
         return true;
     }
     let mut whole = false;
@@ -564,10 +677,15 @@ pub fn is_journal_key(token: &str) -> bool {
 ///   `enabled`, and CSS's `-moz-box-align` as `moz-box-align`, `moz`, `box`
 ///   and `align`, so that a part's journal has its uses in compounds too.  In
 ///   a 10% sample of firefox's files (2026-11-06), where 11.0M instances were
-///   tracked, the compounds added ~3% and their parts ~6% (CSS's properties'
-///   most: `background`, `color`), where URLs' paths' words would add ~1.6%
-///   and strings' other words ~3% more (ex: `0px`, `doesn't`), and whole URLs
-///   0.4%, mostly unique.
+///   tracked, the compounds added 5.5% and their parts 12.3% (identifiers' in
+///   CSS and markup 4.3%: `color`, `background`), where URLs' paths' words
+///   would add ~1.6% and strings' other words ~3% more (ex: `0px`,
+///   `doesn't`), and whole URLs 0.4%, mostly unique.
+/// - With V2's rules, hashes are tracked by buckets of them (see
+///   `hash_bucket`), in code, strings (their words: ex: a URL's revision),
+///   comments and plain text: hex ones (`9631de8e5f1a…` as `~hex-9631`), UUIDs
+///   and SRI values (`sha512-UzGt…` as `sha512` and `~b64-Uz`), so that
+///   they're searchable without a journal each.
 ///
 /// Lines lacking a class (from older syntax repos) are treated as identifiers.
 pub fn tracked_token_keys<'a>(
@@ -590,7 +708,9 @@ pub fn tracked_token_keys<'a>(
         | TokenClass::Boilerplate => {}
         TokenClass::Identifier => {
             let token = line.token;
-            if is_trackable_token(token) {
+            if compounds && is_hex_hash(token) {
+                key(Cow::Owned(hex_bucket(token)));
+            } else if is_trackable_token(token) {
                 if !value_word(token) {
                     key(Cow::Borrowed(token));
                 }
@@ -620,15 +740,20 @@ pub fn tracked_token_keys<'a>(
                 }
                 return;
             }
-            if tracked(word) {
+            if compounds && is_hex_hash(word) {
+                key(Cow::Owned(hex_bucket(word)));
+            } else if tracked(word) {
                 key(Cow::Borrowed(word));
             } else if let Some(parts) = qualified_parts(word) {
+                let hashes = compounds && parts.iter().any(|part| is_hex_hash(part));
                 for part in &parts {
-                    if tracked(part) && !(compounds && is_host_part(part)) {
+                    if hashes && is_hex_hash(part) {
+                        key(Cow::Owned(hex_bucket(part)));
+                    } else if tracked(part) && !(compounds && is_host_part(part)) {
                         key(Cow::Borrowed(part));
                     }
                 }
-                if compounds && is_dotted_compound(word) {
+                if compounds && !hashes && is_dotted_compound(word) {
                     key(Cow::Borrowed(word));
                 }
             } else if compounds {
@@ -957,6 +1082,95 @@ mod tests {
             keys("cpp", Comment, "(see:Bug-123456)", None),
             words(&["bug-123456"])
         );
+    }
+
+    #[test]
+    fn test_hash_buckets() {
+        use TokenClass::*;
+        let keys = |namespace: &str, class: TokenClass, token: &str| {
+            keys_by(KeyRules::V2, namespace, class, token, None)
+        };
+        let words = |w: &[&str]| w.iter().map(|w| w.to_string()).collect::<Vec<_>>();
+        // Hex hashes, whatever their first character, by their first 4.
+        assert_eq!(keys("cpp", Comment, "9631de8e5f1a,"), words(&["~hex-9631"]));
+        assert_eq!(
+            keys("cpp", Identifier, "ABCDEF012345"),
+            words(&["~hex-abcd"])
+        );
+        assert_eq!(
+            keys_by(KeyRules::V1, "cpp", Identifier, "ABCDEF012345", None),
+            words(&["ABCDEF012345"])
+        );
+        assert_eq!(
+            keys(
+                "cpp",
+                Comment,
+                "https://hg.mozilla.org/mozilla-central/rev/9631de8e5f1a"
+            ),
+            words(&[
+                "hg.mozilla.org",
+                "hg",
+                "mozilla",
+                "mozilla-central",
+                "mozilla",
+                "central",
+                "~hex-9631"
+            ])
+        );
+        assert_eq!(
+            keys(
+                "js",
+                String,
+                "\"Landed as 0f2a4938884c2ce7e2637363c5577f095ef0d074.\""
+            ),
+            words(&["~hex-0f2a"])
+        );
+        // (A compound with one isn't one whole.)
+        assert_eq!(
+            keys("cpp", String, "\"0220-ca351238d719fd07\""),
+            words(&["~hex-ca35"])
+        );
+        assert_eq!(
+            keys("js", String, "\"main.3fa4b2c1d9e0.js\""),
+            words(&["~hex-3fa4"])
+        );
+        assert_eq!(
+            keys("cpp", Comment, "obj.abcdef012345"),
+            words(&["obj", "~hex-abcd"])
+        );
+        // UUIDs by their first group's, not their parts.
+        assert_eq!(
+            keys("cpp", String, "\"{d5b4b2a0-1234-4567-89ab-cdef01234567}\""),
+            words(&["~hex-d5b4"])
+        );
+        assert_eq!(
+            keys(
+                "cpp",
+                String,
+                "\"0d7668a8-c3f4-cfee-cbc8-536511528937.json\""
+            ),
+            words(&["~hex-0d76"])
+        );
+        // SRI values by their algorithm and their digest's first 2.
+        assert_eq!(
+            keys("json", String, "\"sha512-UzGt8zg7Ny8d/jbY+abc==\""),
+            words(&["sha512", "~b64-Uz"])
+        );
+        // Not shorter hex words, or those without a digit or a letter.
+        assert_eq!(keys("cpp", String, "\"deadbeef\""), words(&["deadbeef"]));
+        assert_eq!(
+            keys("cpp", String, "\"abcdefabcdefab\""),
+            words(&["abcdefabcdefab"])
+        );
+        assert_eq!(keys("cpp", Comment, "123456789012"), words(&[]));
+        assert_eq!(
+            hash_bucket("d5b4b2a0-1234-4567-89ab-cdef01234567").as_deref(),
+            Some("~hex-d5b4")
+        );
+        assert_eq!(hash_bucket("sha256-Ab").as_deref(), Some("~b64-Ab"));
+        assert_eq!(hash_bucket("sha256-A").as_deref(), Some("~b64-A"));
+        assert_eq!(hash_bucket("cafe-1234-4567"), None);
+        assert!(is_journal_key("9631de8e5f1a"));
     }
 
     #[test]

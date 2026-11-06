@@ -68,6 +68,15 @@ add_task(async function test_TokenHistoryCompound() {
      "with the commit which added it");
 });
 
+add_task(async function test_TokenHistoryHash() {
+  // (A hash's history is its bucket's, of the hashes starting with its first 4
+  // characters; see timeline_tokens.rs's `hash_bucket`.)
+  await TestUtils.loadQuery("searchfox", `token-history:${UPGRADE}`);
+  const view = doc().querySelector(".token-history-view");
+  is(view.querySelector("h2")?.textContent, "The history of ~hex-0f2a", "The view is the bucket's");
+  ok(view.textContent.includes("every one starting with 0f2a"), "which it explains");
+});
+
 add_task(async function test_TokenHistoryWithoutHistory() {
   // (The "tests" tree has no history.)
   await TestUtils.loadQuery("tests", "token-history:Foo");

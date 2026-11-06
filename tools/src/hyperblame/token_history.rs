@@ -69,8 +69,8 @@ use super::token_blame::TreeHistory;
 use crate::file_format::history::rev_summaries::{RevSummaryRecord, rev_summary_path};
 use crate::file_format::history::timeline_common::{ChangeKind, TokenDeltaDetails};
 use crate::file_format::history::timeline_tokens::{
-    TokenDeltaDetailRecord, TokenDeltaRecord, TokenDeltaSummaryRecord, is_journal_key,
-    is_trackable_token, token_timeline_path,
+    KeyRules, TokenDeltaDetailRecord, TokenDeltaRecord, TokenDeltaSummaryRecord, hash_bucket,
+    is_journal_key, is_trackable_token, token_timeline_path,
 };
 
 /// How many bytes of a token's journal to read for the query's note.
@@ -761,7 +761,7 @@ pub(crate) fn case_variants(repo: &Repository, tree: &Tree, token: &str) -> Vec<
 pub fn token_history(
     history: &TreeHistory,
     token: &str,
-    opts: TokenHistoryOptions,
+    mut opts: TokenHistoryOptions,
     header: &dyn Fn(&str) -> Option<String>,
 ) -> Result<Option<TokenHistory>, String> {
     if !is_journal_key(token) {
@@ -772,6 +772,13 @@ pub fn token_history(
         return Ok(None);
     };
     let tree = head.tree().map_err(|e| e.to_string())?;
+    // (With V2's keys, a hash's journal is its bucket's, whose case variants
+    // are other buckets, for SRI digests.)
+    let bucket = (KeyRules::of_tree(repo, &tree).unwrap_or_default() >= KeyRules::V2)
+        .then(|| hash_bucket(token))
+        .flatten();
+    let token = bucket.as_deref().unwrap_or(token);
+    opts.case_sensitive |= bucket.is_some();
     let budget = if opts.view {
         VIEW_READ_BUDGET
     } else {

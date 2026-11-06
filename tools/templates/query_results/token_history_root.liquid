@@ -13,7 +13,9 @@
 {%- else %}
 {%- assign history = value.history %}
 <h2>The history of <code>{{ history.token | escape }}</code></h2>
-{%- if history.token != value.token %}
+{%- if history.token contains "~hex-" or history.token contains "~b64-" %}
+<p>(The history tracks hashes by their first characters, so this is the history of every one starting with <code>{{ history.token | slice: 5, 4 | escape }}</code>, <code>{{ value.token | escape }}</code>'s and the others.)</p>
+{%- elsif history.token != value.token %}
 <p>(The case variant of <code>{{ value.token | escape }}</code> whose removals removed the most.)</p>
 {%- endif %}
 {%- if history.removed > 0 %}
