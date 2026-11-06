@@ -95,6 +95,21 @@ pub fn escape_json_for_script(json: &str) -> String {
         .replace('&', "\\u0026")
 }
 
+/// A JSON data block (not a script, so a Content-Security-Policy without
+/// inline scripts allows it) which static/js/page-data.js makes the global
+/// `global` (ex: `SYM_INFO`).
+pub fn json_data_block<T: Serialize + ?Sized>(global: &str, value: &T) -> String {
+    json_data_block_from_json(global, &serde_json::to_string(value).unwrap())
+}
+
+/// A JSON data block of already serialized JSON.
+pub fn json_data_block_from_json(global: &str, json: &str) -> String {
+    format!(
+        r#"<script type="application/json" data-global="{}">{}</script>"#,
+        escape_html(global),
+        escape_json_for_script(json)
+    )
+}
 
 #[cfg(test)]
 mod tests {
@@ -137,6 +152,18 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&json).unwrap(),
             value
+        );
+    }
+
+    #[test]
+    fn test_json_data_block() {
+        let value = json!({ "pretty": "</script>" });
+        assert_eq!(
+            json_data_block("SYM_INFO", &value),
+            format!(
+                r#"<script type="application/json" data-global="SYM_INFO">{}</script>"#,
+                json_for_script(&value)
+            )
         );
     }
 }

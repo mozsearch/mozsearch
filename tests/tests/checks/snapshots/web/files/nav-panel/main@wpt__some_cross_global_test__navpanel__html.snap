@@ -28,7 +28,7 @@ input_file: inputs/web/files/nav-panel/wpt__some_cross_global_test__navpanel__ht
   <a id="panel-remove-permalink" href="/tests/source/testing/web-platform/tests/complex-tests/some_cross_global_test.any.js" title="Create a revision-agnostic link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/source/testing/web-platform/tests/complex-tests/some_cross_global_test.any.js">Remove the Permalink</a>
   </li>
   <li>
-  <a id="panel-blame" href="javascript:alert('Hover over the gray bar on the left to see blame information.')" title="Hover over the gray bar on the left to see blame information" class="icon item">Blame</a>
+  <button id="panel-blame" title="Hover over the gray bar on the left to see blame information" class="icon item">Blame</button>
   </li>
   </ul>
   <h4>Copy as Markdown</h4>

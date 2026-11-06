@@ -5,6 +5,9 @@ var Panel = new (class Panel {
     if (!this.panel) {
       return;
     }
+    document.getElementById("panel-blame")?.addEventListener("click", () => {
+      alert("Hover over the gray bar on the left to see blame information.");
+    });
     this.toggleButton = document.getElementById("panel-toggle");
     this.icon = this.panel.querySelector(".navpanel-toggle-icon");
     this.settingsButton = document.getElementById("show-settings");
@@ -251,8 +254,10 @@ var Panel = new (class Panel {
   }
 
   toggle() {
-    let hidden = this.content.style.display != "none";
-    this.content.style.display = hidden ? "none" : "";
+    // (A collapsed panel's content is hidden by its class, initially; see
+    // .initially-hidden.)
+    let hidden = getComputedStyle(this.content).display != "none";
+    this.content.style.display = hidden ? "none" : "block";
     this.content.setAttribute("aria-hidden", hidden);
     this.content.setAttribute("aria-expanded", !hidden);
     this.icon.classList.toggle("expanded");
@@ -817,8 +822,9 @@ function blurrifyDiagram() {
   };
 
   let trueDiag = diag.children[0];
-  // disable the background white layer (for both modes)
-  trueDiag.children[0].setAttribute("style", "display: none;")
+  // disable the background white layer (for both modes); not by a style
+  // attribute, which the Content-Security-Policy doesn't allow
+  trueDiag.children[0].style.display = "none";
 
   let blurDiag = trueDiag.cloneNode(true);
   blurDiag.setAttribute("class", "blurry depth-mode");

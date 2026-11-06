@@ -28,6 +28,9 @@ var CoverageGraph = new (class CoverageGraph {
       return;
     }
 
+    // (The navigation panel's Coverage button.)
+    document.getElementById("panel-coverage")?.addEventListener("click", () => this.open());
+
     this.commitDate = new Date(dateEl.dateTime);
 
     const items = this.history.querySelectorAll(".coverage-history-item");

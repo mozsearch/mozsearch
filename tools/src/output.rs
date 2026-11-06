@@ -67,7 +67,7 @@ pub fn generate_breadcrumbs(
     );
 
     breadcrumbs.push_str(r#"<button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button>"#);
-    breadcrumbs.push_str(r#"<div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div>"#);
+    breadcrumbs.push_str(r#"<div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu initially-hidden"></div>"#);
 
     let mut path_so_far = "".to_string();
 
@@ -310,9 +310,10 @@ pub fn generate_footer(
     }
 
     // NOTE: Keep this in sync with tools/templates/scroll_footer.liquid
-    // (trusted-html.js first, which the others use.)
+    // (trusted-html.js and page-data.js first, which the others use.)
     let scripts = [
         "trusted-html.js",
+        "page-data.js",
         "settings.js",
         "search.js",
         "context-menu.js",
@@ -524,7 +525,7 @@ pub fn generate_panel(
                 if collapsed { "false" } else { "true" },
                 if collapsed { "true" } else { "false" },
                 if collapsed {
-                    r#" style="display: none""#
+                    r#" class="initially-hidden""#
                 } else {
                     ""
                 }
