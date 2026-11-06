@@ -32,8 +32,8 @@
     {%- if search_rev != empty %}
     <div class="query-try-context">
       Searching try push <a href="/{{tree}}/{{ try_push_path | escape }}">{{ try_push | escape }}</a>
-      as rebased onto <a href="/{{tree}}/commit/{{ try_base | escape }}">{{ try_base | slice: 0, 12 }}</a>,
-      the indexed revision (<a href="/{{tree}}/query/{{preset}}?q={{ query | url_encode }}">search the indexed revision instead</a>).
+      as rebased onto <a href="/{{tree}}/commit/{{ try_base | escape }}">{{ try_base | slice: 0, 12 | escape }}</a>,
+      the indexed revision (<a href="/{{tree}}/query/{{preset | escape}}?q={{ query | url_encode }}">search the indexed revision instead</a>).
     </div>
     {%- endif %}
     {%- if dwim %}
@@ -43,7 +43,7 @@
     {%- endif %}
     {%- if corrections != empty %}
     <div class="query-interpretation query-corrections">
-      Nothing matched.  Did you mean {% for correction in corrections %}<a href="/{{ tree }}/query/{{ preset }}?q={{ correction | url_encode }}{% if search_rev != empty %}&amp;rev={{ search_rev | url_encode }}{% endif %}"><code>{{ correction | escape }}</code></a>{% if forloop.last %}?{% elsif forloop.rindex == 2 %} or {% else %}, {% endif %}{% endfor %}
+      Nothing matched.  Did you mean {% for correction in corrections %}<a href="/{{ tree }}/query/{{ preset | escape }}?q={{ correction | url_encode }}{% if search_rev != empty %}&amp;rev={{ search_rev | url_encode }}{% endif %}"><code>{{ correction | escape }}</code></a>{% if forloop.last %}?{% elsif forloop.rindex == 2 %} or {% else %}, {% endif %}{% endfor %}
     </div>
     {%- endif %}
     {%- if interpretation %}

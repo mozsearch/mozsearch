@@ -5,9 +5,9 @@
 {%- assign shown = tally.rows | size -%}
 <div class="query-tally">
   <p>
-    {{- tally.distinct }} distinct value{% if tally.distinct != 1 %}s{% endif %} in
-    {{ tally.matches }} match{% if tally.matches != 1 %}es{% endif %}
-    {%- if shown < tally.distinct %} (the {{ shown }} most common shown){% endif %}
+    {{- tally.distinct | escape }} distinct value{% if tally.distinct != 1 %}s{% endif %} in
+    {{ tally.matches | escape }} match{% if tally.matches != 1 %}es{% endif %}
+    {%- if shown < tally.distinct %} (the {{ shown | escape }} most common shown){% endif %}
     {%- if tally.incomplete %}; the search stopped at a limit, so these are of the matches it found{% endif %}.
   </p>
   <table class="query-tally-table">
@@ -21,11 +21,11 @@
       {%- for row in tally.rows %}
       <tr>
         {%- for value in row.values %}<td><code>{{ value | escape }}</code></td>{% endfor -%}
-        <td class="query-tally-count">{{ row.count }}</td>
-        <td class="query-tally-count">{{ row.files }}</td>
+        <td class="query-tally-count">{{ row.count | escape }}</td>
+        <td class="query-tally-count">{{ row.files | escape }}</td>
         <td>
           {%- for place in row.places -%}
-          <a href="/{{ tree }}/source/{{ place[0] | escape }}#{{ place[1] }}" title="{{ place[0] | escape }}">{{ place[0] | split: "/" | last | escape }}:{{ place[1] }}</a>
+          <a href="/{{ tree }}/source/{{ place[0] | escape }}#{{ place[1] | escape }}" title="{{ place[0] | escape }}">{{ place[0] | split: "/" | last | escape }}:{{ place[1] | escape }}</a>
           {%- unless forloop.last %}, {% endunless -%}
           {%- endfor -%}
         </td>

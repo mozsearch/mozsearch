@@ -21,7 +21,7 @@ files, if there are any; see facet_bar.liquid.){% endcomment %}
 {%- else %}
 {% include 'navigation_panel.liquid' expanded: false, panel: null %}
 {%- endif %}
-<div class="explore-page" data-slot="{{ slot }}">
+<div class="explore-page" data-slot="{{ slot | escape }}">
   <h2>{{ title | escape }}</h2>
   {%- if scopes.size > 0 %}
   <p class="explore-scopes">{% for scope in scopes %}{% if scope.url %}<a href="{{ scope.url | escape }}">{{ scope.label | escape }}</a>{% else %}<strong>{{ scope.label | escape }}</strong>{% endif %}{% unless forloop.last %} › {% endunless %}{% endfor %}</p>
@@ -40,10 +40,10 @@ files, if there are any; see facet_bar.liquid.){% endcomment %}
   <p class="explore-note">{{ note | escape }}</p>
   {%- endif %}
   {%- if landed.size > 0 %}
-  <div class="explore-note explore-landed">{% if landed.size == 1 %}One of its commits has{% else %}{{ landed.size }} of its commits have{% endif %} landed since it diverged from the trunk, so its semantic analysis leaves {% if landed.size == 1 %}it{% else %}them{% endif %} out:
+  <div class="explore-note explore-landed">{% if landed.size == 1 %}One of its commits has{% else %}{{ landed.size | escape }} of its commits have{% endif %} landed since it diverged from the trunk, so its semantic analysis leaves {% if landed.size == 1 %}it{% else %}them{% endif %} out:
     <ul>
       {%- for commit in landed %}
-      <li><a href="/{{tree}}/commit/{{ commit.rev | escape }}">{{ commit.summary | escape }}</a>, as <a class="explore-landed-as" href="/{{tree}}/commit/{{ commit.landed | escape }}">{{ commit.landed | slice: 0, 12 }}</a>{% unless commit.same_changes %} (the same Phabricator revision, which may have changed before it landed: {{ commit.landed_summary | escape }}){% endunless %}</li>
+      <li><a href="/{{tree}}/commit/{{ commit.rev | escape }}">{{ commit.summary }}</a>, as <a class="explore-landed-as" href="/{{tree}}/commit/{{ commit.landed | escape }}">{{ commit.landed | slice: 0, 12 | escape }}</a>{% unless commit.same_changes %} (the same Phabricator revision, which may have changed before it landed: {{ commit.landed_summary | escape }}){% endunless %}</li>
       {%- endfor %}
     </ul>
   </div>
@@ -58,26 +58,26 @@ files, if there are any; see facet_bar.liquid.){% endcomment %}
   {%- if semantic_head %}
   <p class="explore-note explore-semantic-head">Its stack rebased onto the indexed revision has semantic analysis: <a href="/{{tree}}/rev/{{ semantic_head | escape }}/">browse it</a>, with jumps and references, where searches (like this page's) are of the push, or see <a class="explore-canvas" href="/{{tree}}/rev-canvas/{{ semantic_head | escape }}">the functions it adds or changes and their calls on a canvas</a>.</p>
   {%- if semantic_trunk %}
-  <p class="explore-note explore-semantic-trunk">Its stack is on a newer trunk revision than the indexed one (<a href="/{{tree}}/commit/{{ semantic_trunk.stack_base | escape }}">{{ semantic_trunk.stack_base | slice: 0, 12 }}</a>), and needs its changes, so its semantic analysis is of it with the {% if semantic_trunk.revisions == 1 %}revision{% else %}{{ semantic_trunk.revisions }} revisions{% endif %} since the indexed one; its canvas has only its own changes.</p>
+  <p class="explore-note explore-semantic-trunk">Its stack is on a newer trunk revision than the indexed one (<a href="/{{tree}}/commit/{{ semantic_trunk.stack_base | escape }}">{{ semantic_trunk.stack_base | slice: 0, 12 | escape }}</a>), and needs its changes, so its semantic analysis is of it with the {% if semantic_trunk.revisions == 1 %}revision{% else %}{{ semantic_trunk.revisions | escape }} revisions{% endif %} since the indexed one; its canvas has only its own changes.</p>
   {%- endif %}
   {%- endif %}
   {%- if missing.size > 0 %}
   <p class="explore-note">No commits {% if other_branches.size > 0 %}on this branch {% endif %}mention {{ missing | join: ", " | escape }}.</p>
   {%- endif %}
   {%- if truncated %}
-  <p class="explore-note">Only the first {{ commits.size }} commits are shown.</p>
+  <p class="explore-note">Only the first {{ commits.size | escape }} commits are shown.</p>
   {%- endif %}
   {%- if other_branches.size > 0 %}
   <details class="explore-other-branches">
-    <summary>Also on other branches: {% for other in other_branches %}{{ other.branch | escape }} ({{ other.commits.size }}){% unless forloop.last %}, {% endunless %}{% endfor %}</summary>
+    <summary>Also on other branches: {% for other in other_branches %}{{ other.branch | escape }} ({{ other.commits.size | escape }}){% unless forloop.last %}, {% endunless %}{% endfor %}</summary>
     {%- for other in other_branches %}
-    <h3>{{ other.branch | escape }}{% if other.tree %} (<a href="/{{ other.tree }}/{{ explore_url }}">{{ other.tree }}</a>){% endif %}</h3>
+    <h3>{{ other.branch | escape }}{% if other.tree %} (<a href="/{{ other.tree | escape }}/{{ explore_url | escape }}">{{ other.tree | escape }}</a>){% endif %}</h3>
     <ol>
       {%- for commit in other.commits %}
       <li class="explore-commit{% if commit.backout %} explore-backout{% endif %}">
         <span class="explore-commit-summary">{{ commit.summary }}</span>
-        <span class="explore-commit-date">{{ commit.isoDate | slice: 0, 10 }}</span>
-        <a href="/{{ other.link_tree }}/commit/{{ commit.rev }}">{{ commit.rev | slice: 0, 12 }}</a>
+        <span class="explore-commit-date">{{ commit.isoDate | slice: 0, 10 | escape }}</span>
+        <a href="/{{ other.link_tree | escape }}/commit/{{ commit.rev | escape }}">{{ commit.rev | slice: 0, 12 | escape }}</a>
       </li>
       {%- endfor %}
     </ol>
@@ -86,17 +86,17 @@ files, if there are any; see facet_bar.liquid.){% endcomment %}
   {%- endif %}
   {%- if commits.size > 0 %}
   <details class="explore-commit-list"{% if commits.size <= 12 %} open{% endif %}>
-    <summary>{{ commits.size }} commit{% if commits.size != 1 %}s{% endif %}, oldest first</summary>
+    <summary>{{ commits.size | escape }} commit{% if commits.size != 1 %}s{% endif %}, oldest first</summary>
     <ol>
       {%- for commit in commits %}
-      <li id="commit-{{ commit.number }}" class="explore-commit{% if commit.backout %} explore-backout{% endif %}">
-        <span class="explore-pick"><input type="checkbox" class="explore-pick-a" value="{{ commit.rev }}" title="Side A of an interdiff"><input type="checkbox" class="explore-pick-b" value="{{ commit.rev }}" title="Side B of an interdiff"></span>
+      <li id="commit-{{ commit.number | escape }}" class="explore-commit{% if commit.backout %} explore-backout{% endif %}">
+        <span class="explore-pick"><input type="checkbox" class="explore-pick-a" value="{{ commit.rev | escape }}" title="Side A of an interdiff"><input type="checkbox" class="explore-pick-b" value="{{ commit.rev | escape }}" title="Side B of an interdiff"></span>
         {%- if commit.interdiff %}
-        <a class="explore-interdiff" href="{{ commit.interdiff }}" title="How the reland differs from the commits this backed out">interdiff of the reland</a>
+        <a class="explore-interdiff" href="{{ commit.interdiff | escape }}" title="How the reland differs from the commits this backed out">interdiff of the reland</a>
         {%- endif %}
         <span class="explore-commit-summary">{{ commit.summary }}</span>
-        <span class="explore-commit-date">{{ commit.isoDate | slice: 0, 10 }}</span>
-        <a href="/{{ tree }}/commit/{{ commit.rev }}">{{ commit.rev | slice: 0, 12 }}</a>
+        <span class="explore-commit-date">{{ commit.isoDate | slice: 0, 10 | escape }}</span>
+        <a href="/{{ tree }}/commit/{{ commit.rev | escape }}">{{ commit.rev | slice: 0, 12 | escape }}</a>
       </li>
       {%- endfor %}
     </ol>

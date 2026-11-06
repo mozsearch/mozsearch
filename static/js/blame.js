@@ -408,21 +408,25 @@ var BlamePopup = new (class BlamePopup {
       return;
     }
 
+    const escape = TrustedHTML.escape;
     const commitLinks = (info, rev, path) => {
-      // (Its pull request and closed issues first.)
+      // (Its pull request and closed issues first, and the links from its
+      // message only if they're http(s) URLs.)
       let links = "Show " + this.reviewLinks(info)
-        .map(([name, url]) => `<a href="${encodeURI(url)}">${name}</a> or `).join("");
-      links += `<a href="/${tree}/diff/${rev}/${encodePath(path)}">diff</a>`;
-      if (info.fulldiff) {
-        links += ` or <a href="${encodeURI(info.fulldiff)}">full diff</a>`;
+        .map(([name, url]) => `<a href="${escape(url)}">${escape(name)}</a> or `).join("");
+      links += `<a href="/${escape(tree)}/diff/${escape(rev)}/${encodePath(path)}">diff</a>`;
+      const fulldiff = TrustedHTML.httpURL(info.fulldiff);
+      if (fulldiff) {
+        links += ` or <a href="${escape(fulldiff)}">full diff</a>`;
       }
-      if (info.phab) {
+      const phab = TrustedHTML.httpURL(info.phab);
+      if (phab) {
         let name = "Phabricator revision";
-        const m = info.phab.match(/\/(D[0-9]+)/);
+        const m = phab.match(/\/(D[0-9]+)/);
         if (m) {
           name += " " + m[1];
         }
-        links += ` or <a href="${encodeURI(info.phab)}">${name}</a>`;
+        links += ` or <a href="${escape(phab)}">${escape(name)}</a>`;
       }
       return links;
     };
@@ -453,9 +457,9 @@ var BlamePopup = new (class BlamePopup {
       content += info.header;
       content += `<br>${commitLinks(info, rev, entry.path)}`;
       if (info.parent) {
-        content += `<br><a href="/${tree}/rev/${info.parent}/${path}" class="deemphasize">Show the version before this commit</a>`;
+        content += `<br><a href="/${escape(tree)}/rev/${escape(info.parent)}/${path}" class="deemphasize">Show the version before this commit</a>`;
       }
-      content += `<br><a href="/${tree}/rev/${rev}/${path}#tokens=${entry.tokens}" class="deemphasize">Show earliest version with these tokens</a>`;
+      content += `<br><a href="/${escape(tree)}/rev/${escape(rev)}/${path}#tokens=${escape(entry.tokens)}" class="deemphasize">Show earliest version with these tokens</a>`;
       content += `</div>`;
     }
 
@@ -472,7 +476,7 @@ var BlamePopup = new (class BlamePopup {
       if (info.parent) {
         const last = removal.firstToken + removal.numRemoved - 1;
         const tokens = last > removal.firstToken ? `${removal.firstToken}-${last}` : `${removal.firstToken}`;
-        content += `<br><a href="/${tree}/rev/${info.parent}/${encodePath(removal.path)}#tokens=${tokens}" class="deemphasize">Show the removed tokens</a>`;
+        content += `<br><a href="/${escape(tree)}/rev/${escape(info.parent)}/${encodePath(removal.path)}#tokens=${escape(tokens)}" class="deemphasize">Show the removed tokens</a>`;
       }
       content += `</div>`;
     }
@@ -538,7 +542,7 @@ var BlamePopup = new (class BlamePopup {
       let diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
       // (Its pull request and closed issues first.)
       rendered += "<br>Show " + this.reviewLinks(json[i])
-        .map(([name, url]) => `<a href="${href(url)}">${escape(name)}</a> or `).join("");
+        .map(([name, url]) => `<a href="${escape(url)}">${escape(name)}</a> or `).join("");
       rendered += `<a href="${href(diffLink)}">annotated diff</a>`;
 
       // (Links from commit messages, ex: their review's, only if they're

@@ -35,16 +35,16 @@
     <section class="info-box info-box-{% if results.flaky_tests > 0 %}warning{% else %}info{% endif %} info-box-concise test-results-concise">
       <h4>Tests in this directory</h4>
       <span class="info-box-facts">
-        <span class="info-box-fact">{{ results.tests | thousands }} test{% if results.tests != 1 %}s{% endif %}</span>
+        <span class="info-box-fact">{{ results.tests | thousands | escape }} test{% if results.tests != 1 %}s{% endif %}</span>
       {%- if results.flaky_tests > 0 %}
-        <span class="info-box-fact">{{ results.flaky_tests | thousands }} flaky</span>
+        <span class="info-box-fact">{{ results.flaky_tests | thousands | escape }} flaky</span>
       {%- endif -%}
       {%- if results.skipped_tests > 0 %}
-        <span class="info-box-fact">{{ results.skipped_tests | thousands }} skipped</span>
+        <span class="info-box-fact">{{ results.skipped_tests | thousands | escape }} skipped</span>
       {%- endif %}
-        <span class="info-box-fact">{{ results.runs | thousands }} runs in {{ results.days }} days</span>
+        <span class="info-box-fact">{{ results.runs | thousands | escape }} runs in {{ results.days | escape }} days</span>
       {%- if results.issues > 0 %}
-        <span class="info-box-fact">{{ results.issues | thousands }} with failures, timeouts or crashes</span>
+        <span class="info-box-fact">{{ results.issues | thousands | escape }} with failures, timeouts or crashes</span>
       {%- endif %}
       </span>
       <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>

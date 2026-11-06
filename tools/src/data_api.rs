@@ -896,6 +896,28 @@ pub async fn respond(
         }
     }
     let params = Params(params);
+    // (The routes' revisions are commit ids, as the pages' are (see
+    // `git_ops::is_hex_rev`), comma-separated where a route takes several;
+    // but map-rev's `from`, a revision of another kind.)
+    for name in [
+        "commit",
+        "rev",
+        "revs",
+        "a",
+        "b",
+        "from",
+        "to",
+        "source_rev",
+    ] {
+        if name == "from" && route.name == "map-rev" {
+            continue;
+        }
+        if let Some(value) = params.get(name)
+            && !value.split(',').all(crate::git_ops::is_hex_rev)
+        {
+            return Err(bad(format!("Not a commit id: {}", name)));
+        }
+    }
     let max_bytes = match params.get("max_bytes") {
         None => DEFAULT_MAX_BYTES,
         Some(max) => max

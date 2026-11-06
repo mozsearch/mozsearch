@@ -53,9 +53,9 @@ tests' CI results.){% endcomment -%}
 {%- assign tag = "button" -%}
 {%- endif %}
     <li>
-      <{{tag}} {%
+      <{{tag | escape}} {%
                if item.id != ""
-               %}id="{{item.id}}" {%
+               %}id="{{item.id | escape}}" {%
                endif
                %}{%
                if item.link != ""
@@ -77,7 +77,7 @@ tests' CI results.){% endcomment -%}
         if item.copyable
         %}<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button>{%
         endif
-        %}</{{tag}}>
+        %}</{{tag | escape}}>
     </li>
 {% endfor -%}
   </ul>

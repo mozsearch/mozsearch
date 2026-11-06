@@ -12,7 +12,7 @@ Parameters:
 {%- assign pass_rate = "–" -%}
 {%- assign pass_rate_kind = "zero" -%}
 {%- if results contains "pass_rate" -%}
-  {%- capture pass_rate %}{{ results.pass_rate }}%{% endcapture -%}
+  {%- capture pass_rate %}{{ results.pass_rate | escape }}%{% endcapture -%}
   {%- assign pass_rate_kind = "plain" -%}
   {%- if results.pass_rate == 100 -%}
     {%- assign pass_rate_kind = "good" -%}
@@ -39,10 +39,10 @@ Parameters:
           {%- include 'test_results/tile.liquid' label: "Skips", value: results.skips, kind: skips_kind %}
         </a>
 {%- if chart_count > 0 %}
-        <div class="test-results-charts test-results-charts-{{ chart_count }}">
+        <div class="test-results-charts test-results-charts-{{ chart_count | escape }}">
   {%- if details.max_daily_issue_rate > 0 %}
           <figure class="test-results-figure">
-            <figcaption>Runs with issues per day (up to {{ details.max_daily_issue_rate }}%)</figcaption>
+            <figcaption>Runs with issues per day (up to {{ details.max_daily_issue_rate | escape }}%)</figcaption>
             {%- include 'test_results/daily_chart.liquid' results: results, values: details.daily_rates, series: "failures,timeouts,crashes", max: details.max_daily_issue_rate, unit: "%", counts: details.daily, height: 48, day_url: day_url %}
             {%- include 'test_results/axis.liquid' results: results %}
             <ul class="test-results-legend">
@@ -54,7 +54,7 @@ Parameters:
   {%- endif -%}
   {%- if details.max_daily_skip_rate > 0 %}
           <figure class="test-results-figure">
-            <figcaption>Scheduled runs skipped per day (up to {{ details.max_daily_skip_rate }}%)</figcaption>
+            <figcaption>Scheduled runs skipped per day (up to {{ details.max_daily_skip_rate | escape }}%)</figcaption>
             {%- include 'test_results/daily_chart.liquid' results: results, values: details.daily_rates, series: "skips", max: details.max_daily_skip_rate, unit: "%", counts: details.daily, height: 48, day_url: day_url %}
             {%- include 'test_results/axis.liquid' results: results %}
           </figure>

@@ -34,12 +34,12 @@
   {%- if query_search %}
   <form method="get" action="/{{tree}}/search" class="search-box" id="search-box">
   {%- else %}
-  <form method="get" action="/{{tree}}/query/{{preset}}" class="search-box" id="search-box">
+  <form method="get" action="/{{tree}}/query/{{preset | escape}}" class="search-box" id="search-box">
   {%- endif %}
   <fieldset>
     <div id="query-section">
       <label for="query" class="query_label visually-hidden">Find</label>
-      <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" {{ maybe_autofocus }}/>
+      <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" {{ maybe_autofocus | escape }}/>
       <div class="zero-size-container">
         <div class="bubble" id="query-bubble">
         </div>

@@ -5,7 +5,7 @@
 <div class="facet-items">
   {%- for group in file_groups %}
   <section class="facet-group">
-    <h3 class="facet-group-header">{{ group.name | escape }} <span class="facet-group-count">({{ group.files.size }} file{% if group.files.size != 1 %}s{% endif %})</span></h3>
+    <h3 class="facet-group-header">{{ group.name | escape }} <span class="facet-group-count">({{ group.files.size | escape }} file{% if group.files.size != 1 %}s{% endif %})</span></h3>
     {%- for file in group.files %}
     {%- include "explore_file.liquid" %}
     {%- endfor %}

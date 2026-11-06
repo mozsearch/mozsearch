@@ -29,11 +29,11 @@
     which in a tree searching with queries normalizes it into one; so do
     keyword engines made from it.  Its pages' links to searches are queries.)
   {% endcomment %}
-  <form method="get" action="{{ search_box_url }}" class="search-box" id="search-box">
+  <form method="get" action="{{ search_box_url | escape }}" class="search-box" id="search-box">
     <fieldset>
       <div id="query-section">
         <label for="query" class="query_label visually-hidden">Find</label>
-        <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" {{ maybe_autofocus }}/>
+        <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" {{ maybe_autofocus | escape }}/>
         <div class="zero-size-container">
           <div class="bubble" id="query-bubble">
           </div>
@@ -73,11 +73,11 @@
     <!-- (A try push's rebased head's searches are of the push.) -->
     <input type="hidden" name="rev" value="{{ search_rev | escape }}" />
     {%- endif %}
-    <span id="data" data-root="/" data-search="{{ search_url }}" data-tree="{{tree}}"{% if search_rev %} data-search-rev="{{ search_rev | escape }}"{% endif %}></span>
+    <span id="data" data-root="/" data-search="{{ search_url | escape }}" data-tree="{{tree}}"{% if search_rev %} data-search-rev="{{ search_rev | escape }}"{% endif %}></span>
     {%- if rev_box %}
       <div id="revision">
         {%- assign human_date = rev_box.date | date: "%F" -%}
-        <span id="rev-id">Showing <a href="/{{tree}}/commit/{{rev_box.long | escape}}">{{rev_box.short | escape}}</a> from <time datetime="{{ rev_box.date }}">{{ human_date }}</time>:</span>
+        <span id="rev-id">Showing <a href="/{{tree}}/commit/{{rev_box.long | escape}}">{{rev_box.short | escape}}</a> from <time datetime="{{ rev_box.date | escape }}">{{ human_date | escape }}</time>:</span>
         <span id="rev-desc" title="{{ rev_box.desc_html | strip_html | escape }}">{{rev_box.desc_html}}</span>
       </div>
     {%- endif %}

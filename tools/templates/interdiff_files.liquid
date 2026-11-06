@@ -8,16 +8,16 @@
   grouped and faceted like the /explore/ pages' (see facet_bar.liquid).
   explore.js shows the commit under the mouse.
 {%- endcomment -%}
-<div class="explore-page interdiff-page" data-slot="{{ slot }}">
+<div class="explore-page interdiff-page" data-slot="{{ slot | escape }}">
   <h2>Interdiff</h2>
   <section class="interdiff-summary">
     <div class="interdiff-sides">
       {%- for side in sides %}
       <div>
-        <h3>{{ side.name }}</h3>
-        <ol start="{{ side.start }}">
+        <h3>{{ side.name | escape }}</h3>
+        <ol start="{{ side.start | escape }}">
           {%- for commit in side.commits %}
-          <li id="commit-{{ commit.number }}" class="explore-commit"><span class="explore-commit-date" title="When it landed">{{ commit.isoDate | slice: 0, 16 | replace: "T", " " }} UTC</span> <a href="/{{ tree }}/commit/{{ commit.rev }}">{{ commit.rev | slice: 0, 12 }}</a> <span class="explore-commit-summary">{{ commit.summary }}</span></li>
+          <li id="commit-{{ commit.number | escape }}" class="explore-commit"><span class="explore-commit-date" title="When it landed">{{ commit.isoDate | slice: 0, 16 | replace: "T", " " | escape }} UTC</span> <a href="/{{ tree }}/commit/{{ commit.rev | escape }}">{{ commit.rev | slice: 0, 12 | escape }}</a> <span class="explore-commit-summary">{{ commit.summary | escape }}</span></li>
           {%- endfor %}
         </ol>
       </div>
@@ -32,7 +32,7 @@
     <p class="explore-note">The commit messages are the same.</p>
     {%- endif %}
     <p class="interdiff-legend">{{ legend }}</p>
-    <p><a href="{{ swap }}">Swap A and B</a></p>
+    <p><a href="{{ swap | escape }}">Swap A and B</a></p>
   </section>
   {%- include "facet_bar.liquid" group_by: true %}
   <p class="explore-status explore-note">Each file's sparkline has a slot for each of A's commits and then each of B's, filled if the commit changed it.  The files and symbols where B's changes are the same as A's are faded, and the others have excerpts of where they differ.</p>

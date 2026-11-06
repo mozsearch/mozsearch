@@ -11,15 +11,15 @@
   Interdiffs fade the files and symbols whose changes are the same in both
   patches, and add a note and excerpts.
 {%- endcomment -%}
-  <section class="explore-file{% if file.same %} interdiff-same{% endif %}" data-path="{{ file.path | escape }}" data-facets="{{ file.facets | escape }}" data-groups="{{ file.groups | escape }}"{% if file.change_size %} data-size="{{ file.change_size }}"{% endif %}{% if file.excerpt_url %} data-excerpts="{{ file.excerpt_url }}"{% endif %}>
-    <div class="explore-file-header"><a href="{{ file.link }}"{% if file.title != "" %} title="{{ file.title | escape }}"{% endif %}>{{ file.path | escape }}</a> {{ file.sparkline }}{% if file.outline != "" %} <a class="explore-outline" href="{{ file.outline }}" title="How the file's definitions changed across these commits (and any between them)">outline</a>{% endif %}{% if file.note != "" %} <span class="interdiff-file-note">{{ file.note }}</span>{% endif %}</div>
+  <section class="explore-file{% if file.same %} interdiff-same{% endif %}" data-path="{{ file.path | escape }}" data-facets="{{ file.facets | escape }}" data-groups="{{ file.groups | escape }}"{% if file.change_size %} data-size="{{ file.change_size | escape }}"{% endif %}{% if file.excerpt_url %} data-excerpts="{{ file.excerpt_url | escape }}"{% endif %}>
+    <div class="explore-file-header"><a href="{{ file.link | escape }}"{% if file.title != "" %} title="{{ file.title | escape }}"{% endif %}>{{ file.path | escape }}</a> {{ file.sparkline }}{% if file.outline != "" %} <a class="explore-outline" href="{{ file.outline }}" title="How the file's definitions changed across these commits (and any between them)">outline</a>{% endif %}{% if file.note != "" %} <span class="interdiff-file-note">{{ file.note | escape }}</span>{% endif %}</div>
     {%- if file.outline_rows %}
     {%- if file.outline_rows.size > 0 %}
     <table class="explore-outline-rows">
       {%- for row in file.outline_rows %}
-      <tr class="outline-{{ row.status }}{% if row.context %} outline-context{% endif %}" style="--outline-depth: {{ row.depth }}" title="{{ row.title | escape }}"{% if row.range %} data-range="{{ row.range }}"{% endif %}>
-        <td class="explore-outline-name">{% if row.link %}<a href="{{ row.link }}">{{ row.name | escape }}</a>{% else %}{{ row.name | escape }}{% endif %}{% if row.note %} <span class="outline-diff-note">{{ row.note | escape }}</span>{% endif %}</td>
-        <td class="explore-outline-change">{% if row.badge != "" %}<span class="outline-badge">{{ row.badge | escape }}</span>{% endif %}{% for commit in row.commits %} <a class="outline-diff-commit" href="{{ commit.link }}" title="{{ commit.title | escape }}">{{ commit.label }}</a>{% endfor %}</td>
+      <tr class="outline-{{ row.status | escape }}{% if row.context %} outline-context{% endif %}" style="--outline-depth: {{ row.depth | escape }}" title="{{ row.title | escape }}"{% if row.range %} data-range="{{ row.range | escape }}"{% endif %}>
+        <td class="explore-outline-name">{% if row.link %}<a href="{{ row.link | escape }}">{{ row.name | escape }}</a>{% else %}{{ row.name | escape }}{% endif %}{% if row.note %} <span class="outline-diff-note">{{ row.note | escape }}</span>{% endif %}</td>
+        <td class="explore-outline-change">{% if row.badge != "" %}<span class="outline-badge">{{ row.badge | escape }}</span>{% endif %}{% for commit in row.commits %} <a class="outline-diff-commit" href="{{ commit.link | escape }}" title="{{ commit.title | escape }}">{{ commit.label | escape }}</a>{% endfor %}</td>
       </tr>
       {%- endfor %}
     </table>
@@ -29,15 +29,15 @@
       {%- for symbol in file.symbols %}
       {%- if symbol.children.size > 0 %}
       <details class="explore-symbol explore-parent{% if symbol.same %} interdiff-same{% endif %}">
-        <summary title="{{ symbol.pretty | escape }}"><span class="explore-summary"><span class="explore-name">{{ symbol.name | escape }}</span>{% for move in symbol.moves %} <a class="explore-move" href="{{ move.link }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} <span class="explore-count">({{ symbol.children.size }})</span> <span class="explore-collapsed">{{ symbol.blot }}</span><span class="explore-expanded">{{ symbol.sparkline }}</span></span></summary>
+        <summary title="{{ symbol.pretty | escape }}"><span class="explore-summary"><span class="explore-name">{{ symbol.name | escape }}</span>{% for move in symbol.moves %} <a class="explore-move" href="{{ move.link | escape }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} <span class="explore-count">({{ symbol.children.size | escape }})</span> <span class="explore-collapsed">{{ symbol.blot }}</span><span class="explore-expanded">{{ symbol.sparkline }}</span></span></summary>
         <div class="explore-children">
           {%- for child in symbol.children %}
-          <span class="explore-symbol explore-child{% if child.same %} interdiff-same{% endif %}" title="{{ child.pretty | escape }}"><span class="explore-name">{{ child.name | escape }}</span>{% for move in child.moves %} <a class="explore-move" href="{{ move.link }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} {{ child.sparkline }}</span>
+          <span class="explore-symbol explore-child{% if child.same %} interdiff-same{% endif %}" title="{{ child.pretty | escape }}"><span class="explore-name">{{ child.name | escape }}</span>{% for move in child.moves %} <a class="explore-move" href="{{ move.link | escape }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} {{ child.sparkline }}</span>
           {%- endfor %}
         </div>
       </details>
       {%- else %}
-      <span class="explore-symbol{% if symbol.same %} interdiff-same{% endif %}" title="{{ symbol.pretty | escape }}"><span class="explore-name">{{ symbol.name | escape }}</span>{% for move in symbol.moves %} <a class="explore-move" href="{{ move.link }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} {{ symbol.sparkline }}</span>
+      <span class="explore-symbol{% if symbol.same %} interdiff-same{% endif %}" title="{{ symbol.pretty | escape }}"><span class="explore-name">{{ symbol.name | escape }}</span>{% for move in symbol.moves %} <a class="explore-move" href="{{ move.link | escape }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} {{ symbol.sparkline }}</span>
       {%- endif %}
       {%- endfor %}
     </div>

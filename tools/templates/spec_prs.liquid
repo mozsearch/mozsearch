@@ -26,23 +26,23 @@
 {%- include "facet_bar.liquid" facets: facets, group_by: false, sort_by: false, noun: "pull request", nouns: "pull requests" %}
 {%- endif %}
 {%- else %}
-<div class="spec-prs" data-status-url="{{ status_url }}">
+<div class="spec-prs" data-status-url="{{ status_url | escape }}">
   {%- if rendered.size == 1 and rendered_several == false %}
   <p class="spec-prs-rendered"><a class="spec-prs-rendered-link" href="{{ rendered.first.url | escape }}">Rendered spec with all of its pull requests</a></p>
   {%- elsif rendered.size > 0 %}
-  <p class="spec-prs-rendered">Rendered specs with all of their pull requests: {% for each in rendered %}<a class="spec-prs-rendered-link" href="{{ each.url | escape }}" title="{{ each.count }} of its pull requests change it">{{ each.name | escape }}</a> ({{ each.count }}){% unless forloop.last %}, {% endunless %}{% endfor %}</p>
+  <p class="spec-prs-rendered">Rendered specs with all of their pull requests: {% for each in rendered %}<a class="spec-prs-rendered-link" href="{{ each.url | escape }}" title="{{ each.count | escape }} of its pull requests change it">{{ each.name | escape }}</a> ({{ each.count | escape }}){% unless forloop.last %}, {% endunless %}{% endfor %}</p>
   {%- endif %}
   <div class="spec-prs-sync">
     {%- if notice %}
     <p class="spec-prs-notice">{{ notice | escape }}</p>
     {%- endif %}
     <p class="spec-prs-status">
-    {%- if summary %}<a class="spec-prs-github" href="{{ summary.url | escape }}">{{ summary.repo | escape }}</a> on GitHub. Synced {{ summary.synced }}{% if summary.snapshot %}, from GitHub's metadata as of {{ summary.snapshot }}{% endif %}. {% endif -%}
+    {%- if summary %}<a class="spec-prs-github" href="{{ summary.url | escape }}">{{ summary.repo | escape }}</a> on GitHub. Synced {{ summary.synced | escape }}{% if summary.snapshot %}, from GitHub's metadata as of {{ summary.snapshot | escape }}{% endif %}. {% endif -%}
     {%- case status.state -%}
     {%- when "queued" -%}
       Waiting to sync.
     {%- when "running" -%}
-      Syncing ({{ status.seconds }}s so far): <code>{{ status.step | escape }}</code>
+      Syncing ({{ status.seconds | escape }}s so far): <code>{{ status.step | escape }}</code>
     {%- when "idle" -%}
       {%- if status.error %}The last sync failed:{% endif -%}
     {%- endcase -%}
@@ -51,19 +51,19 @@
     {%- if status.error %}
     <pre class="spec-prs-error">{{ status.error | escape }}</pre>
     {%- endif %}
-    <form method="post" action="{{ sync_url }}">
+    <form method="post" action="{{ sync_url | escape }}">
       <button type="submit" class="spec-prs-sync-button">Sync {% if spec %}its{% else %}their{% endif %} pull requests</button>
     </form>
     {%- endif %}
   </div>
   {%- if spec and imports.available %}
-  <div class="spec-prs-imports" data-status-url="{{ imports.status_url }}">
-    <p class="spec-prs-imports-status">{{ imports.current }} of its {{ imports.count }} pull request{% if imports.count != 1 %}s{% endif %} {% if imports.current == 1 %}is{% else %}are{% endif %} imported at {% if imports.current == 1 %}its head{% else %}their heads{% endif %}
-      {%- if imports.pending > 0 %}, {{ imports.pending }} {% if imports.pending == 1 %}is{% else %}are{% endif %} waiting or importing{% endif %}
-      {%- if imports.needed > 0 %}, and {{ imports.needed }} {% if imports.needed == 1 %}isn't{% else %}aren't{% endif %}{% endif %}.
-      <span class="spec-prs-import-limit"{% if imports.batch %} hidden{% endif %}>That's too many to import at once: filter them to at most {{ imports.max_batch }}, or import them from their pages.</span></p>
+  <div class="spec-prs-imports" data-status-url="{{ imports.status_url | escape }}">
+    <p class="spec-prs-imports-status">{{ imports.current | escape }} of its {{ imports.count | escape }} pull request{% if imports.count != 1 %}s{% endif %} {% if imports.current == 1 %}is{% else %}are{% endif %} imported at {% if imports.current == 1 %}its head{% else %}their heads{% endif %}
+      {%- if imports.pending > 0 %}, {{ imports.pending | escape }} {% if imports.pending == 1 %}is{% else %}are{% endif %} waiting or importing{% endif %}
+      {%- if imports.needed > 0 %}, and {{ imports.needed | escape }} {% if imports.needed == 1 %}isn't{% else %}aren't{% endif %}{% endif %}.
+      <span class="spec-prs-import-limit"{% if imports.batch %} hidden{% endif %}>That's too many to import at once: filter them to at most {{ imports.max_batch | escape }}, or import them from their pages.</span></p>
     {%- if imports.needed > 0 %}
-    <form method="post" action="{{ imports.import_url }}" class="spec-prs-import-form" data-max-batch="{{ imports.max_batch }}">
+    <form method="post" action="{{ imports.import_url | escape }}" class="spec-prs-import-form" data-max-batch="{{ imports.max_batch | escape }}">
       <button type="submit" class="spec-prs-import-button"{% unless imports.batch %} hidden{% endunless %}>Import these pull requests</button>
     </form>
     <p class="spec-prs-import-note">Importing them processes their commits into this tree's history and renders and analyzes their changes (a Bikeshed spec's only render once they're imported), a few at a time, each taking seconds to a minute.</p>
@@ -75,16 +75,16 @@
   {%- if prs.size > 0 %}
   <div class="facet-items spec-pr-list">
     {%- for pr in prs %}
-    <section class="spec-pr" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}" data-needed="{{ pr.import.needed }}">
-      <div class="spec-pr-header"><a class="spec-pr-title" href="/{{ tree }}/{{ pr.try_path }}" title="Its page as a try push, which imports it into this tree">#{{ pr.number }} {{ pr.title | escape }}</a>{% if pr.url %} <a class="spec-pr-github" href="{{ pr.url | escape }}">on GitHub</a>{% endif %} <span class="spec-pr-import" data-state="{{ pr.import.state }}">{{ pr.import.text | escape }}</span></div>
-      <div class="spec-pr-meta">{% if pr.author %}By {{ pr.author | escape }}{% if pr.updated %}, updated {{ pr.updated }}{% endif %}{% elsif pr.updated %}Updated {{ pr.updated }}{% endif %}{% if pr.review %} <span class="spec-pr-review spec-pr-review-{{ pr.review_class }}">{{ pr.review_name }}</span>{% endif %}{% if pr.draft %} <span class="spec-pr-draft">Draft</span>{% endif %}{% for label in pr.labels %} <span class="spec-pr-label">{{ label | escape }}</span>{% endfor %}</div>
+    <section class="spec-pr" data-path="{{ pr.number | escape }}" data-facets="{{ pr.facets | escape }}" data-needed="{{ pr.import.needed | escape }}">
+      <div class="spec-pr-header"><a class="spec-pr-title" href="/{{ tree }}/{{ pr.try_path | escape }}" title="Its page as a try push, which imports it into this tree">#{{ pr.number | escape }} {{ pr.title | escape }}</a>{% if pr.url %} <a class="spec-pr-github" href="{{ pr.url | escape }}">on GitHub</a>{% endif %} <span class="spec-pr-import" data-state="{{ pr.import.state | escape }}">{{ pr.import.text | escape }}</span></div>
+      <div class="spec-pr-meta">{% if pr.author %}By {{ pr.author | escape }}{% if pr.updated %}, updated {{ pr.updated | escape }}{% endif %}{% elsif pr.updated %}Updated {{ pr.updated | escape }}{% endif %}{% if pr.review %} <span class="spec-pr-review spec-pr-review-{{ pr.review_class | escape }}">{{ pr.review_name | escape }}</span>{% endif %}{% if pr.draft %} <span class="spec-pr-draft">Draft</span>{% endif %}{% for label in pr.labels %} <span class="spec-pr-label">{{ label | escape }}</span>{% endfor %}</div>
       {%- if pr.error %}
       <p class="spec-pr-error">{{ pr.error | escape }}</p>
       {%- endif %}
       {%- if pr.files.size > 0 %}
       <ul class="spec-pr-files">
         {%- for file in pr.files %}
-        <li><a href="{{ file.link }}">{{ file.path | escape }}</a>{% if file.just_this %} (<a class="spec-pr-just-this" href="{{ file.just_this | escape }}" title="Its rendering with only this pull request's changes beside it">with just this pull request</a>){% endif %} <span class="spec-pr-added">+{{ file.added }}</span> <span class="spec-pr-removed">−{{ file.removed }}</span>{% if file.sections.size > 0 %} in {% for section in file.sections %}{% if section.link %}<a href="{{ section.link | escape }}">{{ section.title | escape }}</a>{% else %}{{ section.title | escape }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</li>
+        <li><a href="{{ file.link | escape }}">{{ file.path | escape }}</a>{% if file.just_this %} (<a class="spec-pr-just-this" href="{{ file.just_this | escape }}" title="Its rendering with only this pull request's changes beside it">with just this pull request</a>){% endif %} <span class="spec-pr-added">+{{ file.added | escape }}</span> <span class="spec-pr-removed">−{{ file.removed | escape }}</span>{% if file.sections.size > 0 %} in {% for section in file.sections %}{% if section.link %}<a href="{{ section.link | escape }}">{{ section.title | escape }}</a>{% else %}{{ section.title | escape }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</li>
         {%- endfor %}
       </ul>
       {%- endif %}
@@ -105,8 +105,8 @@
     </thead>
     <tbody>
       {%- for repo in repos %}
-      {%- capture page %}/{{ tree }}/spec-prs/{{ repo.spec }}{% endcapture %}
-      <tr><td><a class="spec-prs-repo-page" href="{{ page }}">{{ repo.spec | escape }}</a></td><td><a class="spec-prs-repo-github" href="{{ repo.url | escape }}">{{ repo.repo | escape }}</a></td><td>{{ repo.count }}</td><td><a href="{{ page }}?facet-review=APPROVED">{{ repo.approved }}</a></td><td><a href="{{ page }}?facet-review=CHANGES_REQUESTED">{{ repo.changes_requested }}</a></td><td><a href="{{ page }}?facet-author=reviewer">{{ repo.by_reviewers }}</a></td><td><a href="{{ page }}?facet-draft=draft">{{ repo.drafts }}</a></td><td>{{ repo.synced }}</td></tr>
+      {%- capture page %}/{{ tree }}/spec-prs/{{ repo.spec | escape }}{% endcapture %}
+      <tr><td><a class="spec-prs-repo-page" href="{{ page }}">{{ repo.spec | escape }}</a></td><td><a class="spec-prs-repo-github" href="{{ repo.url | escape }}">{{ repo.repo | escape }}</a></td><td>{{ repo.count | escape }}</td><td><a href="{{ page }}?facet-review=APPROVED">{{ repo.approved | escape }}</a></td><td><a href="{{ page }}?facet-review=CHANGES_REQUESTED">{{ repo.changes_requested | escape }}</a></td><td><a href="{{ page }}?facet-author=reviewer">{{ repo.by_reviewers | escape }}</a></td><td><a href="{{ page }}?facet-draft=draft">{{ repo.drafts | escape }}</a></td><td>{{ repo.synced | escape }}</td></tr>
       {%- endfor %}
     </tbody>
   </table>

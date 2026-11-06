@@ -6,4 +6,4 @@ Parameters:
 - value: The number, or text.
 - kind: Suffix of the CSS class coloring the value; "zero" for a 0 value.
 {%- endcomment %}
-<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-{{ kind | escape }}">{{ value | thousands }}</span><span class="test-results-tile-label">{{ label | escape }}</span></div>
+<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-{{ kind | escape }}">{{ value | thousands | escape }}</span><span class="test-results-tile-label">{{ label | escape }}</span></div>

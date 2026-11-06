@@ -22,12 +22,12 @@
 {%- if summary and prs.size > 0 %}
 {%- include "facet_bar.liquid" facets: facets, group_by: false, sort_by: false, noun: "pull request", nouns: "pull requests" %}
 <details class="sp-pr-list-box"{% if prs.size <= 20 %} open{% endif %}>
-  <summary><h4>Pull requests <span class="sp-pr-list-count">({{ prs.size }})</span></h4></summary>
+  <summary><h4>Pull requests <span class="sp-pr-list-count">({{ prs.size | escape }})</span></h4></summary>
   <ul class="facet-items sp-pr-list">
     {%- for pr in prs %}
-    <li class="sp-pr-entry" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}" data-pr="{{ pr.data | escape }}"><a href="{{ pr.try_path }}">#{{ pr.number }} {{ pr.title | escape }}</a> <span class="sp-pr-state">{% if pr.loads %}Loading its changes…{% else %}{{ pr.error | escape }}{% endif %}</span>
-      {%- if pr.contains %}<span class="sp-pr-note sp-pr-contains">{{ pr.contains.before | escape }}<a href="{{ pr.contains.try_path }}">#{{ pr.contains.number }}</a>{{ pr.contains.after | escape }}</span>{% endif %}
-      {%- if pr.contained_by %}<span class="sp-pr-note sp-pr-contained">{{ pr.contained_by.before | escape }}{% for other in pr.contained_by.prs %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="{{ other.try_path }}">#{{ other.number }}</a>{% endfor %}{{ pr.contained_by.after | escape }}</span>{% endif %}</li>
+    <li class="sp-pr-entry" data-path="{{ pr.number | escape }}" data-facets="{{ pr.facets | escape }}" data-pr="{{ pr.data | escape }}"><a href="{{ pr.try_path | escape }}">#{{ pr.number | escape }} {{ pr.title | escape }}</a> <span class="sp-pr-state">{% if pr.loads %}Loading its changes…{% else %}{{ pr.error | escape }}{% endif %}</span>
+      {%- if pr.contains %}<span class="sp-pr-note sp-pr-contains">{{ pr.contains.before | escape }}<a href="{{ pr.contains.try_path | escape }}">#{{ pr.contains.number | escape }}</a>{{ pr.contains.after | escape }}</span>{% endif %}
+      {%- if pr.contained_by %}<span class="sp-pr-note sp-pr-contained">{{ pr.contained_by.before | escape }}{% for other in pr.contained_by.prs %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="{{ other.try_path | escape }}">#{{ other.number | escape }}</a>{% endfor %}{{ pr.contained_by.after | escape }}</span>{% endif %}</li>
     {%- endfor %}
   </ul>
 </details>
@@ -37,17 +37,17 @@
 <section class="sp-prs-header">
   {%- if summary and only %}
   <p class="sp-prs-intro sp-prs-only">
-    {%- if only.shown.size > 0 %}Only the changes of {% if only.shown.size == 1 %}pull request{% else %}pull requests{% endif %} {% for number in only.shown %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="/{{ tree }}/try/{{ spec_repo }}/{{ number }}">#{{ number }}</a>{% endfor %} of {{ summary.repo | escape }} are beside this page, as of {{ summary.synced }}.{% endif %}
-    {%- if only.missing.size > 0 %} {% for number in only.missing %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="/{{ tree }}/try/{{ spec_repo }}/{{ number }}">#{{ number }}</a>{% endfor %} {% if only.missing.size == 1 %}doesn't{% else %}don't{% endif %} change this page.{% endif %}
-    {%- if only.all > 0 %} (<a class="sp-prs-all" href="{{ only.all_url | escape }}">All {{ only.all }} of its open pull requests changing it</a>.){% endif %}</p>
+    {%- if only.shown.size > 0 %}Only the changes of {% if only.shown.size == 1 %}pull request{% else %}pull requests{% endif %} {% for number in only.shown %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="/{{ tree }}/try/{{ spec_repo | escape }}/{{ number | escape }}">#{{ number | escape }}</a>{% endfor %} of {{ summary.repo | escape }} are beside this page, as of {{ summary.synced | escape }}.{% endif %}
+    {%- if only.missing.size > 0 %} {% for number in only.missing %}{% unless forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endunless %}<a href="/{{ tree }}/try/{{ spec_repo | escape }}/{{ number | escape }}">#{{ number | escape }}</a>{% endfor %} {% if only.missing.size == 1 %}doesn't{% else %}don't{% endif %} change this page.{% endif %}
+    {%- if only.all > 0 %} (<a class="sp-prs-all" href="{{ only.all_url | escape }}">All {{ only.all | escape }} of its open pull requests changing it</a>.){% endif %}</p>
   {%- elsif summary %}
   {%- if prs.size > 0 %}
-  <p class="sp-prs-intro">The changes of {{ summary.repo | escape }}'s open pull requests changing this page, merged with it, are beside it, as of {{ summary.synced }} (<a href="/{{ tree }}/spec-prs/{{ spec_repo }}">all of its pull requests</a>); the navigation panel lists them, with filters.</p>
+  <p class="sp-prs-intro">The changes of {{ summary.repo | escape }}'s open pull requests changing this page, merged with it, are beside it, as of {{ summary.synced | escape }} (<a href="/{{ tree }}/spec-prs/{{ spec_repo | escape }}">all of its pull requests</a>); the navigation panel lists them, with filters.</p>
   {%- else %}
-  <p class="sp-prs-intro">None of {{ summary.repo | escape }}'s open pull requests change this file, as of {{ summary.synced }} (<a href="/{{ tree }}/spec-prs/{{ spec_repo }}">all of its pull requests</a>).</p>
+  <p class="sp-prs-intro">None of {{ summary.repo | escape }}'s open pull requests change this file, as of {{ summary.synced | escape }} (<a href="/{{ tree }}/spec-prs/{{ spec_repo | escape }}">all of its pull requests</a>).</p>
   {%- endif %}
   {%- else %}
-  <p class="sp-prs-intro">{{ spec_repo | escape }}'s pull requests haven't been synced yet (<a href="/{{ tree }}/spec-prs/{{ spec_repo }}">sync them</a>).</p>
+  <p class="sp-prs-intro">{{ spec_repo | escape }}'s pull requests haven't been synced yet (<a href="/{{ tree }}/spec-prs/{{ spec_repo | escape }}">sync them</a>).</p>
   {%- endif %}
 </section>
 {%- endif %}

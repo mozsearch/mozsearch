@@ -12,26 +12,26 @@
   <h2>{{ path | escape }} isn't in the tree</h2>
   {%- if deleted %}
   <p>
-    {%- if moves != empty %}It moved from {% for move in moves %}<code>{{ move.path | escape }}</code> to <code>{{ move.moved_to | escape }}</code> in <a href="/{{ tree }}/commit/{{ move.rev }}">{{ move.rev | slice: 0, 12 }}</a> ({{ move.date | slice: 0, 10 }}){% unless forloop.last %}, then {% endunless %}{% endfor %}, and was{% else %}It was{% endif %}
-    deleted in <a href="/{{ tree }}/commit/{{ deleted.rev }}">{{ deleted.rev | slice: 0, 12 }}</a> ({{ deleted.date | slice: 0, 10 }}){% if summary != empty %}: {{ summary | escape }}{% endif %}.
+    {%- if moves != empty %}It moved from {% for move in moves %}<code>{{ move.path | escape }}</code> to <code>{{ move.moved_to | escape }}</code> in <a href="/{{ tree }}/commit/{{ move.rev | escape }}">{{ move.rev | slice: 0, 12 | escape }}</a> ({{ move.date | slice: 0, 10 | escape }}){% unless forloop.last %}, then {% endunless %}{% endfor %}, and was{% else %}It was{% endif %}
+    deleted in <a href="/{{ tree }}/commit/{{ deleted.rev | escape }}">{{ deleted.rev | slice: 0, 12 | escape }}</a> ({{ deleted.date | slice: 0, 10 | escape }}){% if summary != empty %}: {{ summary | escape }}{% endif %}.
   </p>
   {%- if parent != empty %}
-  <p><a class="missing-source-last" href="/{{ tree }}/rev/{{ parent }}/{{ deleted.path | escape }}">Its last version</a>, before that commit.</p>
+  <p><a class="missing-source-last" href="/{{ tree }}/rev/{{ parent | escape }}/{{ deleted.path | escape }}">Its last version</a>, before that commit.</p>
   {%- endif %}
   {%- if content != empty %}
   <p>That commit moved its content to:</p>
   <ul class="missing-source-content">
     {%- for destination in content %}
-    <li><a href="/{{ tree }}/source/{{ destination.path | escape }}">{{ destination.path | escape }}</a> ({{ destination.count }} of its tokens)</li>
+    <li><a href="/{{ tree }}/source/{{ destination.path | escape }}">{{ destination.path | escape }}</a> ({{ destination.count | escape }} of its tokens)</li>
     {%- endfor %}
   </ul>
   {%- endif %}
   {%- elsif directory %}
-  <p>It was a directory, of {{ directory.files }} file{% if directory.files != 1 %}s{% endif %}, which the tree doesn't have anymore{% if directory.deleted > 0 %}: {{ directory.deleted }} {% if directory.deleted == 1 %}was{% else %}were{% endif %} deleted{% endif %}{% if directory.moved_to != empty %}{% if directory.deleted > 0 %}, and{% else %}:{% endif %} others moved to:{% else %}.{% endif %}</p>
+  <p>It was a directory, of {{ directory.files | escape }} file{% if directory.files != 1 %}s{% endif %}, which the tree doesn't have anymore{% if directory.deleted > 0 %}: {{ directory.deleted | escape }} {% if directory.deleted == 1 %}was{% else %}were{% endif %} deleted{% endif %}{% if directory.moved_to != empty %}{% if directory.deleted > 0 %}, and{% else %}:{% endif %} others moved to:{% else %}.{% endif %}</p>
   {%- if directory.moved_to != empty %}
   <ul class="missing-source-content">
     {%- for destination in directory.moved_to %}
-    <li><a href="/{{ tree }}/source/{{ destination.path | escape }}">{{ destination.path | escape }}</a> ({{ destination.count }} file{% if destination.count != 1 %}s{% endif %})</li>
+    <li><a href="/{{ tree }}/source/{{ destination.path | escape }}">{{ destination.path | escape }}</a> ({{ destination.count | escape }} file{% if destination.count != 1 %}s{% endif %})</li>
     {%- endfor %}
   </ul>
   {%- endif %}

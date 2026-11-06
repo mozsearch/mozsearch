@@ -6,7 +6,7 @@
   push's explore page.  A spec's pull request's page links to its changed
   specs' views with just its changes (`views`; see `format::spec_pr_views`).
 {%- endcomment -%}
-<div class="try-import" data-status-url="/{{ tree }}/{{ status_path }}">
+<div class="try-import" data-status-url="/{{ tree }}/{{ status_path | escape }}">
   <h2>{{ name | escape }}{% if link %} (<a href="{{ link | escape }}">on GitHub</a>){% endif %}</h2>
   {%- if views.size > 0 %}
   <p class="spec-pr-views">Rendered with just this pull request: {% for view in views %}<a class="spec-pr-just-this" href="{{ view.url | escape }}" title="The rendering with only this pull request's changes beside it">{{ view.path | escape }}</a>{% unless forloop.last %}, {% endunless %}{% endfor %}</p>
@@ -19,18 +19,18 @@
   {%- when "notImported" -%}
     This tree hasn't imported the try push into its history.
   {%- when "queued" -%}
-    Waiting to be imported{% if status.ahead > 0 %}, after {{ status.ahead }} other{% if status.ahead != 1 %}s{% endif %}{% endif %}.
+    Waiting to be imported{% if status.ahead > 0 %}, after {{ status.ahead | escape }} other{% if status.ahead != 1 %}s{% endif %}{% endif %}.
   {%- when "running" -%}
-    Importing ({{ status.seconds }}s so far): <code>{{ status.step | escape }}</code>
+    Importing ({{ status.seconds | escape }}s so far): <code>{{ status.step | escape }}</code>
   {%- when "failed" -%}
-    Importing it failed {{ status.seconds }}s ago{% unless status.retry %}; it can be tried again in a few minutes{% endunless %}:
+    Importing it failed {{ status.seconds | escape }}s ago{% unless status.retry %}; it can be tried again in a few minutes{% endunless %}:
   {%- endcase -%}
   </p>
   {%- if status.state == "failed" %}
   <pre class="try-import-error">{{ status.message | escape }}</pre>
   {%- endif %}
   {%- if status.state == "notImported" or status.retry %}
-  <form method="post" action="/{{ tree }}/{{ push_path }}">
+  <form method="post" action="/{{ tree }}/{{ push_path | escape }}">
     <button type="submit" class="try-import-button">Import it</button>
   </form>
   <p class="try-import-note">Importing it processes its commits into this tree's history, for their blame and what they changed, which takes from seconds to minutes.  It isn't indexed, so its revisions have no jumps or references.</p>

@@ -942,9 +942,26 @@ fn mark_texts(html: &str, texts: &[String]) -> String {
     let mut out = String::with_capacity(html.len() + 64);
     let mut rest = html;
     while !rest.is_empty() {
-        // (A tag, as it is.)
+        // (A tag, as it is, to its `>` outside its attributes' quoted values,
+        // which can have `>`s.)
         if rest.starts_with('<') {
-            let end = rest.find('>').map_or(rest.len(), |i| i + 1);
+            let mut quote = None;
+            let end = rest
+                .char_indices()
+                .find(|&(_, c)| match quote {
+                    Some(q) => {
+                        if c == q {
+                            quote = None;
+                        }
+                        false
+                    }
+                    None if c == '"' || c == '\'' => {
+                        quote = Some(c);
+                        false
+                    }
+                    None => c == '>',
+                })
+                .map_or(rest.len(), |(i, _)| i + 1);
             out.push_str(&rest[..end]);
             rest = &rest[end..];
             continue;
@@ -1821,6 +1838,12 @@ mod tests {
             r#"<p>To <a href="/x#resolve"><mark class="rd-excerpt-hit">resolve</mark> a module specifier</a>, <b><mark class="rd-excerpt-hit">Resolve</mark></b> <mark class="rd-excerpt-hit">it &amp; more</mark>.</p>"#
         );
         assert_eq!(mark_texts(html, &[]), html);
+        // (A `>` in an attribute's value is the tag's, not text.)
+        let html = r#"<abbr title="a > resolve">resolve</abbr>"#;
+        assert_eq!(
+            mark_texts(html, &["resolve".to_string()]),
+            r#"<abbr title="a > resolve"><mark class="rd-excerpt-hit">resolve</mark></abbr>"#
+        );
     }
 
     #[test]

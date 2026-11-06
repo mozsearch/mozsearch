@@ -658,6 +658,27 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             .uncached();
     }
 
+    // The revisions of these routes' URLs are commit ids, as the data API's
+    // are (see `git_ops::is_hex_rev`): the first segment after the route, or
+    // the first two for those comparing revisions, each maybe several,
+    // comma-separated, and those of an explore page's or a try push's files'
+    // stack strips and excerpts (after `explore/bug/{bugs}/stack-strip/`, ex).
+    // (`rev`, `diff` and `commit` redirect ref names; see `redirect_ref_name`.)
+    let rev_segments = match (&kind[..], path.get(4)) {
+        ("rev-hyperblame" | "rev-rendered" | "rev-canvas" | "rev-algorithm" | "history", _) => 2..3,
+        ("rev-outline" | "outline-diff" | "interdiff", _) => 2..4,
+        ("explore" | "try", Some(&"stack-strip")) => 5..6,
+        ("explore" | "try", Some(&"excerpts")) => 5..7,
+        _ => 0..0,
+    };
+    if let Some(segments) = path.get(rev_segments)
+        && !segments
+            .iter()
+            .all(|segment| segment.split(',').all(git_ops::is_hex_rev))
+    {
+        return WebResponse::internal_error("Bad revision".to_owned());
+    }
+
     match &kind[..] {
         "diagnostics" => match serde_json::to_string(&diagnostics_from_config(cfg, tree_name)) {
             Ok(s) => WebResponse::json(s),

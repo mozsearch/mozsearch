@@ -12,7 +12,7 @@ the test info box's.{% endcomment -%}
       <span class="info-box-fact">{{ semantic.reason | escape }}</span>
     </span>
     {%- if semantic.bug %}
-    <a class="info-box-details" href="https://bugzilla.mozilla.org/show_bug.cgi?id={{ semantic.bug }}">Bug {{ semantic.bug }}</a>
+    <a class="info-box-details" href="https://bugzilla.mozilla.org/show_bug.cgi?id={{ semantic.bug | escape }}">Bug {{ semantic.bug | escape }}</a>
     {%- endif %}
   </section>
   {%- else %}

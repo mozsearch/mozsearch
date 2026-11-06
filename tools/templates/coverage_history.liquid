@@ -6,7 +6,7 @@
       <li class="coverage-history-item" data-rev="{{ coverage.rev | escape }}" data-percentage="{{ coverage.coveragePercent | escape }}">
         <a href="{{ file_url | escape }}">
           <time class="coverage-history-date" datetime="{{ coverage.date | escape }}">{{ human_date | escape }}</time>:
-          <span class="coverage-history-percentage">{{ coverage.coveragePercent | round }} %</span>
+          <span class="coverage-history-percentage">{{ coverage.coveragePercent | round | escape }} %</span>
         </a>
       </li>
     {%- endfor %}

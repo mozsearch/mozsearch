@@ -1936,7 +1936,7 @@ function populateResults(data, full, jumpToSingle) {
         html += "<tr><td>&nbsp;</td></tr>";
         html +=
           "<tr><td class='section'>§</td><td><div class='result-pathkind'>" +
-          pathkindName + maybeCounts +
+          escape(pathkindName) + maybeCounts +
           "</div></td></tr>";
       }
 
@@ -1959,13 +1959,13 @@ function populateResults(data, full, jumpToSingle) {
 
         str += "<tr>";
         str +=   "<td class='left-column'>";
-        str +=     "<div class='expando open' data-klass='" + uniqueToggleClass + "'>&#9660;</div>";
+        str +=     `<div class="expando open" data-klass="${escape(uniqueToggleClass)}">&#9660;</div>`;
         str +=   "</td>";
         str +=   "<td>";
         str +=     "<h2 class='result-kind'>Uses (0)</h2>";
         str +=   "</td>";
         str += "</tr>";
-        str += "<tr class='" + uniqueToggleClass + "'>";
+        str += `<tr class="${escape(uniqueToggleClass)}">`;
         str +=   "<td class='left-column'></td>";
         str +=   "<td>";
         str +=     "<div class='result-no-uses-note'>";

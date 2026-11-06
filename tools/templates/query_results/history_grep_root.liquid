@@ -16,27 +16,27 @@
   </h2>
   <p class="history-grep-plan">
     {%- if grep.tokens != empty %}
-    Checking the {{ grep.candidates }} revision{% if grep.candidates != 1 %}s{% endif %} which changed
+    Checking the {{ grep.candidates | escape }} revision{% if grep.candidates != 1 %}s{% endif %} which changed
     {% for token in grep.tokens %}<a href="/{{ tree }}/query/default?q=token-history%3A{{ token | url_encode }}"><code>{{ token | escape }}</code></a>{% unless forloop.last %}, {% endunless %}{% endfor %},
     which every match contains.
     {%- else %}
     {%- assign file_count = grep.files | size %}
-    Checking the {{ grep.candidates }} revision{% if grep.candidates != 1 %}s{% endif %} of
-    {{ file_count }} file{% if file_count != 1 %}s{% endif %}
+    Checking the {{ grep.candidates | escape }} revision{% if grep.candidates != 1 %}s{% endif %} of
+    {{ file_count | escape }} file{% if file_count != 1 %}s{% endif %}
     {%- if grep.scope %} which changed <code>{{ grep.scope | escape }}</code>, on its lines
     {%- if grep.pruned %} (those changing the pattern's names in it: it changed too often to check every revision){% endif %}
     {%- endif %}.
     {%- endif %}
     {%- if grep.timeline %}
-    It checked all of them ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
+    It checked all of them ({{ grep.checked | escape }} file version{% if grep.checked != 1 %}s{% endif %}).
     {%- else %}
-    This page checked revisions {{ grep.page_start | plus: 1 }}–{{ grep.page_end }}, newest first
-    ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
+    This page checked revisions {{ grep.page_start | plus: 1 | escape }}–{{ grep.page_end | escape }}, newest first
+    ({{ grep.checked | escape }} file version{% if grep.checked != 1 %}s{% endif %}).
     {%- endif %}
-    {%- if grep.merges_skipped > 0 %} Merges are skipped ({{ grep.merges_skipped }}).{% endif %}
+    {%- if grep.merges_skipped > 0 %} Merges are skipped ({{ grep.merges_skipped | escape }}).{% endif %}
     {%- if grep.backouts_hidden > 0 %}
-    {{ grep.backouts_hidden }} backed out change{% if grep.backouts_hidden != 1 %}s{% endif %} and {% if grep.backouts_hidden != 1 %}their backouts are{% else %}its backout are{% endif %} left out
-    (<a href="/{{ tree }}/query/{{ preset }}?q={{ base_query | append: " backouts:show" | url_encode }}">show them</a>).
+    {{ grep.backouts_hidden | escape }} backed out change{% if grep.backouts_hidden != 1 %}s{% endif %} and {% if grep.backouts_hidden != 1 %}their backouts are{% else %}its backout are{% endif %} left out
+    (<a href="/{{ tree }}/query/{{ preset | escape }}?q={{ base_query | append: " backouts:show" | url_encode }}">show them</a>).
     {%- endif %}
     {%- if grep.out_of_time %} This page stopped at its time limit.{% endif %}
   </p>
@@ -44,8 +44,8 @@
   <p class="history-grep-ignored">Ignored <code>{{ grep.ignored | escape }}</code>: a history query only takes its terms (ex: <code>until:YYYY-MM-DD</code>, <code>path:</code>, <code>scope:</code>).</p>
   {%- endif %}
   {%- if grep.timeline %}
-  {%- comment %}(The timeline's model, with its "<"s escaped; see history-timeline.js.){% endcomment %}
-  <script>var HISTORY_TIMELINE = {{ grep.timeline | json | replace: "<", "\u003c" }};</script>
+  {%- comment %}(The timeline's model, a JSON data block, whose global page-data.js sets before history-timeline.js runs, deferred.){% endcomment %}
+  <script type="application/json" data-global="HISTORY_TIMELINE">{{ grep.timeline | json_script }}</script>
   <div id="history-timeline" class="history-timeline"></div>
   <script defer src="/{{ tree }}/static/js/history-timeline.js"></script>
   {%- for series in grep.timeline.series %}
@@ -56,15 +56,15 @@
       {%- when "value" %}its value
       {%- when "values" %}how many distinct values the matches captured
       {%- else %}how many matches
-      {%- endcase %}, from {{ series.start }}
+      {%- endcase %}, from {{ series.start | escape }}
       {%- if grep.timeline.end_note %}
       (its end has only the files its changes change: {{ grep.timeline.end_note | escape }})
       {%- endif %}
       {%- if grep.timeline.discarded > 0 %}
-      ({{ grep.timeline.discarded }} change{% if grep.timeline.discarded != 1 %}s{% endif %} on side branches which the main line didn't keep {% if grep.timeline.discarded != 1 %}are{% else %}is{% endif %} only in “By file”)
+      ({{ grep.timeline.discarded | escape }} change{% if grep.timeline.discarded != 1 %}s{% endif %} on side branches which the main line didn't keep {% if grep.timeline.discarded != 1 %}are{% else %}is{% endif %} only in “By file”)
       {%- endif %}
       {%- if grep.timeline.unchanged > 0 %}
-      ({{ grep.timeline.unchanged }} revision{% if grep.timeline.unchanged != 1 %}s{% endif %} which changed files' values, but not which values there are, {% if grep.timeline.unchanged != 1 %}are{% else %}is{% endif %} only in “By file”)
+      ({{ grep.timeline.unchanged | escape }} revision{% if grep.timeline.unchanged != 1 %}s{% endif %} which changed files' values, but not which values there are, {% if grep.timeline.unchanged != 1 %}are{% else %}is{% endif %} only in “By file”)
       {%- endif %}
     </caption>
     <thead>
@@ -73,9 +73,9 @@
     <tbody>
       {%- for point in series.points %}
       <tr>
-        <td class="history-grep-date"{% if point.committed %} title="Committed {{ point.committed }}"{% endif %}>{{ point.date }}</td>
-        <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ point.rev }}"><code>{{ point.rev | slice: 0, 12 }}</code></a> {{ point.header }}</td>
-        <td class="history-grep-count">{{ point.value }}</td>
+        <td class="history-grep-date"{% if point.committed %} title="Committed {{ point.committed | escape }}"{% endif %}>{{ point.date | escape }}</td>
+        <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ point.rev | escape }}"><code>{{ point.rev | slice: 0, 12 | escape }}</code></a> {{ point.header }}</td>
+        <td class="history-grep-count">{{ point.value | escape }}</td>
         <td>
           {%- for added in point.added %}<div class="history-grep-added">+ <code>{{ added | escape }}</code></div>{% endfor -%}
           {%- for removed in point.removed %}<div class="history-grep-removed">− <code>{{ removed | escape }}</code></div>{% endfor -%}
@@ -97,18 +97,18 @@
     <tbody>
       {%- for row in grep.rows %}
       <tr{% if row.backout %} class="history-grep-backout"{% endif %}>
-        <td class="history-grep-date"{% if row.committed %} title="Committed {{ row.committed }}"{% endif %}>{{ row.date }}</td>
-        <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ row.rev }}"><code>{{ row.rev | slice: 0, 12 }}</code></a> {{ row.header }}</td>
-        <td><a href="/{{ tree }}/rev/{{ row.rev }}/{{ row.path | escape }}">{{ row.path | escape }}</a>
+        <td class="history-grep-date"{% if row.committed %} title="Committed {{ row.committed | escape }}"{% endif %}>{{ row.date | escape }}</td>
+        <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ row.rev | escape }}"><code>{{ row.rev | slice: 0, 12 | escape }}</code></a> {{ row.header }}</td>
+        <td><a href="/{{ tree }}/rev/{{ row.rev | escape }}/{{ row.path | escape }}">{{ row.path | escape }}</a>
           {%- if row.old_path %} (from {{ row.old_path | escape }}){% endif %}</td>
-        <td class="history-grep-count" title="{{ row.path | escape }} had {{ row.before }} match{% if row.before != 1 %}es{% endif %} before {{ row.rev | slice: 0, 12 }}, and {{ row.after }} after">{{ row.before }} → {{ row.after }}</td>
+        <td class="history-grep-count" title="{{ row.path | escape }} had {{ row.before | escape }} match{% if row.before != 1 %}es{% endif %} before {{ row.rev | slice: 0, 12 | escape }}, and {{ row.after | escape }} after">{{ row.before | escape }} → {{ row.after | escape }}</td>
         <td>
           {%- comment %}(Each distinct value or line once, with how many more of it, if more than one.){% endcomment %}
-          {%- for value in row.added_values %}{% assign n = row.added_value_counts[forloop.index0] %}<div class="history-grep-added">+ {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}{% if n > 1 %} <span class="history-grep-times">×{{ n }}</span>{% endif %}</div>{% endfor -%}
-          {%- for value in row.removed_values %}{% assign n = row.removed_value_counts[forloop.index0] %}<div class="history-grep-removed">− {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}{% if n > 1 %} <span class="history-grep-times">×{{ n }}</span>{% endif %}</div>{% endfor -%}
+          {%- for value in row.added_values %}{% assign n = row.added_value_counts[forloop.index0] %}<div class="history-grep-added">+ {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}{% if n > 1 %} <span class="history-grep-times">×{{ n | escape }}</span>{% endif %}</div>{% endfor -%}
+          {%- for value in row.removed_values %}{% assign n = row.removed_value_counts[forloop.index0] %}<div class="history-grep-removed">− {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}{% if n > 1 %} <span class="history-grep-times">×{{ n | escape }}</span>{% endif %}</div>{% endfor -%}
           {%- if row.added_values == empty and row.removed_values == empty %}
-          {%- for line in row.added_lines %}{% assign n = row.added_line_counts[forloop.index0] %}<div class="history-grep-added">+ <code>{{ line | escape }}</code>{% if n > 1 %} <span class="history-grep-times">×{{ n }}</span>{% endif %}</div>{% endfor -%}
-          {%- for line in row.removed_lines %}{% assign n = row.removed_line_counts[forloop.index0] %}<div class="history-grep-removed">− <code>{{ line | escape }}</code>{% if n > 1 %} <span class="history-grep-times">×{{ n }}</span>{% endif %}</div>{% endfor -%}
+          {%- for line in row.added_lines %}{% assign n = row.added_line_counts[forloop.index0] %}<div class="history-grep-added">+ <code>{{ line | escape }}</code>{% if n > 1 %} <span class="history-grep-times">×{{ n | escape }}</span>{% endif %}</div>{% endfor -%}
+          {%- for line in row.removed_lines %}{% assign n = row.removed_line_counts[forloop.index0] %}<div class="history-grep-removed">− <code>{{ line | escape }}</code>{% if n > 1 %} <span class="history-grep-times">×{{ n | escape }}</span>{% endif %}</div>{% endfor -%}
           {%- endif %}
         </td>
       </tr>
@@ -118,7 +118,7 @@
   {%- if grep.timeline %}</details>{% endif %}
   {%- endif %}
   {%- if grep.next_page %}
-  <p><a href="/{{ tree }}/query/{{ preset }}?q={{ base_query | append: " page:" | append: grep.next_page | url_encode }}">Keep going</a> (revisions {{ grep.next_page | plus: 1 }}–{{ grep.candidates }} of the candidates).</p>
+  <p><a href="/{{ tree }}/query/{{ preset | escape }}?q={{ base_query | append: " page:" | append: grep.next_page | url_encode }}">Keep going</a> (revisions {{ grep.next_page | plus: 1 | escape }}–{{ grep.candidates | escape }} of the candidates).</p>
   {%- endif %}
   <p class="history-grep-caveats">
     Code moved between files isn't a change here, and merges are skipped.

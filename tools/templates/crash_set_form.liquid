@@ -34,21 +34,21 @@
       {%- endfor %}
     </fieldset>
     <label class="crash-set-field">From <input type="date" name="from" value="{{ from | escape }}"></label>
-    <label class="crash-set-field">through <input type="date" name="through" value="{{ through | escape }}"> (within the last {{ max_days_back }} days)</label>
-    <label class="crash-set-field">The latest <input type="number" name="limit" value="{{ limit }}" min="1" max="{{ max_crashes }}"> crash reports (at most {{ max_crashes }}; {{ max_without_token }} without a token)</label>
+    <label class="crash-set-field">through <input type="date" name="through" value="{{ through | escape }}"> (within the last {{ max_days_back | escape }} days)</label>
+    <label class="crash-set-field">The latest <input type="number" name="limit" value="{{ limit | escape }}" min="1" max="{{ max_crashes | escape }}"> crash reports (at most {{ max_crashes | escape }}; {{ max_without_token | escape }} without a token)</label>
     <label class="crash-set-field">A crash-stats API token (optional) <input type="password" name="token" value="" autocomplete="off" size="36"></label>
     <p class="crash-set-token-note">Only for crash-stats' rate limits: create one <em>without any permissions</em> at <a href="https://crash-stats.mozilla.org/api/tokens/">crash-stats' API tokens</a> (searchfox refuses one which can see protected data).  It's only used for this fetch, never stored, and then forgotten.</p>
     <button type="submit" class="crash-set-submit">Fetch them</button>
   </form>
 {%- else %}
   <h2>Fetching crash reports</h2>
-  <p class="crash-set-form-about">The crash reports of crash-stats' search for {{ about }}.</p>
-  <p class="crash-set-status" data-status-url="{{ status_url | escape }}" data-state="{{ status.state }}">
+  <p class="crash-set-form-about">The crash reports of crash-stats' search for {{ about | escape }}.</p>
+  <p class="crash-set-status" data-status-url="{{ status_url | escape }}" data-state="{{ status.state | escape }}">
   {%- case status.state -%}
   {%- when "queued" -%}
-    Waiting to be fetched{% if status.ahead > 0 %}, after {{ status.ahead }} other{% if status.ahead != 1 %}s{% endif %}{% endif %}.
+    Waiting to be fetched{% if status.ahead > 0 %}, after {{ status.ahead | escape }} other{% if status.ahead != 1 %}s{% endif %}{% endif %}.
   {%- when "running" -%}
-    Fetching them: {{ status.fetched }} of {{ status.total }}.
+    Fetching them: {{ status.fetched | escape }} of {{ status.total | escape }}.
   {%- when "done" -%}
     Done: <a class="crash-set-link" href="{{ set_url | escape }}">their crash set</a>.
   {%- when "failed" -%}

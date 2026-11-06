@@ -33,8 +33,8 @@ Parameters:
 {%- assign last_day = results.days | minus: 1 -%}
 {%- assign width = results.days | times: bar_pitch -%}
 {%- assign baseline_y = height | minus: 1 -%}
-<svg class="test-results-sparkline" width="{{ width }}" height="{{ height }}" viewBox="0 0 {{ width }} {{ height }}" aria-hidden="true">
-  <rect class="test-results-baseline" x="0" y="{{ baseline_y }}" width="{{ width }}" height="1"/>
+<svg class="test-results-sparkline" width="{{ width | escape }}" height="{{ height | escape }}" viewBox="0 0 {{ width | escape }} {{ height | escape }}" aria-hidden="true">
+  <rect class="test-results-baseline" x="0" y="{{ baseline_y | escape }}" width="{{ width | escape }}" height="1"/>
 {%- if max > 0 -%}
   {%- assign scale = height | times: 1.0 | divided_by: max -%}
   {%- for day in (0..last_day) -%}
@@ -43,12 +43,12 @@ Parameters:
     {%- if has_skips -%}{%- if skip_rates[day] > 0 -%}
       {%- assign bar_height = skip_rates[day] | times: scale | at_least: 1 | at_most: height | round: 1 -%}
       {%- assign y = height | minus: bar_height | round: 1 %}
-  <rect class="test-results-skipped" x="{{ x }}" y="{{ y }}" width="3" height="{{ bar_height }}"/>
+  <rect class="test-results-skipped" x="{{ x | escape }}" y="{{ y | escape }}" width="3" height="{{ bar_height | escape }}"/>
     {%- endif -%}{%- endif -%}
     {%- if has_issues -%}{%- if issue_rates[day] > 0 -%}
       {%- assign bar_height = issue_rates[day] | times: scale | at_least: 1 | round: 1 -%}
       {%- assign y = height | minus: bar_height | round: 1 %}
-  <rect class="test-results-flaky" x="{{ x }}" y="{{ y }}" width="3" height="{{ bar_height }}"/>
+  <rect class="test-results-flaky" x="{{ x | escape }}" y="{{ y | escape }}" width="3" height="{{ bar_height | escape }}"/>
     {%- endif -%}{%- endif -%}
   {%- endfor -%}
 {%- endif %}

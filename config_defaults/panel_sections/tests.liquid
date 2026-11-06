@@ -26,21 +26,21 @@ guards.){% endcomment -%}
 {%- if detailed.info contains "test_manifests" %}
   {%- assign condition_keys = "skip-if|Skipped if any of:,run-if|Runs only if:,fail-if|Expected to fail if:" | split: "," -%}
   {%- for entry in detailed.info.test_manifests %}
-    <li>Manifest: {% if entry contains "ancestor" %}<a href="/{{ tree }}/source/{{ entry.ancestor }}">{{ entry.ancestor }}</a> includes {% endif -%}
-      <a href="/{{ tree }}/source/{{ entry.manifest }}#{{ entry.line }}" class="test-manifest-section">{{ entry.manifest }}</a>
+    <li>Manifest: {% if entry contains "ancestor" %}<a href="/{{ tree }}/source/{{ entry.ancestor | escape }}">{{ entry.ancestor | escape }}</a> includes {% endif -%}
+      <a href="/{{ tree }}/source/{{ entry.manifest | escape }}#{{ entry.line | escape }}" class="test-manifest-section">{{ entry.manifest | escape }}</a>
     {%- if entry.conditions != empty %}
       <ul>
       {%- for key_label in condition_keys -%}
         {%- assign key_parts = key_label | split: "|" -%}
         {%- if entry.conditions contains key_parts[0] %}
-        <li>{{ key_parts[1] }}
+        <li>{{ key_parts[1] | escape }}
           <ul>
           {%- for condition in entry.conditions[key_parts[0]] %}
-            <li><a href="/{{ tree }}/source/{{ condition.manifest }}#{{ condition.line }}" class="test-skip-info">{{ condition.text | escape }}</a>
+            <li><a href="/{{ tree }}/source/{{ condition.manifest | escape }}#{{ condition.line | escape }}" class="test-skip-info">{{ condition.text | escape }}</a>
             {%- case condition.from -%}
               {%- when "default" %} <span class="test-condition-from">(the manifest's default)</span>
-              {%- when "include" %} <span class="test-condition-from">(where {{ condition.manifest }} includes it)</span>
-              {%- when "ancestor-default" %} <span class="test-condition-from">({{ condition.manifest }}'s default)</span>
+              {%- when "include" %} <span class="test-condition-from">(where {{ condition.manifest | escape }} includes it)</span>
+              {%- when "ancestor-default" %} <span class="test-condition-from">({{ condition.manifest | escape }}'s default)</span>
             {%- endcase -%}
             {%- if condition contains "comment" %} <span class="test-condition-comment">{{ condition.comment | linkify }}</span>{% endif -%}
             </li>
@@ -55,40 +55,40 @@ guards.){% endcomment -%}
   {%- endfor -%}
 {%- elsif concise.info contains "test" -%}
   {%- if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty %}
-    <li>Skipped with pattern: <span class="test-skip-info">{{ concise.info.test.skip_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
+    <li>Skipped with pattern: <span class="test-skip-info">{{ concise.info.test.skip_if | replace: double_newline, newline | replace: newline, " OR " | escape }}</span></li>
   {%- endif -%}
   {%- if concise.info.test contains "run_if" and concise.info.test.run_if != empty %}
-    <li>Runs only with pattern: <span class="test-skip-info">{{ concise.info.test.run_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
+    <li>Runs only with pattern: <span class="test-skip-info">{{ concise.info.test.run_if | replace: double_newline, newline | replace: newline, " OR " | escape }}</span></li>
   {%- endif -%}
   {%- if concise.info.test contains "fail_if" and concise.info.test.fail_if != empty %}
-    <li>Known to fail with pattern: <span class="test-skip-info">{{ concise.info.test.fail_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
+    <li>Known to fail with pattern: <span class="test-skip-info">{{ concise.info.test.fail_if | replace: double_newline, newline | replace: newline, " OR " | escape }}</span></li>
   {%- endif -%}
   {%- unless concise.info contains "wpt" -%}
     {%- if concise.info.test contains "manifest" and concise.info.test.manifest != empty %}
       {%- for aggr_manifest in concise.info.test.manifest -%}
         {%- assign manifests = aggr_manifest | split: ":" %}
     <li>Manifest: {% for manifest in manifests -%}
-          {%- unless forloop.first %} includes {% endunless -%}<a href="/{{ tree }}/source/{{ manifest }}">{{ manifest }}</a>
+          {%- unless forloop.first %} includes {% endunless -%}<a href="/{{ tree }}/source/{{ manifest | escape }}">{{ manifest | escape }}</a>
         {%- endfor -%}</li>
       {%- endfor -%}
     {%- endif -%}
   {%- endunless -%}
 {%- endif -%}
 {%- if concise.info contains "test" and concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 %}
-    <li>Failed {{ concise.info.test.failure_count }} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ path }}">quicksearch this test</a></li>
+    <li>Failed {{ concise.info.test.failure_count | escape }} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ path | escape }}">quicksearch this test</a></li>
 {%- endif -%}
 {%- if concise.info contains "wpt" -%}
-  {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta/" }}.ini{%- endcapture -%}
+  {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta/" | escape }}.ini{%- endcapture -%}
   {%- if concise.info.wpt contains "disabling_conditions" %}
     <li>Its <a href="{{ wpt_meta_url }}">WPT meta file</a> disables it given conditions:
       <ul>{%- for cond_bug in concise.info.wpt.disabling_conditions %}
-        <li><span class="test-skip-info">{{ cond_bug[0] | strip }}</span>&nbsp; : <a href="{{ cond_bug[1] | ensure_bug_url }}">{{ cond_bug[1] }}</a></li>
+        <li><span class="test-skip-info">{{ cond_bug[0] | strip | escape }}</span>&nbsp; : <a href="{{ cond_bug[1] | ensure_bug_url | escape }}">{{ cond_bug[1] | escape }}</a></li>
       {%- endfor -%}
       </ul>
     </li>
   {%- endif -%}
   {%- if concise.info.wpt contains "disabled_subtests_count" %}
-    <li>Its <a href="{{ wpt_meta_url }}">WPT meta file</a> expects {{ concise.info.wpt.disabled_subtests_count }} subtest issues.</li>
+    <li>Its <a href="{{ wpt_meta_url }}">WPT meta file</a> expects {{ concise.info.wpt.disabled_subtests_count | escape }} subtest issues.</li>
   {%- endif -%}
   {%- if concise.info.wpt contains "test_ids" %}
     {%- if concise.bugzilla_component == empty -%}
@@ -98,7 +98,7 @@ guards.){% endcomment -%}
     {%- endif %}
     <li>It may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
       <ul>{%- for test_id in concise.info.wpt.test_ids %}
-        <li>/{{ test_id }} - <a href="https://wpt.fyi/results/{{ test_id }}">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent={{ bugzillaString | downcase }}#/{{ test_id }}">Interop Dashboard</a></li>
+        <li>/{{ test_id | escape }} - <a href="https://wpt.fyi/results/{{ test_id | escape }}">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent={{ bugzillaString | downcase | escape }}#/{{ test_id | escape }}">Interop Dashboard</a></li>
       {%- endfor -%}
       </ul>
     </li>

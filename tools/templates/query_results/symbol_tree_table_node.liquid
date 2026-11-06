@@ -1,5 +1,5 @@
 <tr>
-  <td class="base-class-{{ node.isBaseClass | escape }}" colspan="{{ platforms.size | times: 2 | plus: 3 }}">
+  <td class="base-class-{{ node.isBaseClass | escape }}" colspan="{{ platforms.size | times: 2 | plus: 3 | escape }}">
     <h3>
       <code>
         <span data-symbols="{{ node.symbols | escape }}">
@@ -119,7 +119,7 @@
     </tr>
   {%- elsif item contains "Warning" -%}
     <tr>
-      <th colspan="{{ platforms.size | times: 2 | plus: 3 }}">
+      <th colspan="{{ platforms.size | times: 2 | plus: 3 | escape }}">
         <em class="warning">
           {{- item.Warning | escape -}}
         </em>

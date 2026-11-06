@@ -4,7 +4,7 @@
   the `file_names`, `lines`, and `files` counts.
 {%- endcomment -%}
 {%- if lines > 0 -%}
-    {%- if file_names > 0 %} ({{ file_names }} filename{% if file_names != 1 %}s{% endif %} and {% else %} ({% endif -%}
-    {{ lines }} line{% if lines != 1 %}s{% endif %} across {{ files }} file{% if files != 1 %}s{% endif %})
-{%- else %} ({{ files }} file{% if files != 1 %}s{% endif %})
+    {%- if file_names > 0 %} ({{ file_names | escape }} filename{% if file_names != 1 %}s{% endif %} and {% else %} ({% endif -%}
+    {{ lines | escape }} line{% if lines != 1 %}s{% endif %} across {{ files | escape }} file{% if files != 1 %}s{% endif %})
+{%- else %} ({{ files | escape }} file{% if files != 1 %}s{% endif %})
 {%- endif -%}

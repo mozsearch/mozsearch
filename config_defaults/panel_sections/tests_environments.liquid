@@ -14,20 +14,20 @@ contains guards.){% endcomment -%}
 {%- if envs contains "roots" %}
   <ul class="js-env-roots">
   {%- for env in envs.roots %}
-    <li class="js-env" data-root="{{ env.root }}"><span class="js-env-flavor">{{ env.flavor }}</span> in a {% include 'js_environments/environment.liquid' env: env, tree: tree, path: path, test_root: env.root %}</li>
+    <li class="js-env" data-root="{{ env.root | escape }}"><span class="js-env-flavor">{{ env.flavor | escape }}</span> in a {% include 'js_environments/environment.liquid' env: env, tree: tree, path: path, test_root: env.root %}</li>
   {%- endfor %}
   </ul>
 {%- endif %}
 {%- if envs contains "in" %}
-  <p class="js-env-in-heading">Loaded into {{ envs.in_count }} {% if envs.in_count == 1 %}environment{% else %}environments{% endif %}{% if envs.in_count > envs.in.size %} (the first {{ envs.in.size }} here){% endif %}:</p>
+  <p class="js-env-in-heading">Loaded into {{ envs.in_count | escape }} {% if envs.in_count == 1 %}environment{% else %}environments{% endif %}{% if envs.in_count > envs.in.size %} (the first {{ envs.in.size | escape }} here){% endif %}:</p>
   <ul class="js-env-ins">
   {%- for entry in envs.in %}
-    <li class="js-env-in" data-root="{{ entry.root }}"><span class="js-env-flavor">{{ entry.flavor }}</span> <a href="/{{ tree }}/source/{{ entry.root }}">{{ entry.root }}</a>
-    {%- if entry contains "manifest" %} (<a href="/{{ tree }}/source/{{ entry.manifest }}">{{ entry.manifest | split: "/" | last }}</a>{% if entry contains "ancestor" %}, included by <a href="/{{ tree }}/source/{{ entry.ancestor }}">{{ entry.ancestor | split: "/" | last }}</a>{% endif %}){% endif -%}
-    , as its <span class="js-env-role">{{ entry.role }}</span>
-    {%- if entry.env_root != entry.root %} in <a href="/{{ tree }}/source/{{ entry.env_root }}">{{ entry.env_root | split: "/" | last }}</a>'s {{ entry.global }}{% else %} in a {{ entry.global }}{% endif -%}
+    <li class="js-env-in" data-root="{{ entry.root | escape }}"><span class="js-env-flavor">{{ entry.flavor | escape }}</span> <a href="/{{ tree }}/source/{{ entry.root | escape }}">{{ entry.root | escape }}</a>
+    {%- if entry contains "manifest" %} (<a href="/{{ tree }}/source/{{ entry.manifest | escape }}">{{ entry.manifest | split: "/" | last | escape }}</a>{% if entry contains "ancestor" %}, included by <a href="/{{ tree }}/source/{{ entry.ancestor | escape }}">{{ entry.ancestor | split: "/" | last | escape }}</a>{% endif %}){% endif -%}
+    , as its <span class="js-env-role">{{ entry.role | escape }}</span>
+    {%- if entry.env_root != entry.root %} in <a href="/{{ tree }}/source/{{ entry.env_root | escape }}">{{ entry.env_root | split: "/" | last | escape }}</a>'s {{ entry.global | escape }}{% else %} in a {{ entry.global | escape }}{% endif -%}
     {%- if entry contains "tree" %}
-      <details class="js-env-tree" data-root="{{ entry.root }}"><summary>Its environments</summary>{% include 'js_environments/environment.liquid' env: entry.tree, tree: tree, path: path, test_root: entry.root %}</details>
+      <details class="js-env-tree" data-root="{{ entry.root | escape }}"><summary>Its environments</summary>{% include 'js_environments/environment.liquid' env: entry.tree, tree: tree, path: path, test_root: entry.root %}</details>
     {%- endif %}
     </li>
   {%- endfor %}

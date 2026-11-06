@@ -3434,7 +3434,7 @@ fn write_algorithm_view(
         .collect();
     let main = &sections[0];
 
-    let title = format!("{} - mozsearch", rendered_docs::escape(&main.name));
+    let title = format!("{} - mozsearch", main.name);
     let opt = Options {
         title: &title,
         tree_name,
@@ -5188,7 +5188,7 @@ pub fn format_rendered(
         .unwrap_or(path);
     let title = format!(
         "{} - mozsearch",
-        rendered_docs::escape(rendered.title.as_deref().unwrap_or(filename))
+        rendered.title.as_deref().unwrap_or(filename)
     );
     let header = blame::commit_header(&commit)?;
     let revision = page_rev.as_deref().map(|rev| RevisionData {
@@ -10170,6 +10170,15 @@ fn explore_refs(
             _ => key.to_string(),
         })
         .collect();
+    // (Numbers only: the keys are in the page's title and URL, which is a
+    // file once it's a sidecar.)
+    let number = |key: &str| !key.is_empty() && key.bytes().all(|b| b.is_ascii_digit());
+    if !keys.iter().all(|key| match kind {
+        "phab" => number(&key[1..]),
+        _ => number(key),
+    }) {
+        return Err("Not a bug number or a Phabricator revision");
+    }
     let mut refs: Vec<CommitRef> = vec![];
     let mut missing = vec![];
     for key in &keys {

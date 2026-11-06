@@ -7,7 +7,7 @@
 {%- endif -%}
     {%- assign accel = "" -%}
 <li>
-    <{{tag}} title="{{ title | escape }}" class="icon item"{{ tag_extra }}>
+    <{{tag | escape}} title="{{ title | escape }}" class="icon item"{{ tag_extra }}>
         {{ title | escape }}
         {%- if accel_key != empty -%}
             <span class="accel">{{ accel_key | escape }}</span>"
@@ -23,5 +23,5 @@
                 </span>
             {%- endif -%}
         {%- endif -%}
-    </{{tag}}>
+    </{{tag | escape}}>
 </li>

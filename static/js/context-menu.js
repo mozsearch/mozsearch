@@ -1329,7 +1329,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
-    return s.replace("_", data);
+    // (A function, so that the data's `$&`, `$'` and the like are its text.)
+    return s.replace("_", () => data);
   }
 
   fmtLang(lang) {

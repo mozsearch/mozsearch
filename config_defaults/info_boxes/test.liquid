@@ -60,38 +60,38 @@ guards.){% endcomment -%}
       {%- endif -%}
     {%- endif -%}
   {%- endif %}
-  <section class="info-box info-box-{{ test_severity }} info-box-concise">
-    <h4>{{ test_heading }}</h4>
+  <section class="info-box info-box-{{ test_severity | escape }} info-box-concise">
+    <h4>{{ test_heading | escape }}</h4>
     <span class="info-box-facts">
   {%- if concise.info contains "test_results" -%}
-      <span class="info-box-fact">{{ results.runs | thousands }} runs in {{ results.days }} days</span>
+      <span class="info-box-fact">{{ results.runs | thousands | escape }} runs in {{ results.days | escape }} days</span>
     {%- if results.issues > 0 -%}
-      <span class="info-box-fact">{{ results.issues | thousands }} with failures, timeouts or crashes ({{ results.pass_rate }}% passed)</span>
+      <span class="info-box-fact">{{ results.issues | thousands | escape }} with failures, timeouts or crashes ({{ results.pass_rate | escape }}% passed)</span>
     {%- endif -%}
     {%- if results.skips > 0 -%}
-      <span class="info-box-fact">{{ results.skips | thousands }} skipped</span>
+      <span class="info-box-fact">{{ results.skips | thousands | escape }} skipped</span>
     {%- endif -%}
   {%- endif -%}
   {%- if skip_conditions > 0 -%}
-      <span class="info-box-fact">skipped given {{ skip_conditions }} condition{% if skip_conditions != 1 %}s{% endif %}</span>
+      <span class="info-box-fact">skipped given {{ skip_conditions | escape }} condition{% if skip_conditions != 1 %}s{% endif %}</span>
   {%- endif -%}
   {%- if run_conditions > 0 -%}
-      <span class="info-box-fact">runs only given {{ run_conditions }} condition{% if run_conditions != 1 %}s{% endif %}</span>
+      <span class="info-box-fact">runs only given {{ run_conditions | escape }} condition{% if run_conditions != 1 %}s{% endif %}</span>
   {%- endif -%}
   {%- if fail_conditions > 0 -%}
-      <span class="info-box-fact">expected to fail given {{ fail_conditions }} condition{% if fail_conditions != 1 %}s{% endif %}</span>
+      <span class="info-box-fact">expected to fail given {{ fail_conditions | escape }} condition{% if fail_conditions != 1 %}s{% endif %}</span>
   {%- endif -%}
   {%- if failure_count > 0 -%}
-      <span class="info-box-fact">failed {{ failure_count }} times in 30 days</span>
+      <span class="info-box-fact">failed {{ failure_count | escape }} times in 30 days</span>
   {%- endif -%}
   {%- if wpt_disabling > 0 -%}
-      <span class="info-box-fact">disabled given {{ wpt_disabling }} condition{% if wpt_disabling != 1 %}s{% endif %}</span>
+      <span class="info-box-fact">disabled given {{ wpt_disabling | escape }} condition{% if wpt_disabling != 1 %}s{% endif %}</span>
   {%- endif -%}
   {%- if wpt_subtests > 0 -%}
-      <span class="info-box-fact">{{ wpt_subtests }} subtest issue{% if wpt_subtests != 1 %}s{% endif %} expected</span>
+      <span class="info-box-fact">{{ wpt_subtests | escape }} subtest issue{% if wpt_subtests != 1 %}s{% endif %} expected</span>
   {%- endif -%}
   {%- if manifest_count > 0 -%}
-      <span class="info-box-fact">in {{ manifest_count }} manifest{% if manifest_count != 1 %}s{% endif %}</span>
+      <span class="info-box-fact">in {{ manifest_count | escape }} manifest{% if manifest_count != 1 %}s{% endif %}</span>
   {%- endif %}
     </span>
     <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
