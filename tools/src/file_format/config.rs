@@ -177,16 +177,11 @@ impl TreeConfigPaths {
             ));
         }
         if let Some(hg_root) = &self.hg_root {
-            // We always link to the specific canonical hg repo, not
-            // mozilla-unified, so we don't ever have branch names associated
-            // with the configs.
-            //
-            // Note that we use "default" rather than "tip" because "tip" can
-            // end up being a different branch
+            // (The canonical hg repo's file at the revision.)
             return Some(format!(
                 "{}/raw-file/{}/{}",
-                hg_rev,
                 hg_root,
+                hg_rev,
                 url_encode_path(path)
             ));
         }
@@ -751,5 +746,46 @@ impl GitData {
         // special annotations like "#skip-blame" or backouts as well.
         // For now just check the list.
         self.blame_ignore.should_ignore(rev)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_raw_resource_urls() {
+        let paths: TreeConfigPaths = serde_json::from_value(serde_json::json!({
+            "priority": 0,
+            "on_error": "continue",
+            "cache": "nothing",
+            "index_path": "/index",
+            "files_path": "/index/git",
+            "shared_path": null,
+            "git_path": "/index/git",
+            "git_branch": null,
+            "oldtree_name": null,
+            "oldgit_path": null,
+            "git_blame_path": null,
+            "history_path": null,
+            "objdir_path": "/index/objdir",
+            "hg_root": "https://hg.mozilla.org/mozilla-central",
+            "wpt_root": null,
+            "github_repo": null,
+            "oldgithub_repo": null,
+            "codesearch_path": "/index/livegrep.idx",
+            "codesearch_port": 8081,
+        }))
+        .unwrap();
+        assert_eq!(
+            paths
+                .make_raw_resource_rev_url("0123", "abcdef", "dom/a b.cpp")
+                .as_deref(),
+            Some("https://hg.mozilla.org/mozilla-central/raw-file/abcdef/dom/a%20b.cpp")
+        );
+        assert_eq!(
+            paths.make_raw_resource_branch_url("dom/a.cpp").as_deref(),
+            Some("https://hg.mozilla.org/mozilla-central/raw-file/default/dom/a.cpp")
+        );
     }
 }
