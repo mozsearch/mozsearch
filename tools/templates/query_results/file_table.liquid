@@ -69,14 +69,14 @@
                   {%- capture issue_rate %}{{ rate | plus: 0.5 | floor }}%{% endcapture -%}
                 {%- endif -%}
               {%- endif %}
-          <td class="test-results-rate"><a href="{{ results_url }}" title="{{ results_title }}">{{ issue_rate }}</a></td>
+          <td class="test-results-rate"><a href="{{ results_url | escape }}" title="{{ results_title | escape }}">{{ issue_rate | escape }}</a></td>
             {%- else %}
           <td class="test-results-rate"></td>
             {%- endif -%}
           {%- endif -%}
-          <td class="name"><a href="{{ file_url }}" class="mimetype-fixed-container mimetype-icon-{{ icon_kind }}{{ state_class }}"{% if results_title != "" %} title="{{ results_title }}"{% endif %}>{{ file.path | split: "/" | last }}</a></td>
-          <td class="description"><a href="{{ file_url }}" title="{{ file.concise.description | default: "" | escape }}">{{ file.concise.description | default: "" | escape }}</td>
-          <td class="size"><a href="{{ file_url }}">{{ file_size }}</a></td>
+          <td class="name"><a href="{{ file_url | escape }}" class="mimetype-fixed-container mimetype-icon-{{ icon_kind | escape }}{{ state_class | escape }}"{% if results_title != "" %} title="{{ results_title | escape }}"{% endif %}>{{ file.path | split: "/" | last | escape }}</a></td>
+          <td class="description"><a href="{{ file_url | escape }}" title="{{ file.concise.description | default: "" | escape }}">{{ file.concise.description | default: "" | escape }}</td>
+          <td class="size"><a href="{{ file_url | escape }}">{{ file_size | escape }}</a></td>
           {% assign coverage = file.concise.coverage %}
           {%- if coverage != nil and coverage.linesTotal != 0 -%}
             {%- assign coverage_bucket = coverage.coveragePercent | divided_by: 10 | floor -%}
@@ -87,10 +87,10 @@
             {%- capture coverage_title -%}There's no coverage data available for this {{ node_kind }}.{%- endcapture -%}
             {%- capture coverage_content -%} - {%- endcapture -%}
           {%- endif -%}
-          <td class="coverage"><a href="{{ file_url }}" class="cov-percentage cov-percentage-{{ coverage_bucket }}" title="{{ coverage_title }}">{{ coverage_content }}</a></td>
+          <td class="coverage"><a href="{{ file_url | escape }}" class="cov-percentage cov-percentage-{{ coverage_bucket | escape }}" title="{{ coverage_title | escape }}">{{ coverage_content | escape }}</a></td>
           {%- if show_test_results -%}
             {%- if results_title != "" %}
-          <td class="test-results-cell"><a href="{{ results_url }}" title="{{ results_title }}">
+          <td class="test-results-cell"><a href="{{ results_url | escape }}" title="{{ results_title | escape }}">
               {%- include 'test_results/sparkline.liquid' results: results -%}
           </a></td>
             {%- else %}

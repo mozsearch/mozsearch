@@ -1,4 +1,4 @@
-<div>{{ facet.label }}:
+<div>{{ facet.label | escape }}:
 {%- for group in facet.groups -%}
 {%- include 'query_results/facet_group.liquid' group: group, forloop: forloop -%}
 {%- endfor -%}

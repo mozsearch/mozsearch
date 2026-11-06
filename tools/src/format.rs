@@ -18,6 +18,7 @@ use crate::file_format::jumpref::{
 };
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
+use crate::html_escape::{escape_attr, escape_html};
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
@@ -98,6 +99,7 @@ pub fn format_code(
         cur_datum += 1;
     }
 
+    // (For element text only; attributes need `html_escape::escape_html`.)
     fn entity_replace(s: String) -> String {
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
@@ -131,7 +133,10 @@ pub fn format_code(
         last_pos = token.end;
 
         if token.kind == tokenize::TokenKind::Newline {
-            output.push_str(&input[last..token.start]);
+            // (The line's pending text, ex: unstyled identifiers, which are only
+            // written out at the next styled token or the line's end, escaped as
+            // they are there.)
+            output.push_str(&entity_replace(input[last..token.start].to_string()));
 
             // Pop nesting symbols whose end is on the NEXT line.  That is, it doesn't make
             // sense for the position:sticky overlay to cover up the line that contains the
@@ -326,10 +331,8 @@ pub fn format_code(
                         if !syms.is_empty() {
                             format!(
                                 "data-symbols=\"{}\" data-confidences=\"{}\"",
-                                syms.replace('"', "&quot;"),
-                                serde_json::to_string(&confidences)
-                                    .unwrap()
-                                    .replace('"', "&quot;")
+                                escape_attr(&syms),
+                                escape_attr(&serde_json::to_string(&confidences).unwrap())
                             )
                         } else {
                             "".to_owned()
@@ -820,13 +823,12 @@ pub fn format_file_data(
             last_color = color;
             let class = if color { 1 } else { 2 };
             let data = format!(
-                r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="{} hash {}" aria-expanded="false""#,
+                r#" class="blame-strip c{}" data-blame="{}" role="button" aria-label="{} hash {}" aria-expanded="false""#,
                 class,
-                revs,
-                filespecs,
-                blame_linenos,
+                // (Its paths are the tree's, ex: a renamed file's old path.)
+                escape_attr(&format!("{}#{}#{}", revs, filespecs, blame_linenos)),
                 if same_rev_as_last { "same" } else { "new" },
-                human_id,
+                escape_attr(&human_id.to_string()),
             );
             data
         } else {
@@ -839,7 +841,8 @@ pub fn format_file_data(
             write!(
                 writer,
                 r#"<div class="nesting-container nesting-depth-{}" data-nesting-sym="{}">"#,
-                nest_depth, nest_sym
+                nest_depth,
+                escape_attr(nest_sym)
             )
             .unwrap();
             nest_depth += 1;
@@ -897,7 +900,13 @@ pub fn format_file_data(
     let f = F::Seq(vec![F::S("</div>")]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    writeln!(writer, "<script>var SYM_INFO = {};</script>", sym_json,).unwrap();
+    // (Escaped so that no string, ex: a pretty name, can end the script.)
+    writeln!(
+        writer,
+        "<script>var SYM_INFO = {};</script>",
+        crate::html_escape::escape_json_for_script(&sym_json)
+    )
+    .unwrap();
 
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
 
@@ -1670,8 +1679,12 @@ pub fn format_diff(
                 last_color = color;
                 let class = if color { 1 } else { 2 };
                 format!(
-                    r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
-                    class, line_data.rev, line_data.path, line_data.lineno
+                    r#" class="blame-strip c{}" data-blame="{}" role="button" aria-label="blame" aria-expanded="false""#,
+                    class,
+                    escape_attr(&format!(
+                        "{}#{}#{}",
+                        line_data.rev, line_data.path, line_data.lineno
+                    ))
                 )
             }
             None => " class=\"blame-strip\"".to_owned(),
@@ -1756,7 +1769,7 @@ fn generate_commit_info(
         let (name, email) = git
             .mailmap
             .lookup(sig.name().unwrap(), sig.email().unwrap());
-        format!("{} &lt;{}>", name, email)
+        format!("{} &lt;{}&gt;", escape_html(&name), escape_html(&email))
     }
 
     let parents = commit
@@ -1875,11 +1888,11 @@ fn generate_commit_info(
 
         let f = F::T(format!(
             "<li>{} <a href=\"/{}/diff/{}/{}\">{}</a>",
-            file_info[0],
+            escape_html(file_info[0]),
             tree_name,
             commit.id(),
-            url_encode_path(file_info[1]),
-            file_info[1]
+            escape_attr(&url_encode_path(file_info[1])),
+            escape_html(file_info[1])
         ));
         changes.push(f);
     }

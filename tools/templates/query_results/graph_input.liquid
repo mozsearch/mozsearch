@@ -1,4 +1,4 @@
-<script>var GRAPH_INPUT = {{ results.GraphInput.graphs | json }};</script>
+<script>var GRAPH_INPUT = {{ results.GraphInput.graphs | json_script }};</script>
 {% include 'query_results/graph_panel.liquid'
    overloads_hit: results.GraphInput.overloads_hit,
    options: results.GraphInput.options %}

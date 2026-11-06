@@ -118,7 +118,8 @@ async fn handle_query(
             "preset": preset.clone(),
             "tree": tree.clone(),
             "logs": logs,
-            "SYM_INFO_STR": sym_info_str,
+            // (For the page's `<script>`; see `html_escape::json_for_script`.)
+            "SYM_INFO_STR": tools::html_escape::escape_json_for_script(&sym_info_str),
         });
 
         let output = templates.query_results.render(&globals)?;

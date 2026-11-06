@@ -42,5 +42,5 @@ Not run in CI over the last {{ days }} days
 {%- if results.skips > 0 %}
 {{ results.skips | thousands }} skip{% if results.skips != 1 %}s{% endif %}
   {%- if skip_if != "" %}, skip-if:
-{{ skip_if }}{% endif -%}
+{{ skip_if | escape }}{% endif -%}
 {%- endif -%}

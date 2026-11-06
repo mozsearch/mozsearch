@@ -218,7 +218,14 @@ fn main() {
         let metadata = fs::symlink_metadata(path_wrapper).unwrap();
         if metadata.file_type().is_symlink() {
             let dest = fs::read_link(path_wrapper).unwrap();
-            write!(writer, "Symlink to '{}'", dest.to_str().unwrap()).unwrap();
+            // (A page served as HTML, whose text is the link's target, the
+            // tree's.)
+            write!(
+                writer,
+                "Symlink to '{}'",
+                tools::html_escape::escape_html(&dest.to_string_lossy())
+            )
+            .unwrap();
             continue;
         }
 
@@ -429,7 +436,8 @@ fn main() {
                 if tree_config.paths.git_blame_path.is_some() {
                     vcs_panel_items.push(PanelItem {
                         label: PanelItemLabel::Plaintext("Blame".to_owned()),
-                        tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
+                        tooltip: "Hover over the gray bar on the left to see blame information"
+                            .to_owned(),
                         id: "panel-blame",
                         link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
                         update_link_lineno: "",

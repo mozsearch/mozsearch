@@ -38,7 +38,7 @@
                endif
                %}title="{{item.tooltip | escape}}" class="icon item"{%
                if item.update_link_lineno != ""
-               %} data-update-link="{{item.update_link_lineno | escape}}" data-link="{{item.link | escape}}}"{%
+               %} data-update-link="{{item.update_link_lineno | escape}}" data-link="{{item.link | escape}}"{%
                endif
                %}>{%- if item.label.plaintext -%}{{ item.label.plaintext | escape }}{%- else -%}{{ item.label.html }}{%- endif -%}{%
         if item.accel_key

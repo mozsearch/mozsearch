@@ -1,5 +1,5 @@
 <details open>
-    <summary><h2>{{kind_group.kind}}{% if kind_group.pretty != empty %} ({{ kind_group.pretty }}){% endif %}</h2></summary>
+    <summary><h2>{{kind_group.kind | escape}}{% if kind_group.pretty != empty %} ({{ kind_group.pretty | escape }}){% endif %}</h2></summary>
     {%- for facet in kind_group.facets -%}
     {% include 'query_results/facet_root.liquid' facet: facet, forloop: forloop %}
     {%- endfor -%}

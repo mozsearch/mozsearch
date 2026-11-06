@@ -14,9 +14,9 @@ Parameters:
 {%- if results.skips > 0 -%}{%- assign skips_kind = "skips" -%}{%- else -%}{%- assign skips_kind = "zero" -%}{%- endif %}
     <section class="info-box test-results-box">
       <div class="test-results">
-        <div class="test-results-header"><a href="{{ results_url }}" title="More details on tests.firefox.dev">CI results for the tests in this directory</a> <span class="test-results-period" title="{{ results.start_date }} to {{ results.end_date }}">over the last {{ results.days }} days</span></div>
+        <div class="test-results-header"><a href="{{ results_url | escape }}" title="More details on tests.firefox.dev">CI results for the tests in this directory</a> <span class="test-results-period" title="{{ results.start_date | escape }} to {{ results.end_date | escape }}">over the last {{ results.days | escape }} days</span></div>
         <div class="test-results-body">
-        <a class="test-results-tiles" href="{{ results_url }}" title="More details on tests.firefox.dev">
+        <a class="test-results-tiles" href="{{ results_url | escape }}" title="More details on tests.firefox.dev">
           {%- include 'test_results/tile.liquid' label: "Tests", value: results.tests, kind: "plain" -%}
           {%- include 'test_results/tile.liquid' label: "Flaky tests", value: results.flaky_tests, kind: flaky_kind -%}
           {%- include 'test_results/tile.liquid' label: "Runs", value: results.runs, kind: "plain" -%}

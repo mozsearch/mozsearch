@@ -4,5 +4,5 @@
    options: results.GraphResultsBundle.options %}
 {% for graph in results.GraphResultsBundle.graphs %}
 {{ graph.graph }}
-<script>GRAPH_EXTRA.push({{ graph.extra | json }});</script>
+<script>GRAPH_EXTRA.push({{ graph.extra | json_script }});</script>
 {% endfor %}

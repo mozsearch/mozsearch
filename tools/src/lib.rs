@@ -63,6 +63,8 @@ pub mod format;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod git_ops;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod html_escape;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod glob_helper;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod languages;
