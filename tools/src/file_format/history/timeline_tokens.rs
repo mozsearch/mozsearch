@@ -422,6 +422,21 @@ fn is_dotted_compound(run: &str) -> bool {
         })
 }
 
+/// Words which V2's keys don't track as compounds' parts (see
+/// `compound_keys`), any case: hosts' `www`, `w3`, `org` and `com`, which are
+/// nearly always next to more distinctive parts (`www.mozilla.org`,
+/// `www.w3.org`), and whose instances there would be most of theirs (in a 10%
+/// sample of firefox's files, 98% of `www`'s, 99% of `w3`'s, 90% of `org`'s
+/// and 75% of `com`'s: 17k, 11k, 38k and 7k; asuth agreed to leave them out).
+const HOST_PARTS: &[&str] = &["www", "w3", "org", "com"];
+
+/// Whether `word` is one of the `HOST_PARTS`.
+pub fn is_host_part(word: &str) -> bool {
+    HOST_PARTS
+        .iter()
+        .any(|part| part.eq_ignore_ascii_case(word))
+}
+
 /// The bug number of a compound of hyphens `bug-NNNNNNN` (any case), which is
 /// the bug's key (see `bug_number`).
 fn bug_compound(word: &str) -> Option<&str> {
@@ -439,7 +454,9 @@ fn bug_compound(word: &str) -> Option<&str> {
 ///   `moz-icon`, or `moz-document` in `layout.css.moz-document.enabled`) whole,
 ///   if one of its words could be a token (ex: not `x-1`), and each word that's
 ///   `tracked`, but a `bug-NNNNNNN` is the bug's key (see `bug_number`), if
-///   `bugs`.
+///   `bugs`;
+/// - but no part which is one of the `HOST_PARTS` (`www.mozilla.org` is
+///   itself and `mozilla`).
 ///
 /// (2 parts joined by a dot aren't a compound, as file names and members
 /// would be noise, ex: `foo.js`, `this.foo`, but a whole token which is a
@@ -450,6 +467,7 @@ fn compound_keys<'a>(
     bugs: bool,
     key: &mut impl FnMut(Cow<'a, str>),
 ) {
+    let tracked = |word: &str| tracked(word) && !is_host_part(word);
     joined_runs(text, |run| {
         let dotted = is_dotted_compound(run);
         if dotted {
@@ -606,7 +624,7 @@ pub fn tracked_token_keys<'a>(
                 key(Cow::Borrowed(word));
             } else if let Some(parts) = qualified_parts(word) {
                 for part in &parts {
-                    if tracked(part) {
+                    if tracked(part) && !(compounds && is_host_part(part)) {
                         key(Cow::Borrowed(part));
                     }
                 }
@@ -903,6 +921,24 @@ mod tests {
         assert_eq!(keys("cpp", Comment, "a--b", None), words(&[]));
         assert_eq!(keys("cpp", Comment, "e.g.", None), words(&[]));
         assert_eq!(keys("cpp", Comment, "-->", None), words(&[]));
+        // (Not hosts' `www`, `w3`, `org` and `com`, V1's qualified names' parts
+        // either.)
+        assert_eq!(
+            keys("cpp", String, "\"https://www.w3.org/TR/css-text-3/\"", None),
+            words(&["www.w3.org", "css-text-3", "css", "text"])
+        );
+        assert_eq!(
+            keys("js", String, "\"www.mozilla.org\"", None),
+            words(&["mozilla", "www.mozilla.org"])
+        );
+        assert_eq!(
+            keys_by(KeyRules::V1, "js", String, "\"www.mozilla.org\"", None),
+            words(&["www", "mozilla", "org"])
+        );
+        assert_eq!(
+            keys("cpp", String, "\"WWW-Authenticate\"", None),
+            words(&["WWW-Authenticate", "Authenticate"])
+        );
         // Bugs' keys, with the compounds of their URLs.
         assert_eq!(
             keys(
@@ -911,13 +947,7 @@ mod tests {
                 "https://bugzilla.mozilla.org/show_bug.cgi?id=1620052#c3",
                 None
             ),
-            words(&[
-                "bug-1620052",
-                "bugzilla.mozilla.org",
-                "bugzilla",
-                "mozilla",
-                "org"
-            ])
+            words(&["bug-1620052", "bugzilla.mozilla.org", "bugzilla", "mozilla"])
         );
         assert_eq!(
             keys("cpp", Comment, "Bug-1620052:", None),

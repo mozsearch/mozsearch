@@ -23,7 +23,7 @@ use std::collections::BTreeSet;
 use fancy_regex::{Assertion, Expr};
 
 use crate::file_format::history::timeline_tokens::{
-    KeyRules, is_prose_stopword, is_trackable_token,
+    KeyRules, is_host_part, is_prose_stopword, is_trackable_token,
 };
 
 /// Marks a token boundary in a literal (see the module's comment).  It's
@@ -1028,12 +1028,14 @@ const VALUE_WORDS: &[&str] = &[
 ];
 
 /// Whether `word`, as a whole token, has a journal that covers its uses in
-/// code (and prose: not the stopwords which comments' words leave out).
-fn journaled(word: &str) -> bool {
+/// code (and prose: not the stopwords which comments' words leave out, nor,
+/// with V2's keys, the parts which compounds leave out, ex: `www` and `org`).
+fn journaled(word: &str, rules: KeyRules) -> bool {
     is_trackable_token(word)
         && !KEYWORDS.contains(&word)
         && !VALUE_WORDS.contains(&word)
         && !is_prose_stopword(word)
+        && !(rules >= KeyRules::V2 && is_host_part(word))
 }
 
 fn is_quote(c: char) -> bool {
@@ -1180,7 +1182,9 @@ fn literal_terms(literal: &Literal, rules: KeyRules) -> TokenQuery {
         // journal covers code, ex: not `case`, whose matches are often the
         // keyword; and a piece must be long enough to narrow the tokens
         // down.)
-        if !journaled(&word) || !(bounded_before && bounded_after) && word.chars().count() < 3 {
+        if !journaled(&word, rules)
+            || !(bounded_before && bounded_after) && word.chars().count() < 3
+        {
             continue;
         }
         let term = match (bounded_before, bounded_after) {
@@ -1390,6 +1394,11 @@ mod tests {
         assert_eq!(
             query(&regex::escape(r#""moz-icon""#)).tokens(KeyRules::V1),
             and(vec![whole("moz"), whole("icon")])
+        );
+        // (Hosts' `www` and `org` aren't compounds' parts.)
+        assert_eq!(
+            tokens(r#""www.mozilla.org""#),
+            and(vec![whole("mozilla"), whole("www.mozilla.org")])
         );
         // (Not compounds without a word, or which could be a bug's key.)
         assert_eq!(tokens("'x-1'"), TokenQuery::All);
