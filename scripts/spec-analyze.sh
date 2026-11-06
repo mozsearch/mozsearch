@@ -28,8 +28,16 @@ TREE_NAME=$3
 # stale-anchors-cited.json, for the next history update to look up (ex: the
 # config repo's upload-after-index scripts upload it, and wubspecs'
 # update-history.sh downloads them); see tools/src/spec_analyze/stale.rs.
+# The specs' tree's setup can look them up in the background
+# (with background-step.sh, as stale-anchors-lookup in its index directory),
+# which is waited for first; if it failed, the citations are marked by the
+# cache as it was.
 STALE_CITED=$INDEX_ROOT/stale-anchors-cited.json
-#
+wait_for_stale_lookup() {
+    $MOZSEARCH_PATH/scripts/background-step.sh wait "$1/stale-anchors-lookup" ||
+        echo "WARNING: the stale anchors' lookup failed (see its log above); citations are marked by the cache as it was."
+}
+
 # MDN's browser-compat-data, if the tree's setup put it in bcd/data.json (ex:
 # the config repo's shared/fetch-bcd.sh), gives the symbols of the tree's
 # WebIDL files the specs' definitions which they reflect and their MDN pages,
@@ -43,6 +51,7 @@ SPECS_TOML=$CONFIG_REPO/$TREE_NAME/specs.toml
 if [ -f "$SPECS_TOML" ]; then
     STALE_ANCHORS=()
     if [ -n "${HISTORY_ROOT:-}" ] && [ -d "$HISTORY_ROOT/timeline" ]; then
+        wait_for_stale_lookup "$INDEX_ROOT"
         STALE_ANCHORS=(--stale-anchors "$TREE_NAME" "$GIT_ROOT" "$HISTORY_ROOT" "$STALE_CITED")
     fi
     # (Bikeshed's renderings of its specs go in rendered-specs/, for their
@@ -75,6 +84,7 @@ if [ -n "$LINKED_TREE" ] && [ -f "$CONFIG_REPO/$LINKED_TREE/specs.toml" ]; then
     SPEC_HISTORY=$(jq -r --arg tree "$LINKED_TREE" '.trees[$tree].history_path // empty' "$CONFIG_FILE")
     STALE_ANCHORS=()
     if [ -n "$SPEC_INDEX" ] && [ -n "$SPEC_GIT" ] && [ -n "$SPEC_HISTORY" ] && [ -d "$SPEC_HISTORY/timeline" ]; then
+        wait_for_stale_lookup "$SPEC_INDEX"
         STALE_ANCHORS=(--stale-anchors "$LINKED_TREE" "$SPEC_GIT" "$SPEC_HISTORY" "$STALE_CITED")
     fi
     spec-analyze --citations-only ${SPEC_FILES:+--spec-files "$SPEC_FILES"} \
