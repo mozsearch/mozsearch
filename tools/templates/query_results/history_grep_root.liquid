@@ -40,6 +40,19 @@
     {%- endif %}
     {%- if grep.out_of_time %} This page stopped at its time limit.{% endif %}
   </p>
+  {%- assign now_count = grep.now_files | size %}
+  {%- if now_count > 0 and grep.tokens_note == nil and grep.tokens != empty %}
+  <p class="history-grep-now">
+    And every revision ({{ grep.now_candidates | escape }}) of the {% if now_count != 1 %}{{ now_count | escape }} files which have it{% else %}file which has it{% endif %} now,
+    which sees what those names' changes can't (ex: code changed around them):
+    {% for file in grep.now_files %}<code>{{ file | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}.
+  </p>
+  {%- elsif grep.now_note %}
+  <p class="history-grep-now">The files which have it now weren't checked: {{ grep.now_note | escape }}.</p>
+  {%- endif %}
+  {%- if grep.tokens_note %}
+  <p class="history-grep-now">Only the files which have it now: the rest of the history couldn't be checked ({{ grep.tokens_note | escape }}).</p>
+  {%- endif %}
   {%- if grep.ignored %}
   <p class="history-grep-ignored">Ignored <code>{{ grep.ignored | escape }}</code>: a history query only takes its terms (ex: <code>until:YYYY-MM-DD</code>, <code>path:</code>, <code>scope:</code>).</p>
   {%- endif %}

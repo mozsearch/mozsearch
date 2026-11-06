@@ -26,6 +26,13 @@
 //!   that file (ex: existing tokens rearranged around it, or a number changed
 //!   next to it).
 //!
+//! So a `text-history:` without `path:` also checks the every revision of the
+//! files which have the text now, if they're few (see `cmd_history_grep`'s
+//! `now_files`), which sees all of those for the matches there are now: where
+//! each came from, at least.  (And a files-delta journal's summaries don't
+//! say where their file moved from, which the files' future journals do: see
+//! `moved_in_revs`.)
+//!
 //! The plan's costs (journal bytes, candidate revisions) are checked against
 //! the request's limits before anything expensive is read, and refused if
 //! they're over them (see `query_limits`).  A page checks up to the limits'
@@ -33,7 +40,7 @@
 //! first, and says where the next one starts.  A timeline checks all of the
 //! candidates at once, within the limits' bytes, seconds and parses.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 use chrono::{NaiveDate, Weekday};
@@ -48,6 +55,7 @@ use crate::file_format::history::rev_summaries::RevSummaryRecord;
 use crate::file_format::history::rev_token_index::RevTokenIndex;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
+use crate::file_format::history::timeline_future::FutureRecord;
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
 use crate::file_format::token_names::NameMatch;
 use crate::hyperblame::file_fate;
@@ -156,6 +164,16 @@ pub struct HistoryGrep {
     /// (see `tools::commit_index`), rather than in the journals' order (see
     /// `merge_sequences`), for a tree whose commit index doesn't have them.
     pub landing_order: bool,
+    /// The files which match now, whose every revision was checked too (see
+    /// `cmd_history_grep`), how many of their revisions, and why they
+    /// weren't, if they weren't (ex: too many files match now).
+    pub now_files: Vec<String>,
+    pub now_candidates: usize,
+    pub now_note: Option<String>,
+    /// Why the token journals' revisions weren't checked, if they weren't
+    /// and the files which match now were (ex: the text has no name the
+    /// history keeps).
+    pub tokens_note: Option<String>,
 }
 
 /// A history grep's matches over time (`text-timeline:`, `re-timeline:`): a
@@ -420,6 +438,34 @@ pub enum TipFiles {
     Unknown(String),
 }
 
+/// The revisions which the future journal of a file (by its path then) says
+/// moved or copied it there (`file_moved_from`), whose files-delta records
+/// may be summaries, which don't say it (see `history_grep`'s files).
+fn moved_in_revs(
+    reader: &mut JournalReader,
+    timeline_rev: &str,
+    path: &str,
+) -> Result<HashSet<String>, String> {
+    let version = JournalVersionRef {
+        timeline_rev: timeline_rev.to_string(),
+        path: JournalKind::Future.journal_path(path),
+    };
+    let records: Vec<FutureRecord> = reader.records(&version)?;
+    Ok(records
+        .iter()
+        .flat_map(|record| match record {
+            FutureRecord::Detail(detail) => match detail.file_changes.file_moved_from {
+                Some(_) => vec![detail.desc.source_rev.clone()],
+                None => vec![],
+            },
+            FutureRecord::Summary(summary) => match summary.file_changes.file_moved_from {
+                Some(_) => summary.desc.source_revs.clone(),
+                None => vec![],
+            },
+        })
+        .collect())
+}
+
 /// Search `history` (of the source repo `source`) for `args`, within
 /// `limits` (of `tier`), with `names` looking up the token names index (see
 /// `TokenNames::find`), and, for a timeline, `tip_files` listing the tip's
@@ -582,10 +628,28 @@ pub fn history_grep(
             };
             let records: Vec<FileDeltaRecord> = reader.records(&version).map_err(data_problem)?;
             // (The journal follows its file through renames: older records
-            // are of the path it was renamed or copied from.)
+            // are of the path it was renamed or copied from, which a summary
+            // doesn't say, only its details, ex: a mass revision's, renaming
+            // thousands of files.  So a summary of a revision which the
+            // file's future journal, by its path then, says moved it there is
+            // expanded, once.)
             let mut path = file.clone();
+            let mut moved_in = moved_in_revs(&mut reader, &head_rev, &path).map_err(data_problem)?;
+            let mut expanded: HashSet<String> = HashSet::new();
+            let mut queue: VecDeque<FileDeltaRecord> = records.into();
             let mut sequence = vec![];
-            for record in &records {
+            while let Some(record) = queue.pop_front() {
+                if let FileDeltaRecord::Summary(summary) = &record
+                    && summary.desc.source_revs.iter().any(|rev| moved_in.contains(rev))
+                    && expanded.insert(summary.desc.source_revs[0].clone())
+                {
+                    let details = reader.expand(vec![record]).map_err(data_problem)?;
+                    for detail in details.into_iter().rev() {
+                        queue.push_front(detail);
+                    }
+                    continue;
+                }
+                let record = &record;
                 let (date, revs) = file_record_revs(record);
                 let moved_from = match record {
                     FileDeltaRecord::Detail(detail) => detail.delta.moved_from.clone(),
@@ -594,6 +658,7 @@ pub fn history_grep(
                 let at = (path.clone(), moved_from.clone());
                 if let Some(from) = moved_from {
                     path = from;
+                    moved_in = moved_in_revs(&mut reader, &head_rev, &path).map_err(data_problem)?;
                 }
                 if !in_window(date) {
                     continue;

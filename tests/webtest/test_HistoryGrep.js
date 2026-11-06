@@ -3,8 +3,10 @@
 // History greps (the text-history: and re-history: views; see
 // tools/src/hyperblame/history_grep.rs), of the "searchfox" tree's history of
 // mozsearch itself: where `structopt` came and went (its 2022 upgrade to clap
-// v3 removed it), as `git log -S` finds, from its journals, and clap's
-// version in tools/Cargo.toml over time, from that file's every revision.
+// v3 removed it), as `git log -S` finds, from its journals; the extension's
+// search URL, from the every revision of the file which has it now, which
+// the journals can't see; and clap's version in tools/Cargo.toml over time,
+// from that file's every revision.
 
 function doc() {
   return frame.contentDocument;
@@ -37,6 +39,23 @@ add_task(async function test_TextHistory() {
      "and each count's");
   ok(doc().querySelector(".history-grep-plan").textContent.includes("newest first"),
      "The revisions are newest first");
+});
+
+// A match the token journals can't see (in a string: a URL, whose names
+// aren't the journals'), which the every revision of the file which has it
+// now does: the extension's search URL, since its first commit.
+const EXTENSION = "8fd663e345a9d63fd2cf0fe6e02d87c5ac16f190";
+
+add_task(async function test_TextHistoryNowFiles() {
+  await TestUtils.loadQuery("searchfox", "text-history:'searchfox.org/mozilla-central/search'");
+  await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
+  ok(doc().querySelector(".history-grep-now")?.textContent.includes("extension/background.js"),
+     "It checked the every revision of the file which has it now too");
+  const added = rows().find(row => row.querySelector(`a[href="/searchfox/commit/${EXTENSION}"]`));
+  ok(added?.textContent.includes("extension/background.js"),
+     "finding the commit which added it");
+  ok(added?.querySelector(".history-grep-count").textContent.includes("0 → 1"),
+     "which made the file's first match");
 });
 
 add_task(async function test_ReHistoryValues() {
