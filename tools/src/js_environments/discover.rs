@@ -8,6 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::rules::{Rules, glob_set};
@@ -168,6 +169,62 @@ impl<'a> Discoverer<'a> {
             }
         };
         self.inputs.files.contains(&path).then_some(path)
+    }
+
+    /// Scan the tree's scripts and pages, in parallel, for `script_loads`,
+    /// `page_scan` and `inline_loads`, as the discovery reaches most of them
+    /// (on mozilla-central, 89,556 of its 104,009 scripts, and its pages with
+    /// inline scripts), and scanning them (parsing them with tree-sitter) one
+    /// at a time took most of its 81 seconds, on one core, on the 2026-11-06
+    /// config8 run.
+    fn scan_all(&mut self) {
+        let read = self.inputs.read;
+        let mut paths: Vec<&String> = self
+            .inputs
+            .files
+            .iter()
+            .filter(|path| is_script(path) || is_page(path))
+            .collect();
+        paths.sort();
+        let scanned: Vec<(
+            &String,
+            Option<Vec<Load>>,
+            Option<(Option<PageScan>, Vec<Load>)>,
+        )> = paths
+            .par_iter()
+            .map(|path| {
+                let source = read(path);
+                let loads = is_script(path).then(|| {
+                    source
+                        .as_deref()
+                        .map(|s| scan_script(s, 1))
+                        .unwrap_or_default()
+                });
+                let page = is_page(path).then(|| {
+                    let scan = source.as_deref().map(scan_page);
+                    let mut inline = vec![];
+                    if let (Some(source), Some(scan)) = (&source, &scan) {
+                        for script in &scan.scripts {
+                            if let Some(range) = &script.inline {
+                                let first = super::scan::line_of(source, range.start);
+                                inline.extend(scan_script(&source[range.clone()], first));
+                            }
+                        }
+                    }
+                    (scan, inline)
+                });
+                (*path, loads, page)
+            })
+            .collect();
+        for (path, loads, page) in scanned {
+            if let Some(loads) = loads {
+                self.loads.insert(path.clone(), loads);
+            }
+            if let Some((scan, inline)) = page {
+                self.loads.insert(format!("{}#inline", path), inline);
+                self.pages.insert(path.clone(), scan);
+            }
+        }
     }
 
     fn page_scan(&mut self, path: &str) -> Option<&PageScan> {
@@ -871,6 +928,7 @@ pub fn discover(inputs: Inputs) -> Discovery {
         unresolved_seen: HashSet::new(),
         variables: HashMap::new(),
     };
+    d.scan_all();
     d.manifest_tests();
     d.path_tests();
     d.wpt_tests();
