@@ -48,12 +48,13 @@ js-environments-projects "$FILES_ROOT" "$INDEX_ROOT" "$CONFIG_REPO/$RULES" "$WOR
 # Each batch's index, in its kind's analysis directory.  Files bigger than
 # 200 KB aren't documented (ex: SpiderMonkey's and web-platform-tests'
 # generated data, ex: a 400 KB object literal took TypeScript's checker 65 s,
-# rechecking it for each of its properties; js-analyze analyzes them), and a
-# batch which fails (ex: a test nesting so deep that TypeScript's binder's
-# recursion overflows its stack, killing the process) or takes longer than
-# JS_ENVIRONMENTS_TIMEOUT (900 s by default) has its projects indexed one at
-# a time, each with as long, so that only the failing ones' files are
-# js-analyze's.
+# rechecking it for each of its properties; js-analyze analyzes them).  A
+# project TypeScript fails for (ex: a test nesting so deep that its binder's
+# recursion overflows its stack) has no documents (--skip-failed-projects), so
+# that its files are js-analyze's, and a batch which fails otherwise (ex: its
+# process killed) or takes longer than JS_ENVIRONMENTS_TIMEOUT (900 s by
+# default) has its projects indexed one at a time, each with as long, so that
+# only the failing ones' files are js-analyze's.
 index_projects() {
     local name=$1
     local kind=$2
@@ -62,7 +63,7 @@ index_projects() {
     # symbolic link, whose real path the process's working directory is.)
     (cd "$FILES_ROOT" && timeout "${JS_ENVIRONMENTS_TIMEOUT:-900}" scip-typescript index \
          --cwd "$FILES_ROOT" --no-progress-bar --stable-type-ordering --classic-scripts --hooks \
-         --max-file-byte-size 200kb --output "$WORK/scip/$name.scip" "$@") \
+         --skip-failed-projects --max-file-byte-size 200kb --output "$WORK/scip/$name.scip" "$@") \
         > "$WORK/scip/$name.log" 2>&1 || return 1
     scip-indexer "$CONFIG_FILE" "$TREE_NAME" --subtree-name typescript --subtree-root "" \
         --analysis-root "$WORK/analysis-$kind" --shims __jsenv_shims__ --no-leftovers \
