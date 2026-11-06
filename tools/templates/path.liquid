@@ -1,13 +1,13 @@
 {%- assign path_segments = path | split: "/" %}
-<h3 class="path"><div class="mimetype-bullet mimetype-icon-{{ path | fileext }}"></div>
+<h3 class="path"><div class="mimetype-bullet mimetype-icon-{{ path | fileext | escape }}"></div>
 {% for segment in path_segments -%}
     {%-  unless forloop.first -%}
     <span class="path-separator">/</span>
     {%- endunless -%}
     {%- assign path_so_far = path_segments | slice: 0, forloop.index | join: "/" -%}
     {%- if path_rev and path_rev != empty %}
-    <a href="/{{tree}}/rev/{{path_rev}}/{{path_so_far}}">{{ segment }}</a>
+    <a href="/{{tree}}/rev/{{path_rev | escape}}/{{path_so_far | escape}}">{{ segment | escape }}</a>
     {%- else %}
-    <a href="/{{tree}}/source/{{path_so_far}}">{{ segment }}</a>
+    <a href="/{{tree}}/source/{{path_so_far | escape}}">{{ segment | escape }}</a>
     {%- endif %}
 {%- endfor -%}</h3>

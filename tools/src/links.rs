@@ -31,17 +31,31 @@ pub fn linkify_comment(cfg: Option<&Config>, s: String) -> String {
                 // HTML to a file.
                 result.push_str(&format!(
                     "<span data-symbols=\"{}\">{}</span>",
-                    items.iter().map(|item| &item.sym).join(","),
+                    items
+                        .iter()
+                        .map(|item| &item.sym)
+                        .join(",")
+                        .replace('"', "&quot;"),
                     link.as_str()
                 ));
                 continue;
             }
         } else if link.as_str().starts_with("moz-src:///") {
+            // (The text is escaped for element text already, ex: `&amp;`, so
+            // its quotes are what an attribute needs escaped too.)
             result.push_str(&format!(
                 "<span data-symbols=\"FILE_{}\">{}</span>",
-                link.as_str().get(11..).unwrap(),
+                link.as_str().get(11..).unwrap().replace('"', "&quot;"),
                 link.as_str()
             ));
+            continue;
+        }
+
+        // (Only web links are links: linkify takes any `scheme://`, ex:
+        // `javascript://`.)
+        let lower = link.as_str().to_ascii_lowercase();
+        if !lower.starts_with("http://") && !lower.starts_with("https://") {
+            result.push_str(&linkify_bug_numbers(link.as_str()));
             continue;
         }
 
@@ -142,5 +156,31 @@ fn test_bug_number_inside_link() {
     assert_eq!(
         linkified,
         "<a href=\"http://example.org/browser/editor/libeditor/tests/bug629172.html\">http://example.org/browser/editor/libeditor/tests/<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=629172\">bug629172</a>.html</a>"
+    );
+}
+
+#[test]
+fn test_only_web_links() {
+    // (linkify finds any `scheme://`.)
+    let linkified = linkify_comment(
+        None,
+        "see javascript://%0aalert(1) or https://example.com/".into(),
+    );
+    assert!(!linkified.contains("href=\"javascript"), "{}", linkified);
+    assert!(
+        linkified.contains("<a href=\"https://example.com/\">"),
+        "{}",
+        linkified
+    );
+}
+
+#[test]
+fn test_moz_src_attribute() {
+    // (A quote in a moz-src URL can't end its data-symbols attribute.)
+    let linkified = linkify_comment(None, r#"moz-src:///x"onmouseover="alert(1)""#.into());
+    assert!(
+        linkified.starts_with(r#"<span data-symbols="FILE_x&quot;onmouseover=&quot;alert(1)">"#),
+        "{}",
+        linkified
     );
 }

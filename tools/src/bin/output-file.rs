@@ -314,7 +314,14 @@ fn main() {
         let metadata = fs::symlink_metadata(path_wrapper).unwrap();
         if metadata.file_type().is_symlink() {
             let dest = fs::read_link(path_wrapper).unwrap();
-            write!(writer, "Symlink to '{}'", dest.to_str().unwrap()).unwrap();
+            // (A page served as HTML, whose text is the link's target, the
+            // tree's.)
+            write!(
+                writer,
+                "Symlink to '{}'",
+                tools::html_escape::escape_html(&dest.to_string_lossy())
+            )
+            .unwrap();
             continue;
         }
 

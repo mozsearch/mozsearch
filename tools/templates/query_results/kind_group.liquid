@@ -35,9 +35,9 @@
             {%- when "DocUses" -%}
                 Documentation References
             {%- else -%}
-                {{ kind_group.kind }}
+                {{ kind_group.kind | escape }}
         {%- endcase -%}
-    </span>{% if kind_group.pretty != empty %} ({{ kind_group.pretty }}){% endif %}
+    </span>{% if kind_group.pretty != empty %} ({{ kind_group.pretty | escape }}){% endif %}
     {%- include 'query_results/counts.liquid' file_names: 0, lines: kind_lines, files: kind_files %}</h2>
     {%- if kind_repeated > 0 %} <label class="query-repeated-toggle"><input type="checkbox"> Include {{ kind_repeated }} line{% if kind_repeated != 1 %}s{% endif %} already shown by other results</label>{% endif -%}
     </summary>

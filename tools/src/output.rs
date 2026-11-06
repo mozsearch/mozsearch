@@ -7,6 +7,7 @@ use chrono::{DateTime, FixedOffset, Local};
 use serde::Serialize;
 
 use crate::file_format::config::{self, SearchEndpoint};
+use crate::html_escape::{escape_attr, escape_html};
 use crate::url_encode_path::url_encode_path;
 
 /// Selects where breadcrumbs links should point to
@@ -83,9 +84,13 @@ pub fn file_url(opt: &Options, path: &str) -> String {
 
 /// The breadcrumbs' tree link and tree switcher.
 fn breadcrumbs_tree(opt: &Options) -> String {
-    let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
+    let mut breadcrumbs = format!(
+        "<a href=\"{}\">{}</a>",
+        escape_attr(&file_url(opt, "")),
+        escape_html(opt.tree_name)
+    );
     breadcrumbs.push_str(r#"<button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button>"#);
-    breadcrumbs.push_str(r#"<div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div>"#);
+    breadcrumbs.push_str(r#"<div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu initially-hidden"></div>"#);
     breadcrumbs
 }
 
@@ -101,8 +106,8 @@ pub fn generate_breadcrumbs_trail(
     for (label, link) in trail {
         breadcrumbs.push_str(&format!(
             r#"<span class="path-separator">/</span><a href="{}">{}</a>"#,
-            escape_attr(link),
-            escape_attr(label)
+            escape_html(link),
+            escape_html(label)
         ));
     }
     writeln!(*writer, "<div class=\"breadcrumbs\">{}</div>", breadcrumbs).map_err(|_| "Write err")
@@ -123,10 +128,11 @@ pub fn generate_breadcrumbs(
         for name in path.split('/') {
             breadcrumbs.push_str("<span class=\"path-separator\">/</span>");
             path_so_far.push_str(name);
+            // (The tree's file and directory names.)
             breadcrumbs.push_str(&format!(
                 "<a href=\"{}\">{}</a>",
-                file_url(opt, &path_so_far),
-                name
+                escape_attr(&file_url(opt, &path_so_far)),
+                escape_html(name)
             ));
             path_so_far.push('/');
         }
@@ -135,7 +141,7 @@ pub fn generate_breadcrumbs(
     if generate_symbol {
         breadcrumbs.push_str(&format!(
             "  <span data-symbols=\"{}\">(file symbol)</span>",
-            file_syms.join(","),
+            escape_attr(&file_syms.join(",")),
         ));
     }
 
@@ -215,7 +221,8 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
             r#"<link href="/{}/static/icons/search.png" rel="shortcut icon">"#,
             opt.tree_name
         )),
-        F::T(format!("<title>{}</title>", opt.title)),
+        // (Ex: a file's name, the tree's.)
+        F::T(format!("<title>{}</title>", escape_html(opt.title))),
         F::T(opensearch_link(opt.tree_name)),
     ];
     head_seq.extend(css_tags);
@@ -223,7 +230,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     // loads; see `EarlyLayout` in settings.js.  Keep this in sync with
     // tools/templates/header_query.liquid and header_search.liquid.)
     head_seq.push(F::T(format!(
-        r#"<script src="/{}/static/js/settings.js"></script>"#,
+        r#"<script src="/{0}/static/js/trusted-html.js"></script><script src="/{0}/static/js/settings.js"></script>"#,
         opt.tree_name
     )));
 
@@ -293,8 +300,8 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
                 F::T(format!(
                     r#"<span id="rev-id">Showing <a href="/{}/commit/{}">{}</a> from <time datetime="{}">{}</time>:</span>"#,
                     opt.tree_name,
-                    rev,
-                    &rev[..8],
+                    escape_attr(rev),
+                    escape_html(rev.get(..8).unwrap_or(rev)),
                     iso_date,
                     human_date,
                 )),
@@ -302,7 +309,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
                 // all of it in its tooltip.)
                 F::T(format!(
                     r#"<span id="rev-desc" title="{}">{}</span>"#,
-                    escape_attr(&strip_tags(&desc)),
+                    escape_html(&strip_tags(&desc)),
                     desc
                 )),
             ]
@@ -396,8 +403,10 @@ pub fn generate_footer(
     }
 
     // NOTE: Keep this in sync with tools/templates/scroll_footer.liquid
-    // (settings.js is in the head; see `generate_header`.)
+    // (settings.js and trusted-html.js are in the head, see `generate_header`,
+    // and page-data.js is first, as the others use the globals it sets.)
     let scripts = [
+        "page-data.js",
         "search.js",
         "context-menu.js",
         "panel.js",
@@ -429,11 +438,11 @@ pub fn generate_footer(
             date,
             F::T(format!(
                 r#"<span id="data" data-root="/" data-search="{}" data-tree="{}" data-path="{}"{}></span>"#,
-                search_url(opt),
-                tree_name,
-                path,
+                escape_attr(&search_url(opt)),
+                escape_attr(tree_name),
+                escape_attr(path),
                 match opt.search_rev {
-                    Some(rev) => format!(r#" data-search-rev="{}""#, rev),
+                    Some(rev) => format!(r#" data-search-rev="{}""#, escape_attr(rev)),
                     None => String::new(),
                 }
             )),
@@ -530,13 +539,6 @@ fn strip_tags(html: &str) -> String {
 }
 
 /// Text escaped for an HTML attribute's value (or text).
-fn escape_attr(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
-
 static COPY_ICONS: &str =
     r#"<span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span>"#;
 
@@ -558,7 +560,8 @@ pub fn generate_panel(
                     let update_attr = if !item.update_link_lineno.is_empty() {
                         format!(
                             r#" data-update-link="{}" data-link="{}""#,
-                            item.update_link_lineno, item.link
+                            escape_attr(item.update_link_lineno),
+                            escape_attr(&item.link)
                         )
                     } else {
                         String::new()
@@ -581,7 +584,7 @@ pub fn generate_panel(
                                 .copy_text
                                 .as_ref()
                                 .map_or(String::new(), |text| {
-                                    format!(r#" data-copy="{}""#, escape_attr(text))
+                                    format!(r#" data-copy="{}""#, escape_html(text))
                                 });
                             format!(
                                 r#"<button class="copy" title="Copy to clipboard"{}>{}</button>"#,
@@ -595,12 +598,12 @@ pub fn generate_panel(
                     };
                     let tag = if is_link { "a" } else { "button" };
                     let href = if is_link {
-                        format!(r#" href="{}""#, item.link)
+                        format!(r#" href="{}""#, escape_attr(&item.link))
                     } else {
                         String::new()
                     };
                     let id_attr = if !item.id.is_empty() {
-                        format!(r#" id="{}""#, item.id)
+                        format!(r#" id="{}""#, escape_attr(item.id))
                     } else {
                         String::new()
                     };
@@ -608,9 +611,9 @@ pub fn generate_panel(
                     let extra = item.extras.link.as_ref().map_or(String::new(), |extra| {
                         format!(
                             r#"<a class="item-extra" href="{}" title="{}">{}</a>"#,
-                            escape_attr(&extra.link),
-                            escape_attr(&extra.tooltip),
-                            escape_attr(&extra.label)
+                            escape_html(&extra.link),
+                            escape_html(&extra.tooltip),
+                            escape_html(&extra.label)
                         )
                     });
                     F::Seq(vec![
@@ -625,7 +628,8 @@ pub fn generate_panel(
                             id_attr,
                             href,
                             data_accel,
-                            item.tooltip,
+                            // (Ex: a file's bug component's, from the tree.)
+                            escape_attr(&item.tooltip),
                             update_attr,
                             item.label,
                             accel,
@@ -651,7 +655,7 @@ pub fn generate_panel(
             }
 
             F::Seq(vec![
-                F::T(format!("<h4>{}</h4>", section.name)),
+                F::T(format!("<h4>{}</h4>", escape_html(&section.name))),
                 F::S("<ul>"),
                 F::Seq(items),
                 F::Seq(raw_items),
@@ -683,7 +687,7 @@ pub fn generate_panel(
                 if collapsed { "false" } else { "true" },
                 if collapsed { "true" } else { "false" },
                 if collapsed {
-                    r#" style="display: none""#
+                    r#" class="initially-hidden""#
                 } else {
                     ""
                 }

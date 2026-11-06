@@ -231,10 +231,7 @@ pub(crate) fn transform_svg(svg: &str) -> String {
         if captured == "g" || captured.starts_with("SYN_") {
             ">".to_string()
         } else {
-            format!(
-                " data-symbols=\"{}\">",
-                urlencoding::decode(captured).unwrap_or_default()
-            )
+            format!(" data-symbols=\"{}\">", symbols_attr(captured))
         }
     });
     lazy_static! {
@@ -263,13 +260,19 @@ pub(crate) fn transform_svg(svg: &str) -> String {
             if captured.starts_with("SYN_") {
                 "<g>".to_string()
             } else {
-                format!(
-                    "<g data-symbols=\"{}\">",
-                    urlencoding::decode(captured).unwrap_or_default()
-                )
+                format!("<g data-symbols=\"{}\">", symbols_attr(captured))
             }
         })
         .into_owned()
+}
+
+/// A `<title>`'s or `xlink:href`'s symbols as a `data-symbols` value: graphviz
+/// XML-escapes them (ex: `-` as `&#45;`), and the HTML labels' links
+/// percent-encode them, but they're the tree's, so escaped for the attribute.
+fn symbols_attr(captured: &str) -> String {
+    let unescaped = crate::html_escape::unescape_xml(captured);
+    let decoded = urlencoding::decode(&unescaped).unwrap_or_default();
+    crate::html_escape::escape_attr(&decoded).into_owned()
 }
 
 #[async_trait]
@@ -516,7 +519,7 @@ impl PipelineCommand for GraphCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::transform_svg;
+    use super::*;
 
     /// HTML labels' links become groups with their symbols, and close as
     /// groups; tooltips' anchors (ex: block diagrams' edges') stay anchors,
@@ -549,6 +552,22 @@ mod tests {
             out.matches("</a>").count(),
             "{}",
             out
+        );
+    }
+
+    #[test]
+    fn test_transform_svg() {
+        // (graphviz's XML escaping decoded, and the symbols' quotes escaped.)
+        let svg = concat!(
+            "<g id=\"node1\" class=\"node\">\n<title>FILE_linux64&#45;opt@a&quot;b</title>\n</g>",
+            "<a xlink:href=\"F_%3CT%22%3E&#45;\" xlink:title=\"x\">y</a>"
+        );
+        assert_eq!(
+            transform_svg(svg),
+            concat!(
+                "<g id=\"node1\" class=\"node\" data-symbols=\"FILE_linux64-opt@a&quot;b\">\n</g>",
+                "<g data-symbols=\"F_<T&quot;>-\">y</g>"
+            )
         );
     }
 }

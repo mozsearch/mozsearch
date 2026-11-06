@@ -3,9 +3,9 @@
     {%- for coverage in coverage_history -%}
       {%- capture file_url -%}/{{ tree }}/rev/{{ coverage.rev }}/{{ path }}{%- endcapture -%}
       {%- assign human_date = coverage.date | date: "%F" %}
-      <li class="coverage-history-item" data-rev="{{ coverage.rev }}" data-percentage="{{ coverage.coveragePercent }}">
-        <a href="{{ file_url }}">
-          <time class="coverage-history-date" datetime="{{ coverage.date }}">{{ human_date }}</time>:
+      <li class="coverage-history-item" data-rev="{{ coverage.rev | escape }}" data-percentage="{{ coverage.coveragePercent | escape }}">
+        <a href="{{ file_url | escape }}">
+          <time class="coverage-history-date" datetime="{{ coverage.date | escape }}">{{ human_date | escape }}</time>:
           <span class="coverage-history-percentage">{{ coverage.coveragePercent | round }} %</span>
         </a>
       </li>

@@ -1,5 +1,5 @@
-<script>var GRAPH_OPTIONS = {{ options | json }};</script>
-<script>var GRAPH_OVERLOADS = {{ overloads_hit | json }};</script>
+<script type="application/json" data-global="GRAPH_OPTIONS">{{ options | json_script }}</script>
+<script type="application/json" data-global="GRAPH_OVERLOADS">{{ overloads_hit | json_script }}</script>
 <div id="diagram-panel" class="hidden"></div>
 {%- if overloads_hit != empty -%}
 
@@ -15,7 +15,7 @@
 {%- if has_other_overloads == true -%}
 <div class="diagram-limit-warning">
 <h3>Limits Hit:</h3>
-<p>Some items hit the limit, and the result is incomplete. <button id="diagram-limit-warning-overload-list-toggle" onclick="Diagram.toggleOverloadList()">Show details</button></p>
+<p>Some items hit the limit, and the result is incomplete. <button id="diagram-limit-warning-overload-list-toggle">Show details</button></p>
 <ul id="diagram-limit-warning-overload-list" class="hidden">
   {%- for overload in overloads_hit -%}
   {%- assign kind_prefix = overload.kind | truncate: 10, "" -%}
@@ -23,7 +23,7 @@
   {%- continue -%}
   {%- endif -%}
   <li>
-    <code>{{overload.pretty}}</code>
+    <code>{{overload.pretty | escape}}</code>
     {% if overload.local_limit > 0 %} hit the local limit{% endif -%}
     {%- if overload.global_limit > 0 %} hit the global limit{% endif -%}<br>
     <span class="diagram-limit-kind">
@@ -32,18 +32,18 @@
     {%- elsif overload.kind == "UsesCallers" -%}too many callers
     {%- elsif overload.kind == "FieldMemberUses" -%}too many field member uses
     {%- elsif overload.kind == "NodeLimit" -%}too many nodes
-    {%- else %}{{ overload.kind }}:{%- endif %}
+    {%- else %}{{ overload.kind | escape }}:{%- endif %}
     </span>: <span class="diagram-limit-eq">
     {%- if overload.exist == 0 -%}
       (unknown)
     {%- else -%}
-      {{ overload.exist }}
+      {{ overload.exist | escape }}
     {%- endif -%}
-    {%- if overload.local_limit > 0 %} >= {{ overload.local_limit }}{% endif -%}
-    {%- if overload.global_limit > 0 %} >= {{ overload.global_limit }}{% endif -%}
-    </span>: only {{ overload.included }} included.
+    {%- if overload.local_limit > 0 %} >= {{ overload.local_limit | escape }}{% endif -%}
+    {%- if overload.global_limit > 0 %} >= {{ overload.global_limit | escape }}{% endif -%}
+    </span>: only {{ overload.included | escape }} included.
     {% if overload.kind == "UsesCallers" or overload.kind == "NodeLimit" -%}
-    <button onclick="Diagram.liftLimit('{{overload.kind}}', {{overload.exist}})">Lift the limit</button>
+    <button class="diagram-lift-limit" data-kind="{{ overload.kind | escape }}" data-exist="{{ overload.exist | escape }}">Lift the limit</button>
     {%- endif -%}
   </li>
   {%- endfor -%}

@@ -1,16 +1,25 @@
 use crate::file_format::config::{Config, GitData, TreeConfig};
+use crate::html_escape::escape_html;
 use crate::{git_ops, links, pull_requests};
 
 use serde_json::{Map, Value, json, to_string};
 use std::borrow::Cow;
 use std::str::Split;
 
+/// A commit message's link (ex: its `Differential Revision: ` line's), if it's
+/// a web link (not ex: a `javascript:` URL), which the blame popup links to.
+fn web_link(link: &str) -> Option<String> {
+    let link = link.trim();
+    let lower = link.to_ascii_lowercase();
+    (lower.starts_with("https://") || lower.starts_with("http://")).then(|| link.to_string())
+}
+
 fn find_phab_rev(iter: Split<char>) -> Option<String> {
     const PREFIX: &str = "Differential Revision: ";
 
     for line in iter {
         if let Some(stripped) = line.strip_prefix(PREFIX) {
-            return Some(stripped.to_string());
+            return web_link(stripped);
         }
     }
 
@@ -22,7 +31,7 @@ fn find_pr(iter: Split<char>) -> Option<String> {
 
     for line in iter {
         if let Some(stripped) = line.strip_prefix(PREFIX) {
-            return Some(stripped.to_string());
+            return web_link(stripped);
         }
     }
 
@@ -84,6 +93,7 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
     let git = tree_config.get_git()?;
     let mut infos = vec![];
     for rev in revs.split(',') {
+        let rev = &git_ops::canonical_rev(&git.repo, rev)?;
         let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
         let commit = commit_obj.as_commit().ok_or("Bad revision")?;
         infos.push(commit_info_json(tree_config, git, commit)?);
@@ -112,7 +122,14 @@ pub fn commit_info_json(
             .mailmap
             .lookup(sig.name().unwrap(), sig.email().unwrap());
 
-        let msg = format!("{}\n<br><i>{} &lt;{}>, {}</i>", msg, name, email, t);
+        // (The author's name and email are the tree's, ex: its .mailmap's.)
+        let msg = format!(
+            "{}\n<br><i>{} &lt;{}&gt;, {}</i>",
+            msg,
+            escape_html(&name),
+            escape_html(&email),
+            t
+        );
 
         let mut obj = Map::new();
 

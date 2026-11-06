@@ -1,8 +1,8 @@
 <tr>
-  <td class="base-class-{{ node.isBaseClass }}" colspan="{{ platforms.size | times: 2 | plus: 3 }}">
+  <td class="base-class-{{ node.isBaseClass | escape }}" colspan="{{ platforms.size | times: 2 | plus: 3 }}">
     <h3>
       <code>
-        <span data-symbols="{{ node.symbols }}">
+        <span data-symbols="{{ node.symbols | escape }}">
           {{- node.name | escape -}}
           {%- if node.isBaseClass == true %} (base class){% endif -%}
         </span>
@@ -34,7 +34,7 @@
     <tr>
       <td class="name-cell">
         <code>
-          <span data-symbols="{{ item.Field.symbols }}">
+          <span data-symbols="{{ item.Field.symbols | escape }}">
             {{- item.Field.name | escape -}}
           </span>
         </code>
@@ -46,7 +46,7 @@
             {%- if first == false -%}
               |<br>
             {%- endif -%}
-            <span data-symbols="{{ type.symbols }}">
+            <span data-symbols="{{ type.symbols | escape }}">
               {{ type.name | escape }}
             </span>
             {%- assign first = false -%}
@@ -59,7 +59,7 @@
           {%- if first == false -%}
             <br>
           {%- endif -%}
-          <code>{{- line -}}</code>
+          <code>{{- line | escape -}}</code>
           {%- assign first = false -%}
         {%- endfor -%}
       </td>

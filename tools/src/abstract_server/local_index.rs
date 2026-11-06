@@ -590,6 +590,10 @@ impl AbstractServer for LocalIndex {
                 let Some(git_path) = &self.config_paths.git_path else {
                     return Ok(None);
                 };
+                // (Mercurial's revisions are hex.)
+                if !crate::git_ops::is_hex_rev(rev) {
+                    return Ok(None);
+                }
                 // (The system git, with SHA-1 collision detection, since
                 // this works on a source repo; see `fast_import_git` for our
                 // git.)
@@ -619,6 +623,14 @@ impl AbstractServer for LocalIndex {
                     .and_then(|tree| tree.git.as_ref())
                     .and_then(|git| git.new_rev_for_old_rev(old))
                     .map(|new| new.to_string()))
+            }
+            "ref" => {
+                let cfg = self.tree_config_loaded();
+                Ok(cfg
+                    .trees
+                    .get(&self.tree_name)
+                    .and_then(|tree| tree.git.as_ref())
+                    .and_then(|git| crate::git_ops::resolve_ref_name(&git.repo, rev)))
             }
             _ => Err(bad_input(format!("Unknown kind of revision: {}", kind))),
         }

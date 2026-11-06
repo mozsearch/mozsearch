@@ -563,6 +563,14 @@ def identifier_search(search, tree_name, needle, complete, fold_case):
         search.add_qualified_results(q, results, line_modifier)
     log('  identifier_search "%s" - %f', needle, time.time() - t)
 
+def json_for_script(j):
+    """
+    JSON for a page's JSON data block (`<script type="application/json">`; see
+    search_template.liquid), with its strings' "<", ">" and "&" escaped as
+    \u003c and so on, so that no string can end the element.
+    """
+    return j.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
 def get_json_search_results(tree_name, query):
     try:
         search_string = query['q'][0]
@@ -888,7 +896,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if 'json' in self.headers.get('Accept', ''):
                 self.generateJson(j)
         else:
-            j = j.replace("</", "<\\/").replace("<script", "<\\script").replace("<!", "<\\!")
+            j = json_for_script(j)
             template = os.path.join(index_path(tree_name), 'templates/sorch.html')
             self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
 
@@ -906,7 +914,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if 'json' in self.headers.get('Accept', ''):
                 self.generateJson(j)
             else:
-                j = j.replace("</", "<\\/").replace("<script", "<\\script").replace("<!", "<\\!")
+                j = json_for_script(j)
                 template = os.path.join(index_path(tree_name), 'templates/search.html')
                 self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
         elif len(path_elts) >= 2 and path_elts[1] == 'sorch':

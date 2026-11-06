@@ -37,6 +37,7 @@ use crate::hyperblame::page_blame::{
 use crate::hyperblame::page_data_cache::{PAGE_DATA_CACHE, PageData};
 use crate::hyperblame::peephole::{self, Cursor, peephole_page};
 use crate::hyperblame::token_blame::{TreeHistory, blame_tokens};
+use crate::html_escape::{escape_attr, escape_html};
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
@@ -211,6 +212,7 @@ pub fn format_code(
         cur_datum += 1;
     }
 
+    // (For element text only; attributes need `html_escape::escape_html`.)
     fn entity_replace(s: String) -> String {
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
@@ -242,7 +244,10 @@ pub fn format_code(
         last_pos = token.end;
 
         if token.kind == tokenize::TokenKind::Newline {
-            output.push_str(&input[last..token.start]);
+            // (The line's pending text, ex: unstyled identifiers, which are only
+            // written out at the next styled token or the line's end, escaped as
+            // they are there.)
+            output.push_str(&entity_replace(input[last..token.start].to_string()));
 
             // Pop nesting symbols whose end is on the NEXT line.  That is, it doesn't make
             // sense for the position:sticky overlay to cover up the line that contains the
@@ -389,10 +394,8 @@ pub fn format_code(
                         if !syms.is_empty() {
                             format!(
                                 "data-symbols=\"{}\" data-confidences=\"{}\"",
-                                syms.replace('"', "&quot;"),
-                                serde_json::to_string(&confidences)
-                                    .unwrap()
-                                    .replace('"', "&quot;")
+                                escape_attr(&syms),
+                                escape_attr(&serde_json::to_string(&confidences).unwrap())
                             )
                         } else {
                             "".to_owned()
@@ -1207,13 +1210,12 @@ pub fn format_file_data(
             last_color = color;
             let class = if color { 1 } else { 2 };
             let data = format!(
-                r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="{} hash {}" aria-expanded="false""#,
+                r#" class="blame-strip c{}" data-blame="{}" role="button" aria-label="{} hash {}" aria-expanded="false""#,
                 class,
-                revs,
-                filespecs,
-                blame_linenos,
+                // (Its paths are the tree's, ex: a renamed file's old path.)
+                escape_attr(&format!("{}#{}#{}", revs, filespecs, blame_linenos)),
                 if same_rev_as_last { "same" } else { "new" },
-                human_id,
+                escape_attr(&human_id.to_string()),
             );
             data
         } else {
@@ -1227,7 +1229,7 @@ pub fn format_file_data(
                 writer,
                 r#"<div class="nesting-container nesting-depth-{}" data-nesting-sym="{}">"#,
                 nest_depth,
-                nest_sym.replace('"', "&quot;")
+                escape_attr(nest_sym)
             )
             .unwrap();
             nest_depth += 1;
@@ -1302,18 +1304,23 @@ pub fn format_file_data(
     let f = F::Seq(vec![F::S("</div>")]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    writeln!(writer, "<script>var SYM_INFO = {};</script>", sym_json,).unwrap();
+    // (JSON data blocks, which static/js/page-data.js makes the globals.)
+    writeln!(
+        writer,
+        "{}",
+        crate::html_escape::json_data_block_from_json("SYM_INFO", &sym_json)
+    )
+    .unwrap();
     if let Some(page) = &token_blame {
         let info_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
             to_string(&page.info).unwrap()
         } else {
             to_string_pretty(&page.info).unwrap()
         };
-        // Author names and paths could contain "</script>".
         writeln!(
             writer,
-            "<script>var BLAME_INFO = {};</script>",
-            info_json.replace("</", "<\\/")
+            "{}",
+            crate::html_escape::json_data_block_from_json("BLAME_INFO", &info_json)
         )
         .unwrap();
     }
@@ -7060,7 +7067,8 @@ pub fn add_coverage_panel_item(
         )),
         tooltip: "Show the test coverage graph".to_owned(),
         id: "panel-coverage",
-        link: "javascript:CoverageGraph.open()".to_owned(),
+        // (A button, which coverage-history.js opens the graph for.)
+        link: String::new(),
         update_link_lineno: "",
         accel_key: None,
         copyable: false,
@@ -7362,6 +7370,7 @@ pub fn format_path(
     // Get the file data.
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
+    let rev = &git_ops::canonical_rev(&git.repo, rev)?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let path = Path::new(path.trim_end_matches('/'));
 
@@ -7764,9 +7773,8 @@ pub fn render_rev_file(
             label: PanelItemLabel::Plaintext("Blame".to_owned()),
             tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
             id: "panel-blame",
-            link:
-                "javascript:alert('Hover over the gray bar on the left to see blame information.')"
-                    .to_owned(),
+            // (A button, which panel.js explains blame for.)
+            link: String::new(),
             update_link_lineno: "",
             accel_key: None,
             copyable: false,
@@ -7936,11 +7944,15 @@ pub fn rev_diff_data(
     path: &str,
 ) -> Result<Option<RevDiff>, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let rev = &git_ops::canonical_rev(&tree_config.get_git()?.repo, rev)?;
 
     let git_path = tree_config.get_git_path()?;
     // (The system git, with SHA-1 collision detection, since this works on a
-    // source repo; see `fast_import_git` for our git.)
+    // source repo; see `fast_import_git` for our git.  The path is a path,
+    // not a pathspec, ex: `:(exclude)...`, which would match every other
+    // path.)
     let output = Command::new("git")
+        .env("GIT_LITERAL_PATHSPECS", "1")
         .arg("diff-tree")
         .arg("-p")
         .arg("--cc")
@@ -8398,8 +8410,12 @@ fn write_diff_rows(
                 last_color = color;
                 let class = if color { 1 } else { 2 };
                 format!(
-                    r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
-                    class, line_data.rev, line_data.path, line_data.lineno
+                    r#" class="blame-strip c{}" data-blame="{}" role="button" aria-label="blame" aria-expanded="false""#,
+                    class,
+                    escape_attr(&format!(
+                        "{}#{}#{}",
+                        line_data.rev, line_data.path, line_data.lineno
+                    ))
                 )
             }
             (None, None) => " class=\"blame-strip\"".to_owned(),
@@ -9729,7 +9745,7 @@ fn generate_commit_info(
         let (name, email) = git
             .mailmap
             .lookup(sig.name().unwrap(), sig.email().unwrap());
-        format!("{} &lt;{}>", name, email)
+        format!("{} &lt;{}&gt;", escape_html(&name), escape_html(&email))
     }
 
     let parents = commit
@@ -9844,11 +9860,11 @@ fn generate_commit_info(
 
         let f = F::T(format!(
             "<li>{} <a href=\"/{}/diff/{}/{}\">{}</a>",
-            file_info[0],
+            escape_html(file_info[0]),
             tree_name,
             commit.id(),
-            url_encode_path(file_info[1]),
-            file_info[1]
+            escape_attr(&url_encode_path(file_info[1])),
+            escape_html(file_info[1])
         ));
         changes.push(f);
     }
@@ -12662,6 +12678,7 @@ pub fn commit_page_data(
 ) -> Result<serde_json::Value, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
+    let rev = &git_ops::canonical_rev(&git.repo, rev)?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
     let mut content = Vec::new();

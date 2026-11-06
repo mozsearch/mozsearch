@@ -33,6 +33,26 @@ impl Filter for JsonFilter {
 
 #[derive(Clone, ParseFilter, FilterReflection)]
 #[filter(
+    name = "json_script",
+    description = "Render the provided object into JSON for a <script> element's contents (a JSON data block's; see `html_escape::json_for_script`), with its strings' `<`, `>` and `&` escaped, so that none of them can end the element.",
+    parsed(JsonScriptFilter)
+)]
+pub struct JsonScriptFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "json_script"]
+struct JsonScriptFilter;
+
+impl Filter for JsonScriptFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        Ok(Value::scalar(crate::html_escape::json_for_script(
+            &input.to_value(),
+        )))
+    }
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
     name = "fileext",
     description = "Extract the file extension from a path string, defaulting to the empty string.",
     parsed(FileExtFilter)

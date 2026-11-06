@@ -63,6 +63,56 @@ fn latin1_to_string(bytes: Vec<u8>) -> String {
     bytes.iter().map(|&c| c as char).collect()
 }
 
+/// Whether a revision from a request (ex: `/{tree}/rev/{rev}/...`) is a
+/// (maybe abbreviated) hex commit id, which is what the pages for a revision
+/// take (web-server redirects a ref name to its commit's id; see
+/// `resolve_ref_name`).
+pub fn is_hex_rev(rev: &str) -> bool {
+    (4..=40).contains(&rev.len()) && rev.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// Whether a revision from a request is a ref name (ex: a branch's, `main`, a
+/// tag's, or one with slashes, `release/esr128`), in git's rules for them but
+/// only of letters, digits, `.`, `_`, `-` and `/`, so not any of git's other
+/// revision syntax (ex: `main~1`, `main@{yesterday}`, `main^{/message}`),
+/// whose history walks can be of any length.
+pub fn is_ref_name(name: &str) -> bool {
+    name.len() <= 255
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'/'))
+        && !name.starts_with('-')
+        && !name.ends_with('.')
+        && !name.contains("..")
+        && name.split('/').all(|component| {
+            !component.is_empty() && !component.starts_with('.') && !component.ends_with(".lock")
+        })
+}
+
+/// A ref name's (see `is_ref_name`) commit's full id, if it's one of the
+/// repository's refs, looked up as git looks up a short ref name (as is,
+/// then `refs/tags/NAME`, `refs/heads/NAME`, `refs/remotes/NAME`, ...).
+pub fn resolve_ref_name(repo: &Repository, name: &str) -> Option<String> {
+    if !is_ref_name(name) {
+        return None;
+    }
+    let reference = repo.resolve_reference_from_short_name(name).ok()?;
+    Some(reference.peel_to_commit().ok()?.id().to_string())
+}
+
+/// A revision from a request (see `is_hex_rev`) as its commit's full id, which
+/// is what the pages and git commands for it use.
+pub fn canonical_rev(repo: &Repository, rev: &str) -> Result<String, &'static str> {
+    if !is_hex_rev(rev) {
+        return Err("Bad revision");
+    }
+    let commit = repo
+        .revparse_single(rev)
+        .and_then(|object| object.peel_to_commit())
+        .map_err(|_| "Bad revision")?;
+    Ok(commit.id().to_string())
+}
+
 pub fn decode_bytes(bytes: Vec<u8>) -> String {
     match String::from_utf8(bytes.clone()) {
         Ok(s) => s,
@@ -95,6 +145,35 @@ fn test_git_time_to_chrono() {
     let expected = chrono::DateTime::parse_from_rfc3339("2026-03-13T04:47:54+02:00").unwrap();
     let actual = git_time_to_chrono(source);
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn test_is_ref_name() {
+    for name in [
+        "main",
+        "HEAD",
+        "FIREFOX_NIGHTLY_120_END",
+        "release/esr128",
+        "v1.2-rc",
+    ] {
+        assert!(is_ref_name(name), "{}", name);
+    }
+    for name in [
+        "",
+        "main~1",
+        "main^",
+        "main@{yesterday}",
+        "main^{/message}",
+        "a..b",
+        "-output",
+        "release/",
+        "a//b",
+        ".hidden",
+        "a.lock",
+        "main:path",
+    ] {
+        assert!(!is_ref_name(name), "{}", name);
+    }
 }
 
 pub fn get_blame_lines(

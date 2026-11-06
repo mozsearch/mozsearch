@@ -1,4 +1,4 @@
-<script>var GRAPH_INPUT = {{ results.GraphInput.graphs | json }};</script>
+<script type="application/json" data-global="GRAPH_INPUT">{{ results.GraphInput.graphs | json_script }}</script>
 {%- comment %}(Its nodes' facets' values, which facets.js hides when they're
 filtered out, and graph.js then leaves them out; see `graph_facets`.){% endcomment %}
 {%- if graph_facets %}

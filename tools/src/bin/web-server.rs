@@ -31,6 +31,7 @@ use tools::file_format::config;
 use tools::file_format::jumpref::PrefetchedJumprefs;
 use tools::file_format::per_file_info::path_facet_map;
 use tools::format;
+use tools::git_ops;
 use ustr::UstrMap;
 
 use tools::sidecars;
@@ -154,6 +155,40 @@ impl WebResponse {
             ..self
         }
     }
+}
+
+/// A `/rev/`, `/diff/` or `/commit/` URL whose revision is a ref name rather
+/// than a commit id (see `git_ops::is_ref_name`), as a redirect to the same
+/// URL with the ref's commit's id (the tree's server's `map_rev` of the "ref"
+/// kind), so that the page is a permalink.  As a ref name can have slashes
+/// (ex: `release/esr128`), it's the fewest of the URL's segments after its
+/// kind (up to 4) which are a ref's name.
+fn redirect_ref_name(tree_name: &str, kind: &str, raw_path: &str) -> WebResponse {
+    let Some(server) = tree_server(tree_name) else {
+        return WebResponse::not_found();
+    };
+    // (Still percent-encoded, as the redirect's are.)
+    let segments = raw_path[1..].split('/').skip(2).collect::<Vec<_>>();
+    for count in 1..=segments.len().min(4) {
+        let name = url_decode_path(&segments[..count].join("/"));
+        if !git_ops::is_ref_name(&name) {
+            continue;
+        }
+        let server = server.clonify();
+        match format::run_on_runtime(async move { server.map_rev("ref", &name).await }) {
+            Ok(Some(id)) => {
+                let mut location = format!("/{}/{}/{}", tree_name, kind, id);
+                for segment in &segments[count..] {
+                    location.push('/');
+                    location.push_str(segment);
+                }
+                return WebResponse::found(location);
+            }
+            Ok(None) => {}
+            Err(err) => return WebResponse::internal_error(server_error_message(&err)),
+        }
+    }
+    WebResponse::internal_error("Bad revision".to_owned())
 }
 
 fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
@@ -635,6 +670,9 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
 
             let rev = &path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(tree_name, kind, req.path);
+            }
             let path = path.clone().split_off(3);
             let path = path.join("/");
 
@@ -1026,6 +1064,9 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
 
             let rev = path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(tree_name, kind, req.path);
+            }
             let path = path.clone().split_off(3);
             let path = path.join("/");
 
@@ -1158,6 +1199,9 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
 
             let rev = path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(tree_name, kind, req.path);
+            }
 
             // (Over the tree's server.)
             let Some(server) = tree_server(tree_name) else {

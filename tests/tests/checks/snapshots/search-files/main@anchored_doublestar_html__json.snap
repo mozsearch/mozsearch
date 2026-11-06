@@ -394,6 +394,20 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "info": {},
         "coverage": null
       }
+    },
+    {
+      "path": "xss/tokens.html",
+      "concise": {
+        "path_kind": "normal",
+        "is_dir": false,
+        "file_size": 197,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {},
+        "coverage": null
+      }
     }
   ]
 }

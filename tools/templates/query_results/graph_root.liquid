@@ -1,8 +1,7 @@
-<script>var GRAPH_EXTRA = [];</script>
 {% include 'query_results/graph_panel.liquid'
    overloads_hit: results.GraphResultsBundle.overloads_hit,
    options: results.GraphResultsBundle.options %}
 {% for graph in results.GraphResultsBundle.graphs %}
 {{ graph.graph }}
-<script>GRAPH_EXTRA.push({{ graph.extra | json }});</script>
+<script type="application/json" data-global="GRAPH_EXTRA" data-append>{{ graph.extra | json_script }}</script>
 {% endfor %}

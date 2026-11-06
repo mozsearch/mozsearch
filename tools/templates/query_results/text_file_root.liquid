@@ -35,5 +35,5 @@
 {% elsif results.TextFile.mime_type == "text/x-dot" %}
 <pre>{{ results.TextFile.contents | escape }}</pre>
 {% else %}
-Unsupported MIME type: {{ results.TextFile.mime_type }}
+Unsupported MIME type: {{ results.TextFile.mime_type | escape }}
 {% endif %}

@@ -5168,6 +5168,18 @@ g.true-diag g.node polygon {
   display: none !important;
 }
 
+/* Hidden until a script shows it, by setting its style's display (which this
+   class, unlike .hidden, lets win), as markup can't have style attributes (see
+   the Content-Security-Policy in scripts/nginx-setup.py). */
+.initially-hidden {
+  display: none;
+}
+
+/* The expandos of results without lines, which keep their column's width. */
+.expando-placeholder {
+  visibility: hidden;
+}
+
 #diagram-panel h3 {
   margin: 0;
 }

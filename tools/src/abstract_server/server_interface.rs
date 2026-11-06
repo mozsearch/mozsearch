@@ -919,9 +919,10 @@ pub trait AbstractServer {
     }
 
     /// The tree's git revision for the revision `rev` of another kind: an hg
-    /// revision (`kind` "hg"; ex: firefox's, by git-cinnabar's mapping) or a
+    /// revision (`kind` "hg"; ex: firefox's, by git-cinnabar's mapping), a
     /// revision of the tree's old git repository ("old"; see
-    /// `TreeConfigPaths::oldgit_path`), if it has one.
+    /// `TreeConfigPaths::oldgit_path`), or a ref name ("ref"; see
+    /// `git_ops::resolve_ref_name`), if it has one.
     async fn map_rev(&self, _kind: &str, _rev: &str) -> Result<Option<String>> {
         Err(ServerError::Unsupported)
     }

@@ -108,7 +108,7 @@
         {% when "TokenNames" %}
           {% include 'query_results/token_names_root.liquid' %}
         {% else %}
-          Unhandled results type {{result_pair[0]}}!
+          Unhandled results type {{result_pair[0] | escape}}!
         {% endcase %}
       {% endfor %}
       {% if logs != empty -%}
@@ -128,23 +128,19 @@
       </fieldset>
     </div>
   </div>
-  <script>
-{%- comment %}
-  (Beside the symbols' information a view's HTML added, ex: a crash view's
-  excerpts'; see crash_stack.rs's `render_crash_stack`.)
-{% endcomment %}
-var SYM_INFO = Object.assign(window.SYM_INFO || {}, {{ SYM_INFO_STR }});
-{%- comment %}
-  (A copy of the results, rows included, which would double big pages, so
-  only for debugging; otherwise the panel fetches the URL's JSON.)
-{% endcomment %}
-{%- if debug %}
-var QUERY_RESULTS_JSON = {{ results | json }};
-{%- endif %}
-// Debug logs are always available for queries, so always set the variable to true;
-// other pages will not have the variable defined and so the page will see undefined as false.
-var IS_DEBUG_LOGS_AVAILABLE = true;
-</script>
+  {%- comment %}(JSON data blocks, which static/js/page-data.js makes the
+  globals: SYM_INFO beside the symbols' information a view's HTML added (ex: a
+  crash view's excerpts'; see crash_stack.rs's `render_crash_stack`); a copy
+  of the results, rows included, which would double big pages, so only for
+  debugging (otherwise the panel fetches the URL's JSON); and
+  IS_DEBUG_LOGS_AVAILABLE because debug logs are always available for
+  queries, which other pages don't define, so they see it as false.){%
+  endcomment %}
+  <script type="application/json" data-global="SYM_INFO" data-merge>{{ SYM_INFO_STR }}</script>
+  {%- if debug %}
+  <script type="application/json" data-global="QUERY_RESULTS_JSON">{{ results | json_script }}</script>
+  {%- endif %}
+  <script type="application/json" data-global="IS_DEBUG_LOGS_AVAILABLE">true</script>
   {% include 'scroll_footer.liquid' search: "query" %}
 </div>
 {% include 'footer.liquid' %}

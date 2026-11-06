@@ -10,7 +10,7 @@
            if expanded
            %}aria-expanded="true" aria-hidden="false"{%
            else
-           %}aria-expanded="false" aria-hidden="true" style="display: none;"{%
+           %}aria-expanded="false" aria-hidden="true" class="initially-hidden"{%
            endif %}>
 {%- comment %}(The page's lenses, if it has any: toggles showing more of its
 contents, ex: "changes" for a query's results' history digests, which are
@@ -67,7 +67,7 @@ tests' CI results.){% endcomment -%}
                endif
                %}title="{{item.tooltip | escape}}" class="icon item"{%
                if item.update_link_lineno != ""
-               %} data-update-link="{{item.update_link_lineno | escape}}" data-link="{{item.link | escape}}}"{%
+               %} data-update-link="{{item.update_link_lineno | escape}}" data-link="{{item.link | escape}}"{%
                endif
                %}>{%- if item.label.plaintext -%}{{ item.label.plaintext | escape }}{%- else -%}{{ item.label.html }}{%- endif -%}{%
         if item.accel_key

@@ -695,7 +695,8 @@ async fn handle_query(
             "try_base": try_meta.as_ref().map(|meta| meta.base.clone()).unwrap_or_default(),
             "logs": logs,
             "debug": maybe_log,
-            "SYM_INFO_STR": sym_info_str,
+            // (For the page's `<script>`; see `html_escape::json_for_script`.)
+            "SYM_INFO_STR": tools::html_escape::escape_json_for_script(&sym_info_str),
             "file_facets": file_facets,
             "graph_facets": graph_facets,
             "view_facets": view_facets,

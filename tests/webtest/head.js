@@ -90,6 +90,29 @@ class TestHarness {
     }
   }
 
+  /**
+   * The Content-Security-Policy violations reported so far (see
+   * scripts/nginx-setup.py's `csp`), which nginx logs, one per line.
+   */
+  static async cspReports() {
+    const response = await fetch("/tests/webtest/csp-reports.log", { cache: "no-store" });
+    return response.ok ? await response.text() : "";
+  }
+
+  /**
+   * Fail the test file if its pages made Content-Security-Policy violations
+   * (reported asynchronously, after those `before` had).
+   */
+  static async checkCspReports(before) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const after = await this.cspReports();
+    if (after.length > before.length) {
+      for (const report of after.slice(before.length).trim().split("\n")) {
+        this.fail(`Content-Security-Policy violation: ${report}`);
+      }
+    }
+  }
+
   static logSummary() {
     const failedCount = this.failedTests.size;
     const passedCount = this.testCount - failedCount;
@@ -246,7 +269,9 @@ class TestHarness {
     window.addEventListener("error", onError);
     script.addEventListener("load", async () => {
       window.removeEventListener("error", onError);
+      const cspReports = await this.cspReports();
       await this.runTests();
+      await this.checkCspReports(cspReports);
       this.log("TEST_END", path);
       TestHarness.logSummary();
     });

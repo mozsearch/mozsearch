@@ -25,12 +25,12 @@ Parameters:
 {%- if results.crashes > 0 -%}{%- assign crashes_kind = "crashes" -%}{%- else -%}{%- assign crashes_kind = "zero" -%}{%- endif -%}
 {%- if results.skips > 0 -%}{%- assign skips_kind = "skips" -%}{%- else -%}{%- assign skips_kind = "zero" -%}{%- endif %}
       <div class="test-results">
-        <div class="test-results-header"><a href="{{ results_url }}" title="More details on tests.firefox.dev">CI results</a> <span class="test-results-period" title="{{ results.start_date }} to {{ results.end_date }}">over the last {{ results.days }} days</span></div>
+        <div class="test-results-header"><a href="{{ results_url | escape }}" title="More details on tests.firefox.dev">CI results</a> <span class="test-results-period" title="{{ results.start_date | escape }} to {{ results.end_date | escape }}">over the last {{ results.days | escape }} days</span></div>
 {%- assign chart_count = 0 -%}
 {%- if details.max_daily_issue_rate > 0 -%}{%- assign chart_count = chart_count | plus: 1 -%}{%- endif -%}
 {%- if details.max_daily_skip_rate > 0 -%}{%- assign chart_count = chart_count | plus: 1 -%}{%- endif %}
         <div class="test-results-body">
-        <a class="test-results-tiles" href="{{ results_url }}" title="More details on tests.firefox.dev">
+        <a class="test-results-tiles" href="{{ results_url | escape }}" title="More details on tests.firefox.dev">
           {%- include 'test_results/tile.liquid' label: "Runs", value: results.runs, kind: runs_kind -%}
           {%- include 'test_results/tile.liquid' label: "Pass", value: pass_rate, kind: pass_rate_kind -%}
           {%- include 'test_results/tile.liquid' label: "Failures", value: results.failures, kind: failures_kind -%}
