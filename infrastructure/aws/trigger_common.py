@@ -62,6 +62,12 @@ class TriggerCommandBase:
         # yet (ex: a branch which was just pushed).
         parser.add_argument('--root-volume-gb', dest='root_volume_gb', type=int)
 
+        # The availability zone to launch in (ex: us-west-2b), rather than the
+        # one EC2 picks, for when launches fail in one (2026-11-06: three
+        # m8id.8xlarge launches in us-west-2d each ended at once with
+        # "Server.InternalError: Internal error on launch").
+        parser.add_argument('--availability-zone', dest='availability_zone')
+
         return parser
 
     def parse_args(self, args=None):
@@ -246,6 +252,9 @@ FINAL
                 }],
             }],
         }
+
+        if args.availability_zone:
+            launch_spec['Placement'] = {'AvailabilityZone': args.availability_zone}
 
         if args.verbose > 0:
             print('Launch Spec:')
