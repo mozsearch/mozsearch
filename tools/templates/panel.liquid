@@ -1,16 +1,16 @@
 {%- if link != empty -%}
     {%- assign tag = "a" -%}
-    {%- capture tag_extra %} href="{{ link }}"{% endcapture -%}
+    {%- capture tag_extra %} href="{{ link | escape }}"{% endcapture -%}
 {%- else -%}
     {%- assign tag = "button" -%}
     {%- assign tag_extra = "" -%}
 {%- endif -%}
     {%- assign accel = "" -%}
 <li>
-    <{{tag}} title="{{ title }}" class="icon item"{{ tag_extra }}>
-        {{ title }}
+    <{{tag}} title="{{ title | escape }}" class="icon item"{{ tag_extra }}>
+        {{ title | escape }}
         {%- if accel_key != empty -%}
-            <span class="accel">{{ accel_key }}</span>"
+            <span class="accel">{{ accel_key | escape }}</span>"
         {%- endif -%}
         {%- if copyable -%}
             {%- if link != empty -%}

@@ -163,7 +163,74 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {},
+        "info": {
+          "test": {
+            "failure_count": 0,
+            "manifest": [
+              "tests/mochitest.toml"
+            ],
+            "skip_if": "os == 'mac' && debug"
+          },
+          "test_results": {
+            "crashes": 0,
+            "daily_issue_rates": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              5.0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2.5,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "daily_skip_rates": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              100.0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "days": 21,
+            "end_date": "2026-09-30",
+            "failures": 3,
+            "issues": 3,
+            "pass_rate": 98.14,
+            "runs": 161,
+            "skips": 6,
+            "start_date": "2026-09-10",
+            "state": "flaky",
+            "timeouts": 0
+          }
+        },
         "coverage": null
       }
     },
@@ -177,7 +244,44 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {},
+        "info": {
+          "test_results": {
+            "crashes": 0,
+            "daily_issue_rates": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              100.0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "days": 21,
+            "end_date": "2026-09-30",
+            "failures": 1,
+            "issues": 1,
+            "pass_rate": 99.5,
+            "runs": 201,
+            "skips": 0,
+            "start_date": "2026-09-10",
+            "state": "stable",
+            "timeouts": 0
+          }
+        },
         "coverage": null
       }
     },
@@ -233,6 +337,20 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "url map",
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
+      "path": "xss/tokens.html",
+      "concise": {
+        "path_kind": "normal",
+        "is_dir": false,
+        "file_size": 197,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
         "info": {},
         "coverage": null
       }
