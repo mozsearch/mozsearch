@@ -174,3 +174,15 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
        "The space in the href should be escaped");
   }
 });
+
+add_task(async function test_SpaceInFilenameDefine() {
+  // (`define` redirects to the symbol's definition, its path percent-encoded.)
+  const response = await fetch("/tests/define?q=%23SymbolInFilenameWithSpace", { cache: "no-store" });
+  ok(response.ok && response.redirected, "define goes to the definition");
+  const redirected = new URL(response.url);
+  is(redirected.pathname, "/tests/source/js/with%20space.js",
+     "whose path's space is escaped");
+
+  const missing = await fetch("/tests/define?q=NoSuchSymbolAnywhere", { cache: "no-store" });
+  is(missing.status, 404, "A symbol without a definition isn't found");
+});

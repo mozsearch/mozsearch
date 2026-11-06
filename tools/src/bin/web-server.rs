@@ -628,6 +628,12 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
     let tree_name = &path[0];
     let kind = &path[1];
 
+    // (Only the config's trees, which the routes below index the config's
+    // trees by.)
+    if !cfg.trees.contains_key(*tree_name) {
+        return WebResponse::not_found();
+    }
+
     // Upstream revisions of a forest of specs' repos (ex: from a permalink to
     // a spec's own repository) are their forest commits'; see
     // `format::forest_rev`.  (A path in another spec than the revision's is an

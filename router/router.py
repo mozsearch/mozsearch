@@ -932,12 +932,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif len(path_elts) >= 2 and path_elts[1] == 'define':
             tree_name = path_elts[0]
             query = urllib.parse.parse_qs(url.query)
-            symbol = query['q'][0]
+            symbol = query.get('q', [''])[0]
+            if tree_name not in config['trees'] or not symbol:
+                self.send_error(404)
+                return
             results = expand_keys(tree_name, crossrefs.lookup_merging(tree_name, symbol), False)
-            definition = results['Definitions'][0]
+            definitions = results.get('Definitions')
+            if not definitions:
+                self.send_error(404, "No definition")
+                return
+            definition = definitions[0]
             filename = definition['path']
             lineno = definition['lines'][0]['lno']
-            url = '/' + tree_name + '/source/' + filename + '#' + str(lineno)
+            # (The path is the tree's, percent-encoded, so that none of its
+            # characters, ex: a space or a newline, can change the URL or end
+            # the header.)
+            url = '/' + urllib.parse.quote(tree_name) + '/source/' + urllib.parse.quote(filename) + '#' + str(lineno)
 
             self.send_response(301)
             self.send_header("Location", url)
