@@ -36,6 +36,10 @@ pub trait SpecLinks {
     fn algorithm_url(&self, _sym: &str) -> Option<String> {
         None
     }
+    /// Whether its images load (see `rendered_docs::Links::loads_images`).
+    fn loads_images(&self) -> bool {
+        true
+    }
 }
 
 /// A link to the view of an algorithm beside the code citing it.
@@ -278,7 +282,12 @@ pub fn write_toc(out: &mut HtmlRenderer, entries: &[(usize, Option<String>, Stri
         depth = level;
         write!(out.w.html, r#"<a href="{}">"#, escape(href)).unwrap();
         if let Some(number) = number {
-            write!(out.w.html, r#"<span class="sp-secno">{}</span> "#, number).unwrap();
+            write!(
+                out.w.html,
+                r#"<span class="sp-secno">{}</span> "#,
+                escape(number)
+            )
+            .unwrap();
         }
         out.w.escaped(text);
         out.w.push("</a>");
@@ -420,29 +429,6 @@ pub fn is_void(name: &str) -> bool {
     matches!(name, "br" | "wbr" | "hr" | "img" | "col")
 }
 
-/// The page's own elements' ids, which a spec's can't have.
-const PAGE_IDS: &[&str] = &[
-    "content",
-    "data",
-    "file",
-    "fixed-header",
-    "foot",
-    "info-boxes-container",
-    "open-help",
-    "panel",
-    "panel-content",
-    "panel-toggle",
-    "path",
-    "query",
-    "regexp",
-    "rendered-doc",
-    "revision",
-    "scrolling",
-    "search-box",
-    "spinner",
-    "tree-switcher",
-];
-
 /// How a format's renderer renders its elements: what's left out, ids, and
 /// links.
 pub trait Hooks {
@@ -456,6 +442,10 @@ pub trait Hooks {
     fn href(&self, href: &str) -> Option<String>;
     /// The URL an image's `src` loads, if it's safe.
     fn src(&self, src: &str) -> Option<String>;
+    /// Whether images load, or are links (see `SpecLinks::loads_images`).
+    fn loads_images(&self) -> bool {
+        true
+    }
     /// Render a node specially (ex: a heading with its number, or a comment
     /// for the table of contents), returning whether it did.
     fn special(&self, out: &mut HtmlRenderer, node: usize) -> bool;
@@ -737,6 +727,7 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
                 }
                 self.end_tag(tag);
             }
+            Role::Inline if name == "img" && !hooks.loads_images() => self.image_link(hooks, node),
             Role::Inline => {
                 if let Some(href) = hooks.xref(node).filter(|_| self.in_link == 0) {
                     let href = href.to_string();
@@ -779,9 +770,38 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
         self.end_tag(outer);
     }
 
+    /// An image which doesn't load (see `Hooks::loads_images`), as a link to
+    /// it (outside a link), with its alternative text.
+    fn image_link(&mut self, hooks: &dyn Hooks, node: usize) {
+        let (mut src, mut alt) = (None, String::new());
+        for (attr, value) in self.doc.attrs(node) {
+            let value = value.unwrap_or_default();
+            match attr.to_ascii_lowercase().as_str() {
+                "src" => src = hooks.src(&value),
+                "alt" => alt = value.to_string(),
+                _ => {}
+            }
+        }
+        let label = crate::rendered_docs::image_label(&alt);
+        match src.filter(|_| self.in_link == 0) {
+            Some(url) => write!(
+                self.w.html,
+                r#"<a class="sp-image-link" href="{}">{}</a>"#,
+                escape(&url),
+                escape(&label)
+            ),
+            None => write!(
+                self.w.html,
+                r#"<span class="sp-image-link">{}</span>"#,
+                escape(&label)
+            ),
+        }
+        .unwrap();
+    }
+
     fn write_id(&mut self, hooks: &dyn Hooks, node: usize) {
+        // (Not the page's own; see `Writer::claim_id`.)
         if let Some(id) = hooks.id(node)
-            && !PAGE_IDS.contains(&id)
             && self.w.claim_id(id)
         {
             write!(self.w.html, r#" id="{}""#, escape(id)).unwrap();

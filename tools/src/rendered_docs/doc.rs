@@ -13,8 +13,8 @@ use regex::Regex;
 
 use super::markdown::Mode;
 use super::{
-    HtmlSanitizer, Links, OffsetMap, Writer, escape, file_symbol, find_doc, image_url, is_doc_path,
-    label_symbol, resolve_path, searchfox_url, slugify,
+    HtmlSanitizer, Links, OffsetMap, Writer, escape, file_symbol, find_doc, image_label, image_url,
+    is_doc_path, label_symbol, resolve_path, searchfox_url, slugify,
 };
 
 lazy_static! {
@@ -629,6 +629,21 @@ impl<'a, 'w, 's> Doc<'a, 'w, 's> {
     }
 
     pub fn image(&mut self, src: &str, alt: &str, title: &str, width: Option<&str>) {
+        // (A try push's or a spec pull request's images are links to them;
+        // see `Links::loads_images`.)
+        if !self.links.loads_images()
+            && let Some(url) = image_url(self.links, &self.dir, src)
+        {
+            write!(
+                self.w.html,
+                r#"<a class="rd-image-link" href="{}">"#,
+                escape(&url)
+            )
+            .unwrap();
+            self.w.escaped(&image_label(alt));
+            self.w.push("</a>");
+            return;
+        }
         match image_url(self.links, &self.dir, src) {
             Some(url) => {
                 write!(
@@ -646,12 +661,10 @@ impl<'a, 'w, 's> Doc<'a, 'w, 's> {
                         && w.chars()
                             .all(|c| c.is_ascii_digit() || matches!(c, '%' | '.' | 'p' | 'x'))
                 }) {
-                    let width = if width.chars().all(|c| c.is_ascii_digit()) {
-                        format!("{}px", width)
-                    } else {
-                        width.to_string()
-                    };
-                    write!(self.w.html, r#" style="max-width: {}""#, escape(&width)).unwrap();
+                    // (Its `width` attribute, in pixels or a percentage, as the
+                    // page allows no style attributes.)
+                    let width = width.trim_end_matches("px");
+                    write!(self.w.html, r#" width="{}""#, escape(width)).unwrap();
                 }
                 self.w.push(">");
             }

@@ -341,9 +341,10 @@ impl Doc<'_, '_, '_> {
                 Tag::TableCell => {
                     let tag = if st.table_head { "th" } else { "td" };
                     let align = match st.aligns.get(st.cell) {
-                        Some(Alignment::Left) => r#" style="text-align: left""#,
-                        Some(Alignment::Center) => r#" style="text-align: center""#,
-                        Some(Alignment::Right) => r#" style="text-align: right""#,
+                        // (Classes, as the page allows no style attributes.)
+                        Some(Alignment::Left) => r#" class="rd-align-left""#,
+                        Some(Alignment::Center) => r#" class="rd-align-center""#,
+                        Some(Alignment::Right) => r#" class="rd-align-right""#,
                         _ => "",
                     };
                     write!(self.w.html, "<{}{}>", tag, align).unwrap();
@@ -981,7 +982,7 @@ pub(super) mod tests {
     fn test_tables() {
         let src = "| a | b |\n|---|--:|\n| 1 | 2 |\n\n:::{list-table}\n:header-rows: 1\n\n* - H\n  - I\n* - x\n  - y\n:::\n";
         let html = with_strips(&render_test(src));
-        assert!(html.starts_with(r#"<table class="rd-table"><thead><tr><th>[0]<span data-l="1" data-c="2">a</span></th><th style="text-align: right"><span data-l="1" data-c="6">b</span></th></tr></thead><tbody><tr><td>[1]"#), "{}", html);
+        assert!(html.starts_with(r#"<table class="rd-table"><thead><tr><th>[0]<span data-l="1" data-c="2">a</span></th><th class="rd-align-right"><span data-l="1" data-c="6">b</span></th></tr></thead><tbody><tr><td>[1]"#), "{}", html);
         assert!(html.contains(r#"<table class="rd-table rd-list-table"><tbody><tr><th>[2]<span data-l="8" data-c="4">H</span></th><th><span data-l="9" data-c="4">I</span></th></tr><tr><td>[3]"#), "{}", html);
     }
 

@@ -52,6 +52,12 @@ pub trait Links {
     fn label_url(&self, _label: &str) -> Option<String> {
         None
     }
+    /// Whether its images load: those of the tree's own revisions, but not
+    /// a try push's or a spec pull request's, whose images are links (to
+    /// load nothing anyone can push).
+    fn loads_images(&self) -> bool {
+        true
+    }
 }
 
 /// The symbol of a Sphinx label, by its slug (see `slugify`, and
@@ -517,12 +523,13 @@ impl<'s> Writer<'s> {
         self.text(text, Some(real));
     }
 
-    /// A unique id based on `base`.
+    /// A unique id based on `base`, which isn't the page's (see
+    /// `is_reserved_id`).
     pub fn unique_id(&mut self, base: &str) -> String {
         let base = if base.is_empty() { "section" } else { base };
         let mut id = base.to_string();
         let mut n = 1;
-        while self.ids.contains(&id) {
+        while self.ids.contains(&id) || is_reserved_id(&id) {
             id = format!("{}-{}", base, n);
             n += 1;
         }
@@ -530,10 +537,98 @@ impl<'s> Writer<'s> {
         id
     }
 
-    /// Claim an id (ex: a Sphinx target's label), if it's not taken.
+    /// Claim an id (ex: a Sphinx target's label), if it's not taken, nor the
+    /// page's (see `is_reserved_id`).
     pub fn claim_id(&mut self, id: &str) -> bool {
-        self.ids.insert(id.to_string())
+        !is_reserved_id(id) && self.ids.insert(id.to_string())
     }
+}
+
+/// The ids of the page's own elements (ex: those its scripts look up, like
+/// `#data`, whose attributes say what the page is), which a document's or a
+/// spec's elements can't have, as they'd be found first.
+const PAGE_IDS: &[&str] = &[
+    "case",
+    "content",
+    "coverage-graph",
+    "coverage-history",
+    "coverage-sparkline",
+    "crash-report-menu",
+    "crash-report-menu-button",
+    "crash-set-graphs",
+    "crash-thread-list",
+    "crash-thread-menu",
+    "crash-thread-picker",
+    "data",
+    "diagram-limit-warning-overload-list",
+    "diagram-limit-warning-overload-list-toggle",
+    "diagram-panel",
+    "diagram-panel-toggle",
+    "export-clipboard",
+    "export-import-json",
+    "export-import-status",
+    "export-textarea",
+    "feature-gate-options",
+    "file",
+    "fixed-header",
+    "foot",
+    "history-timeline",
+    "import-textarea",
+    "info-boxes-container",
+    "interactive-graph-container",
+    "interactive-graph-viewport",
+    "lock-held-graphs",
+    "open-help",
+    "panel",
+    "panel-accel-enable",
+    "panel-blame",
+    "panel-content",
+    "panel-copy-as",
+    "panel-copy-code-block",
+    "panel-copy-filename-link",
+    "panel-copy-symbol-block",
+    "panel-copy-symbol-link",
+    "panel-coverage",
+    "panel-permalink",
+    "panel-raw",
+    "panel-remove-permalink",
+    "panel-source-listing",
+    "panel-toggle",
+    "path",
+    "path-bubble",
+    "query",
+    "query-bubble",
+    "query-debug-results-json",
+    "query-debug-results-json-pre",
+    "rc-toolbar",
+    "regexp",
+    "rendered-doc",
+    "reorder-classes",
+    "rev-desc",
+    "rev-id",
+    "revision",
+    "scrolling",
+    "search-box",
+    "show-settings",
+    "spinner",
+    "sw-legend",
+    "symbol-tree-table-col-selector",
+    "symbol-tree-table-list",
+    "token-timeline",
+    "tree-switcher",
+    "tree-switcher-menu",
+    "undo-import",
+];
+
+/// Whether an id is the page's (see `PAGE_IDS`), or one its scripts could
+/// take for one of their globals, which are all-caps names (ex: an element
+/// `BLAME_INFO`, which `typeof BLAME_INFO` would find on a page without it).
+pub fn is_reserved_id(id: &str) -> bool {
+    PAGE_IDS.contains(&id)
+        || (id.starts_with(|c: char| c.is_ascii_uppercase())
+            && id
+                .bytes()
+                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_'))
 }
 
 /// The anchor of a heading, like MyST's `myst_heading_anchors` (GitHub's
@@ -716,6 +811,15 @@ pub fn image_url(links: &dyn Links, dir: &str, src: &str) -> Option<String> {
     links.raw_url(&path)
 }
 
+/// The text of a link to an image which doesn't load (see
+/// `Links::loads_images`), by its alternative text.
+pub fn image_label(alt: &str) -> String {
+    match alt.trim() {
+        "" => "[Image]".to_string(),
+        alt => format!("[Image: {}]", alt),
+    }
+}
+
 /// The URL of the `searchfox` role's target, which is `PATH`,
 /// `TREE:PATH`, or `TREE/rev/REV:PATH` (see `python/mozbuild/mozbuild/sphinx.py`
 /// in Firefox).  The role links to firefox-main by default, but we link to the
@@ -837,6 +941,29 @@ impl HtmlSanitizer {
                     for open in self.open.drain(i..).rev() {
                         write!(out.html, "</{}>", open).unwrap();
                     }
+                }
+                continue;
+            }
+            if name == "img" && !links.loads_images() {
+                let attr_value = |wanted: &str| {
+                    ATTR.captures_iter(&captures[3])
+                        .find(|attr| attr[1].eq_ignore_ascii_case(wanted))
+                        .and_then(|attr| attr.get(2).or(attr.get(3)).or(attr.get(4)))
+                        .map(|value| decode_entities(value.as_str()))
+                };
+                let label = image_label(&attr_value("alt").unwrap_or_default());
+                match attr_value("src").and_then(|src| image_url(links, dir, &src)) {
+                    Some(url) => {
+                        write!(
+                            out.html,
+                            r#"<a class="rd-image-link" href="{}">"#,
+                            escape(&url)
+                        )
+                        .unwrap();
+                        escape_into(&mut out.html, &label);
+                        out.html.push_str("</a>");
+                    }
+                    None => escape_into(&mut out.html, &label),
                 }
                 continue;
             }
@@ -1194,6 +1321,108 @@ mod tests {
         let mut sanitizer = HtmlSanitizer::default();
         sanitizer.write(&mut out, "</div><kbd>A</kbd><div>", false, &links, "");
         assert_eq!(out.html, "<kbd>A</kbd>");
+    }
+
+    /// Raw HTML which tries to be more than presentation.
+    #[test]
+    fn test_sanitizer_vectors() {
+        let vectors = concat!(
+            r#"<img src=x onerror=alert(1)><svg><script>alert(2)</script></svg>"#,
+            r#"<a href="javascript:alert(3)">a</a><a href=" javascript:alert(4)">b</a>"#,
+            r#"<a href="&#106;avascript:alert(5)">c</a><a href="data:text/html,x">d</a>"#,
+            r#"<iframe src="https://evil.example/"></iframe><form action="https://evil.example/"><input name="q"></form>"#,
+            r#"<div style="color: red" id="data" name="x"><b title="x" onmouseover="alert(6)">e</b></div>"#,
+            r#"<details open ontoggle=alert(7)><summary>f</summary></details>"#,
+            r#"<object data="x"></object><embed src="x"><math><mtext><table><mglyph><style><img src=y onerror=alert(8)>"#,
+            r#"<!--<img src=z onerror=alert(9)>--><img src="pic.png" alt='"><script>alert(10)</script>'>"#,
+            r#""><script>alert(11)</script>"#,
+        );
+        let links = TestLinks;
+        let mut out = Writer::new("");
+        let mut sanitizer = HtmlSanitizer::default();
+        sanitizer.write(&mut out, vectors, true, &links, "docs");
+        sanitizer.close_all(&mut out);
+        let lower = out.html.to_ascii_lowercase();
+        for bad in [
+            "<script",
+            "onerror",
+            "onmouseover",
+            "ontoggle",
+            "javascript:",
+            "<svg",
+            "<iframe",
+            "<form",
+            "<input",
+            "<object",
+            "<embed",
+            "<math",
+            "<style",
+            "style=",
+            " id=",
+            " name=",
+            "data:text",
+            "<!--",
+        ] {
+            assert!(!lower.contains(bad), "{}: {}", bad, out.html);
+        }
+        assert!(
+            out.html
+                .contains(r#"alt="&quot;&gt;&lt;script&gt;alert(10)&lt;/script&gt;""#),
+            "{}",
+            out.html
+        );
+    }
+
+    /// The links of a try push's or a spec pull request's document.
+    struct NoImages;
+
+    impl Links for NoImages {
+        fn exists(&self, path: &str) -> bool {
+            TestLinks.exists(path)
+        }
+        fn source_url(&self, path: &str) -> String {
+            TestLinks.source_url(path)
+        }
+        fn rendered_url(&self, path: &str) -> String {
+            TestLinks.rendered_url(path)
+        }
+        fn raw_url(&self, path: &str) -> Option<String> {
+            TestLinks.raw_url(path)
+        }
+        fn search_url(&self, query: &str) -> String {
+            TestLinks.search_url(query)
+        }
+        fn tree_name(&self) -> &str {
+            "t"
+        }
+        fn loads_images(&self) -> bool {
+            false
+        }
+    }
+
+    /// Their images are links, and the page's ids aren't theirs.
+    #[test]
+    fn test_images_and_ids() {
+        let mut out = Writer::new("");
+        let mut sanitizer = HtmlSanitizer::default();
+        sanitizer.write(
+            &mut out,
+            r#"<img src="https://evil.example/y.png" alt="Y"><img src="pic.png">"#,
+            false,
+            &NoImages,
+            "docs",
+        );
+        assert_eq!(
+            out.html,
+            r#"<a class="rd-image-link" href="https://evil.example/y.png">[Image: Y]</a><a class="rd-image-link" href="https://raw.example/docs/pic.png">[Image]</a>"#
+        );
+
+        let mut out = Writer::new("");
+        assert_eq!(out.unique_id("data"), "data-1");
+        assert_eq!(out.unique_id("intro"), "intro");
+        assert!(!out.claim_id("panel"));
+        assert!(!out.claim_id("BLAME_INFO"));
+        assert!(out.claim_id("Blame_info"));
     }
 
     #[test]

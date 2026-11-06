@@ -480,6 +480,10 @@ impl Hooks for Ecmarkup<'_> {
         link_url(href, self.spec.rendered.as_deref(), self.config, self.links)
     }
 
+    fn loads_images(&self) -> bool {
+        self.links.loads_images()
+    }
+
     fn src(&self, src: &str) -> Option<String> {
         let base = url::Url::parse(self.spec.rendered.as_deref()?).ok()?;
         let url = base.join(src).ok()?;
@@ -530,7 +534,12 @@ impl Hooks for Ecmarkup<'_> {
             let opened = out.open_block(doc.nodes[node].range.clone(), "");
             write!(out.w.html, "<h{}>", level).unwrap();
             if let Some(number) = &clause.number {
-                write!(out.w.html, r#"<span class="sp-secno">{}</span> "#, number).unwrap();
+                write!(
+                    out.w.html,
+                    r#"<span class="sp-secno">{}</span> "#,
+                    escape(number)
+                )
+                .unwrap();
             }
             out.children(self, node);
             if let Some(url) = self.algorithm_urls.get(&self.headings[&node]) {

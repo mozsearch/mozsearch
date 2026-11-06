@@ -142,6 +142,10 @@ impl Hooks for Wattsi<'_, '_> {
         link_url(href, self.spec.rendered.as_deref(), self.config, self.links)
     }
 
+    fn loads_images(&self) -> bool {
+        self.links.loads_images()
+    }
+
     fn src(&self, src: &str) -> Option<String> {
         // (Images are the rendered spec's, ex: `/images/x.png`.)
         let base = url::Url::parse(self.spec.rendered.as_deref()?).ok()?;
@@ -195,7 +199,12 @@ impl Hooks for Wattsi<'_, '_> {
                 let opened = out.open_block(range, "");
                 let tag = out.start_tag(self, node, name);
                 if let Some(number) = self.numbers.get(&node) {
-                    write!(out.w.html, r#"<span class="sp-secno">{}</span> "#, number).unwrap();
+                    write!(
+                        out.w.html,
+                        r#"<span class="sp-secno">{}</span> "#,
+                        escape(number)
+                    )
+                    .unwrap();
                 }
                 out.children(self, node);
                 out.end_tag(tag);
@@ -636,6 +645,91 @@ mod tests {
     fn render_page(src: &str, page: Option<&str>) -> RenderedSpec {
         let config = config();
         render(src, "source", &config.specs[0], &config, &TestLinks, page).unwrap()
+    }
+
+    /// The links of a spec pull request's rendering, whose images don't load.
+    struct NoImages;
+
+    impl SpecLinks for NoImages {
+        fn rendered_url(&self, path: &str) -> String {
+            format!("/t/rendered/{}", path)
+        }
+        fn loads_images(&self) -> bool {
+            false
+        }
+    }
+
+    /// A spec's markup can't become anything but its presentation: no
+    /// scripts, handlers, styles, other documents, or the page's ids.
+    #[test]
+    fn test_render_vectors() {
+        let src = r##"<!DOCTYPE html>
+<html><body>
+<h2 id="data">Data</h2>
+<p id="BLAME_INFO">x <img src="/images/a.png" alt="A" onerror="alert(1)">
+<p><a href="javascript:alert(1)">j</a> <a href=" javascript:alert(2)">k</a> <a href="data:text/html,x">d</a>
+<p style="color: red" onmouseover="alert(3)">s</p>
+<svg><script>alert(4)</script></svg><math><mi>x</mi></math>
+<iframe src="https://evil.example/"></iframe><form action="https://evil.example/"><input name=q></form>
+<object data="x"></object><embed src="x"><base href="https://evil.example/">
+<p>&lt;script&gt;alert(5)&lt;/script&gt;</p>
+<template><img src=x onerror=alert(6)></template><noscript><img src=x onerror=alert(7)></noscript>
+<p title='"><script>alert(8)</script>'>t</p>
+</body></html>
+"##;
+        let html = render_page(src, None).rendered.html;
+        let lower = html.to_ascii_lowercase();
+        for bad in [
+            "<script",
+            "onerror",
+            "onmouseover",
+            "javascript:",
+            "style=",
+            "<svg",
+            "<math",
+            "<iframe",
+            "<form",
+            "<input",
+            "<object",
+            "<embed",
+            "<base",
+            "data:text",
+            "<template",
+            "<noscript",
+            r#"id="data""#,
+            r#"id="blame_info""#,
+        ] {
+            assert!(!lower.contains(bad), "{}: {}", bad, html);
+        }
+        assert!(
+            html.contains(r#"src="https://example.spec.whatwg.org/images/a.png""#),
+            "{}",
+            html
+        );
+        // (The text is the text, in runs which say where they are.)
+        assert!(
+            html.contains(r#"data-n="4">&lt;</span><span data-l="10" data-c="7">script</span>"#),
+            "{}",
+            html
+        );
+        assert!(
+            html.contains(r#"title="&quot;&gt;&lt;script&gt;alert(8)&lt;/script&gt;""#),
+            "{}",
+            html
+        );
+
+        // (A pull request's images are links.)
+        let config = config();
+        let html = render(src, "source", &config.specs[0], &config, &NoImages, None)
+            .unwrap()
+            .rendered
+            .html;
+        assert!(!html.contains("<img"), "{}", html);
+        assert!(
+            html.contains(r#"<a class="sp-image-link" href="https://example.spec.whatwg.org/images/a.png">[Image: A]</a>"#),
+            "{}",
+            html
+        );
     }
 
     #[test]

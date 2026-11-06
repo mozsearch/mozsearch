@@ -1913,10 +1913,13 @@ pub fn spec_excerpt_blocks(
         },
     };
     let source = read(path).ok_or("No such file")?;
+    // (Excerpts' images are links, as the query pages they're on load only
+    // our own; see scripts/nginx-setup.py's `csp`.)
     let spec_links = RenderedSpecLinks {
         tree_name,
         rev: None,
         prs_source: None,
+        loads_images: false,
     };
     let mut line_starts = vec![0];
     line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
@@ -2090,6 +2093,9 @@ struct RenderedSpecLinks<'a> {
     tree_name: &'a str,
     rev: Option<&'a str>,
     prs_source: Option<&'a str>,
+    /// Whether its images load: the tree's own revisions', but not a try
+    /// push's or a spec pull request's (see `landed_commit`).
+    loads_images: bool,
 }
 
 impl SpecLinks for RenderedSpecLinks<'_> {
@@ -2105,6 +2111,10 @@ impl SpecLinks for RenderedSpecLinks<'_> {
     fn algorithm_url(&self, sym: &str) -> Option<String> {
         // (Of the latest revision, whose citations the trees have.)
         Some(algorithm_url(self.tree_name, sym))
+    }
+
+    fn loads_images(&self) -> bool {
+        self.loads_images
     }
 }
 
@@ -2918,6 +2928,7 @@ fn algorithm_section(
         tree_name,
         rev: None,
         prs_source: None,
+        loads_images: landed_commit(tree_config, git, commit),
     };
     // (A ReSpec spec's references to other specs' terms link by the index's
     // analysis, like its rendered view's.)
@@ -4565,6 +4576,31 @@ fn rendered_commit<'a>(
     }
 }
 
+/// Whether a commit is the tree's own: its tip, or a commit its branch's
+/// history has (by its commit index), rather than a try push's or a spec
+/// pull request's, whose rendered views' images don't load (see
+/// `rendered_docs::Links::loads_images`).
+fn landed_commit(tree_config: &TreeConfig, git: &GitData, commit: &git2::Commit) -> bool {
+    let tip = git.repo.head().ok().and_then(|head| head.target());
+    if tip == Some(commit.id()) {
+        return true;
+    }
+    let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
+    match git.history.as_ref().and_then(|history| {
+        CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
+    }) {
+        Some(index) => index
+            .position_lookup()
+            .get(&commit.id().to_string())
+            .is_some(),
+        None => tip.is_some_and(|tip| {
+            git.repo
+                .graph_descendant_of(tip, commit.id())
+                .unwrap_or(false)
+        }),
+    }
+}
+
 /// Where a rendered view's path redirects to, if it's to a spec's anchor or
 /// line, which are on one of its pages: the page, with the anchor or line as
 /// its fragment (or the first page, if the source doesn't have the anchor).
@@ -4633,9 +4669,15 @@ struct DocLinks<'a> {
     tree: Tree<'a>,
     doc_trees: Option<std::sync::Arc<DocTrees>>,
     jumprefs: Option<std::sync::Arc<BisectableMmap<JumprefData>>>,
+    /// Whether its images load (see `RenderedSpecLinks::loads_images`).
+    loads_images: bool,
 }
 
 impl rendered_docs::Links for DocLinks<'_> {
+    fn loads_images(&self) -> bool {
+        self.loads_images
+    }
+
     fn exists(&self, path: &str) -> bool {
         !path.is_empty() && self.tree.get_path(Path::new(path)).is_ok()
     }
@@ -5128,6 +5170,7 @@ pub fn format_rendered(
     }
 
     let doc_trees = tree_doc_trees(tree_name, tree_config);
+    let loads_images = landed_commit(tree_config, git, &commit);
     let links = DocLinks {
         tree_name,
         tree_config,
@@ -5136,6 +5179,7 @@ pub fn format_rendered(
         tree: commit.tree().map_err(|_| "Git commit with no tree")?,
         doc_trees: doc_trees.clone(),
         jumprefs: tree_jumprefs(tree_name, tree_config),
+        loads_images,
     };
     // A spec's page (its index, the pages, the page, and the bytes of the
     // source it covers).
@@ -5145,6 +5189,7 @@ pub fn format_rendered(
             tree_name,
             rev: page_rev.as_deref(),
             prs_source: pr_view.is_some().then_some(path),
+            loads_images,
         };
         let specs = specs.as_deref().unwrap();
         let rendered_spec = render_spec_view(
@@ -5820,6 +5865,7 @@ fn trunk_page_lines(
         tree_name,
         rev: None,
         prs_source: None,
+        loads_images: true,
     };
     let lines = rendered_specs::render(spec, trunk, source_path, specs, &links, read, page)
         .filter(|rendered| rendered.file.is_none())
@@ -6070,10 +6116,12 @@ pub fn spec_pr_blocks_json(
 
     // (Its rendering's links to the spec's pages stay in the view with its
     // pull requests' changes, which shows it.)
+    // (A pull request's blocks' images don't load; see `landed_commit`.)
     let spec_links = RenderedSpecLinks {
         tree_name,
         rev: None,
         prs_source: Some(&source_path),
+        loads_images: false,
     };
     let prefix = format!("{}/", spec_repo);
     let read = |file: &str| match file.strip_prefix(&prefix) {
@@ -12849,6 +12897,7 @@ mod tests {
             tree_name: "wubspecs",
             rev,
             prs_source,
+            loads_images: true,
         };
         assert_eq!(
             links(None, Some("html/source")).rendered_url("html/source"),

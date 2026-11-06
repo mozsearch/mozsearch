@@ -446,10 +446,11 @@
       draft.textContent = "Draft";
       header.append(" ", draft);
     }
-    if (pr.url) {
+    const githubURL = TrustedHTML.httpURL(pr.url);
+    if (githubURL) {
       const github = document.createElement("a");
       github.className = "spec-pr-github";
-      github.href = pr.url;
+      github.href = githubURL;
       github.textContent = "on GitHub";
       header.append(" ", github);
     }
@@ -498,7 +499,9 @@
       // (Styled as the page's blocks are; see .sp-pr-card-body.)
       body = document.createElement("div");
       body.className = "sp-pr-card-body rendered-doc rendered-spec";
-      body.innerHTML = change.html;
+      // (The server's sanitized rendering of the pull request's blocks,
+      // whose images are links; see `format::spec_pr_blocks_json`.)
+      TrustedHTML.set(body, change.html, { images: false });
       element.append(body);
     }
     const block = blockOfLine(change.anchor);

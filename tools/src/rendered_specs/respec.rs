@@ -256,6 +256,10 @@ impl Hooks for Respec<'_> {
         link_url(href, self.spec.rendered.as_deref(), self.config, self.links)
     }
 
+    fn loads_images(&self) -> bool {
+        self.links.loads_images()
+    }
+
     fn src(&self, src: &str) -> Option<String> {
         let base = url::Url::parse(self.spec.rendered.as_deref()?).ok()?;
         let url = base.join(src).ok()?;

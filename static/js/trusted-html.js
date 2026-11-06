@@ -24,10 +24,17 @@ var TrustedHTML = new (class TrustedHTML {
     });
   }
 
-  /** Replace an element's contents with HTML. */
-  set(element, html) {
+  /**
+   * Replace an element's contents with HTML.  With `{ images: false }`, it
+   * has no images, for HTML from those who can't make the page load anything
+   * (ex: a spec pull request's rendered blocks, whose images the server makes
+   * links; this is a backstop, where browsers have the sanitizer API).
+   */
+  set(element, html, { images = true } = {}) {
     if (typeof element.setHTML === "function") {
-      element.setHTML(html, { sanitizer: {} });
+      element.setHTML(html, {
+        sanitizer: images ? {} : { removeElements: ["img", "picture", "source", "video", "audio"] },
+      });
       return;
     }
     element.innerHTML = this.policy ? this.policy.createHTML(html) : html;

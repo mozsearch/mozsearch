@@ -81,7 +81,11 @@ binary_types_str = " ".join((mime + " " + exts + ";") for (exts, mime) in binary
 #   aren't affected.)
 # - img-src 'self' data: - Our images, and the trees' images (only ever as
 #   images; see `binary_types`), and data: URLs for those our stylesheets and
-#   scripts make.
+#   scripts make.  On the rendered views of the trees' specs and documents
+#   (see `csp_rendered`), https: images too: those of the specs' published
+#   versions (ex: the HTML Standard's `/images/`), but not try pushes' or
+#   spec pull requests', which are links instead (see the tools'
+#   `rendered_docs::Links::loads_images`), as anyone can push those.
 # - object-src 'none', base-uri 'none', form-action 'self' - No plugins, no
 #   `<base>` redirecting our relative URLs, and our forms only submit to us.
 # - frame-ancestors 'self' - Our pages can only be framed by our own (ex:
@@ -106,6 +110,10 @@ csp = '; '.join([
     "trusted-types searchfox",
     "report-uri /csp-report",
 ])
+# (The rendered views' policy, which nginx chooses by their routes; see the
+# `$csp` map below.)
+csp_rendered = csp.replace("img-src 'self' data:", "img-src 'self' data: https:")
+assert csp_rendered != csp
 
 def location(route, directives, cache=True, csp_header=True):
     """A location, whose proxied responses are cached unless `cache` is False
@@ -124,7 +132,7 @@ def location(route, directives, cache=True, csp_header=True):
         print('    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;')
     # The CSP (see above) and nosniff, for the same reason in every location.
     if csp_header:
-        print(f'    add_header Content-Security-Policy "{csp}" always;')
+        print('    add_header Content-Security-Policy $csp always;')
     print('    add_header X-Content-Type-Options nosniff always;')
 
     for directive in directives:
@@ -339,6 +347,16 @@ if nginx_cache_dir:
 # expensive, so limit how fast each client can request them, mainly against
 # scrapers.
 print('limit_req_zone $binary_remote_addr zone=peephole:10m rate=5r/s;')
+
+# The Content-Security-Policy (see `csp` above), by the request's route (as
+# requested, not a sidecar's file's), whose images can be other origins' on
+# the rendered views of specs and documents.
+print(f'''
+map $request_uri $csp {{
+  default "{csp}";
+  "~^/[^/?]+/(rendered|rev-rendered|rendered-prs|algorithm|rev-algorithm)/" "{csp_rendered}";
+}}
+''')
 
 print('''# we are in the "http" context here.
 log_format custom_cache_log '[$time_local] [Cache:$upstream_cache_status] [$request_time] [$host] [Remote_Addr: $remote_addr] - $remote_user - $server_name to: $upstream_addr: "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' ;

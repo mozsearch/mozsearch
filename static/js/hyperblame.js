@@ -1248,8 +1248,10 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       addLink(name, url);
     }
     addLink("diff", `/${this.tree}/diff/${rev}/${this.encodePath(path)}`);
-    if (info?.phab) {
-      addLink(`Phabricator ${info.phab.match(/\/(D[0-9]+)/)?.[1] || "revision"}`, info.phab);
+    // (Only an http(s) link, from the commit's message.)
+    const phab = TrustedHTML.httpURL(info?.phab);
+    if (phab) {
+      addLink(`Phabricator ${phab.match(/\/(D[0-9]+)/)?.[1] || "revision"}`, phab);
     }
     if (info?.parent) {
       addLink("version before", this.revLink(info.parent, path), "deemphasize");
