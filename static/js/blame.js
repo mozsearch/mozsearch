@@ -108,12 +108,7 @@ var BlamePopup = new (class BlamePopup {
     } else if (isGC) {
       if (gcInfo.meta.canGC) {
         content = "This function can GC in the following path.<code>";
-        content += gcInfo.meta.gcPath.split("\n").map(x => "> " + x).join("\n")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
+        content += TrustedHTML.escape(gcInfo.meta.gcPath.split("\n").map(x => "> " + x).join("\n"));
         content += "</code>";
       } else {
         content = "This function cannot GC.";
@@ -156,7 +151,7 @@ var BlamePopup = new (class BlamePopup {
     // this.popup.style.left = left + "px";
     // this.popup.style.top = top + "px";
     this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
-    this.popup.innerHTML = content;
+    TrustedHTML.set(this.popup, content);
     this.popupOwner = this.triggerElement;
     // We set aria-owns on the parent role=cell instead of the button.
     this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
@@ -185,20 +180,23 @@ var BlamePopup = new (class BlamePopup {
     const jumpref = this.expansionIndex[2];
     const expansion = expansions[sym][platform];
     const onlyOneExpansion = Object.keys(expansions).length == 1 && Object.keys(expansions[sym]).length == 1;
+    // (The expansion is the server's HTML, of the expansion's tokens; the rest
+    // is escaped here.)
+    const escape = TrustedHTML.escape;
 
     if (jumpref && jumpref.jumps.def) {
       const tree = document.getElementById("data").getAttribute("data-tree");
       const jumpFileName = jumpref.jumps.def.slice(jumpref.jumps.def.lastIndexOf(',') + 1)
       if (onlyOneExpansion) {
-        return `Expansion of <span class="symbol" data-symbols="${sym}">${jumpref.pretty}</span>:<br><code>${expansion}</code>`;
+        return `Expansion of <span class="symbol" data-symbols="${escape(sym)}">${escape(jumpref.pretty)}</span>:<br><code>${expansion}</code>`;
       } else {
-        return `Expansion of <span class="symbol" data-symbols="${sym}">${jumpref.pretty}</span> on ${platform}:<br><code>${expansion}</code>`;
+        return `Expansion of <span class="symbol" data-symbols="${escape(sym)}">${escape(jumpref.pretty)}</span> on ${escape(platform)}:<br><code>${expansion}</code>`;
       }
     } else {
       if (onlyOneExpansion) {
         return `Expansion:<br><code>${expansion}</code>`;
       } else {
-        return `Expansion on ${platform}:<br><code>${expansion}</code>`;
+        return `Expansion on ${escape(platform)}:<br><code>${expansion}</code>`;
       }
     }
   }
@@ -308,41 +306,50 @@ var BlamePopup = new (class BlamePopup {
 
       let rendered = "";
       let revPath = filespecList[i] == "%" ? path : filespecList[i];
+      const escape = TrustedHTML.escape;
+      const href = url => escape(encodeURI(url));
       rendered += `<div class="blame-entry">`;
+      // (The server's HTML of the commit's message and author; see the tools'
+      // `blame::commit_header`.)
       rendered += json[i].header;
 
       let diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
-      rendered += `<br>Show <a href="${encodeURI(diffLink)}">annotated diff</a>`;
+      rendered += `<br>Show <a href="${href(diffLink)}">annotated diff</a>`;
 
-      if (json[i].fulldiff) {
-        rendered += ` or <a href="${encodeURI(json[i].fulldiff)}">full diff</a>`;
+      // (Links from commit messages, ex: their review's, only if they're
+      // http(s) URLs.)
+      const fulldiff = TrustedHTML.httpURL(json[i].fulldiff);
+      if (json[i].fulldiff && fulldiff) {
+        rendered += ` or <a href="${escape(fulldiff)}">full diff</a>`;
       }
 
-      if (json[i].phab) {
+      const phab = TrustedHTML.httpURL(json[i].phab);
+      if (json[i].phab && phab) {
         let name = "Phabricator revision";
-        const m = json[i].phab.match(/\/(D[0-9]+)/);
+        const m = phab.match(/\/(D[0-9]+)/);
         if (m) {
           name += " " + m[1];
         }
-        rendered += ` or <a href="${encodeURI(json[i].phab)}">${name}</a>`;
+        rendered += ` or <a href="${escape(phab)}">${escape(name)}</a>`;
       }
 
-      if (json[i].pr) {
+      const pr = TrustedHTML.httpURL(json[i].pr);
+      if (json[i].pr && pr) {
         let name = "Pull request";
-        const m = json[i].pr.match(/\/([0-9]+)/);
+        const m = pr.match(/\/([0-9]+)/);
         if (m) {
           name += " #" + m[1];
         }
-        rendered += ` or <a href="${encodeURI(json[i].pr)}">${name}</a>`;
+        rendered += ` or <a href="${escape(pr)}">${escape(name)}</a>`;
       }
 
       if (json[i].parent) {
         let parentLink = `/${tree}/rev/${json[i].parent}/${revPath}#${linenoList[i]}`;
-        rendered += `<br><a href="${encodeURI(parentLink)}" class="deemphasize">Show latest version without this line</a>`;
+        rendered += `<br><a href="${href(parentLink)}" class="deemphasize">Show latest version without this line</a>`;
       }
 
       let revLink = `/${tree}/rev/${revList[i]}/${revPath}#${linenoList[i]}`;
-      rendered += `<br><a href="${encodeURI(revLink)}" class="deemphasize">Show earliest version with this line</a>`;
+      rendered += `<br><a href="${href(revLink)}" class="deemphasize">Show earliest version with this line</a>`;
       rendered += "</div>";
 
       if (i < revList.length - 1) {

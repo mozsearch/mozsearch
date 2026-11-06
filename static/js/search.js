@@ -166,7 +166,7 @@ var Dxr = new (class Dxr {
       });
       results = await response.json();
       if (!response.ok) {
-        return this.showBubble(results.error_level, results.error_html);
+        return this.showBubble("error", "An error occurred. Please try again.");
       }
     } catch (error) {
       if (controller.signal.aborted) {
@@ -254,10 +254,10 @@ var Dxr = new (class Dxr {
 
   // Hang an advisory message off the search field.
   // @param {string} level - The seriousness: 'info', 'warning', or 'error'
-  // @param {string} html - The HTML message to be displayed
+  // @param {string} text - The message to be displayed
   // @param {string} which - 'query' or 'path', defaults to the focused element
   // or 'query' otherwise.
-  showBubble(level, html, which) {
+  showBubble(level, text, which) {
     if (!which) {
       which = document.activeElement == this.fields.path ? "path" : "query";
     }
@@ -269,7 +269,7 @@ var Dxr = new (class Dxr {
     bubble.classList.remove("warning");
     bubble.classList.remove("info");
     bubble.classList.add(level);
-    bubble.innerHTML = html;
+    bubble.textContent = text;
 
     // TODO(emilio): Old code animated the bubble.
     bubble.style.display = "block";
@@ -1273,7 +1273,7 @@ function onExpandoClick(event) {
     element.style.display = wasOpen ? "none" : "";
   }
   target.classList.toggle("open");
-  target.innerHTML = wasOpen ? "&#9654;" : "&#9660;";
+  target.textContent = wasOpen ? "\u25B6" : "\u25BC";
 
   if (wasOpen) {
     return;
@@ -1316,8 +1316,9 @@ function populateResults(data, full, jumpToSingle) {
 
   window.scrollTo(0, 0);
 
+  // (Each of the path's segments encoded, `#` and `?` included.)
   function makeURL(path) {
-    return "/" + Dxr.tree + "/source/" + encodeURI(path);
+    return "/" + Dxr.tree + "/source/" + path.split("/").map(encodeURIComponent).join("/");
   }
 
   function makeSearchUrl(q) {
@@ -1363,18 +1364,16 @@ function populateResults(data, full, jumpToSingle) {
     var klass = classOfResult(pathkind, qkind);
 
     var html = "";
-    html += "<tr class='result-head " + klass + "'>";
-    html += "<td class='left-column'>";
+    html += `<tr class="result-head ${escape(klass)}">`;
+    html += `<td class="left-column">`;
 
     if (fileResult.lines && fileResult.lines.length > 0) {
-      html += "<div class='expando open' data-klass='" + fileSpecificClass + "'>&#9660;</div>";
+      html += `<div class="expando open" data-klass="${escape(fileSpecificClass)}">&#9660;</div>`;
     } else {
       html += "<div class='expando' style='visibility: hidden'>&#9660;</div>";
     }
 
-    html += "<div class='mimetype-icon-" +
-      chooseIcon(fileResult.path) +
-      " mimetype-floating-container'></div></td>";
+    html += `<div class="mimetype-icon-${escape(chooseIcon(fileResult.path))} mimetype-floating-container"></div></td>`;
 
     // This span exists for a11y reasons.  See bug 1558691 but the core idea is:
     // - It's fine (and good!) to upgrade this to an explicit h3 in the future.
@@ -1392,7 +1391,7 @@ function populateResults(data, full, jumpToSingle) {
 
       var elt = elts[i];
       pathSoFar += elt;
-      html += "<a href='" + makeURL(pathSoFar) + "'>" + elt + "</a>";
+      html += `<a href="${escape(makeURL(pathSoFar))}">${escape(elt)}</a>`;
       pathSoFar += "/";
     }
 
@@ -1402,8 +1401,9 @@ function populateResults(data, full, jumpToSingle) {
     return html;
   }
 
+  // (For HTML text and double-quoted attribute values.)
   function escape(s) {
-    return s.replace(/&/gm, "&amp;").replace(/</gm, "&lt;");
+    return TrustedHTML.escape(s);
   }
 
   function renderSingleSearchResult(pathkind, qkind, file, line, isContext, hasContext, fileSpecificClass) {
@@ -1417,17 +1417,11 @@ function populateResults(data, full, jumpToSingle) {
     var after = line.line.slice(end).replace(/\s+$/, "");
 
     var klass = classOfResult(pathkind, qkind, isContext) + " " + fileSpecificClass;
+    var lineURL = escape(makeURL(file.path) + "#" + line.lno);
     var html = "";
-    html += "<tr class='" + klass + "'>";
-    html +=
-      "<td class='left-column'><a href='" +
-      makeURL(file.path) +
-      "#" +
-      line.lno +
-      "'>" +
-      line.lno +
-      "</a></td>";
-    html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
+    html += `<tr class="${escape(klass)}">`;
+    html += `<td class="left-column"><a href="${lineURL}">${escape(line.lno)}</a></td>`;
+    html += `<td><a href="${lineURL}">`;
 
     html += "<code>";
     // in the context cases, we may only have an after.
@@ -1443,12 +1437,12 @@ function populateResults(data, full, jumpToSingle) {
     html += "</a>";
 
     if (line.context) {
-      var inside = line.context;
+      var inside = escape(line.context);
       if (line.contextsym) {
         var url = `/${Dxr.tree}/search?q=symbol:${encodeURIComponent(
           line.contextsym
         )}&redirect=false`;
-        inside = "<a href='" + url + "'>" + escape(line.context) + "</a>";
+        inside = `<a href="${escape(url)}">${inside}</a>`;
       }
       html +=
         " <span class='result-context'>// found in <code>" +
@@ -1458,9 +1452,9 @@ function populateResults(data, full, jumpToSingle) {
 
     // Hacky attempt to provide a means of providing related searches.
     if (line.upsearch) {
-      html += `<span class='result-upsearch'><a href="${makeSearchUrl(
+      html += `<span class='result-upsearch'><a href="${escape(makeSearchUrl(
         line.upsearch
-      )}">Symbol Search This</a></span>`;
+      ))}">Symbol Search This</a></span>`;
     }
 
     html += "</td>";
@@ -1529,9 +1523,9 @@ function populateResults(data, full, jumpToSingle) {
       // If there was only a "file" response just act like we clicked on the
       // file def by using a line number of 1.
       var lno = line?.lno || 1;
-      window.location = `/${Dxr.tree}/source/${path}#${lno}`;
+      window.location = `${makeURL(path)}#${lno}`;
     } else {
-      window.location = `/${Dxr.tree}/source/${path}`;
+      window.location = makeURL(path);
     }
     return;
   }
@@ -1619,14 +1613,14 @@ function populateResults(data, full, jumpToSingle) {
     }
     function createCode(code) {
       const c = document.createElement("code");
-      c.textContent = `${escape(code)}`;
+      c.textContent = code;
       return c;
     }
     function createCodeLink(code) {
       const link = document.createElement("a");
       link.href = makeSearchUrl(code);
       const c = document.createElement("code");
-      c.textContent = `${escape(code)}`;
+      c.textContent = code;
       link.append(c);
       return link;
     }
@@ -1844,7 +1838,7 @@ function populateResults(data, full, jumpToSingle) {
       }
     }
 
-    table.innerHTML = html;
+    TrustedHTML.set(table, html);
 
     for (let element of table.querySelectorAll(".expando")) {
       element.addEventListener("click", onExpandoClick);

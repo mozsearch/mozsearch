@@ -38,7 +38,7 @@ class ContextMenuBase {
       mergedItems.set(key, item);
     }
 
-    menu.innerHTML = "";
+    menu.replaceChildren();
     let lastSection = null;
     for (const item of mergedItems.values()) {
       const li = item.createListItem(this, {
@@ -265,7 +265,8 @@ class MenuItem {
       this.onKeyDown(event, menu, link, pos);
     });
 
-    link.innerHTML = this.html;
+    // (Built with everything from the page's data escaped; see `fmt`.)
+    TrustedHTML.set(link, this.html);
 
     this.focusableElement = link;
   }
@@ -325,7 +326,7 @@ class MenuItemWithSubMenu extends MenuItem {
     if (this.subMenuIcon) {
       label.classList.add(`icon-${this.subMenuIcon}`);
     }
-    label.innerHTML = this.subMenuHTML;
+    TrustedHTML.set(label, this.subMenuHTML);
 
     const marker = document.createElement("div");
     marker.classList.add("submenu-marker");
@@ -1583,11 +1584,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             if (key.startsWith(sym)) {
               for (const platform in expansions[key]) {
                 const expansion = expansions[key][platform]
+                // (The expansion is the server's HTML of its tokens.)
                 let html;
                 if (onlyOneExpansion) {
                   html = `Expansion: <code>${expansion}</code>`;
                 } else {
-                  html = `Expansion on ${platform}: <code>${expansion}</code>`;
+                  html = `Expansion on ${TrustedHTML.escape(platform)}: <code>${expansion}</code>`;
                 }
                 expansionMenuItems.push(new MenuItem({
                   html: html,
@@ -2108,11 +2110,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     for (const key in expansions) {
       for (const platform in expansions[key]) {
         const expansion = expansions[key][platform];
+        // (The expansion is the server's HTML of its tokens.)
         let html;
         if (onlyOneExpansion) {
           html = `Expansion: <code>${expansion}</code>`;
         } else {
-          html = `Expansion on ${platform}: <code>${expansion}</code>`;
+          html = `Expansion on ${TrustedHTML.escape(platform)}: <code>${expansion}</code>`;
         }
         remainingExpansionMenuItems.push(new MenuItem({
           html: html,
@@ -2186,7 +2189,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             + ".testGetValue()";
 
       gleanSubMenuItems.push(new MenuItem({
-        html: `Copy ${testName} for about:glean`,
+        html: this.fmt("Copy _ for about:glean", testName),
         action: () => {
           navigator.clipboard.writeText(testName);
           this.hide();
@@ -2616,7 +2619,7 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
           const tree = rawItem.value;
 
           const item = new MenuItem({
-            html: label,
+            html: TrustedHTML.escape(label),
             classNames: ["indent"],
             href: document.location.pathname.replace(/^\/[^\/]+\//, `/${tree}/`)
               + document.location.search

@@ -303,7 +303,9 @@ pub fn generate_footer(
     }
 
     // NOTE: Keep this in sync with tools/templates/scroll_footer.liquid
+    // (trusted-html.js first, which the others use.)
     let scripts = [
+        "trusted-html.js",
         "settings.js",
         "search.js",
         "context-menu.js",
