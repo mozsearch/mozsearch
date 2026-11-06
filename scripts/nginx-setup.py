@@ -360,8 +360,6 @@ map $request_uri $csp {{
 
 print('''# we are in the "http" context here.
 log_format custom_cache_log '[$time_local] [Cache:$upstream_cache_status] [$request_time] [$host] [Remote_Addr: $remote_addr] - $remote_user - $server_name to: $upstream_addr: "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' ;
-# (CSP violation reports; see `csp`.)
-log_format csp_report escape=json '$time_iso8601 $request_body';
 
 map $host $favicon {
   default            testing.png;
@@ -734,15 +732,14 @@ location('= /tree-list.js', [
     'add_header Cache-Control "must-revalidate";',
 ])
 
-# Where browsers report CSP violations (see `csp` above): their reports are
-# logged to csp-reports.log, as nginx reads a request's body for proxying (to
-# itself, a request from outside, so its location can't be `internal`).
+# Where browsers report CSP violations (see `csp` above): the web-server
+# appends them to csp-reports.log in the log directory, until it has a few
+# gigabytes of them, as anyone can send them (see web-server.rs's
+# `append_csp_report`).
 location('= /csp-report', [
     'client_max_body_size 64k;',
-    f'access_log {nginx_log_dir}/csp-reports.log csp_report;',
-    'proxy_pass http://127.0.0.1:16995/csp-report-received;',
-])
-location('= /csp-report-received', ['return 204;'])
+    'proxy_pass http://127.0.0.1:8001;',
+], cache=False)
 
 if config.get("allow_webtest"):
     # (The harness, unlike the pages it tests in its frame, has an inline

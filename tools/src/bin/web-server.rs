@@ -517,6 +517,33 @@ fn opensearch_description(tree_name: &str, origin: &str) -> String {
 const MAX_FORM_BODY: usize = 64 * 1024;
 
 /// A request's body, if it's at most `limit` bytes of UTF-8.
+/// The most bytes of Content-Security-Policy violation reports the
+/// web-server's log of them has (see `append_csp_report`).
+const CSP_REPORT_LOG_LIMIT: u64 = 3 << 30;
+
+/// Append a Content-Security-Policy violation report (which nginx passes on;
+/// see nginx-setup.py's `/csp-report`) to the log at `path` (web-server-run.sh's
+/// `$CSP_REPORT_LOG`), as its time and its JSON on one line, unless the log
+/// has `limit` bytes already, as anyone can send them; returning whether it
+/// did.
+fn append_csp_report(path: &Path, limit: u64, body: &[u8]) -> bool {
+    if std::fs::metadata(path).is_ok_and(|metadata| metadata.len() >= limit) {
+        return false;
+    }
+    let body = String::from_utf8_lossy(body).replace(['\r', '\n'], " ");
+    let line = format!(
+        "{} {}\n",
+        chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        body.trim()
+    );
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .and_then(|mut file| file.write_all(line.as_bytes()))
+        .is_ok()
+}
+
 async fn read_body(mut body: hyper::body::Incoming, limit: usize) -> Option<String> {
     use hyper::body::Body;
     let mut bytes = vec![];
@@ -2012,6 +2039,25 @@ async fn main() {
         let cfg = cfg.clone();
         tokio::spawn(async move {
             let handler = async |req: http::Request<_>| {
+                // (Content-Security-Policy violation reports, at most 64 KiB
+                // each, as nginx's.)
+                if req.method() == Method::POST && req.uri().path() == "/csp-report" {
+                    if let Some(body) = read_body(req.into_body(), 64 << 10).await
+                        && let Some(path) = env::var_os("CSP_REPORT_LOG")
+                    {
+                        let _ = tokio::task::spawn_blocking(move || {
+                            append_csp_report(
+                                Path::new(&path),
+                                CSP_REPORT_LOG_LIMIT,
+                                body.as_bytes(),
+                            )
+                        })
+                        .await;
+                    }
+                    return http::Response::builder()
+                        .status(StatusCode::NO_CONTENT)
+                        .body(String::new());
+                }
                 // (Only a try push's page takes POSTs, to import it, and the
                 // pull request summaries' syncs' (see `tools::spec_prs`), as
                 // do the data API's routes for those, and crash sets' form;
@@ -2156,5 +2202,25 @@ async fn main() {
                 println!("Error serving connection: {:?}", err);
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Reports are appended, a line each, until the log has the limit's bytes.
+    #[test]
+    fn test_append_csp_report() {
+        let path = env::temp_dir().join(format!("csp-reports-test-{}.log", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        assert!(append_csp_report(&path, 100, b"{\"a\":\n1}"));
+        let log = std::fs::read_to_string(&path).unwrap();
+        assert!(log.ends_with(" {\"a\": 1}\n"), "{}", log);
+        assert_eq!(log.lines().count(), 1);
+        while append_csp_report(&path, 100, b"{}") {}
+        let size = std::fs::metadata(&path).unwrap().len();
+        assert!((100..140).contains(&size), "{}", size);
+        let _ = std::fs::remove_file(&path);
     }
 }

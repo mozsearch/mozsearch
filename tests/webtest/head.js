@@ -116,11 +116,10 @@ class TestHarness {
       return;
     }
     for (const line of after.slice(before.length).trim().split("\n")) {
-      // (`TIME BODY`, the body JSON-escaped; see nginx-setup.py's
-      // `csp_report`.)
+      // (`TIME JSON`; see web-server.rs's `append_csp_report`.)
       let path = null;
       try {
-        const body = JSON.parse(JSON.parse(`"${line.slice(line.indexOf(" ") + 1)}"`));
+        const body = JSON.parse(line.slice(line.indexOf(" ") + 1));
         path = new URL(body["csp-report"]["document-uri"]).pathname;
       } catch (e) {}
       if (path === null || this.loadedPaths.has(path)) {

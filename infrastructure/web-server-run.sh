@@ -49,6 +49,9 @@ nohup \
     < /dev/null &
 
 export RUST_BACKTRACE=1
+# (Where the web-server appends Content-Security-Policy violation reports;
+# see web-server.rs's `append_csp_report` and nginx-setup.py's `/csp-report`.)
+CSP_REPORT_LOG=$LOG_DIR/csp-reports.log \
 nohup \
     $MOZSEARCH_PATH/infrastructure/with-auto-restart.sh \
     $MOZSEARCH_PATH $CHANNEL web-server $DEST_EMAIL $LOG_DIR/rust-server.err \
