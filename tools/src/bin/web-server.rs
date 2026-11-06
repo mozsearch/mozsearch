@@ -150,6 +150,12 @@ fn handle(
     let tree_name = &path[0];
     let kind = &path[1];
 
+    // (Only the config's trees, which the routes below index the config's
+    // trees by.)
+    if !cfg.trees.contains_key(*tree_name) {
+        return WebResponse::not_found();
+    }
+
     println!("DBG {:?} {} {}", path, tree_name, kind);
 
     match &kind[..] {
