@@ -16,7 +16,10 @@ add_task(async function test_TokenNamesContains() {
   await TestUtils.loadQuery("searchfox", "token-names:structopt");
   is(doc().querySelector(".token-names-view h2").textContent, "Tokens containing structopt",
      "The view says what it lists");
-  is(listed().join(","), "StructOpt,structopt", "the tokens containing it, case-insensitively");
+  // (And compounds, ex: Cargo.lock's `structopt-derive`; see timeline_tokens.rs's
+  // `compound_keys`.)
+  is(listed().join(","), "StructOpt,structopt,structopt-derive",
+     "the tokens containing it, case-insensitively");
   const links = doc().querySelector(".token-names-list li").querySelectorAll("a");
   ok(links[0].getAttribute("href").includes("token-history:StructOpt%20case:sensitive"),
      "each with a link to its history");

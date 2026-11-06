@@ -3,7 +3,7 @@ use clap::Args;
 
 use super::interface::{PipelineCommand, PipelineValues, TokenHistoryValue};
 use crate::abstract_server::{AbstractServer, Result, ServerError};
-use crate::file_format::history::timeline_tokens::is_trackable_token;
+use crate::file_format::history::timeline_tokens::{is_journal_key, journal_key};
 use crate::file_format::token_names::NameMatch;
 use crate::hyperblame::token_history::{MIN_REMOVED, TokenHistoryOptions};
 
@@ -43,13 +43,15 @@ impl PipelineCommand for TokenHistoryCommand {
         server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
+        // (As its journal's key, ex: `moz-box-align` for `-moz-box-align`.)
         let token = self.args.token.trim();
+        let token = journal_key(token).unwrap_or(token);
         let mut value = TokenHistoryValue {
             token: token.to_string(),
             history: None,
             unsupported: false,
         };
-        if !is_trackable_token(token) {
+        if !is_journal_key(token) {
             return Ok(PipelineValues::TokenHistory(value));
         }
         let opts = TokenHistoryOptions {

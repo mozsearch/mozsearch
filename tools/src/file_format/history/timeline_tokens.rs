@@ -26,12 +26,13 @@
 //! to efficiently perform filtering by intersecting commit sets before moving
 //! on to look up the commits.
 //!
-//! Only tokens selected by `tracked_token_key` get files, and we only emit a
-//! record for a revision if the token was added/removed/evolved; pure moves are
-//! not recorded here because they are noise for these use-cases, but they can
-//! be found in the rev-summaries and files-delta records.  The same selection is
-//! used for the per-symbol `token_changes` in files-delta records and
-//! rev-summaries.
+//! Only tokens selected by `tracked_token_keys` get files (by the rules of
+//! the history's timeline, which a root file says; see `KeyRules`), and we
+//! only emit a record for a revision if the token was added/removed/evolved;
+//! pure moves are not recorded here because they are noise for these
+//! use-cases, but they can be found in the rev-summaries and files-delta
+//! records.  The same selection is used for the per-symbol `token_changes` in
+//! files-delta records and rev-summaries.
 //!
 //! The first line of each file is a `TokenHeader` and the remaining lines are
 //! `TokenDeltaRecord`s ordered from newest to oldest.
@@ -169,10 +170,61 @@ pub fn is_trackable_token(token: &str) -> bool {
     token.len() >= 2
         && token.len() <= 128
         && !token.starts_with(|c: char| c.is_ascii_digit())
-        && token
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_' || c == '$')
+        && token.chars().all(is_word_char)
         && token.chars().any(|c| c.is_alphabetic())
+}
+
+/// Whether a character can be part of a word (see `is_trackable_token`).
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_' || c == '$'
+}
+
+/// Which keys a history's token journals track tokens under (see
+/// `tracked_token_keys`), as its timeline says (see `KeyRules::of_tree`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum KeyRules {
+    /// Identifiers, and the words in strings, comments and plain text which
+    /// look like them (a timeline without a `token-keys` file: histories made
+    /// before Part 690).
+    V1,
+    /// Also compound words, whole and each of their parts (see
+    /// `compound_keys`), in strings, comments, plain text, and identifiers
+    /// which aren't words (ex: CSS's `background-color`, and markup's
+    /// attribute values).
+    #[default]
+    V2,
+}
+
+/// The file at a timeline's root which says its key rules (`2`, for V2),
+/// which build-timeline-tree writes in the root commits of a timeline it
+/// starts (and every commit has from its first parent).
+pub const KEY_RULES_FILE: &str = "token-keys";
+
+impl KeyRules {
+    /// The rules of the timeline commit whose tree is `tree`.
+    pub fn of_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<KeyRules, String> {
+        let Ok(entry) = tree.get_path(std::path::Path::new(KEY_RULES_FILE)) else {
+            return Ok(KeyRules::V1);
+        };
+        let blob = repo.find_blob(entry.id()).map_err(|e| e.to_string())?;
+        match std::str::from_utf8(blob.content()).map(str::trim) {
+            Ok("2") => Ok(KeyRules::V2),
+            _ => Err(format!(
+                "The timeline's {} has rules this doesn't know: {:?}",
+                KEY_RULES_FILE,
+                String::from_utf8_lossy(blob.content())
+            )),
+        }
+    }
+
+    /// What a timeline's `token-keys` file has for these rules (V1's
+    /// timelines have none).
+    pub fn file_contents(self) -> Option<&'static str> {
+        match self {
+            KeyRules::V1 => None,
+            KeyRules::V2 => Some("2\n"),
+        }
+    }
 }
 
 /// Words which tree-sitter classifies as identifiers (or which we classify as
@@ -210,10 +262,28 @@ const PROSE_STOPWORDS: &[&str] = &[
     "which", "while", "who", "why", "will", "with", "would", "you",
 ];
 
-fn is_prose_stopword(word: &str) -> bool {
-    PROSE_STOPWORDS
-        .iter()
-        .any(|stop| stop.eq_ignore_ascii_case(word))
+pub fn is_prose_stopword(word: &str) -> bool {
+    use std::sync::OnceLock;
+    static SORTED: OnceLock<Vec<&'static [u8]>> = OnceLock::new();
+    // (None is longer than 7 bytes, which most words are, so a word is
+    // lowercased into a buffer and looked for in them, sorted, for every
+    // comment's words.)
+    const LONGEST: usize = 7;
+    let bytes = word.as_bytes();
+    if bytes.len() > LONGEST {
+        return false;
+    }
+    let sorted = SORTED.get_or_init(|| {
+        let mut sorted: Vec<&[u8]> = PROSE_STOPWORDS.iter().map(|stop| stop.as_bytes()).collect();
+        assert!(sorted.iter().all(|stop| stop.len() <= LONGEST));
+        sorted.sort();
+        sorted
+    });
+    let mut lower = [0u8; LONGEST];
+    for (to, from) in lower.iter_mut().zip(bytes) {
+        *to = from.to_ascii_lowercase();
+    }
+    sorted.binary_search(&&lower[..bytes.len()]).is_ok()
 }
 
 fn trim_punctuation(word: &str) -> &str {
@@ -228,7 +298,11 @@ fn is_bug_digits(digits: &str) -> bool {
 /// "bug1620052", "bug-1620052", and bugzilla `show_bug.cgi?id=1620052` URLs,
 /// returning the bug number.
 fn bug_number<'a>(token: &'a str, prev: Option<&str>) -> Option<&'a str> {
-    if let Some(idx) = token.find("show_bug.cgi?id=") {
+    // (Looking for a `?` first is cheaper than for the URL's path in every
+    // token.)
+    if token.as_bytes().contains(&b'?')
+        && let Some(idx) = token.find("show_bug.cgi?id=")
+    {
         let rest = &token[idx + "show_bug.cgi?id=".len()..];
         let digits = &rest[..rest
             .find(|c: char| !c.is_ascii_digit())
@@ -292,6 +366,154 @@ fn string_text(token: &str) -> &str {
         .unwrap_or(token)
 }
 
+/// Call `run` with each run of words in `text` joined by `-` or `.` (each
+/// between two word characters) which has one: ex: `moz-icon` and `gtk-foo`
+/// in `moz-icon://stock/gtk-foo`, `moz-box` in `-moz-box`, and
+/// `network.proxy.type`.
+fn joined_runs<'a>(text: &'a str, mut run: impl FnMut(&'a str)) {
+    if !text.contains(['-', '.']) {
+        return;
+    }
+    // (The current run's start, whether it has a joiner, and where the joiner
+    // after its last word character is, if one is.)
+    let mut start = None;
+    let mut joined = false;
+    let mut joiner = None;
+    for (at, c) in text.char_indices() {
+        if is_word_char(c) {
+            if start.is_none() {
+                start = Some(at);
+                joined = false;
+            }
+            joined |= joiner.take().is_some();
+            continue;
+        }
+        let Some(from) = start else { continue };
+        if joiner.is_none() && (c == '-' || c == '.') {
+            joiner = Some(at);
+            continue;
+        }
+        if joined {
+            run(&text[from..joiner.unwrap_or(at)]);
+        }
+        start = None;
+        joiner = None;
+    }
+    if let Some(from) = start
+        && joined
+    {
+        run(&text[from..joiner.unwrap_or(text.len())]);
+    }
+}
+
+/// Whether `run` is a compound of 3 or more parts joined by dots (and words
+/// joined by hyphens), which starts like a word: ex: `network.proxy.type`,
+/// `layout.css.moz-document.enabled` and `bugzilla.mozilla.org`, but not
+/// `1.2.3`, or file names like `Foo.h` and members like `this.foo`.
+fn is_dotted_compound(run: &str) -> bool {
+    run.len() <= 128
+        && run.starts_with(|c: char| c.is_alphabetic() || c == '_' || c == '$')
+        && run.split('.').count() >= 3
+        && run.split('.').all(|part| {
+            !part.is_empty()
+                && part
+                    .split('-')
+                    .all(|word| !word.is_empty() && word.chars().all(is_word_char))
+        })
+}
+
+/// The bug number of a compound of hyphens `bug-NNNNNNN` (any case), which is
+/// the bug's key (see `bug_number`).
+fn bug_compound(word: &str) -> Option<&str> {
+    let (bug, digits) = word.split_once('-')?;
+    (bug.eq_ignore_ascii_case("bug") && is_bug_digits(digits)).then_some(digits)
+}
+
+/// The keys of the compound words of `text` (V2's; see `tracked_token_keys`),
+/// whole and each part, as postgres's text search parser gives a hyphenated
+/// word and its parts, for `key`.  In each of `text`'s runs of words joined by
+/// `-` or `.` (see `joined_runs`):
+/// - a compound of 3 or more parts joined by dots (see `is_dotted_compound`),
+///   whole, and each part that's a word and `tracked`;
+/// - each compound of hyphens (the run, or its parts joined by dots: ex:
+///   `moz-icon`, or `moz-document` in `layout.css.moz-document.enabled`) whole,
+///   if one of its words could be a token (ex: not `x-1`), and each word that's
+///   `tracked`, but a `bug-NNNNNNN` is the bug's key (see `bug_number`), if
+///   `bugs`.
+///
+/// (2 parts joined by a dot aren't a compound, as file names and members
+/// would be noise, ex: `foo.js`, `this.foo`, but a whole token which is a
+/// qualified name has its parts; see `qualified_parts`.)
+fn compound_keys<'a>(
+    text: &'a str,
+    tracked: &dyn Fn(&str) -> bool,
+    bugs: bool,
+    key: &mut impl FnMut(Cow<'a, str>),
+) {
+    joined_runs(text, |run| {
+        let dotted = is_dotted_compound(run);
+        if dotted {
+            key(Cow::Borrowed(run));
+        }
+        for part in run.split('.') {
+            if !part.contains('-') {
+                if dotted && tracked(part) {
+                    key(Cow::Borrowed(part));
+                }
+                continue;
+            }
+            if let Some(bug) = bug_compound(part) {
+                if bugs {
+                    key(Cow::Owned(format!("bug-{}", bug)));
+                }
+                continue;
+            }
+            if part.len() <= 128 && part.split('-').any(is_trackable_token) {
+                key(Cow::Borrowed(part));
+            }
+            for word in part.split('-') {
+                if tracked(word) {
+                    key(Cow::Borrowed(word));
+                }
+            }
+        }
+    });
+}
+
+/// Whether `token` is a bug's key (see `bug_number`).
+pub fn is_bug_key(token: &str) -> bool {
+    token.strip_prefix("bug-").is_some_and(is_bug_digits)
+}
+
+/// The key of `token`'s journal, if it could have one (see `is_journal_key`):
+/// itself, or without its leading hyphens, as compounds' keys are (ex: CSS's
+/// `-moz-box-align`, `--my-var`).
+pub fn journal_key(token: &str) -> Option<&str> {
+    let key = match is_journal_key(token) {
+        true => token,
+        false => token.trim_start_matches('-'),
+    };
+    is_journal_key(key).then_some(key)
+}
+
+/// Whether `token` could have a token journal (see `tracked_token_keys`): a
+/// word (see `is_trackable_token`), or a compound word, whose journals V2's
+/// histories have (see `compound_keys`; ex: `moz-icon`,
+/// `network.proxy.type`), or a bug's key (`bug-1620052`).
+pub fn is_journal_key(token: &str) -> bool {
+    if is_trackable_token(token) {
+        return true;
+    }
+    let mut whole = false;
+    joined_runs(token, |run| whole |= run.len() == token.len());
+    whole
+        && (is_dotted_compound(token)
+            || !token.contains('.')
+                && token.len() <= 128
+                && token.split('-').any(is_trackable_token)
+            || bug_compound(token).is_some())
+}
+
 /// Decide which keys a token is tracked under in the per-token timeline and
 /// itemized under in per-symbol `token_changes`, if it's interesting enough,
 /// calling `key` for each: usually one, but the parts of a qualified name in a
@@ -316,9 +538,22 @@ fn string_text(token: &str) -> &str {
 ///   comments' URLs and paths would add ~11% and strings' other words ~8%.
 /// - Bug references in comments, plain text, and strings are tracked under a
 ///   `bug-NNNNNNN` key, which can't collide with identifiers.
+/// - With V2's rules (see `KeyRules`), compound words in strings, comments,
+///   plain text, and identifiers which aren't words are tracked whole and by
+///   each of their parts (see `compound_keys`): ex: `"moz-icon://stock"` as
+///   `moz-icon`, `moz` and `icon`, `"layout.css.moz-document.enabled"` as
+///   itself, `layout`, `css`, `moz-document`, `moz`, `document` and
+///   `enabled`, and CSS's `-moz-box-align` as `moz-box-align`, `moz`, `box`
+///   and `align`, so that a part's journal has its uses in compounds too.  In
+///   a 10% sample of firefox's files (2026-11-06), where 11.0M instances were
+///   tracked, the compounds added ~3% and their parts ~6% (CSS's properties'
+///   most: `background`, `color`), where URLs' paths' words would add ~1.6%
+///   and strings' other words ~3% more (ex: `0px`, `doesn't`), and whole URLs
+///   0.4%, mostly unique.
 ///
 /// Lines lacking a class (from older syntax repos) are treated as identifiers.
 pub fn tracked_token_keys<'a>(
+    rules: KeyRules,
     namespace: &str,
     line: &TokenLine<'a>,
     prev: Option<&TokenLine>,
@@ -329,6 +564,7 @@ pub fn tracked_token_keys<'a>(
         class => class,
     };
     let value_word = |word: &str| namespace_value_words(namespace).contains(&word);
+    let compounds = rules >= KeyRules::V2;
     match class {
         TokenClass::Keyword
         | TokenClass::Operator
@@ -336,15 +572,20 @@ pub fn tracked_token_keys<'a>(
         | TokenClass::Boilerplate => {}
         TokenClass::Identifier => {
             let token = line.token;
-            if is_trackable_token(token) && !value_word(token) {
-                key(Cow::Borrowed(token));
+            if is_trackable_token(token) {
+                if !value_word(token) {
+                    key(Cow::Borrowed(token));
+                }
+            } else if compounds {
+                compound_keys(
+                    token,
+                    &|word| is_trackable_token(word) && !value_word(word),
+                    true,
+                    key,
+                );
             }
         }
         TokenClass::String | TokenClass::Comment | TokenClass::Text => {
-            if let Some(bug) = bug_number(line.token, prev.map(|p| p.token)) {
-                key(Cow::Owned(format!("bug-{}", bug)));
-                return;
-            }
             let (word, prose) = match class {
                 TokenClass::String if is_trackable_token(line.token) => (line.token, false),
                 TokenClass::String => (string_text(line.token), false),
@@ -353,14 +594,27 @@ pub fn tracked_token_keys<'a>(
             let tracked = |word: &str| {
                 is_trackable_token(word) && !(prose && is_prose_stopword(word)) && !value_word(word)
             };
+            if let Some(bug) = bug_number(line.token, prev.map(|p| p.token)) {
+                key(Cow::Owned(format!("bug-{}", bug)));
+                // (Ex: a bug's URL's host, `bugzilla.mozilla.org`.)
+                if compounds {
+                    compound_keys(word, &tracked, false, key);
+                }
+                return;
+            }
             if tracked(word) {
                 key(Cow::Borrowed(word));
             } else if let Some(parts) = qualified_parts(word) {
-                for part in parts {
+                for part in &parts {
                     if tracked(part) {
                         key(Cow::Borrowed(part));
                     }
                 }
+                if compounds && is_dotted_compound(word) {
+                    key(Cow::Borrowed(word));
+                }
+            } else if compounds {
+                compound_keys(word, &tracked, true, key);
             }
         }
         TokenClass::Unknown => unreachable!(),
@@ -401,6 +655,16 @@ mod tests {
     }
 
     fn keys(namespace: &str, class: TokenClass, token: &str, prev: Option<&str>) -> Vec<String> {
+        keys_by(KeyRules::V1, namespace, class, token, prev)
+    }
+
+    fn keys_by(
+        rules: KeyRules,
+        namespace: &str,
+        class: TokenClass,
+        token: &str,
+        prev: Option<&str>,
+    ) -> Vec<String> {
         let line = TokenLine {
             context: "%",
             class,
@@ -412,7 +676,7 @@ mod tests {
             token: p,
         });
         let mut keys = vec![];
-        tracked_token_keys(namespace, &line, prev.as_ref(), &mut |k| {
+        tracked_token_keys(rules, namespace, &line, prev.as_ref(), &mut |k| {
             keys.push(k.into_owned())
         });
         keys
@@ -539,6 +803,163 @@ mod tests {
         assert_eq!(key("cpp", String, "\"this\"", None), None);
         // Lines from older syntax repos lack a class.
         assert_eq!(key("cpp", Unknown, "mCount", None), some("mCount"));
+        // V1 has no compounds.
+        assert_eq!(keys("cpp", String, "\"moz-icon\"", None), words(&[]));
+        assert_eq!(key("css", Identifier, "background-color", None), None);
+    }
+
+    #[test]
+    fn test_compound_keys() {
+        use TokenClass::*;
+        let keys = |namespace: &str, class: TokenClass, token: &str, prev: Option<&str>| {
+            keys_by(KeyRules::V2, namespace, class, token, prev)
+        };
+        let words = |w: &[&str]| w.iter().map(|w| w.to_string()).collect::<Vec<_>>();
+        // Compounds of hyphens, whole and by their words.
+        assert_eq!(
+            keys("cpp", String, "\"moz-icon\"", None),
+            words(&["moz-icon", "moz", "icon"])
+        );
+        assert_eq!(
+            keys(
+                "cpp",
+                String,
+                "u8\"moz-icon://stock/gtk-foo?size=16\"",
+                None
+            ),
+            words(&["moz-icon", "moz", "icon", "gtk-foo", "gtk", "foo"])
+        );
+        assert_eq!(
+            keys("cpp", Comment, "SchemeIs(\"moz-icon\")", None),
+            words(&["moz-icon", "moz", "icon"])
+        );
+        assert_eq!(
+            keys("css", Identifier, "-moz-box-align", None),
+            words(&["moz-box-align", "moz", "box", "align"])
+        );
+        assert_eq!(
+            keys("css", Identifier, "background-color", None),
+            words(&["background-color", "background", "color"])
+        );
+        assert_eq!(
+            keys("css", Identifier, "--my-var", None),
+            words(&["my-var", "my", "var"])
+        );
+        // (Markup's attribute values are identifiers.)
+        assert_eq!(
+            keys("html", Identifier, "moz-icon://stock/foo?size=16", None),
+            words(&["moz-icon", "moz", "icon"])
+        );
+        assert_eq!(
+            keys("none", Identifier, "utf-8", None),
+            words(&["utf-8", "utf"])
+        );
+        // (Prose's stopwords aren't words of compounds either.)
+        assert_eq!(
+            keys("cpp", Comment, "out-of-date,", None),
+            words(&["out-of-date", "date"])
+        );
+        assert_eq!(
+            keys("none", Text, "skip-if", None),
+            words(&["skip-if", "skip"])
+        );
+        // Compounds of dots, of 3 or more parts.
+        assert_eq!(
+            keys("js", String, "\"network.proxy.type\"", None),
+            words(&["network", "proxy", "type", "network.proxy.type"])
+        );
+        assert_eq!(
+            keys("js", String, "\"layout.css.moz-document.enabled\"", None),
+            words(&[
+                "layout.css.moz-document.enabled",
+                "layout",
+                "css",
+                "moz-document",
+                "moz",
+                "document",
+                "enabled"
+            ])
+        );
+        // (Pieces of a string, as Python's and Rust's tokens are.)
+        assert_eq!(
+            keys("py", String, "moz-icon://stock network.proxy.type", None),
+            words(&[
+                "moz-icon",
+                "moz",
+                "icon",
+                "network.proxy.type",
+                "network",
+                "proxy",
+                "type"
+            ])
+        );
+        assert_eq!(
+            keys("js", String, "\"foo.js\"", None),
+            words(&["foo", "js"])
+        );
+        assert_eq!(keys("js", String, "\"see foo.js\"", None), words(&[]));
+        assert_eq!(keys("js", String, "\"1.2.3\"", None), words(&[]));
+        assert_eq!(keys("cpp", Comment, "x-1", None), words(&[]));
+        assert_eq!(keys("cpp", Comment, "a--b", None), words(&[]));
+        assert_eq!(keys("cpp", Comment, "e.g.", None), words(&[]));
+        assert_eq!(keys("cpp", Comment, "-->", None), words(&[]));
+        // Bugs' keys, with the compounds of their URLs.
+        assert_eq!(
+            keys(
+                "cpp",
+                Comment,
+                "https://bugzilla.mozilla.org/show_bug.cgi?id=1620052#c3",
+                None
+            ),
+            words(&[
+                "bug-1620052",
+                "bugzilla.mozilla.org",
+                "bugzilla",
+                "mozilla",
+                "org"
+            ])
+        );
+        assert_eq!(
+            keys("cpp", Comment, "Bug-1620052:", None),
+            words(&["bug-1620052"])
+        );
+        assert_eq!(
+            keys("cpp", Comment, "(see:Bug-123456)", None),
+            words(&["bug-123456"])
+        );
+    }
+
+    #[test]
+    fn test_journal_keys() {
+        for token in [
+            "nsresult",
+            "moz-icon",
+            "background-color",
+            "network.proxy.type",
+            "layout.css.moz-document.enabled",
+            "bug-1620052",
+            "utf-8",
+        ] {
+            assert!(is_journal_key(token), "{}", token);
+        }
+        for token in [
+            "",
+            "-moz-box",
+            "moz-",
+            "foo.js",
+            "x-1",
+            "a--b",
+            "moz-icon://stock",
+            "1.2.3",
+            "foo bar",
+        ] {
+            assert!(!is_journal_key(token), "{}", token);
+        }
+        assert_eq!(journal_key("-moz-box-align"), Some("moz-box-align"));
+        assert_eq!(journal_key("--my-var"), Some("my-var"));
+        assert_eq!(journal_key("nsresult"), Some("nsresult"));
+        assert_eq!(journal_key("-x"), None);
+        assert!(is_bug_key("bug-1620052") && !is_bug_key("bug-fix") && !is_bug_key("Bug-1620052"));
     }
 
     #[test]

@@ -105,6 +105,7 @@ use similar::DiffOp;
 
 use super::suffix_array::SuffixArray;
 use crate::file_format::history::syntax_files::{TokenClass, TokenLine, split_token_line};
+use crate::file_format::history::timeline_tokens::KeyRules;
 
 /// Does this token contain content-bearing (alphanumeric) characters?
 pub fn is_word_token(token: &str) -> bool {
@@ -368,6 +369,10 @@ pub struct InferenceConfig {
     /// Whether renames' patterns pair other identifiers (see
     /// `infer_rename_patterns`); off only to measure what they add.
     pub rename_patterns: bool,
+    /// Which keys the revision's tokens are counted under (see
+    /// `tracked_token_keys`), the timeline's (see build-timeline-tree), for
+    /// the stats of the inference's results.
+    pub key_rules: KeyRules,
 }
 
 impl Default for InferenceConfig {
@@ -379,6 +384,7 @@ impl Default for InferenceConfig {
             cross_file_min_rarity: 0.25,
             cross_file_min_identifiers: 4,
             rename_patterns: true,
+            key_rules: KeyRules::default(),
         }
     }
 }

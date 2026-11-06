@@ -22,6 +22,10 @@ use std::collections::BTreeSet;
 
 use fancy_regex::{Assertion, Expr};
 
+use crate::file_format::history::timeline_tokens::{
+    KeyRules, is_prose_stopword, is_trackable_token,
+};
+
 /// Marks a token boundary in a literal (see the module's comment).  It's
 /// never in the text, so literals are split at it before searching.
 pub const BOUNDARY: char = '\0';
@@ -1024,17 +1028,139 @@ const VALUE_WORDS: &[&str] = &[
 ];
 
 /// Whether `word`, as a whole token, has a journal that covers its uses in
-/// code.
+/// code (and prose: not the stopwords which comments' words leave out).
 fn journaled(word: &str) -> bool {
-    crate::file_format::history::timeline_tokens::is_trackable_token(word)
+    is_trackable_token(word)
         && !KEYWORDS.contains(&word)
         && !VALUE_WORDS.contains(&word)
+        && !is_prose_stopword(word)
+}
+
+fn is_quote(c: char) -> bool {
+    matches!(c, '"' | '\'' | '`')
+}
+
+/// The terms of a literal's compound words next to a quote (see
+/// `timeline_tokens::KeyRules::V2`, whose histories track them whole and by
+/// their parts): a quote next to a word starts or ends a string (or quotes it
+/// in prose), where they're tracked whole, but in code they aren't
+/// (`moz-icon` there is the tokens `moz`, `-` and `icon`, whose words are the
+/// literal's other terms).  Each compound of hyphens of the literal's runs of
+/// words joined by `-` or `.` (ex: `moz-icon` in `"moz-icon://`, and
+/// `moz-document` in `"layout.css.moz-document`), and each run of 3 or more
+/// parts joined by dots which the literal starts (`"network.proxy.type`), is
+/// whole where the literal ends it on both sides (with a character which
+/// isn't a word's, and doesn't join one), else a piece.  Not compounds which
+/// could be a bug's key (`bug-NNNNNNN`, lowercase whatever the text's case),
+/// nor those without a whole word which could be a token, which a compound's
+/// key needs (ex: `x-1`; see `timeline_tokens::compound_keys`).
+fn compound_terms(literal: &Literal) -> Vec<TokenQuery> {
+    // (A boundary between two characters says nothing more about them, ex:
+    // `"\0moz\0-\0icon\0"`.)
+    let text: Vec<char> = literal.text.chars().collect();
+    let chars: Vec<char> = (0..text.len())
+        .filter(|&i| {
+            text[i] != BOUNDARY
+                || i == 0
+                || i + 1 == text.len()
+                || text[i - 1] == BOUNDARY
+                || text[i + 1] == BOUNDARY
+        })
+        .map(|i| text[i])
+        .collect();
+    let at = |i: Option<usize>| i.and_then(|i| chars.get(i).copied());
+    // (Whether the character at `i` ends a compound, with `beyond` the one
+    // past it.)
+    let ends = |i: Option<usize>, beyond: Option<usize>| match at(i) {
+        None | Some(BOUNDARY) => false,
+        Some('-' | '.') => at(beyond).is_some_and(|c| c != BOUNDARY && !is_word_char(c)),
+        Some(_) => true,
+    };
+    let mut terms = vec![];
+    let mut i = 0;
+    while i < chars.len() {
+        if !is_word_char(chars[i]) {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        let mut joined = false;
+        loop {
+            while i < chars.len() && is_word_char(chars[i]) {
+                i += 1;
+            }
+            if i + 1 < chars.len() && matches!(chars[i], '-' | '.') && is_word_char(chars[i + 1]) {
+                joined = true;
+                i += 1;
+            } else {
+                break;
+            }
+        }
+        let end = i;
+        let quoted =
+            at(start.checked_sub(1)).is_some_and(is_quote) || at(Some(end)).is_some_and(is_quote);
+        if !joined || !quoted {
+            continue;
+        }
+        let bounded_before = ends(start.checked_sub(1), start.checked_sub(2));
+        let bounded_after = ends(Some(end), Some(end + 1));
+        let mut push = |text: &[char], before: bool, after: bool| {
+            let text: String = text.iter().collect();
+            let term = match (before, after) {
+                (true, true) => TokenTerm::Whole(text),
+                (true, false) => TokenTerm::Prefix(text),
+                (false, true) => TokenTerm::Suffix(text),
+                (false, false) => TokenTerm::Contains(text),
+            };
+            terms.push(TokenQuery::Term {
+                term,
+                fold_case: literal.fold_case,
+            });
+        };
+        // (Keys are at most 128 bytes long.)
+        let too_long = |text: &[char]| text.iter().map(|c| c.len_utf8()).sum::<usize>() > 128;
+        let run = &chars[start..end];
+        let dotted: Vec<&[char]> = run.split(|&c| c == '.').collect();
+        if dotted.len() >= 3
+            && bounded_before
+            && (run[0].is_alphabetic() || run[0] == '_' || run[0] == '$')
+            && !(bounded_after && too_long(run))
+        {
+            push(run, true, bounded_after);
+        }
+        for (n, part) in dotted.iter().enumerate() {
+            let before = n > 0 || bounded_before;
+            let after = n + 1 < dotted.len() || bounded_after;
+            if !part.contains(&'-') {
+                continue;
+            }
+            let words: Vec<String> = part
+                .split(|&c| c == '-')
+                .map(|word| word.iter().collect())
+                .collect();
+            let maybe_bug = words.len() == 2
+                && words[1].chars().all(|c| c.is_ascii_digit())
+                && if before {
+                    words[0].eq_ignore_ascii_case("bug")
+                } else {
+                    "bug".ends_with(&words[0].to_ascii_lowercase())
+                };
+            let whole_word = words.iter().enumerate().any(|(w, word)| {
+                (w > 0 || before) && (w + 1 < words.len() || after) && is_trackable_token(word)
+            });
+            if !maybe_bug && whole_word && !(before && after && too_long(part)) {
+                push(part, before, after);
+            }
+        }
+    }
+    terms
 }
 
 /// The token terms of a literal: its runs of word characters, whole where a
 /// boundary or non-word character is on both sides within the literal, and
-/// otherwise pieces of tokens.
-fn literal_terms(literal: &Literal) -> TokenQuery {
+/// otherwise pieces of tokens; and with V2's keys, its compound words' (see
+/// `compound_terms`).
+fn literal_terms(literal: &Literal, rules: KeyRules) -> TokenQuery {
     let chars: Vec<char> = literal.text.chars().collect();
     let mut terms = vec![];
     let mut i = 0;
@@ -1068,17 +1194,25 @@ fn literal_terms(literal: &Literal) -> TokenQuery {
             fold_case: literal.fold_case,
         });
     }
+    if rules >= KeyRules::V2 {
+        terms.extend(compound_terms(literal));
+    }
     TokenQuery::and(terms)
 }
 
 impl Query {
-    /// The tokens every match contains (see `TokenQuery`).
-    pub fn tokens(&self) -> TokenQuery {
+    /// The tokens every match contains (see `TokenQuery`), as a history with
+    /// the key `rules` tracks them.
+    pub fn tokens(&self, rules: KeyRules) -> TokenQuery {
         match self {
             Query::All => TokenQuery::All,
-            Query::Literal(literal) => literal_terms(literal),
-            Query::And(parts) => TokenQuery::and(parts.iter().map(Query::tokens).collect()),
-            Query::Or(parts) => TokenQuery::or(parts.iter().map(Query::tokens).collect()),
+            Query::Literal(literal) => literal_terms(literal, rules),
+            Query::And(parts) => {
+                TokenQuery::and(parts.iter().map(|part| part.tokens(rules)).collect())
+            }
+            Query::Or(parts) => {
+                TokenQuery::or(parts.iter().map(|part| part.tokens(rules)).collect())
+            }
         }
     }
 }
@@ -1164,7 +1298,7 @@ mod tests {
 
     #[test]
     fn test_tokens() {
-        let tokens = |pattern: &str| query(pattern).tokens();
+        let tokens = |pattern: &str| query(pattern).tokens(KeyRules::V1);
         // (A pref name: its parts are whole tokens inside the literal, and the
         // ends are pieces.)
         assert_eq!(
@@ -1204,11 +1338,75 @@ mod tests {
     }
 
     #[test]
+    fn test_compound_tokens() {
+        let tokens = |text: &str| query(&regex::escape(text)).tokens(KeyRules::V2);
+        let and = |terms: Vec<TokenQuery>| TokenQuery::And(terms);
+        let prefix = |text: &str| term(TokenTerm::Prefix(text.to_string()));
+        let suffix = |text: &str| term(TokenTerm::Suffix(text.to_string()));
+        // (Next to a quote, compounds are whole tokens too.)
+        assert_eq!(
+            tokens(r#""moz-icon""#),
+            and(vec![whole("moz"), whole("icon"), whole("moz-icon")])
+        );
+        assert_eq!(
+            tokens(r#"SchemeIs("moz-icon")"#),
+            and(vec![
+                suffix("SchemeIs"),
+                whole("moz"),
+                whole("icon"),
+                whole("moz-icon")
+            ])
+        );
+        assert_eq!(
+            tokens(r#""moz-icon://"#),
+            and(vec![whole("moz"), whole("icon"), whole("moz-icon")])
+        );
+        assert_eq!(
+            tokens(r#"-moz-box""#),
+            and(vec![whole("moz"), whole("box"), suffix("moz-box")])
+        );
+        assert_eq!(
+            tokens(r#""dom.clients.openwindow_favors_same_process""#),
+            and(vec![
+                whole("dom"),
+                whole("clients"),
+                whole("openwindow_favors_same_process"),
+                whole("dom.clients.openwindow_favors_same_process"),
+            ])
+        );
+        assert_eq!(
+            tokens(r#""layout.css.moz-doc"#),
+            and(vec![
+                whole("layout"),
+                whole("css"),
+                whole("moz"),
+                prefix("doc"),
+                prefix("layout.css.moz-doc"),
+                prefix("moz-doc"),
+            ])
+        );
+        // (In code, `moz-icon` is `moz`, `-` and `icon`.)
+        assert_eq!(tokens("moz-icon"), and(vec![suffix("moz"), prefix("icon")]));
+        assert_eq!(
+            query(&regex::escape(r#""moz-icon""#)).tokens(KeyRules::V1),
+            and(vec![whole("moz"), whole("icon")])
+        );
+        // (Not compounds without a word, or which could be a bug's key.)
+        assert_eq!(tokens("'x-1'"), TokenQuery::All);
+        assert_eq!(tokens(r#""bug-1234""#), TokenQuery::All);
+        assert_eq!(tokens(r#"ug-1234""#), TokenQuery::All);
+        assert_eq!(
+            tokens(r#""ug-1234""#),
+            and(vec![whole("ug"), whole("ug-1234")])
+        );
+    }
+
+    #[test]
     fn test_cheapest() {
         let q = query(&regex::escape(
             r#""dom.clients.openwindow_favors_same_process""#,
         ))
-        .tokens();
+        .tokens(KeyRules::V1);
         let mut cost = |term: &TokenTerm, _fold: bool| Some(1_000_000 / term.text().len() as u64);
         let (_, terms) = q.cheapest(&mut cost).unwrap();
         assert_eq!(
@@ -1218,7 +1416,7 @@ mod tests {
                 false
             )]
         );
-        let q = query(r"\b(Foo|Bar)Baz\b").tokens();
+        let q = query(r"\b(Foo|Bar)Baz\b").tokens(KeyRules::V1);
         let (total, terms) = q.cheapest(&mut cost).unwrap();
         assert_eq!(terms.len(), 2);
         assert_eq!(total, 2 * (1_000_000 / 6));
@@ -1251,10 +1449,12 @@ mod tests {
         start..start + found.len()
     }
 
-    /// Whether `query` holds for a match at `range` of `text`: its tokens are
-    /// the text's runs of word characters overlapping the match.
-    fn tokens_hold(query: &TokenQuery, text: &str, range: &std::ops::Range<usize>) -> bool {
-        let mut runs = vec![];
+    /// A text's tokens, as a history with the key `rules` has them (as
+    /// ranges): its runs of word characters (identifiers in code, and parts of
+    /// compounds in strings), and with V2's, the compounds whose keys its
+    /// strings (between `"`s) have (see `timeline_tokens::compound_keys`).
+    fn model_tokens(text: &str, rules: KeyRules) -> Vec<(usize, usize)> {
+        let mut tokens = vec![];
         let mut start = None;
         for (i, c) in text
             .char_indices()
@@ -1263,17 +1463,68 @@ mod tests {
             match (is_word_char(c), start) {
                 (true, None) => start = Some(i),
                 (false, Some(s)) => {
-                    if s < range.end && range.start < i {
-                        runs.push((s, i));
-                    }
+                    tokens.push((s, i));
                     start = None;
                 }
                 _ => {}
             }
         }
+        if rules < KeyRules::V2 {
+            return tokens;
+        }
+        let quotes: Vec<usize> = text.match_indices('"').map(|(i, _)| i).collect();
+        for pair in quotes.chunks(2) {
+            let (open, close) = (pair[0] + 1, pair.get(1).copied().unwrap_or(text.len()));
+            let string = &text[open..close];
+            let mut keys = vec![];
+            let line = crate::file_format::history::syntax_files::TokenLine {
+                context: "%",
+                class: crate::file_format::history::syntax_files::TokenClass::String,
+                token: string,
+            };
+            crate::file_format::history::timeline_tokens::tracked_token_keys(
+                rules,
+                "js",
+                &line,
+                None,
+                &mut |key| keys.push(key.into_owned()),
+            );
+            // (The runs of words joined by `-` or `.`, their parts joined by
+            // hyphens, and where they are, if the string has their keys.)
+            let joined = regex::Regex::new(r"[\w$]+(?:[-.][\w$]+)+").unwrap();
+            for run in joined.find_iter(string) {
+                let mut candidates = vec![(run.start(), run.end())];
+                let mut at = run.start();
+                for part in run.as_str().split('.') {
+                    candidates.push((at, at + part.len()));
+                    at += part.len() + 1;
+                }
+                for (s, e) in candidates {
+                    if keys.iter().any(|key| key == &string[s..e])
+                        && string[s..e].contains(['-', '.'])
+                    {
+                        tokens.push((open + s, open + e));
+                    }
+                }
+            }
+        }
+        tokens
+    }
+
+    /// Whether `query` holds for a match at `range` of `text`, whose `tokens`
+    /// overlapping the match are its tokens (see `model_tokens`).
+    fn tokens_hold(
+        query: &TokenQuery,
+        text: &str,
+        tokens: &[(usize, usize)],
+        range: &std::ops::Range<usize>,
+    ) -> bool {
+        let overlapping = tokens
+            .iter()
+            .filter(|&&(s, e)| s < range.end && range.start < e);
         match query {
             TokenQuery::All => true,
-            TokenQuery::Term { term, fold_case } => runs.iter().any(|&(s, e)| {
+            TokenQuery::Term { term, fold_case } => overlapping.into_iter().any(|&(s, e)| {
                 let fold = |t: &str| {
                     if *fold_case {
                         t.to_lowercase()
@@ -1291,15 +1542,35 @@ mod tests {
                     TokenTerm::Contains(_) => run.contains(&piece),
                 }
             }),
-            TokenQuery::And(parts) => parts.iter().all(|part| tokens_hold(part, text, range)),
-            TokenQuery::Or(parts) => parts.iter().any(|part| tokens_hold(part, text, range)),
+            TokenQuery::And(parts) => parts
+                .iter()
+                .all(|part| tokens_hold(part, text, tokens, range)),
+            TokenQuery::Or(parts) => parts
+                .iter()
+                .any(|part| tokens_hold(part, text, tokens, range)),
         }
     }
 
-    /// Random patterns over random texts: every match satisfies the plan's
-    /// query and tokens.
-    #[test]
-    fn test_plans_are_sound() {
+    /// Random patterns of `words` (and `quoted`) and `punct` over random texts
+    /// of them (and `strings`' words and punctuation, quoted, with spaces
+    /// around them, as a quote next to a word starts or ends a string; see
+    /// `compound_terms`): every match satisfies the plan's query and tokens,
+    /// by `rules`.  Returns how many matches' plans had compounds' terms.
+    fn check_plans(
+        rules: KeyRules,
+        words: &[&str],
+        punct: &[&str],
+        strings: &[&str],
+        quoted: &[&str],
+    ) -> usize {
+        fn has_compound(query: &TokenQuery) -> bool {
+            match query {
+                TokenQuery::All => false,
+                TokenQuery::Term { term, .. } => term.text().contains(['-', '.']),
+                TokenQuery::And(parts) | TokenQuery::Or(parts) => parts.iter().any(has_compound),
+            }
+        }
+        let mut compounds = 0;
         let mut state: u64 = 0x9E3779B97F4A7C15;
         let mut next = move |n: usize| -> usize {
             state ^= state << 13;
@@ -1307,27 +1578,36 @@ mod tests {
             state ^= state << 17;
             (state % n as u64) as usize
         };
-        const WORDS: &[&str] = &[
-            "foo", "Bar", "kMax", "case", "JSOp", "barBaz", "return", "x1", "the", "Foo",
-        ];
-        const PUNCT: &[&str] = &[" ", "=", "(", ")", "::", ".", ";", ", ", "\"", "\n"];
         let mut checked = 0;
         for round in 0..3000 {
             // (A pattern: a sequence of pieces, some repeated, some
             // alternatives.)
-            fn piece(next: &mut dyn FnMut(usize) -> usize, depth: usize) -> String {
+            fn piece(
+                next: &mut dyn FnMut(usize) -> usize,
+                depth: usize,
+                words: &[&str],
+                punct: &[&str],
+            ) -> String {
                 let atom = match next(if depth > 1 { 8 } else { 10 }) {
-                    0..=2 => regex::escape(WORDS[next(WORDS.len())]),
-                    3 => regex::escape(PUNCT[next(PUNCT.len())].trim_matches('\\')),
+                    0..=2 => regex::escape(words[next(words.len())]),
+                    3 => regex::escape(punct[next(punct.len())].trim_matches('\\')),
                     4 => [r"\s", r"\w", r"\d", ".", r"\b", r"[(=]"][next(6)].to_string(),
                     5 => r"\s*".to_string(),
                     6 | 7 => regex::escape(&format!(
                         "{}{}",
-                        WORDS[next(WORDS.len())],
-                        PUNCT[next(PUNCT.len())].trim_matches('\\')
+                        words[next(words.len())],
+                        punct[next(punct.len())].trim_matches('\\')
                     )),
-                    8 => format!("({}|{})", piece(next, depth + 1), piece(next, depth + 1)),
-                    _ => format!("(?:{}{})", piece(next, depth + 1), piece(next, depth + 1)),
+                    8 => format!(
+                        "({}|{})",
+                        piece(next, depth + 1, words, punct),
+                        piece(next, depth + 1, words, punct)
+                    ),
+                    _ => format!(
+                        "(?:{}{})",
+                        piece(next, depth + 1, words, punct),
+                        piece(next, depth + 1, words, punct)
+                    ),
                 };
                 match next(8) {
                     0 => format!("(?:{})?", atom),
@@ -1336,7 +1616,10 @@ mod tests {
                     _ => atom,
                 }
             }
-            let pattern: String = (0..1 + next(4)).map(|_| piece(&mut next, 0)).collect();
+            let pattern_words: Vec<&str> = words.iter().chain(quoted).copied().collect();
+            let pattern: String = (0..1 + next(4))
+                .map(|_| piece(&mut next, 0, &pattern_words, punct))
+                .collect();
             let fold_case = next(2) == 0;
             let Ok(re) = regex::RegexBuilder::new(&pattern)
                 .case_insensitive(fold_case)
@@ -1345,19 +1628,40 @@ mod tests {
                 continue;
             };
             let plan = plan(&pattern, fold_case).unwrap();
-            let tokens = plan.query.tokens();
+            let tokens = plan.query.tokens(rules);
+            // (Only strings have quotes in their texts.)
+            let code_punct: Vec<&str> = punct
+                .iter()
+                .copied()
+                .filter(|p| strings.is_empty() || *p != "\"")
+                .collect();
             for _ in 0..20 {
-                let text: String = (0..next(12))
-                    .map(|_| match next(3) {
-                        0 => PUNCT[next(PUNCT.len())].replace("\\n", "\n"),
-                        _ => WORDS[next(WORDS.len())].to_string(),
-                    })
-                    .collect();
+                let mut text = String::new();
+                for _ in 0..next(12) {
+                    match next(if strings.is_empty() { 3 } else { 4 }) {
+                        0 => {
+                            text.push_str(&code_punct[next(code_punct.len())].replace("\\n", "\n"))
+                        }
+                        3 => {
+                            text.push_str(" \"");
+                            for _ in 0..1 + next(6) {
+                                text.push_str(match next(2) {
+                                    0 => strings[next(strings.len())],
+                                    _ => words[next(words.len())],
+                                });
+                            }
+                            text.push_str("\" ");
+                        }
+                        _ => text.push_str(words[next(words.len())]),
+                    }
+                }
+                let text_tokens = model_tokens(&text, rules);
                 for found in re.find_iter(&text) {
                     if found.is_empty() {
                         continue;
                     }
                     checked += 1;
+                    compounds += has_compound(&tokens) as usize;
                     assert!(
                         holds(&plan.query, &text, found.range()),
                         "round {}: {:?} (fold {}) matched {:?} in {:?}, against {:?}",
@@ -1369,7 +1673,7 @@ mod tests {
                         plan.query
                     );
                     assert!(
-                        tokens_hold(&tokens, &text, &found.range()),
+                        tokens_hold(&tokens, &text, &text_tokens, &found.range()),
                         "round {}: {:?} (fold {}) matched {:?} in {:?}, against {:?}",
                         round,
                         pattern,
@@ -1382,6 +1686,50 @@ mod tests {
             }
         }
         assert!(checked > 1000, "{}", checked);
+        compounds
+    }
+
+    #[test]
+    fn test_plans_are_sound() {
+        check_plans(
+            KeyRules::V1,
+            &[
+                "foo", "Bar", "kMax", "case", "JSOp", "barBaz", "return", "x1", "the", "Foo",
+            ],
+            &[" ", "=", "(", ")", "::", ".", ";", ", ", "\"", "\n"],
+            &[],
+            &[],
+        );
+        // (Compounds, in strings and code.)
+        let compounds = check_plans(
+            KeyRules::V2,
+            &[
+                "foo", "Bar", "moz", "icon", "x1", "a", "12", "bug", "1234", "Foo",
+            ],
+            &[" ", "-", ".", "(", ")", "=", ";", "\"", "\n"],
+            &[
+                "-",
+                ".",
+                " ",
+                ":",
+                "/",
+                "://",
+                "moz-icon",
+                "foo.Bar.moz",
+                "icon-x1",
+                "bug-1234",
+            ],
+            &[
+                "\"moz-icon",
+                "moz-icon\"",
+                "icon-x1\"",
+                "\"foo.Bar.moz",
+                "\"Foo.bar-moz.",
+                "\"bug-",
+                "-a\"",
+            ],
+        );
+        assert!(compounds > 150, "{}", compounds);
     }
 
     #[test]

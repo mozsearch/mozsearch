@@ -150,7 +150,8 @@ use tools::file_format::history::timeline_future::{
     FutureDetailRecord, FutureHeader, FutureRecord,
 };
 use tools::file_format::history::timeline_tokens::{
-    TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path,
+    KEY_RULES_FILE, KeyRules, TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader,
+    token_timeline_path,
 };
 use tools::git_notes::NotesWriter;
 use tools::git_ops::{fast_import_git, history_compute_threads};
@@ -1587,6 +1588,7 @@ fn preprocess_linear(
         .collect();
     let new_paths: Vec<Option<&str>> = pending.iter().map(|p| p.new_path.as_deref()).collect();
     let mut stats = compute_revision_stats(
+        config.key_rules,
         &inputs,
         &inferences,
         &old_symbols,
@@ -1625,7 +1627,7 @@ fn preprocess_linear(
                 .map(|_| (p.namespace.as_str(), p.new_contents.as_str())),
         })
         .collect();
-    exact_totals(&mut stats.token_totals, &counted);
+    exact_totals(config.key_rules, &mut stats.token_totals, &counted);
     drop(counted);
 
     let files = pending
@@ -1948,6 +1950,7 @@ fn preprocess_merge(
         {
             let contents = blob_string(repo, delta.old_oid);
             add_tracked_counts(
+                config.key_rules,
                 &file_namespace(repo, root, path),
                 &contents,
                 -1,
@@ -1967,6 +1970,7 @@ fn preprocess_merge(
         let new_oid = delta.new_oid;
         let new_contents = blob_string(repo, new_oid);
         add_tracked_counts(
+            config.key_rules,
             &file_namespace(repo, &cur_root, &new_path),
             &new_contents,
             1,
@@ -2145,6 +2149,7 @@ impl ComputePool {
         source_repo_path: &str,
         backout_resolver: Arc<BackoutTargetResolver>,
         landing: Arc<LandingDates>,
+        key_rules: KeyRules,
     ) -> Self {
         let (query_tx, query_rx) = channel();
         let query_rx = Arc::new(Mutex::new(query_rx));
@@ -2164,6 +2169,7 @@ impl ComputePool {
                     source_repo_path,
                     backout_resolver,
                     landing,
+                    key_rules,
                 );
             });
         }
@@ -2203,6 +2209,63 @@ impl ComputePool {
     }
 }
 
+/// Which keys the timeline's token journals track tokens under (see
+/// `tracked_token_keys`): an existing timeline's (by its branch, a processed
+/// revision's commit, or any branch's; see `KeyRules::of_tree`), which its
+/// journals must keep, or a new timeline's, by TOKEN_KEY_RULES (`1` or `2`;
+/// V2 by default).
+fn timeline_key_rules(
+    repo: &Repository,
+    blame_ref: &str,
+    processed: &HashMap<Oid, TimelineRepoCommit>,
+) -> KeyRules {
+    let asked = match env::var("TOKEN_KEY_RULES").as_deref() {
+        Err(_) | Ok("") => None,
+        Ok("1") => Some(KeyRules::V1),
+        Ok("2") => Some(KeyRules::V2),
+        Ok(other) => {
+            error!("TOKEN_KEY_RULES {:?} isn't 1 or 2", other);
+            std::process::exit(1);
+        }
+    };
+    let existing = repo
+        .refname_to_id(blame_ref)
+        .ok()
+        .or_else(|| {
+            processed.values().find_map(|commit| match commit {
+                TimelineRepoCommit::Commit(oid) => Some(*oid),
+                TimelineRepoCommit::Mark(_) => None,
+            })
+        })
+        .or_else(|| {
+            repo.references_glob("refs/heads/*")
+                .ok()?
+                .flatten()
+                .find_map(|reference| reference.target())
+        });
+    let Some(existing) = existing else {
+        return asked.unwrap_or_default();
+    };
+    let tree = repo
+        .find_commit(existing)
+        .and_then(|commit| commit.tree())
+        .unwrap();
+    let rules = KeyRules::of_tree(repo, &tree).unwrap_or_else(|e| {
+        error!("{}", e);
+        std::process::exit(1);
+    });
+    if let Some(asked) = asked
+        && asked != rules
+    {
+        error!(
+            "TOKEN_KEY_RULES asks for {:?}'s keys, but the timeline has {:?}'s",
+            asked, rules
+        );
+        std::process::exit(1);
+    }
+    rules
+}
+
 fn compute_thread_main(
     query_rx: Arc<Mutex<Receiver<(usize, HistorySyntaxCommitMeta)>>>,
     response_tx: Sender<(usize, TimelineData)>,
@@ -2210,10 +2273,14 @@ fn compute_thread_main(
     source_repo_path: String,
     backout_resolver: Arc<BackoutTargetResolver>,
     landing: Arc<LandingDates>,
+    key_rules: KeyRules,
 ) {
     let syntax_repo = Repository::open(syntax_repo_path).unwrap();
     let source_repo = Repository::open(source_repo_path).unwrap();
-    let config = InferenceConfig::default();
+    let config = InferenceConfig {
+        key_rules,
+        ..InferenceConfig::default()
+    };
     loop {
         // (The lock is only held while waiting for the next revision.)
         let Ok((index, rev)) = query_rx.lock().unwrap().recv() else {
@@ -4733,6 +4800,8 @@ fn main() {
     {
         point_branch_at(&timeline_repo, &blame_ref, *timeline_rev);
     }
+    let key_rules = timeline_key_rules(&timeline_repo, &blame_ref, &processed);
+    info!("The timeline's token keys are {:?}'s", key_rules);
     let mut timeline_commits = TimelineCommits {
         syntax_repo: &syntax_repo,
         timeline_repo: &timeline_repo,
@@ -4798,6 +4867,7 @@ fn main() {
         &source_repo_path,
         backout_resolver.clone(),
         landing.clone(),
+        key_rules,
     );
 
     // This tracks the index of the next revision in revs_to_process for which
@@ -4971,6 +5041,17 @@ fn main() {
             for additional_parent in timeline_parents.iter().skip(1) {
                 writeln!(import_stream, "merge {}", additional_parent).unwrap();
             }
+        }
+        // (A timeline's root commits say its key rules, which its other
+        // commits have from their first parents.)
+        if timeline_parents.is_empty()
+            && let Some(contents) = key_rules.file_contents()
+        {
+            write_inline_blob(
+                &mut import_helper,
+                Path::new(KEY_RULES_FILE),
+                contents.as_bytes(),
+            );
         }
 
         let file_deltas = match &data.changes {

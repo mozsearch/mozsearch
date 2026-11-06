@@ -58,6 +58,19 @@ add_task(async function test_TextHistoryNowFiles() {
      "which made the file's first match");
 });
 
+add_task(async function test_TextHistoryCompound() {
+  // (A compound word next to a quote, in a string or prose, is a token of its
+  // own, whose journal has its every match; its words' journals don't have
+  // their uses in strings' compounds.)
+  await TestUtils.loadQuery("searchfox", `text-history:'"query-too-expensive"'`);
+  await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
+  ok([...doc().querySelectorAll(".history-grep-plan code")].some(code => code.textContent == "query-too-expensive"),
+     "The plan is the compound's journal");
+  for (const path of ["tools/src/query_limits.rs", "tools/templates/query_results.liquid"]) {
+    ok(rows().some(row => row.textContent.includes(path)), `finding where ${path} got it`);
+  }
+});
+
 add_task(async function test_ReHistoryValues() {
   await TestUtils.loadQuery("searchfox",
                             `re-history:'^clap = .*version = "([^"]+)"' path:tools/Cargo.toml`);

@@ -843,6 +843,8 @@ mod tests {
         assert_eq!(values("-moz-appearance"), values("'-moz-appearance'"));
         assert_eq!(values("--foo"), values("'--foo'"));
         assert_eq!(values("-Foo::Bar"), values("'-Foo::Bar'"));
+        // (A term's value can start with one, ex: a vendor prefix's.)
+        assert!(values("token-history:-moz-box-align").contains("\"-moz-box-align\""));
     }
 
     #[test]

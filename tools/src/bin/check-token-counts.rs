@@ -19,6 +19,7 @@ use std::process::ExitCode;
 use clap::Parser;
 use git2::{Oid, Repository, TreeWalkMode, TreeWalkResult};
 use tools::file_format::config::timeline_commit_to_meta;
+use tools::file_format::history::timeline_tokens::KeyRules;
 use tools::hyperblame::segments;
 use tools::hyperblame::token_counts::{journal_sum, tree_counts};
 
@@ -57,6 +58,7 @@ fn journal_sum_at(repo: &Repository, tree: &git2::Tree, path: &Path) -> Option<i
 
 /// The changes of the tracked counts between two syntax trees' files.
 fn count_changes(
+    rules: KeyRules,
     repo: &Repository,
     old: &git2::Tree,
     new: &git2::Tree,
@@ -79,6 +81,7 @@ fn count_changes(
             if let Ok(contents) = std::str::from_utf8(blob.content()) {
                 let namespace = tools::hyperblame::token_counts::file_namespace(repo, root, &path);
                 tools::hyperblame::token_counts::add_tracked_counts(
+                    rules,
                     &namespace,
                     contents,
                     sign,
@@ -109,7 +112,8 @@ fn walk(args: &Args, timeline: &Repository, syntax: &Repository, start: git2::Co
             .unwrap()
             .tree()
             .unwrap();
-        let counts = count_changes(syntax, &syntax_old, &syntax_new).unwrap();
+        let rules = KeyRules::of_tree(timeline, &commit.tree().unwrap()).unwrap();
+        let counts = count_changes(rules, syntax, &syntax_old, &syntax_new).unwrap();
         let (new_tree, old_tree) = (commit.tree().unwrap(), parent.tree().unwrap());
         let diff = timeline
             .diff_tree_to_tree(Some(&old_tree), Some(&new_tree), None)
@@ -202,7 +206,8 @@ fn main() -> ExitCode {
     }
     let meta = timeline_commit_to_meta(&commit);
     let syntax_tree = syntax.find_commit(meta.syntax_rev).unwrap().tree().unwrap();
-    let counts = tree_counts(&syntax, &syntax_tree).unwrap();
+    let rules = KeyRules::of_tree(&timeline, &commit.tree().unwrap()).unwrap();
+    let counts = tree_counts(rules, &syntax, &syntax_tree).unwrap();
 
     // The journals' sums.
     let tree = commit.tree().unwrap();

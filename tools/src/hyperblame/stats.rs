@@ -9,7 +9,7 @@ use crate::file_format::history::syntax_files::TokenLine;
 use crate::file_format::history::timeline_common::{
     ChangeKind, SymbolSyntaxDelta, SymbolSyntaxDeltaGroup, TokenDeltaDetails,
 };
-use crate::file_format::history::timeline_tokens::tracked_token_keys;
+use crate::file_format::history::timeline_tokens::{KeyRules, tracked_token_keys};
 
 use super::inference::{FileChangeInput, FileInference, RemovedFate, TokenOrigin};
 use crate::file_format::history::syntax_files::split_token_line;
@@ -58,8 +58,10 @@ type Correspondences = HashMap<String, HashMap<(u32, String), u32>>;
 /// of "pretty" symbol identifiers from the "files-struct" records for the old
 /// and new versions of each file.  These let us tell whether a symbol was added
 /// or removed versus just changed.  `old_paths` and `new_paths` (also parallel)
-/// are the files' paths, for symbols which evolved across files.
+/// are the files' paths, for symbols which evolved across files.  `rules` are
+/// the history's keys' (see `tracked_token_keys`).
 pub fn compute_revision_stats(
+    rules: KeyRules,
     inputs: &[FileChangeInput],
     inferences: &[FileInference],
     old_symbols: &[BTreeSet<String>],
@@ -85,7 +87,7 @@ pub fn compute_revision_stats(
             .entry(line.context.to_string())
             .or_insert_with(|| SymbolSyntaxDelta::new(ChangeKind::Changed));
         bump(&mut sym_delta.token_totals, delta);
-        tracked_token_keys(namespace, line, prev, &mut |key| {
+        tracked_token_keys(rules, namespace, line, prev, &mut |key| {
             bump(
                 sym_delta.token_changes.entry(key.to_string()).or_default(),
                 delta,
@@ -286,6 +288,7 @@ mod tests {
         }];
         let inferences = infer_revision(&inputs, &InferenceConfig::default());
         let stats = compute_revision_stats(
+            KeyRules::V2,
             &inputs,
             &inferences,
             &[syms(&["Foo::bar"])],
@@ -318,6 +321,7 @@ mod tests {
         }];
         let inferences = infer_revision(&inputs, &InferenceConfig::default());
         let stats = compute_revision_stats(
+            KeyRules::V2,
             &inputs,
             &inferences,
             &[syms(&["Foo", "Foo::bar"])],
@@ -373,6 +377,7 @@ mod tests {
         ];
         let inferences = infer_revision(&inputs, &InferenceConfig::default());
         let stats = compute_revision_stats(
+            KeyRules::V2,
             &inputs,
             &inferences,
             &[syms(&["Log", "keep"]), syms(&[])],

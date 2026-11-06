@@ -11,6 +11,8 @@ function doc() {
 }
 
 const UPGRADE = "0f2a4938884c2ce7e2637363c5577f095ef0d074";
+// (The commit adding `-moz-osx-font-smoothing` to the CSS.)
+const SMOOTHING = "ffe20d496a73bf5311a2e270373da1deffdc09b3";
 
 add_task(async function test_TokenHistoryNote() {
   await TestUtils.loadQuery("searchfox", "structopt");
@@ -52,6 +54,18 @@ add_task(async function test_TokenHistoryView() {
   ok(row.textContent.includes("Upgrade to clap v3"), "and their messages");
   ok([...view.querySelectorAll(".token-history-years td:first-child")].some(td => td.textContent == "2022"),
      "and by year");
+});
+
+add_task(async function test_TokenHistoryCompound() {
+  // (A compound word, ex: a CSS property, has its own journal, by its name
+  // without a vendor prefix's leading dash; see timeline_tokens.rs's
+  // `compound_keys`.)
+  await TestUtils.loadQuery("searchfox", "token-history:-moz-osx-font-smoothing");
+  const view = doc().querySelector(".token-history-view");
+  is(view.querySelector("h2")?.textContent, "The history of moz-osx-font-smoothing",
+     "The view is the compound's");
+  ok(view.querySelector(`.token-history-records a[href="/searchfox/commit/${SMOOTHING}"]`),
+     "with the commit which added it");
 });
 
 add_task(async function test_TokenHistoryWithoutHistory() {

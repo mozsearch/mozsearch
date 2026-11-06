@@ -21,7 +21,10 @@
 //! - merges (skipped, as `git log -S` does without `-m`);
 //! - code moved between files (moves aren't the journals' changes);
 //! - matches in what the journals don't track: prose in strings, URLs and
-//!   paths;
+//!   paths (but compound words in them, ex: `moz-icon` in
+//!   `"moz-icon://stock"`, which histories with V2's keys track whole and by
+//!   their words; see `timeline_tokens::KeyRules`, and `regex_plan`'s
+//!   `compound_terms` for when a pattern's compound is a term);
 //! - a match appearing without one of its tokens being added or removed in
 //!   that file (ex: existing tokens rearranged around it, or a number changed
 //!   next to it).
@@ -56,7 +59,9 @@ use crate::file_format::history::rev_token_index::RevTokenIndex;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 use crate::file_format::history::timeline_future::FutureRecord;
-use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
+use crate::file_format::history::timeline_tokens::{
+    KeyRules, TokenDeltaRecord, token_timeline_path,
+};
 use crate::file_format::token_names::NameMatch;
 use crate::hyperblame::file_fate;
 use crate::hyperblame::journals::{JournalKind, JournalReader};
@@ -549,7 +554,10 @@ pub fn history_grep(
     };
 
     // ## The plan: the token journals, or the files' journals.
-    let tokens = plan.query.tokens();
+    // (By the keys the history tracks tokens under: a newer history's, if
+    // they're rules this doesn't know.)
+    let rules = KeyRules::of_tree(timeline, &tree).unwrap_or_default();
+    let tokens = plan.query.tokens(rules);
     let mut costs: HashMap<(TokenTerm, bool), Option<(u64, Vec<String>)>> = HashMap::new();
     let mut cost = |term: &TokenTerm, fold: bool| -> Option<u64> {
         costs

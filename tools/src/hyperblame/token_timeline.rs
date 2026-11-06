@@ -54,7 +54,7 @@ use super::token_history::{
 };
 use crate::file_format::history::timeline_common::TokenDeltaDetails;
 use crate::file_format::history::timeline_tokens::{
-    TokenDeltaRecord, is_trackable_token, token_timeline_path,
+    TokenDeltaRecord, is_bug_key, is_journal_key, journal_key, token_timeline_path,
 };
 
 /// How many tokens (case-insensitively distinct) a timeline has at most.
@@ -309,7 +309,8 @@ fn other_tokens(
     let mut best: HashMap<String, u32> = HashMap::new();
     for (token, delta) in by_token {
         let key = case_key(token, case_sensitive);
-        if exclude.contains(&key) || !is_trackable_token(token) {
+        // (Not bugs' keys, of their references in comments.)
+        if exclude.contains(&key) || !is_journal_key(token) || is_bug_key(token) {
             continue;
         }
         let (added, removed) = (came(&delta), gone(&delta));
@@ -385,10 +386,12 @@ fn token_timeline_within(
     };
     let tree = head.tree().map_err(|e| e.to_string())?;
 
-    // The tokens, case-insensitively distinct, up to MAX_TOKENS.
+    // The tokens, as their journals' keys (see `journal_key`),
+    // case-insensitively distinct, up to MAX_TOKENS.
     let mut seen = HashSet::new();
     let mut asked = vec![];
     for token in tokens {
+        let token = &journal_key(token).unwrap_or(token).to_string();
         if !seen.insert(case_key(token, opts.case_sensitive)) {
             continue;
         }
@@ -409,7 +412,7 @@ fn token_timeline_within(
             read_all: true,
             count: Some(0),
         };
-        if is_trackable_token(token) {
+        if is_journal_key(token) {
             let variants: Vec<String> = case_variants(repo, &tree, token)
                 .into_iter()
                 .filter(|variant| !opts.case_sensitive || variant == token)

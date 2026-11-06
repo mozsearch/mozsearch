@@ -69,8 +69,8 @@ use super::token_blame::TreeHistory;
 use crate::file_format::history::rev_summaries::{RevSummaryRecord, rev_summary_path};
 use crate::file_format::history::timeline_common::{ChangeKind, TokenDeltaDetails};
 use crate::file_format::history::timeline_tokens::{
-    TokenDeltaDetailRecord, TokenDeltaRecord, TokenDeltaSummaryRecord, is_trackable_token,
-    token_timeline_path,
+    TokenDeltaDetailRecord, TokenDeltaRecord, TokenDeltaSummaryRecord, is_journal_key,
+    is_trackable_token, token_timeline_path,
 };
 
 /// How many bytes of a token's journal to read for the query's note.
@@ -764,7 +764,7 @@ pub fn token_history(
     opts: TokenHistoryOptions,
     header: &dyn Fn(&str) -> Option<String>,
 ) -> Result<Option<TokenHistory>, String> {
-    if !is_trackable_token(token) {
+    if !is_journal_key(token) {
         return Ok(None);
     }
     let repo: &Repository = &history.timeline;

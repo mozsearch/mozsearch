@@ -48,7 +48,7 @@ use tools::file_format::history::rev_token_index::{
 use tools::file_format::history::syntax_files::{TokenLine, split_token_line, token_file_lines};
 use tools::file_format::history::timeline_common::{ChangeKind, JournalVersionRef};
 use tools::file_format::history::timeline_files_delta::FileDeltaRecord;
-use tools::file_format::history::timeline_tokens::tracked_token_keys;
+use tools::file_format::history::timeline_tokens::{KeyRules, tracked_token_keys};
 use tools::hyperblame::journals::{JournalKind, JournalReader};
 use tools::hyperblame::token_blame::TreeHistory;
 
@@ -157,11 +157,12 @@ fn revision_files(
 ) -> Result<(Vec<IndexedFile>, usize), String> {
     let oid = Oid::from_str(rev).map_err(|e| e.to_string())?;
     let commit = source.find_commit(oid).map_err(|e| e.to_string())?;
-    let timeline_rev = history
-        .timeline_commit(oid)
-        .ok_or("no timeline commit")?
-        .id()
-        .to_string();
+    let timeline_commit = history.timeline_commit(oid).ok_or("no timeline commit")?;
+    let timeline_rev = timeline_commit.id().to_string();
+    let rules = KeyRules::of_tree(
+        &history.timeline,
+        &timeline_commit.tree().map_err(|e| e.to_string())?,
+    )?;
     // (Its parent in the history: the first parent, if it has one, and if the
     // history has it (a history window's first revision adds every file).)
     let parent_syntax: Option<SyntaxRev> = commit.parent_id(0).ok().and_then(|parent| {
@@ -224,7 +225,9 @@ fn revision_files(
         let mut keys: Vec<String> = vec![];
         for (at, line) in lines.iter().enumerate() {
             let prev = at.checked_sub(1).map(|prev| &lines[prev]);
-            tracked_token_keys("", line, prev, &mut |key| keys.push(key.into_owned()));
+            tracked_token_keys(rules, "", line, prev, &mut |key| {
+                keys.push(key.into_owned())
+            });
         }
         Ok(Some(keys))
     };

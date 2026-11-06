@@ -13,7 +13,7 @@ use crate::file_format::history::io_helpers::read_record_file_contents;
 use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use crate::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use crate::file_format::history::timeline_common::TokenDeltaDetails;
-use crate::file_format::history::timeline_tokens::tracked_token_keys;
+use crate::file_format::history::timeline_tokens::{KeyRules, tracked_token_keys};
 use crate::tree_sitter_support::cst_tokenizer::namespace_for_file;
 
 /// The namespace of the syntax file of `path` (its files-struct header's, for
@@ -35,8 +35,9 @@ pub fn file_namespace(repo: &Repository, root: &Tree, path: &str) -> String {
 }
 
 /// Add `sign` times the tracked instances of each token in a syntax file's
-/// `contents` (in `namespace`) to `counts`.
+/// `contents` (in `namespace`) to `counts`, by the history's key `rules`.
 pub fn add_tracked_counts(
+    rules: KeyRules,
     namespace: &str,
     contents: &str,
     sign: i64,
@@ -46,16 +47,30 @@ pub fn add_tracked_counts(
     let mut prev = None;
     for line in &lines {
         let line = split_token_line(line);
-        tracked_token_keys(namespace, &line, prev.as_ref(), &mut |key| {
-            *counts.entry(key.into_owned()).or_default() += sign;
-        });
+        // (Not allocating a key counted already.)
+        tracked_token_keys(
+            rules,
+            namespace,
+            &line,
+            prev.as_ref(),
+            &mut |key| match counts.get_mut(key.as_ref()) {
+                Some(count) => *count += sign,
+                None => {
+                    counts.insert(key.into_owned(), sign);
+                }
+            },
+        );
         prev = Some(line);
     }
 }
 
 /// The tracked instances of each token in all of the files of a syntax repo
-/// commit's tree.
-pub fn tree_counts(repo: &Repository, root: &Tree) -> Result<HashMap<String, i64>, git2::Error> {
+/// commit's tree, by the history's key `rules`.
+pub fn tree_counts(
+    rules: KeyRules,
+    repo: &Repository,
+    root: &Tree,
+) -> Result<HashMap<String, i64>, git2::Error> {
     let mut counts = HashMap::new();
     let Ok(files) = root.get_path(Path::new("files")) else {
         return Ok(counts);
@@ -74,7 +89,7 @@ pub fn tree_counts(repo: &Repository, root: &Tree) -> Result<HashMap<String, i64
             continue;
         };
         let namespace = file_namespace(repo, root, &path);
-        add_tracked_counts(&namespace, contents, 1, &mut counts);
+        add_tracked_counts(rules, &namespace, contents, 1, &mut counts);
     }
     Ok(counts)
 }
@@ -146,16 +161,17 @@ pub struct CountedFile<'a> {
 /// depends on the token before it (a bug number), and token journals' sums
 /// must be their tokens' instances (see `token_timeline`).
 pub fn exact_totals(
+    rules: KeyRules,
     totals: &mut std::collections::BTreeMap<String, TokenDeltaDetails>,
     files: &[CountedFile],
 ) {
     let mut counts: HashMap<String, i64> = HashMap::new();
     for file in files {
         if let Some((namespace, contents)) = file.old {
-            add_tracked_counts(namespace, contents, -1, &mut counts);
+            add_tracked_counts(rules, namespace, contents, -1, &mut counts);
         }
         if let Some((namespace, contents)) = file.new {
-            add_tracked_counts(namespace, contents, 1, &mut counts);
+            add_tracked_counts(rules, namespace, contents, 1, &mut counts);
         }
     }
     for token in totals.keys() {
@@ -245,12 +261,12 @@ mod tests {
         let contents =
             "% i Widget\n% o ::\n% i Frob\n% k return\n% c Bug\n% c 123456\n% c Widget,\n";
         let mut counts = HashMap::new();
-        add_tracked_counts("cpp", contents, 1, &mut counts);
+        add_tracked_counts(KeyRules::V2, "cpp", contents, 1, &mut counts);
         assert_eq!(counts.get("Widget"), Some(&2));
         assert_eq!(counts.get("Frob"), Some(&1));
         assert_eq!(counts.get("bug-123456"), Some(&1));
         assert_eq!(counts.get("return"), None);
-        add_tracked_counts("cpp", "% i Widget\n", -1, &mut counts);
+        add_tracked_counts(KeyRules::V2, "cpp", "% i Widget\n", -1, &mut counts);
         assert_eq!(counts.get("Widget"), Some(&1));
     }
 
@@ -283,7 +299,7 @@ mod tests {
                 new: Some(("cpp", "% i Kept\n")),
             },
         ];
-        exact_totals(&mut totals, &files);
+        exact_totals(KeyRules::V2, &mut totals, &files);
         assert_eq!(
             totals["Widget"],
             TokenDeltaDetails {
