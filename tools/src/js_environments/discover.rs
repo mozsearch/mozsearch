@@ -776,7 +776,7 @@ impl<'a> Discoverer<'a> {
             let source = self.read(test).unwrap_or_default();
             let metas = meta_scripts(&source);
             for variant in variants {
-                let worker = variant != "window";
+                let worker = variant.trim_end_matches("-module") != "window";
                 let harness = if worker {
                     &worker_harness
                 } else {
@@ -848,73 +848,60 @@ fn is_wpt_support(rel: &str) -> bool {
         || rel.starts_with("tools/")
 }
 
-/// A `.any.js` test's variants, by its `META: global=` (wpt's sourcefile.py's
-/// `global_suffixes`): window and dedicatedworker by default, `worker` being
-/// dedicated, shared and service workers, and `-module` ones; not the
-/// shadowrealm ones (no global type for them yet).
+/// A web-platform-test's `META:` lines, as wpt's sourcefile.py reads them
+/// (`read_script_metadata`, `//\s*META:\s*(\w*)=(.*)$`): its first lines, up
+/// to the first that isn't one, each as (key, value, line).
+fn meta_lines(source: &str) -> impl Iterator<Item = (&str, &str, u32)> {
+    source.lines().enumerate().map_while(|(i, line)| {
+        let meta = line
+            .strip_prefix("//")?
+            .trim_start()
+            .strip_prefix("META:")?
+            .trim_start();
+        let (key, value) = meta.split_once('=')?;
+        key.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+            .then_some((key, value, i as u32 + 1))
+    })
+}
+
+/// A `.any.js` test's variants, by its first `META: global=` (wpt's
+/// sourcefile.py's `parse_variants`): window and dedicatedworker without one
+/// (or with an empty one), `worker` being dedicated, shared and service
+/// workers, and `-module` ones (`worker-module` a dedicated worker's, as
+/// serve.py's WorkerModulesHandler runs it); not the shadowrealm ones or
+/// jsshell (no global type for them yet), or keywords wpt doesn't have.
 fn any_variants(source: &str) -> Vec<&'static str> {
-    let mut globals: BTreeSet<&'static str> = BTreeSet::new();
-    let mut seen_meta = false;
-    for line in source
-        .lines()
-        .take_while(|l| l.starts_with("//") || l.trim().is_empty())
-    {
-        let Some(meta) = line.strip_prefix("// META:") else {
-            continue;
-        };
-        let Some(value) = meta.trim().strip_prefix("global=") else {
-            continue;
-        };
-        seen_meta = true;
-        for global in value.split(',') {
-            let global = global.trim();
-            let (negated, global) = match global.strip_prefix('!') {
-                Some(g) => (true, g),
-                None => (false, global),
-            };
-            let expanded: &[&'static str] = match global {
-                "window" => &["window"],
-                "worker" => &["dedicatedworker", "sharedworker", "serviceworker"],
-                "dedicatedworker" => &["dedicatedworker"],
-                "sharedworker" => &["sharedworker"],
-                "serviceworker" => &["serviceworker"],
-                "dedicatedworker-module" => &["dedicatedworker-module"],
-                "sharedworker-module" => &["sharedworker-module"],
-                "serviceworker-module" => &["serviceworker-module"],
-                "worker-module" => &[
-                    "dedicatedworker-module",
-                    "sharedworker-module",
-                    "serviceworker-module",
-                ],
-                "default" => &["window", "dedicatedworker"],
-                _ => &[],
-            };
-            for g in expanded {
-                if negated {
-                    globals.remove(g);
-                } else {
-                    globals.insert(g);
-                }
-            }
-        }
-    }
-    if !seen_meta {
+    let Some((_, value, _)) = meta_lines(source).find(|(key, _, _)| *key == "global") else {
         return vec!["window", "dedicatedworker"];
+    };
+    if value.is_empty() {
+        return vec!["window", "dedicatedworker"];
+    }
+    let mut globals: BTreeSet<&'static str> = BTreeSet::new();
+    for global in value.split(',') {
+        let expanded: &[&'static str] = match global.trim() {
+            "window" => &["window"],
+            "window-module" => &["window-module"],
+            "worker" => &["dedicatedworker", "sharedworker", "serviceworker"],
+            "dedicatedworker" => &["dedicatedworker"],
+            "sharedworker" => &["sharedworker"],
+            "serviceworker" => &["serviceworker"],
+            "worker-module" | "dedicatedworker-module" => &["dedicatedworker-module"],
+            "sharedworker-module" => &["sharedworker-module"],
+            "serviceworker-module" => &["serviceworker-module"],
+            _ => &[],
+        };
+        globals.extend(expanded);
     }
     globals.into_iter().collect()
 }
 
 /// A web-platform-test's `META: script=` URLs, with their lines.
 fn meta_scripts(source: &str) -> Vec<(String, u32)> {
-    source
-        .lines()
-        .enumerate()
-        .take_while(|(_, l)| l.starts_with("//") || l.trim().is_empty())
-        .filter_map(|(i, l)| {
-            let meta = l.strip_prefix("// META:")?.trim();
-            meta.strip_prefix("script=")
-                .map(|s| (s.trim().to_string(), i as u32 + 1))
-        })
+    meta_lines(source)
+        .filter(|(key, _, _)| *key == "script")
+        .map(|(_, value, line)| (value.trim().to_string(), line))
         .collect()
 }
 
@@ -948,9 +935,36 @@ mod tests {
             ),
             vec!["dedicatedworker", "serviceworker", "sharedworker", "window"]
         );
+        // (ex: push-api/push-event.https.any.js, a window's module.)
         assert_eq!(
-            any_variants("// META: global=worker,!serviceworker\n"),
-            vec!["dedicatedworker", "sharedworker"]
+            any_variants(
+                "// META: global=window-module\n// META: script=/resources/testdriver.js\n"
+            ),
+            vec!["window-module"]
+        );
+        assert_eq!(
+            any_variants("// META: global=worker-module, sharedworker-module\n"),
+            vec!["dedicatedworker-module", "sharedworker-module"]
+        );
+        // (ex: workers/Worker-constructor-proto.any.js.)
+        assert_eq!(
+            any_variants("//META: global=worker\n"),
+            vec!["dedicatedworker", "serviceworker", "sharedworker"]
+        );
+        // The first `global=` is the test's; shadowrealm and jsshell have no
+        // global type yet, and an empty one is the defaults.
+        assert_eq!(
+            any_variants("// META: global=window,shadowrealm,jsshell\n// META: global=worker\n"),
+            vec!["window"]
+        );
+        assert_eq!(
+            any_variants("// META: global=\n"),
+            vec!["window", "dedicatedworker"]
+        );
+        // META lines are a test's first lines.
+        assert_eq!(
+            any_variants("// Copyright\n// META: global=window\n"),
+            vec!["window", "dedicatedworker"]
         );
         assert_eq!(
             meta_scripts(
@@ -960,6 +974,10 @@ mod tests {
                 ("/common/utils.js".to_string(), 2),
                 ("resources/x.js".to_string(), 3)
             ]
+        );
+        assert_eq!(
+            meta_scripts("// META: script=/common/utils.js\n\n// META: script=resources/x.js\n"),
+            vec![("/common/utils.js".to_string(), 1)]
         );
     }
 
