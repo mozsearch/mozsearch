@@ -18,6 +18,10 @@ set -o pipefail # Check all commands in a pipeline
 # number, so that those of its code the push doesn't change are the indexed
 # revision's.  Without a JS shell (`js`), it says so and analyzes nothing.
 #
+# TESTS_ROOT, if set, is the tree's tests' root (its wpt_root), whose files'
+# custom properties are each document's own, as the tree's indexing has them
+# (see js-analyze.sh).
+#
 # Usage: try-analyze-js.sh INDEX_ROOT FILES_ROOT CHANGED OUT_DIR
 
 if [ $# -ne 4 ]; then
@@ -37,6 +41,7 @@ fi
 # (Required by std::wcsrtombs, used in os.file.redirect; see js-analyze.sh.)
 export LC_CTYPE=C.UTF-8
 WASM_DIR=${MOZSEARCH_WASM_DIR:-/nix/var/nix/profiles/default/share/wasm-css-analyzer}
+TESTS_ROOT=${TESTS_ROOT:--}
 
 LIST=$(mktemp)
 trap 'rm -f "$LIST"' EXIT
@@ -60,6 +65,8 @@ awk 'FILENAME == ARGV[1] { js[$0] = FNR; next }
 
 echo "Analyzing the push's $(wc -l < "$LIST") JS and HTML files."
 if [ -s "$LIST" ]; then
+    # (Its pages' inline scripts are js-analyze's, "-", as the push's JS
+    # environments aren't analyzed.)
     js -f "$MOZSEARCH_PATH/scripts/js-analyze.js" -- \
-        "$MOZSEARCH_PATH" "$FILES_ROOT" "$OUT_DIR" "$WASM_DIR" < "$LIST"
+        "$MOZSEARCH_PATH" "$FILES_ROOT" "$OUT_DIR" "$WASM_DIR" - "$TESTS_ROOT" < "$LIST"
 fi

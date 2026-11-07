@@ -23,7 +23,10 @@ ANALYZE_FILES_PER_JOB=250
 
 # (The pages whose inline scripts and event handlers their JS environments'
 # analysis has, in js-environments-pages/, get only their markup's analysis
-# here; see js-environments-analyze.sh.)
+# here; see js-environments-analyze.sh.  The custom properties of the tree's
+# tests' styles, under its wpt_root, are each document's own; "-" if it has
+# none.)
+TESTS_ROOT=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].wpt_root // "-"' "$CONFIG_FILE")
 #
 # Add line number for the file list with `nl`, which is used as a global
 # fileIndex and used for local variable symbols.
@@ -33,5 +36,5 @@ cat $INDEX_ROOT/html-files | nl -w1 -s " " | \
     parallel --pipe -N $ANALYZE_FILES_PER_JOB --halt 2 \
     js -f $MOZSEARCH_PATH/scripts/js-analyze.js -- \
     $MOZSEARCH_PATH $FILES_ROOT $INDEX_ROOT/analysis $MOZSEARCH_WASM_DIR \
-    $INDEX_ROOT/js-environments-pages
+    $INDEX_ROOT/js-environments-pages "$TESTS_ROOT"
 echo $?

@@ -164,7 +164,9 @@ add_task(async function test_JsEnvironmentsDiagramContext() {
 // in its environment, as a file of their own whose analysis is the page's
 // (see scan.rs's `inline_file`, and scip-indexer's --inline-pages): its
 // handler's call is of its inline script's function, a symbol of the page's,
-// and its test() is testharness.js's.
+// and its test() is testharness.js's; and its styles' custom properties are
+// its own (see css_analyzer.rs's `document_namespace`), as a stylesheet's
+// are the stylesheet's.
 function symbolsOn(line, name) {
   return [...frame.contentDocument.querySelectorAll(`#line-${line} span[data-symbols]`)]
     .find(span => span.textContent == name)?.dataset.symbols || "";
@@ -181,6 +183,14 @@ add_task(async function test_JsEnvironmentsInlineScripts() {
      "and its inline script's test() is its harness's");
   ok(!frame.contentDocument.querySelector("#file span[data-symbols^='#']"),
      "rather than of js-analyze's names");
+  ok([...frame.contentDocument.querySelectorAll("#line-6 span[data-symbols]")].some(span =>
+       span.dataset.symbols == "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"),
+     "Its styles' custom properties are its own");
+
+  await TestUtils.loadPath("/tests/source/testing/web-platform/tests/jsenv-pages/support/linked.css");
+  ok([...frame.contentDocument.querySelectorAll("#line-3 span[data-symbols]")].some(span =>
+       span.dataset.symbols == "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dlinked@2Dgap"),
+     "and a test's stylesheet's are its own");
 });
 
 // A `.worker.js` test loads its harness itself, and a Test262 test runs

@@ -1,0 +1,21 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/wpt/linked.css/custom_prop__json
+---
+[
+  {
+    "loc": "00003:2-14",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "property --linked-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dlinked@2Dgap"
+  },
+  {
+    "loc": "00003:2-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--linked-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dlinked@2Dgap"
+  }
+]

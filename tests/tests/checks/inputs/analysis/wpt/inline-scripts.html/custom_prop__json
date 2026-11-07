@@ -1,0 +1,1 @@
+filter-analysis testing/web-platform/tests/jsenv-pages/inline-scripts.html --symbol-prefix 'CSSPROP_'

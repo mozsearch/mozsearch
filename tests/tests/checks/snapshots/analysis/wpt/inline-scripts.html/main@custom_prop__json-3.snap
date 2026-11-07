@@ -1,0 +1,49 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/wpt/inline-scripts.html/custom_prop__json
+---
+[
+  {
+    "loc": "00006:10-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
+  },
+  {
+    "loc": "00007:18-30",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
+  },
+  {
+    "loc": "00009:60-72",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
+  },
+  {
+    "loc": "00006:10-22",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "property --inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
+  },
+  {
+    "loc": "00007:18-30",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "property --inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
+  },
+  {
+    "loc": "00009:60-72",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "property --inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
+  }
+]

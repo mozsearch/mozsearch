@@ -92,6 +92,7 @@ fn to_target(
 fn analyze_css_block<F>(
     input: &mut cssparser::Parser,
     first_line: u32,
+    namespace: Option<&str>,
     is_curly_children: bool,
     is_inside_lhs: bool,
     callback: &mut F,
@@ -112,7 +113,7 @@ fn analyze_css_block<F>(
                     let loc = to_loc(first_line, &start, &end);
                     let source_pretty = format!("property {}", name.as_ref());
                     let target_pretty = name.to_string();
-                    let sym = format!("CSSPROP_{}", mangle_name(name.as_ref()));
+                    let sym = custom_property_sym(namespace, name.as_ref());
 
                     let (syntax, kind) = if after_at_property {
                         after_at_property = false;
@@ -189,7 +190,14 @@ fn analyze_css_block<F>(
                 is_child_lhs = true;
             }
             let _: Result<(), cssparser::ParseError<()>> = input.parse_nested_block(|input| {
-                analyze_css_block(input, first_line, is_curly, is_child_lhs, callback);
+                analyze_css_block(
+                    input,
+                    first_line,
+                    namespace,
+                    is_curly,
+                    is_child_lhs,
+                    callback,
+                );
                 Ok(())
             });
         }
@@ -198,8 +206,36 @@ fn analyze_css_block<F>(
     }
 }
 
-pub fn analyze_css<F>(path: String, first_line: u32, text: String, callback: &mut F)
-where
+/// A custom property's symbol: `CSSPROP_--name` (mangled), or in a
+/// namespace (see `analyze_css`), `CSSPROP_<namespace>/--name` (mangled, the
+/// namespace keeping its `/`s, as a global one has none).
+pub fn custom_property_sym(namespace: Option<&str>, name: &str) -> String {
+    match namespace {
+        Some(namespace) => format!("CSSPROP_{}/{}", mangle_name(namespace), mangle_name(name)),
+        None => format!("CSSPROP_{}", mangle_name(name)),
+    }
+}
+
+/// The namespace of a file's custom properties: its own path for a file of
+/// a tree's tests' (under `tests_root`, ex: web-platform-tests'
+/// `testing/web-platform`), as each of their documents' custom properties
+/// are its own (and not those of the Firefox UI, whose share a namespace).
+pub fn document_namespace<'a>(path: &'a str, tests_root: Option<&str>) -> Option<&'a str> {
+    let root = tests_root.filter(|r| !r.is_empty())?;
+    path.strip_prefix(root)
+        .is_some_and(|rest| rest.starts_with('/'))
+        .then_some(path)
+}
+
+/// A file's CSS analysis: its custom properties' (in `namespace`, if any;
+/// see `custom_property_sym`) and its URLs' uses.
+pub fn analyze_css<F>(
+    path: String,
+    first_line: u32,
+    text: String,
+    namespace: Option<&str>,
+    callback: &mut F,
+) where
     F: FnMut(String),
 {
     let mut input = cssparser::ParserInput::new(text.as_str());
@@ -219,5 +255,61 @@ where
         callback(serde_json::to_string(&target).unwrap());
     }
 
-    analyze_css_block(&mut input, first_line, false, false, callback);
+    analyze_css_block(&mut input, first_line, namespace, false, false, callback);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_custom_property_namespaces() {
+        let root = Some("testing/web-platform");
+        assert_eq!(
+            document_namespace("testing/web-platform/tests/css/a.html", root),
+            Some("testing/web-platform/tests/css/a.html")
+        );
+        assert_eq!(
+            document_namespace("testing/web-platform-x/a.html", root),
+            None
+        );
+        assert_eq!(document_namespace("browser/themes/a.css", root), None);
+        assert_eq!(
+            document_namespace("testing/web-platform/a.html", None),
+            None
+        );
+        let syms = |namespace: Option<&str>| -> Vec<String> {
+            let mut lines = vec![];
+            analyze_css(
+                "".to_string(),
+                1,
+                ":root { --gap: 1px; } p { margin: var(--gap); }".to_string(),
+                namespace,
+                &mut |line| lines.push(line),
+            );
+            lines
+                .iter()
+                .filter(|l| l.contains("\"target\""))
+                .map(|l| {
+                    let value: serde_json::Value = serde_json::from_str(l).unwrap();
+                    format!(
+                        "{} {}",
+                        value["kind"].as_str().unwrap(),
+                        value["sym"].as_str().unwrap()
+                    )
+                })
+                .collect()
+        };
+        assert_eq!(
+            syms(None),
+            vec!["def CSSPROP_@2D@2Dgap", "use CSSPROP_@2D@2Dgap"]
+        );
+        assert_eq!(
+            syms(Some("t/a.html")),
+            vec![
+                "def CSSPROP_t/a@2Ehtml/@2D@2Dgap",
+                "use CSSPROP_t/a@2Ehtml/@2D@2Dgap"
+            ]
+        );
+    }
 }

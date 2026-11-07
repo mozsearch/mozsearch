@@ -1,0 +1,1 @@
+filter-analysis testing/web-platform/tests/jsenv-pages/support/linked.css --symbol-prefix 'CSSPROP_'

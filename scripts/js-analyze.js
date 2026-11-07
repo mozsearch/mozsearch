@@ -17,6 +17,10 @@ let gAttrName = "";
 // environments' analysis has (see `inlinePagesRoot`), so that they're left out.
 let gInlineAnalyzed = false;
 
+// The namespace of the file's styles' custom properties, if it's one of the
+// tree's tests' (its path; see `testsRoot`), else null (the tree's).
+let gCSSNamespace = null;
+
 const ERROR_INTERVENTIONS = [
   {
     includes: "expected expression, got '<': ",
@@ -4145,11 +4149,12 @@ class CSSAnalyzer {
     CSSAnalyzer.ensureCSSAnalyzer();
 
     this.startLine = line;
+    this.namespace = gCSSNamespace || "";
   }
 
   parse(text) {
     try {
-      CSSAnalyzer.analyze_css_source(text, this.startLine, function(s) {
+      CSSAnalyzer.analyze_css_source(text, this.startLine, this.namespace, function(s) {
         print(s);
       });
     } catch (e) {
@@ -4177,6 +4182,7 @@ function analyzeFile(filename)
 
 function resetState() {
   gInlineAnalyzed = false;
+  gCSSNamespace = null;
   gParsedAs = "script";
   gFilename = "";
   gIncludeUsed = false;
@@ -4206,6 +4212,10 @@ const wasmPath = scriptArgs[3];
 // scripts/js-environments-pages.sh, which merges them with these), if any:
 // only those pages' markup (and styles) is analyzed here.
 const inlinePagesRoot = scriptArgs[4];
+// The tree's tests' root (ex: web-platform-tests', "testing/web-platform"), if
+// it has one ("-" if not), whose files' custom properties are each document's
+// own, not the tree's (see css_analyzer.rs's `document_namespace`).
+const testsRoot = scriptArgs[5] && scriptArgs[5] !== "-" ? scriptArgs[5] : null;
 
 while (true) {
   const line = readline();
@@ -4237,6 +4247,9 @@ while (true) {
     // pass
   }
 
+  if (testsRoot && sourcePath.startsWith(testsRoot + "/")) {
+    gCSSNamespace = sourcePath;
+  }
   if (inlinePagesRoot) {
     try {
       os.file.readFile(inlinePagesRoot + "/" + sourcePath);
