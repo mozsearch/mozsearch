@@ -23,7 +23,9 @@ packs, or fully when disk space is getting short (see `PackMaintenance`).  But
 git fast-import keeps its packs (with .keep files) until it exits, so a
 chunk's own packs can't be repacked until it ends, and build-timeline-tree
 ends a chunk early after MAX_CHECKPOINTS checkpoints or MAX_WRITTEN_BYTES of
-blobs.  Chunking also
+blobs.  A chunk waits to start while the repacks are behind (see
+MAX_FAST_IMPORT_PACKS and MAX_CHUNKS_BEHIND), so that the tools run at most a
+chunk ahead of them, however fast they are.  Chunking also
 bounds how much state each git fast-import process accumulates (ex: its table
 of every file name it has seen, which makes loading trees slower as it grows).
 The tools resume from their source mapping notes, so a chunk is just a run
@@ -258,6 +260,34 @@ KEEP_PACK_BYTES = 8 << 30
 # worth (counting the packs being repacked, which stay until it ends): with 256
 # GiB, chunks spent 21% of 10 hours waiting for repacks.
 MAX_FAST_IMPORT_BACKLOG = 512 << 30
+# Before a chunk starts, we also wait while a repo has more than this many of
+# git fast-import's packs which no repack has combined yet, or while they
+# include the packs of more than MAX_CHUNKS_BEHIND earlier chunks, so that the
+# repacks can't fall far behind the tools.  In the 2026-11-07 firefox reblame
+# (whose timeline ran a third faster than the 2026-10-25 one's), they fell
+# behind its first chunks (a repack of 2 chunks' packs took 15 minutes, during
+# which 8 more chunks ended), and from there each repack had more to combine
+# (repacks of 5, 1,688 and 4,415 packs took 30 minutes, 2h16m and hours more,
+# as each walks the trees of every commit in its packs), while each object
+# lookup looked through all of their packs (7,607 by then): its timeline
+# slowed from 3,300 revisions a minute to 410.  With these, the tools run at
+# most a chunk ahead of the repacks (as the 2026-10-25 reblame's repacks
+# kept up), however fast they are.  (HISTORY_MAX_FAST_IMPORT_PACKS and
+# HISTORY_MAX_CHUNKS_BEHIND can change them, ex: for a restart; see
+# `Restart`.)
+MAX_FAST_IMPORT_PACKS = 300
+MAX_CHUNKS_BEHIND = 2
+# The most of git fast-import's packs which one repack combines, the oldest
+# first, so that none takes long even when many are waiting (ex: after a
+# restart, or with the limits above raised), as the next repacks combine the
+# rest (each walking only its own commits' trees, as the older packs are
+# repacked by then).  (HISTORY_MAX_REPACK_PACKS can change it.)
+MAX_REPACK_PACKS = 300
+
+
+def history_limit(name, default):
+    """A limit above, or the HISTORY_ environment variable changing it."""
+    return int(os.environ.get(f"HISTORY_{name}") or default)
 
 
 class PackMaintenance:
@@ -299,6 +329,9 @@ class PackMaintenance:
         # repack's steps after it.
         self.repacking = None
         self.next_steps = []
+        # Each earlier chunk's git fast-import packs which no repack has
+        # combined yet (see `_chunks_behind`).
+        self.chunk_packs = []
 
     def _repack_finished(self, wait=False):
         """Whether no `git repack` is running (after waiting for it, and the
@@ -318,6 +351,10 @@ class PackMaintenance:
             self.next_steps.pop(0)()
 
     def after_chunk(self):
+        # (The packs of the chunk which just ended, which its git fast-import
+        # no longer keeps.)
+        earlier = set().union(*self.chunk_packs)
+        self.chunk_packs.append(set(self._fast_import_packs()) - earlier)
         if not self._repack_finished():
             log(f"not repacking {self.repo}, since its last repack is still running")
             return
@@ -339,9 +376,11 @@ class PackMaintenance:
         fast_import_packs = self._fast_import_packs()
         packs = [p for p in self._packs() if not self._kept_by_fast_import(p)]
         if fast_import_packs:
+            batch = min(len(fast_import_packs), history_limit("MAX_REPACK_PACKS", MAX_REPACK_PACKS))
             log(
-                f"repacking {self.repo}'s {len(fast_import_packs)} git fast-import packs from "
-                "earlier chunks"
+                f"repacking {self.repo}'s "
+                + (f"{batch} oldest of its " if batch < len(fast_import_packs) else "")
+                + f"{len(fast_import_packs)} git fast-import packs from earlier chunks"
             )
             self._repack()
         elif len(packs) > MAX_PACKS:
@@ -372,33 +411,54 @@ class PackMaintenance:
             if not self._repacked(pack) and not self._kept_by_fast_import(pack)
         ]
 
+    def _chunks_behind(self):
+        """How many earlier chunks' git fast-import packs (see `after_chunk`)
+        no repack has combined yet."""
+        left = set(self._fast_import_packs())
+        self.chunk_packs = [packs & left for packs in self.chunk_packs if packs & left]
+        return len(self.chunk_packs)
+
     def wait_for_repacks(self):
         """Wait, repacking if need be, until the repo has at most
-        MAX_FAST_IMPORT_BACKLOG bytes of git fast-import's packs which no
-        repack has combined yet, or a restart is requested."""
-        logged = False
+        MAX_FAST_IMPORT_BACKLOG bytes and MAX_FAST_IMPORT_PACKS of git
+        fast-import's packs which no repack has combined yet, from at most
+        MAX_CHUNKS_BEHIND earlier chunks, or a restart is requested."""
+        started = None
         while True:
-            backlog = sum(os.path.getsize(pack) for pack in self._fast_import_packs())
-            if backlog <= MAX_FAST_IMPORT_BACKLOG:
+            packs = self._fast_import_packs()
+            backlog = sum(file_size(pack) for pack in packs)
+            behind = self._chunks_behind()
+            if (
+                backlog <= MAX_FAST_IMPORT_BACKLOG
+                and len(packs) <= history_limit("MAX_FAST_IMPORT_PACKS", MAX_FAST_IMPORT_PACKS)
+                and behind <= history_limit("MAX_CHUNKS_BEHIND", MAX_CHUNKS_BEHIND)
+            ):
+                if started is not None:
+                    log(f"waited {time.monotonic() - started:.1f} s for {self.repo}'s repacks")
                 return
             RESTART.check()
-            if not logged:
+            if started is None:
                 log(
-                    f"waiting for repacks of {self.repo}'s {backlog / 2**30:.1f} GiB of git "
-                    "fast-import packs before the next chunk"
+                    f"waiting for repacks of {self.repo}'s {len(packs)} git fast-import packs "
+                    f"({backlog / 2**30:.1f} GiB, from {behind} earlier chunks) before the next "
+                    "chunk"
                 )
-                logged = True
+                started = time.monotonic()
             if self._repack_finished():
                 self._repack()
             self._wait_a_while()
 
     def _repack(self):
         """Repack in two steps, one after the other: git fast-import's packs
-        into one, then the packs which repacks wrote."""
+        (the oldest MAX_REPACK_PACKS) into one, then the packs which repacks
+        wrote."""
         fast_import_packs = self._fast_import_packs()
         if not fast_import_packs:
             self._combine_repacked_packs()
             return
+        fast_import_packs = sorted(fast_import_packs, key=file_mtime)[
+            : history_limit("MAX_REPACK_PACKS", MAX_REPACK_PACKS)
+        ]
         self._combine_fast_import_packs(fast_import_packs)
 
         def then():
@@ -513,6 +573,23 @@ class PackMaintenance:
             self.repacking.wait(timeout=15)
         except subprocess.TimeoutExpired:
             pass
+
+
+def file_size(path):
+    """A file's size, or 0 if it's gone (ex: a pack a detached repack just
+    removed)."""
+    try:
+        return os.path.getsize(path)
+    except FileNotFoundError:
+        return 0
+
+
+def file_mtime(path):
+    """A file's modification time, or 0 if it's gone."""
+    try:
+        return os.path.getmtime(path)
+    except FileNotFoundError:
+        return 0
 
 
 def repack_lock_path(repo):
