@@ -832,6 +832,9 @@
 
     // process the tag
     parser.sawRoot = true
+    // (With multipleRoots, a tag after the root's end is another root, as in
+    // an HTML page without its optional <html>, ex: <title>, <script>, ...)
+    if (parser.opt.multipleRoots && parser.tags.length === 0) parser.closedRoot = false
     parser.tags.push(parser.tag)
     emitNode(parser, 'onopentag', parser.tag)
     if (!selfClosing) {
@@ -1032,7 +1035,7 @@
             }
             parser.textNode += chunk.substring(starti, i - 1)
           }
-          if (c === '<' && !(parser.sawRoot && parser.closedRoot && !parser.strict)) {
+          if (c === '<' && !(parser.sawRoot && parser.closedRoot && !parser.strict && !parser.opt.multipleRoots)) {
             parser.state = S.OPEN_WAKA
             parser.startTagPosition = parser.position
           } else {

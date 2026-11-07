@@ -201,3 +201,14 @@ add_task(async function test_JsEnvironmentsWptKinds() {
      "and of its harness's");
 });
 
+
+// js-analyze's HTML pass reads all of a page's elements though it omits its
+// optional <html> (as most web-platform-tests do), whose first top-level
+// element's end sax took as the document's (see sax.js's multipleRoots): ex,
+// this page's <style>, after its <title>.
+add_task(async function test_HtmlAnalysisAfterFirstElement() {
+  await TestUtils.loadPath("/tests/source/testing/web-platform/tests/jsenv-pages/inline-scripts.html");
+  ok([...frame.contentDocument.querySelectorAll("#line-6 span[data-symbols]")]
+       .some(span => span.dataset.symbols.startsWith("CSSPROP_")),
+     "A page's style after its first element has its analysis");
+});

@@ -1,5 +1,5 @@
 --- ../../sax-js/lib/sax.js	2023-08-17 15:40:28.000000000 -0400
-+++ sax.js	2024-05-17 02:02:31
++++ sax.js	2026-11-07
 @@ -335,17 +335,20 @@
      ATTRIB_VALUE_QUOTED: S++, // <a foo="bar
      ATTRIB_VALUE_CLOSED: S++, // <a foo="bar"
@@ -68,7 +68,27 @@
            strictFail(parser, 'Unbound namespace prefix: ' +
              JSON.stringify(prefix))
            a.uri = prefix
-@@ -840,27 +851,16 @@
+@@ -816,16 +827,19 @@
+       }
+       parser.attribList.length = 0
+     }
+ 
+     parser.tag.isSelfClosing = !!selfClosing
+ 
+     // process the tag
+     parser.sawRoot = true
++    // (With multipleRoots, a tag after the root's end is another root, as in
++    // an HTML page without its optional <html>, ex: <title>, <script>, ...)
++    if (parser.opt.multipleRoots && parser.tags.length === 0) parser.closedRoot = false
+     parser.tags.push(parser.tag)
+     emitNode(parser, 'onopentag', parser.tag)
+     if (!selfClosing) {
+       // special case for <script> in non-strict mode.
+       if (!parser.noscript && parser.tagName.toLowerCase() === 'script') {
+         parser.state = S.SCRIPT
+       } else {
+         parser.state = S.TEXT
+@@ -840,27 +854,16 @@
    function closeTag (parser) {
      if (!parser.tagName) {
        strictFail(parser, 'Weird empty close tag.')
@@ -96,29 +116,48 @@
        tagName = tagName[parser.looseCase]()
      }
      var closeTo = tagName
-@@ -929,16 +929,21 @@
-       } else {
-         entity = entity.slice(1)
-         num = parseInt(entity, 10)
-         numStr = num.toString(10)
+@@ -933,16 +936,21 @@
        }
      }
      entity = entity.replace(/^0+/, '')
      if (isNaN(num) || numStr.toLowerCase() !== entity) {
-+      strictFail(parser, 'Invalid character entity')
-+      return '&' + parser.entity + ';'
-+    }
-+
-+    if (num < 0 || num > 0x10FFFF) {
        strictFail(parser, 'Invalid character entity')
        return '&' + parser.entity + ';'
      }
  
++    if (num < 0 || num > 0x10FFFF) {
++      strictFail(parser, 'Invalid character entity')
++      return '&' + parser.entity + ';'
++    }
++
      return String.fromCodePoint(num)
    }
  
    function beginWhiteSpace (parser, c) {
-@@ -1041,30 +1046,81 @@
+     if (c === '<') {
+       parser.state = S.OPEN_WAKA
+       parser.startTagPosition = parser.position
+     } else if (!isWhitespace(c)) {
+@@ -1022,17 +1030,17 @@
+                   parser.column = 0
+                 } else {
+                   parser.column++
+                 }
+               }
+             }
+             parser.textNode += chunk.substring(starti, i - 1)
+           }
+-          if (c === '<' && !(parser.sawRoot && parser.closedRoot && !parser.strict)) {
++          if (c === '<' && !(parser.sawRoot && parser.closedRoot && !parser.strict && !parser.opt.multipleRoots)) {
+             parser.state = S.OPEN_WAKA
+             parser.startTagPosition = parser.position
+           } else {
+             if (!isWhitespace(c) && (!parser.sawRoot || parser.closedRoot)) {
+               strictFail(parser, 'Text data outside of root node.')
+             }
+             if (c === '&') {
+               parser.state = S.TEXT_ENTITY
+@@ -1041,29 +1049,80 @@
              }
            }
            continue
@@ -160,7 +199,7 @@
            }
            continue
 +        }
- 
++
 +        case S.SCRIPT_COMMENT_START: {
 +          parser.script += c
 +          parser.scriptCommentStart += c
@@ -196,7 +235,7 @@
 +          }
 +          continue
 +        }
-+
+ 
          case S.OPEN_WAKA:
            // either a /, ?, !, or text is coming next.
            if (c === '!') {
@@ -204,8 +243,7 @@
              parser.sgmlDecl = ''
            } else if (isWhitespace(c)) {
              // wait for it...
-           } else if (isMatch(nameStart, c)) {
-@@ -1302,16 +1358,18 @@
+@@ -1302,16 +1361,18 @@
            if (isWhitespace(c)) {
              continue
            } else if (c === '>') {
@@ -224,7 +262,7 @@
            continue
  
          case S.ATTRIB_NAME:
-@@ -1335,43 +1393,51 @@
+@@ -1335,43 +1396,51 @@
            if (c === '=') {
              parser.state = S.ATTRIB_VALUE
            } else if (isWhitespace(c)) {
@@ -276,7 +314,7 @@
              if (c === '&') {
                parser.state = S.ATTRIB_VALUE_ENTITY_Q
              } else {
-@@ -1389,16 +1455,18 @@
+@@ -1389,16 +1458,18 @@
              parser.state = S.ATTRIB
            } else if (c === '>') {
              openTag(parser)
@@ -295,7 +333,7 @@
            continue
  
          case S.ATTRIB_VALUE_UNQUOTED:
-@@ -1418,33 +1486,24 @@
+@@ -1418,33 +1489,24 @@
            }
            continue
  

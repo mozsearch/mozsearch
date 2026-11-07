@@ -3946,7 +3946,10 @@ function analyzeHTML(filename)
   }
 
   ensureSax();
-  let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: false});
+  // (multipleRoots: a page's elements after its first top-level one's end,
+  // which sax otherwise takes as text: ex, all but the <title> of a page
+  // without its optional <html>, as most web-platform-tests are.)
+  let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: false, multipleRoots: true});
 
   let parser2 = new HTMLParser(filename, parser, text);
 
