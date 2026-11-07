@@ -5,17 +5,59 @@ input_file: inputs/analysis/wpt/linked.css/custom_prop__json
 ---
 [
   {
-    "loc": "00003:2-14",
+    "loc": "00005:2-14",
     "source": 1,
     "syntax": "def,cssprop",
     "pretty": "property --linked-gap",
     "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dlinked@2Dgap"
   },
   {
-    "loc": "00003:2-14",
+    "loc": "00005:2-14",
     "target": 1,
     "kind": "def",
     "pretty": "--linked-gap",
     "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dlinked@2Dgap"
+  },
+  {
+    "loc": "00006:14-28",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "property --imported-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dimported@2Dgap,CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/imported@2Ecss/@2D@2Dimported@2Dgap"
+  },
+  {
+    "loc": "00006:14-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--imported-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dimported@2Dgap"
+  },
+  {
+    "loc": "00006:34-46",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "property --inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dinline@2Dgap,CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
+  },
+  {
+    "loc": "00006:34-46",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dinline@2Dgap"
+  },
+  {
+    "loc": "00006:14-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--imported-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/imported@2Ecss/@2D@2Dimported@2Dgap"
+  },
+  {
+    "loc": "00006:34-46",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--inline-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
   }
 ]

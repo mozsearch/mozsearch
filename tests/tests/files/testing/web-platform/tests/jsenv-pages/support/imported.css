@@ -1,0 +1,4 @@
+/* A stylesheet another imports. */
+:root {
+  --imported-gap: 1px;
+}

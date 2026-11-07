@@ -188,7 +188,7 @@ add_task(async function test_JsEnvironmentsInlineScripts() {
      "Its styles' custom properties are its own");
 
   await TestUtils.loadPath("/tests/source/testing/web-platform/tests/jsenv-pages/support/linked.css");
-  ok([...frame.contentDocument.querySelectorAll("#line-3 span[data-symbols]")].some(span =>
+  ok([...frame.contentDocument.querySelectorAll("#line-5 span[data-symbols]")].some(span =>
        span.dataset.symbols == "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dlinked@2Dgap"),
      "and a test's stylesheet's are its own");
 });
@@ -242,3 +242,38 @@ add_task(async function test_JsEnvironmentsSvg() {
        span.dataset.symbols == "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/svg@2Dscripts@2Esvg/@2D@2Dsvg@2Dfill"),
      "Its style's custom properties are its own");
 });
+
+// web-platform-tests' pages' and stylesheets' links (see document-links.rs):
+// a page's stylesheet's URL is a use of the stylesheet's file, and so is a
+// stylesheet's @import's; and a document's custom properties' uses are of
+// their definitions in its other files: the page's use of its stylesheet's,
+// and the stylesheet's of the page's and of its @import's.
+function symbolsAt(line, text) {
+  return [...frame.contentDocument.querySelectorAll(`#line-${line} span[data-symbols]`)]
+    .filter(span => span.textContent == text)
+    .map(span => span.dataset.symbols.split(","))
+    .flat();
+}
+
+add_task(async function test_DocumentLinks() {
+  const ns = path => `CSSPROP_${path.replace(/[^A-Za-z0-9_/]/g,
+                                             c => "@" + c.charCodeAt(0).toString(16).toUpperCase())}/`;
+  const mangled = name => name.replace(/-/g, "@2D");
+  const page = "testing/web-platform/tests/jsenv-pages/inline-scripts.html";
+  const linked = "testing/web-platform/tests/jsenv-pages/support/linked.css";
+  const imported = "testing/web-platform/tests/jsenv-pages/support/imported.css";
+  await TestUtils.loadPath(`/tests/source/${page}`);
+  ok(symbolsAt(4, "support/linked.css").includes("FILE_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss"),
+     "A page's stylesheet's URL is a use of its file");
+  ok(symbolsAt(7, "--linked-gap").includes(ns(linked) + mangled("--linked-gap")),
+     "and the page's use of its stylesheet's custom property is of the stylesheet's definition");
+
+  await TestUtils.loadPath(`/tests/source/${linked}`);
+  ok(symbolsAt(3, "imported.css").includes("FILE_testing/web@2Dplatform/tests/jsenv@2Dpages/support/imported@2Ecss"),
+     "A stylesheet's @import's URL is a use of its file");
+  ok(symbolsAt(6, "--imported-gap").includes(ns(imported) + mangled("--imported-gap")),
+     "its use of its @import's custom property is of the @import's definition");
+  ok(symbolsAt(6, "--inline-gap").includes(ns(page) + mangled("--inline-gap")),
+     "and its use of a page's, of the page's definition");
+});
+

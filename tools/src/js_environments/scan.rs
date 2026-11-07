@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use lol_html::{HtmlRewriter, Settings, element, text};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tree_sitter::{Node, Parser};
 
 /// A page's `<script>`.
@@ -32,10 +32,28 @@ pub struct PageScan {
     pub scripts: Vec<PageScript>,
     /// Its event handler attributes' (`on*`'s) values' bytes, in order.
     pub handlers: Vec<std::ops::Range<usize>>,
+    /// Its links (see `LinkKind`), in order.
+    pub links: Vec<PageLink>,
     /// Its `<iframe>`s' and `<frame>`s' `src`s, with their lines.
     pub frames: Vec<(String, u32)>,
     /// Its `<base>`'s `href`, if any.
     pub base: Option<String>,
+}
+
+/// A byte offset's line (1-based) and column (in bytes, as the formatter
+/// takes analyses' records' columns).
+pub fn line_and_column(source: &str, offset: usize) -> (u32, u32) {
+    let offset = offset.min(source.len());
+    let line_start = source[..offset].rfind('\n').map_or(0, |i| i + 1);
+    (line_of(source, offset), (offset - line_start) as u32)
+}
+
+/// A range of `source` without its leading and trailing whitespace.
+fn trimmed(source: &str, range: std::ops::Range<usize>) -> std::ops::Range<usize> {
+    let text = &source[range.clone()];
+    let start = range.start + (text.len() - text.trim_start().len());
+    let end = range.end - (text.len() - text.trim_end().len());
+    start..end.max(start)
 }
 
 /// The line (1-based) of a byte offset.
@@ -83,9 +101,10 @@ fn is_handler_name(name: &[u8]) -> bool {
         && name[2..].iter().all(u8::is_ascii_alphabetic)
 }
 
-/// The bytes of a start tag's event handler attributes' values (without
-/// their quotes), relative to it, as the HTML tokenizer reads its attributes.
-fn handler_values(tag: &[u8]) -> Vec<std::ops::Range<usize>> {
+/// A start tag's attributes' names (lowercased) and their values' bytes
+/// (without their quotes), relative to it, as the HTML tokenizer reads them
+/// (those without values left out).
+fn attribute_values(tag: &[u8]) -> Vec<(String, std::ops::Range<usize>)> {
     let mut values = vec![];
     let n = tag.len();
     let mut i = 1;
@@ -105,7 +124,7 @@ fn handler_values(tag: &[u8]) -> Vec<std::ops::Range<usize>> {
         while i < n && !is_html_space(tag[i]) && !matches!(tag[i], b'/' | b'>' | b'=') {
             i += 1;
         }
-        let name = &tag[name_start..i];
+        let name = String::from_utf8_lossy(&tag[name_start..i]).to_ascii_lowercase();
         while i < n && is_html_space(tag[i]) {
             i += 1;
         }
@@ -133,11 +152,181 @@ fn handler_values(tag: &[u8]) -> Vec<std::ops::Range<usize>> {
             }
             start..i
         };
-        if is_handler_name(name) && !tag[value.clone()].iter().all(|b| is_html_space(*b)) {
-            values.push(value);
-        }
+        values.push((name, value));
     }
     values
+}
+
+/// The bytes of a start tag's event handler attributes' values (see
+/// `attribute_values`), but blank ones.
+fn handler_values(tag: &[u8]) -> Vec<std::ops::Range<usize>> {
+    attribute_values(tag)
+        .into_iter()
+        .filter(|(name, value)| {
+            is_handler_name(name.as_bytes())
+                && !tag[value.clone()].iter().all(|b| is_html_space(*b))
+        })
+        .map(|(_, value)| value)
+        .collect()
+}
+
+/// What a page or a stylesheet links to by a URL.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LinkKind {
+    /// A page's stylesheet, `<link rel="stylesheet" href>`.
+    Stylesheet,
+    /// A reftest's reference, `<link rel="match" href>` (or `mismatch`).
+    Reference,
+    /// A page's script, `<script src>` (an SVG one's `href`).
+    Script,
+    /// A page's frame, `<iframe src>`, `<frame src>`.
+    Frame,
+    /// A page's image, `<img src>`, an SVG `<image href>`.
+    Image,
+    /// A stylesheet's, `@import`.
+    Import,
+    /// A stylesheet's other `url()`s (ex: fonts, images).
+    Url,
+}
+
+/// A page's or stylesheet's link: its kind, its URL, and its URL's bytes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PageLink {
+    pub kind: LinkKind,
+    pub url: String,
+    pub value: std::ops::Range<usize>,
+}
+
+/// Whether a URL is one of a link to another file (not only a fragment, ex:
+/// an SVG `<use href="#shape">`, nor data or script).
+fn is_file_url(url: &str) -> bool {
+    let url = url.trim();
+    !url.is_empty()
+        && !url.starts_with('#')
+        && !url.starts_with("data:")
+        && !url.starts_with("javascript:")
+        && !url.starts_with("blob:")
+}
+
+/// An element's link, if it's one (see `LinkKind`): its kind and attribute.
+fn element_link(el: &lol_html::html_content::Element) -> Option<(LinkKind, &'static str)> {
+    let name = el.tag_name();
+    let local = name.rsplit(':').next().unwrap_or(&name).to_string();
+    let attribute_of = |names: &[&'static str]| -> Option<&'static str> {
+        names
+            .iter()
+            .copied()
+            .find(|n| el.get_attribute(n).is_some())
+    };
+    match local.as_str() {
+        "link" => {
+            let rel = el
+                .get_attribute("rel")
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            let rels: Vec<&str> = rel.split_ascii_whitespace().collect();
+            let kind = if rels.contains(&"stylesheet") {
+                LinkKind::Stylesheet
+            } else if rels.contains(&"match") || rels.contains(&"mismatch") {
+                LinkKind::Reference
+            } else {
+                return None;
+            };
+            Some((kind, attribute_of(&["href"])?))
+        }
+        "script" => Some((
+            LinkKind::Script,
+            attribute_of(&["src", "href", "xlink:href"])?,
+        )),
+        "iframe" | "frame" => Some((LinkKind::Frame, attribute_of(&["src"])?)),
+        "img" => Some((LinkKind::Image, attribute_of(&["src"])?)),
+        "image" => Some((LinkKind::Image, attribute_of(&["href", "xlink:href"])?)),
+        _ => None,
+    }
+}
+
+/// A stylesheet's links (see `LinkKind`): its `@import`s' and its other
+/// `url()`s', by their URLs' bytes (the tokens', without their quotes).
+pub fn scan_stylesheet(source: &str) -> Vec<PageLink> {
+    use cssparser::Token;
+    fn walk(input: &mut cssparser::Parser, source: &str, links: &mut Vec<PageLink>) {
+        let mut after_import = false;
+        loop {
+            let start = input.position().byte_index();
+            let Ok(token) = input.next_including_whitespace_and_comments().cloned() else {
+                break;
+            };
+            let end = input.position().byte_index();
+            let kind = if after_import {
+                LinkKind::Import
+            } else {
+                LinkKind::Url
+            };
+            match token {
+                Token::WhiteSpace(_) | Token::Comment(_) => continue,
+                Token::AtKeyword(ref name) => {
+                    after_import = name.eq_ignore_ascii_case("import");
+                    continue;
+                }
+                Token::QuotedString(ref url) if after_import => links.push(PageLink {
+                    kind,
+                    url: url.to_string(),
+                    value: start + 1..end.saturating_sub(1).max(start + 1),
+                }),
+                Token::UnquotedUrl(ref url) => {
+                    let text = &source[start..end];
+                    if let Some(at) = text.find(url.as_ref()) {
+                        links.push(PageLink {
+                            kind,
+                            url: url.to_string(),
+                            value: start + at..start + at + url.len(),
+                        });
+                    }
+                }
+                Token::Function(ref name) if name.eq_ignore_ascii_case("url") => {
+                    let _: Result<(), cssparser::ParseError<()>> =
+                        input.parse_nested_block(|input| {
+                            loop {
+                                let start = input.position().byte_index();
+                                let Ok(token) =
+                                    input.next_including_whitespace_and_comments().cloned()
+                                else {
+                                    break;
+                                };
+                                let end = input.position().byte_index();
+                                if let Token::QuotedString(url) = token {
+                                    links.push(PageLink {
+                                        kind,
+                                        url: url.to_string(),
+                                        value: start + 1..end.saturating_sub(1).max(start + 1),
+                                    });
+                                }
+                            }
+                            Ok(())
+                        });
+                }
+                Token::Function(_)
+                | Token::ParenthesisBlock
+                | Token::SquareBracketBlock
+                | Token::CurlyBracketBlock => {
+                    let _: Result<(), cssparser::ParseError<()>> =
+                        input.parse_nested_block(|input| {
+                            walk(input, source, links);
+                            Ok(())
+                        });
+                }
+                _ => {}
+            }
+            after_import = false;
+        }
+    }
+    let mut input = cssparser::ParserInput::new(source);
+    let mut parser = cssparser::Parser::new(&mut input);
+    let mut links = vec![];
+    walk(&mut parser, source, &mut links);
+    links.retain(|link| is_file_url(&link.url));
+    links
 }
 
 /// A `<script>`'s URL: its `src`, or an SVG one's `href` (or its older
@@ -160,6 +349,7 @@ pub fn scan_page(source: &str) -> PageScan {
     let handlers = scan.clone();
     let (in_js_start, in_js_text) = (in_js.clone(), in_js.clone());
     let prefixed_scripts = scan.clone();
+    let links = scan.clone();
     let settings = Settings::new()
         .append_element_content_handler(element!("*", move |el| {
             // (An XML document's prefixed HTML `<script>`, with a `src`.)
@@ -174,6 +364,22 @@ pub fn scan_page(source: &str) -> PageScan {
                         inline: None,
                         module,
                         line,
+                    });
+                }
+            }
+            if let Some((kind, attribute)) = element_link(el)
+                && let Some(url) = el.get_attribute(attribute).filter(|u| is_file_url(u))
+            {
+                let tag = el.source_location().bytes();
+                if let Some((_, value)) = source.as_bytes().get(tag.clone()).and_then(|text| {
+                    attribute_values(text)
+                        .into_iter()
+                        .find(|(n, _)| n == attribute)
+                }) {
+                    links.borrow_mut().links.push(PageLink {
+                        kind,
+                        url,
+                        value: trimmed(source, tag.start + value.start..tag.start + value.end),
                     });
                 }
             }
@@ -709,6 +915,59 @@ mod tests {
         assert_eq!(
             inline_file("<p>hi</p>", &scan_page("<p>hi</p>"), PageSyntax::Html),
             None
+        );
+    }
+
+    #[test]
+    fn test_links() {
+        let page = r##"<!doctype html>
+<link rel="stylesheet" href="support/a.css">
+<link rel=match href='ref.html'>
+<link rel="help" href="https://drafts.csswg.org/">
+<script src="/resources/testharness.js"></script>
+<img src="data:image/png;base64,xx"><img src=pic.png>
+<iframe src="frame.html"></iframe>
+<svg><use href="#shape"/><image href="pic.svg"/></svg>
+"##;
+        let scan = scan_page(page);
+        let links: Vec<(LinkKind, &str, &str)> = scan
+            .links
+            .iter()
+            .map(|l| (l.kind, l.url.as_str(), &page[l.value.clone()]))
+            .collect();
+        assert_eq!(
+            links,
+            vec![
+                (LinkKind::Stylesheet, "support/a.css", "support/a.css"),
+                (LinkKind::Reference, "ref.html", "ref.html"),
+                (
+                    LinkKind::Script,
+                    "/resources/testharness.js",
+                    "/resources/testharness.js"
+                ),
+                (LinkKind::Image, "pic.png", "pic.png"),
+                (LinkKind::Frame, "frame.html", "frame.html"),
+                (LinkKind::Image, "pic.svg", "pic.svg"),
+            ]
+        );
+        let css = r#"@import url("base.css");
+@import 'theme.css' screen;
+@font-face { src: url(/fonts/Ahem.ttf); }
+p { background: url( "img/a.png" ) , url(data:image/png;base64,xx); }
+"#;
+        let css_links = scan_stylesheet(css);
+        let links: Vec<(LinkKind, &str, &str)> = css_links
+            .iter()
+            .map(|l| (l.kind, l.url.as_str(), &css[l.value.clone()]))
+            .collect();
+        assert_eq!(
+            links,
+            vec![
+                (LinkKind::Import, "base.css", "base.css"),
+                (LinkKind::Import, "theme.css", "theme.css"),
+                (LinkKind::Url, "/fonts/Ahem.ttf", "/fonts/Ahem.ttf"),
+                (LinkKind::Url, "img/a.png", "img/a.png"),
+            ]
         );
     }
 

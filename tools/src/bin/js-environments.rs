@@ -3,8 +3,9 @@
 // its test manifests (by the moz.build variables declaring them, as RULES's
 // flavors say), its pages, web-platform-tests' variants, and the loads its
 // scripts make; written to INDEX_ROOT/js-environments.json (and each file's,
-// for its navigation panel, to js-environments-files.json, and the files in
-// any, to js-environments-paths), with an
+// for its navigation panel, to js-environments-files.json, the files in any,
+// to js-environments-paths, and web-platform-tests' files' links to the
+// tree's files, for document-links, to js-environments-links.json), with an
 // inventory: how many environments of each flavor and global, how many of
 // the tree's JS files are in one (and, given COVERED, a list of the files
 // TypeScript projects already cover, how many neither covers, by directory),
@@ -108,6 +109,13 @@ fn main() {
         serde_json::to_string(&discovery).unwrap(),
     )
     .expect("Couldn't write js-environments.json");
+    // (web-platform-tests' files' links to the tree's files, for
+    // document-links; see `discover::Discoverer::wpt_links`.)
+    fs::write(
+        index_root.join("js-environments-links.json"),
+        serde_json::to_string(&discovery.links).unwrap(),
+    )
+    .expect("Couldn't write js-environments-links.json");
     // (Each file's, for its navigation panel; see per-file-info.toml.)
     fs::write(
         index_root.join("js-environments-files.json"),

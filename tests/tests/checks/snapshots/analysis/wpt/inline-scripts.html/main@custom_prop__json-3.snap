@@ -19,6 +19,13 @@ input_file: inputs/analysis/wpt/inline-scripts.html/custom_prop__json
     "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
   },
   {
+    "loc": "00007:46-58",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--linked-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dlinked@2Dgap"
+  },
+  {
     "loc": "00009:60-72",
     "target": 1,
     "kind": "use",
@@ -40,10 +47,24 @@ input_file: inputs/analysis/wpt/inline-scripts.html/custom_prop__json
     "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
   },
   {
+    "loc": "00007:46-58",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "property --linked-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dlinked@2Dgap,CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dlinked@2Dgap"
+  },
+  {
     "loc": "00009:60-72",
     "source": 1,
     "syntax": "use,cssprop",
     "pretty": "property --inline-gap",
     "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/inline@2Dscripts@2Ehtml/@2D@2Dinline@2Dgap"
+  },
+  {
+    "loc": "00007:46-58",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--linked-gap",
+    "sym": "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/support/linked@2Ecss/@2D@2Dlinked@2Dgap"
   }
 ]

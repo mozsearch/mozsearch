@@ -211,9 +211,15 @@ fn analyze_css_block<F>(
 /// namespace keeping its `/`s, as a global one has none).
 pub fn custom_property_sym(namespace: Option<&str>, name: &str) -> String {
     match namespace {
-        Some(namespace) => format!("CSSPROP_{}/{}", mangle_name(namespace), mangle_name(name)),
+        Some(namespace) => format!("{}{}", custom_property_prefix(namespace), mangle_name(name)),
         None => format!("CSSPROP_{}", mangle_name(name)),
     }
+}
+
+/// A namespace's custom properties' symbols' prefix (see
+/// `custom_property_sym`), which their mangled names follow.
+pub fn custom_property_prefix(namespace: &str) -> String {
+    format!("CSSPROP_{}/", mangle_name(namespace))
 }
 
 /// The namespace of a file's custom properties: its own path for a file of

@@ -1,4 +1,7 @@
-/* A test's stylesheet, whose custom properties are its own. */
+/* A test's stylesheet, whose custom properties are its own, and which
+   imports another. */
+@import url("imported.css");
 :root {
   --linked-gap: 2px;
+  margin: var(--imported-gap) var(--inline-gap);
 }

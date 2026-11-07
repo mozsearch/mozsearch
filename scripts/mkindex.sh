@@ -204,6 +204,11 @@ if should_perform "js-environments-pages"; then
     $MOZSEARCH_PATH/scripts/js-environments-pages.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments-pages.sh"
 fi
 
+# web-platform-tests' pages' and stylesheets' links, in their analyses.
+if should_perform "document-links"; then
+    $MOZSEARCH_PATH/scripts/document-links.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "document-links.sh"
+fi
+
 if [[ -n $IDL_ANALYZE_PID ]]; then
     echo "Performing idl-analyze-wait step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     IDL_ANALYZE_STATUS=0

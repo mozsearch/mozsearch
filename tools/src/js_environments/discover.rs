@@ -12,7 +12,10 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::rules::{Rules, WptRules, glob_set};
-use super::scan::{Load, LoadKind, PageScan, scan_page, scan_script};
+use super::scan::{
+    LinkKind, Load, LoadKind, PageLink, PageScan, line_and_column, scan_page, scan_script,
+    scan_stylesheet,
+};
 use crate::file_metadata::test_manifests::{TestEntry, join_normalized};
 
 /// A script's role in an environment.
@@ -97,6 +100,21 @@ pub struct Unresolved {
 pub struct Discovery {
     pub environments: Vec<Environment>,
     pub unresolved: Vec<Unresolved>,
+    /// web-platform-tests' files' links to the tree's files (see
+    /// `wpt_links`), by path (written to a file of their own).
+    #[serde(skip)]
+    pub links: BTreeMap<String, Vec<FileLink>>,
+}
+
+/// A file's link to another file of the tree (see `scan::LinkKind`): its
+/// URL's place (its line, and its columns, in bytes), and the file.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FileLink {
+    pub kind: LinkKind,
+    pub line: u32,
+    pub start: u32,
+    pub end: u32,
+    pub target: String,
 }
 
 /// Its inputs: the tree's files, how to read them, and its test manifests'
@@ -898,6 +916,78 @@ impl<'a> Discoverer<'a> {
             );
         }
         self.wpt_test262(wpt);
+        self.out.links = self.wpt_links(&roots);
+    }
+
+    /// web-platform-tests' files' links to the tree's files: its pages'
+    /// (relative to their `<base>`, if any) and its stylesheets', by their
+    /// URLs as web-platform-tests resolves them (see `resolve`).
+    fn wpt_links(&mut self, roots: &[String]) -> BTreeMap<String, Vec<FileLink>> {
+        let files = self.inputs.files;
+        let read = self.inputs.read;
+        let under_roots = |p: &String| roots.iter().any(|r| p.starts_with(r.as_str()));
+        let mut paths: Vec<&String> = files
+            .iter()
+            .filter(|p| under_roots(p) && (is_page(p) || p.ends_with(".css")))
+            .collect();
+        paths.sort();
+        // (Each file's links, with their sources' positions, in parallel.)
+        let scanned: Vec<(
+            &String,
+            Vec<(PageLink, (u32, u32), (u32, u32))>,
+            Option<String>,
+        )> = paths
+            .par_iter()
+            .map(|path| {
+                let Some(source) = read(path) else {
+                    return (*path, vec![], None);
+                };
+                let (links, base) = if path.ends_with(".css") {
+                    (scan_stylesheet(&source), None)
+                } else {
+                    let scan = scan_page(&source);
+                    (scan.links, scan.base)
+                };
+                let links = links
+                    .into_iter()
+                    .map(|link| {
+                        let start = line_and_column(&source, link.value.start);
+                        let end = line_and_column(&source, link.value.end);
+                        (link, start, end)
+                    })
+                    .collect();
+                (*path, links, base)
+            })
+            .collect();
+        let mut out: BTreeMap<String, Vec<FileLink>> = BTreeMap::new();
+        for (path, links, base) in scanned {
+            let base_dir = match &base {
+                Some(base) if !base.contains("://") => {
+                    join_normalized(dir_of(path), base.trim_end_matches('/'))
+                }
+                _ => dir_of(path).to_string(),
+            };
+            for (link, (line, start), (end_line, end)) in links {
+                // (A link's URL on one line; and one to another file.)
+                if end_line != line {
+                    continue;
+                }
+                let Some(target) = self.resolve(&link.url, &base_dir, true) else {
+                    continue;
+                };
+                if &target == path {
+                    continue;
+                }
+                out.entry(path.clone()).or_default().push(FileLink {
+                    kind: link.kind,
+                    line,
+                    start,
+                    end,
+                    target,
+                });
+            }
+        }
+        out
     }
 
     /// web-platform-tests' Test262 tests (see `rules::Test262Rules`), each in
