@@ -57,9 +57,12 @@ js-environments-projects "$FILES_ROOT" "$INDEX_ROOT" "$CONFIG_REPO/$RULES" "$WOR
 # fails for (ex: a test nesting so deep that its binder's
 # recursion overflows its stack) has no documents (--skip-failed-projects), so
 # that its files are js-analyze's, and a batch which fails otherwise (ex: its
-# process killed) or takes longer than JS_ENVIRONMENTS_TIMEOUT (900 s by
-# default) has its projects indexed one at a time, each with as long, so that
-# only the failing ones' files are js-analyze's.
+# process killed), takes longer than JS_ENVIRONMENTS_TIMEOUT (900 s by
+# default) or whose index scip-indexer fails for (ex: a string which isn't
+# UTF-8, which scip-indexer can't read any of the index for: before
+# scip-typescript's fork escaped lone surrogates, 3 of firefox's 120 batches)
+# has its projects indexed one at a time, each with as long, so that only the
+# failing ones' files are js-analyze's.
 index_projects() {
     local name=$1
     local kind=$2
@@ -71,10 +74,12 @@ index_projects() {
          --skip-failed-projects --max-file-byte-size "${JS_ENVIRONMENTS_MAX_FILE_SIZE:-0}" \
          --output "$WORK/scip/$name.scip" "$@") \
         > "$WORK/scip/$name.log" 2>&1 || return 1
+    local status=0
     scip-indexer "$CONFIG_FILE" "$TREE_NAME" --subtree-name typescript --subtree-root "" \
         --analysis-root "$WORK/analysis-$kind" --shims __jsenv_shims__ --no-leftovers \
-        "$WORK/scip/$name.scip" > "$WORK/scip/$name.indexer.log" 2>&1
+        "$WORK/scip/$name.scip" > "$WORK/scip/$name.indexer.log" 2>&1 || status=1
     rm -f "$WORK/scip/$name.scip"
+    return $status
 }
 index_batch() {
     local batch=$1
@@ -86,14 +91,14 @@ index_batch() {
     if index_projects "$name" "$kind" "${projects[@]}"; then
         return 0
     fi
-    echo "WARNING: scip-typescript failed for $name, so its projects are indexed one at a time:"
-    tail -3 "$WORK/scip/$name.log"
+    echo "WARNING: scip-typescript or scip-indexer failed for $name, so its projects are indexed one at a time:"
+    tail -n 3 "$WORK/scip/$name.log" "$WORK/scip/$name.indexer.log" 2>/dev/null || true
     local project
     for project in "${projects[@]}"; do
         local one
         one=$name.$(basename "$project" .json)
         if ! index_projects "$one" "$kind" "$project"; then
-            echo "WARNING: scip-typescript failed for $one ($project), whose files are js-analyze's."
+            echo "WARNING: scip-typescript or scip-indexer failed for $one ($project), whose files are js-analyze's."
         fi
     done
 }
