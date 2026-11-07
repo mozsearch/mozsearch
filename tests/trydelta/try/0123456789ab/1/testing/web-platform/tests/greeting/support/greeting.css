@@ -1,0 +1,4 @@
+/* A greeting's spacing. */
+:root {
+  --greeting-space: 4px;
+}

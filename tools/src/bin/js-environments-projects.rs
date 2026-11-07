@@ -4,10 +4,14 @@
 // environment kind (OUT_DIR/batches/<kind>.<n>.lst, each listing projects),
 // for scripts/js-environments-analyze.sh: the environments of the flavors
 // FLAVORS names (comma-separated; default: RULES's manifest flavors), but the
-// files COVERED lists (ex: those TypeScript projects' analysis covers).
+// files COVERED lists (ex: those TypeScript projects' analysis covers); and
+// with ONLY_FILES (a list of paths, ex: a try push's changed files), only the
+// projects documenting any of them, documenting only them (see
+// `ProjectsOptions::only_files`).
 //
 // Usage: js-environments-projects FILES_ROOT INDEX_ROOT RULES OUT_DIR
 //          [--covered COVERED] [--flavors FLAVORS] [--batch-size N]
+//          [--only-files ONLY_FILES]
 
 use std::collections::{BTreeSet, HashSet};
 use std::fs;
@@ -19,7 +23,7 @@ use tools::js_environments::rules::Rules;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let usage = "Usage: js-environments-projects FILES_ROOT INDEX_ROOT RULES OUT_DIR [--covered COVERED] [--flavors FLAVORS] [--batch-size N]";
+    let usage = "Usage: js-environments-projects FILES_ROOT INDEX_ROOT RULES OUT_DIR [--covered COVERED] [--flavors FLAVORS] [--batch-size N] [--only-files ONLY_FILES]";
     if args.len() < 5 {
         eprintln!("{}", usage);
         std::process::exit(1);
@@ -30,10 +34,20 @@ fn main() {
         .unwrap_or_else(|e| panic!("{}: {}", args[3], e));
     let out_dir = Path::new(&args[4]);
     let (mut covered, mut flavors, mut batch_size) = (HashSet::new(), None, 100);
+    let mut only_files: Option<HashSet<String>> = None;
     let mut rest = args[5..].iter();
     while let Some(arg) = rest.next() {
         let value = rest.next().unwrap_or_else(|| panic!("{}", usage));
         match arg.as_str() {
+            "--only-files" => {
+                only_files = Some(
+                    fs::read_to_string(value)
+                        .expect("Couldn't read ONLY_FILES")
+                        .lines()
+                        .map(str::to_string)
+                        .collect(),
+                )
+            }
             "--covered" => {
                 covered = fs::read_to_string(value)
                     .expect("Couldn't read COVERED")
@@ -68,6 +82,7 @@ fn main() {
             out_dir,
             flavors,
             covered: &covered,
+            only_files: only_files.as_ref(),
             batch_size,
         },
     )

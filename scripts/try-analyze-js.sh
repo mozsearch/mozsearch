@@ -65,8 +65,12 @@ awk 'FILENAME == ARGV[1] { js[$0] = FNR; next }
 
 echo "Analyzing the push's $(wc -l < "$LIST") JS and HTML files."
 if [ -s "$LIST" ]; then
-    # (Its pages' inline scripts are js-analyze's, "-", as the push's JS
-    # environments aren't analyzed.)
+    # (The pages whose inline scripts and event handlers the push's JS
+    # environments' analysis has, in JS_ENVIRONMENTS_PAGES, get only their
+    # markup's analysis; see try-analyze-web.sh.  Without it, "-", their
+    # scripts are js-analyze's.)
+    INLINE_PAGES=${JS_ENVIRONMENTS_PAGES:--}
+    [ -d "$INLINE_PAGES" ] || INLINE_PAGES=-
     js -f "$MOZSEARCH_PATH/scripts/js-analyze.js" -- \
-        "$MOZSEARCH_PATH" "$FILES_ROOT" "$OUT_DIR" "$WASM_DIR" - "$TESTS_ROOT" < "$LIST"
+        "$MOZSEARCH_PATH" "$FILES_ROOT" "$OUT_DIR" "$WASM_DIR" "$INLINE_PAGES" "$TESTS_ROOT" < "$LIST"
 fi

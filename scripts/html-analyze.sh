@@ -32,6 +32,11 @@ TESTS_ROOT=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].wpt_root // "-"' "$CON
 # fileIndex and used for local variable symbols.
 #
 # See the comment in js-analyze.sh for more details.
+# (Their analyses' directories, which a tree's build can have left out, ex:
+# trydelta's, which merges its C++'s analysis into a new analysis directory.)
+(cd $INDEX_ROOT/analysis && xargs -r -d '\n' -a $INDEX_ROOT/html-files dirname | sort -u |
+    xargs -r -d '\n' mkdir -p)
+
 cat $INDEX_ROOT/html-files | nl -w1 -s " " | \
     parallel --pipe -N $ANALYZE_FILES_PER_JOB --halt 2 \
     js -f $MOZSEARCH_PATH/scripts/js-analyze.js -- \

@@ -17,6 +17,11 @@ TREE_NAME=$2
 # each file's own; "-" if it has none.)
 TESTS_ROOT=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].wpt_root // "-"' "$CONFIG_FILE")
 
+# (Their analyses' directories, which a tree's build can have left out; see
+# html-analyze.sh.)
+(cd $INDEX_ROOT/analysis && xargs -r -d '\n' -a $INDEX_ROOT/css-files dirname | sort -u |
+    xargs -r -d '\n' mkdir -p)
+
 cat $INDEX_ROOT/css-files | \
     parallel css-analyze $FILES_ROOT {} "$TESTS_ROOT" ">" $INDEX_ROOT/analysis/{}
 echo $?

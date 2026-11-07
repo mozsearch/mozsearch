@@ -37,21 +37,38 @@ TREE_NAME=$2
 # handlers of the pages there, and js-environments-pages.sh then merges both.
 # (JS_ENVIRONMENTS_FLAVORS, a comma-separated list, limits it to some
 # flavors.)
+#
+# A try push's analysis (see try-analyze-web.sh) gives it its own
+# directories, rather than the tree's index's: JS_ENVIRONMENTS_INDEX (with its
+# js-environments.json), JS_ENVIRONMENTS_WORK, JS_ENVIRONMENTS_ANALYSIS (where
+# the scripts' analyses go), JS_ENVIRONMENTS_PAGES (the pages'),
+# JS_ENVIRONMENTS_COVERED (the files whose analysis it leaves out, rather
+# than the tree's analysis's), and JS_ENVIRONMENTS_ONLY_FILES, the only files
+# it documents (see js-environments-projects' --only-files); FILES_ROOT is
+# then its checkout.
 RULES=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].js_environments // empty' "$CONFIG_FILE")
 ANALYSIS=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].js_environments_analysis // false' "$CONFIG_FILE")
-if [ -z "$RULES" ] || [ "$ANALYSIS" != "true" ] || [ ! -f "$INDEX_ROOT/js-environments.json" ]; then
+ENV_INDEX=${JS_ENVIRONMENTS_INDEX:-$INDEX_ROOT}
+if [ -z "$RULES" ] || [ "$ANALYSIS" != "true" ] || [ ! -f "$ENV_INDEX/js-environments.json" ]; then
     echo "The tree's JS environments aren't analyzed."
     exit 0
 fi
-WORK=$INDEX_ROOT/js-environments-work
-PAGES=$INDEX_ROOT/js-environments-pages
+WORK=${JS_ENVIRONMENTS_WORK:-$INDEX_ROOT/js-environments-work}
+OUT=${JS_ENVIRONMENTS_ANALYSIS:-$INDEX_ROOT/analysis}
+PAGES=${JS_ENVIRONMENTS_PAGES:-$INDEX_ROOT/js-environments-pages}
 rm -rf "$WORK" "$PAGES"
 mkdir -p "$WORK/scip"
 JOBS=${JS_ENVIRONMENTS_JOBS:-$(( $(nproc) > 2 ? $(nproc) / 2 : 1 ))}
 
-(cd "$INDEX_ROOT/analysis" && find . -type f | sed 's#^\./##') > "$WORK/covered"
-js-environments-projects "$FILES_ROOT" "$INDEX_ROOT" "$CONFIG_REPO/$RULES" "$WORK" \
-    --covered "$WORK/covered" --batch-size "${JS_ENVIRONMENTS_BATCH:-50}" ${JS_ENVIRONMENTS_FLAVORS:+--flavors "$JS_ENVIRONMENTS_FLAVORS"}
+if [ -n "${JS_ENVIRONMENTS_COVERED:-}" ]; then
+    cp "$JS_ENVIRONMENTS_COVERED" "$WORK/covered"
+else
+    (cd "$OUT" && find . -type f | sed 's#^\./##') > "$WORK/covered"
+fi
+js-environments-projects "$FILES_ROOT" "$ENV_INDEX" "$CONFIG_REPO/$RULES" "$WORK" \
+    --covered "$WORK/covered" --batch-size "${JS_ENVIRONMENTS_BATCH:-50}" \
+    ${JS_ENVIRONMENTS_FLAVORS:+--flavors "$JS_ENVIRONMENTS_FLAVORS"} \
+    ${JS_ENVIRONMENTS_ONLY_FILES:+--only-files "$JS_ENVIRONMENTS_ONLY_FILES"}
 
 # Each batch's index, in its kind's analysis directory, of files of any size
 # (but those bigger than JS_ENVIRONMENTS_MAX_FILE_SIZE, a scip-typescript
@@ -85,7 +102,7 @@ index_projects() {
     local status=0
     scip-indexer "$CONFIG_FILE" "$TREE_NAME" --subtree-name typescript --subtree-root "" \
         --analysis-root "$WORK/analysis-$kind" --shims __jsenv_shims__ --no-leftovers \
-        --inline-pages "$WORK/__jsenv_inline__" \
+        --inline-pages "$WORK/__jsenv_inline__" --files-root "$FILES_ROOT" \
         "$WORK/scip/$name.scip" > "$WORK/scip/$name.indexer.log" 2>&1 || status=1
     rm -f "$WORK/scip/$name.scip"
     return $status
@@ -124,7 +141,7 @@ LC_ALL=C sort -u "$WORK/inline-pages" > "$WORK/inline-pages.sorted"
 LC_ALL=C comm -12 "$WORK/analyzed" "$WORK/inline-pages.sorted" > "$WORK/analyzed-pages"
 LC_ALL=C comm -23 "$WORK/analyzed" "$WORK/inline-pages.sorted" > "$WORK/analyzed-scripts"
 echo "Merging the analysis of $(wc -l < "$WORK/analyzed-scripts") files and $(wc -l < "$WORK/analyzed-pages") pages of JS environments."
-(cd "$WORK" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$INDEX_ROOT/analysis" < analyzed-scripts)
+(cd "$WORK" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$OUT" < analyzed-scripts)
 mkdir -p "$PAGES"
 (cd "$WORK" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$PAGES" < analyzed-pages)
 rm -rf "$WORK"/analysis-* "$WORK/projects" "$WORK/__jsenv_inline__"

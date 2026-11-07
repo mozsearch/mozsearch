@@ -7,7 +7,9 @@
 // though they don't change), adds Widget::Wobble, and adds wobbler.cpp, which
 // calls it.  It also renames hello.js's greetPerson, which greetEveryone
 // calls, which its TypeScript analysis covers (see
-// scripts/try-analyze-typescript.sh), and changes unpoke.cpp's
+// scripts/try-analyze-typescript.sh), renames a web-platform-test's inline
+// script's function and its stylesheet's custom property (see
+// test_TryDeltaWeb.js), and changes unpoke.cpp's
 // implementation of the tests tree's example spec's unpoke algorithm (the
 // tree's `SPEC_` symbols are the tests tree's), whose step it cites.  (Not the poke
 // algorithm, whose citations in the searchfox tree, which has this file too,
@@ -167,7 +169,7 @@ add_task(async function test_TryDeltaSlicing() {
 
   // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp,
   // whose includes and namespace aren't dataflow.
-  await TestUtils.loadQuery("trydelta", "slice-rev:37df61a61bd687259e53b9de011784aed2d6c2cb slice-format:svg");
+  await TestUtils.loadQuery("trydelta", "slice-rev:cf44a7f3620ea5451973f8c73fc181f361282efa slice-format:svg");
   ok(sliceLinks().includes("/trydelta/source/widget.cpp#7"),
      "A landed commit's slicing links to the indexed revision's lines");
   ok(doc().querySelector(".query-result svg").textContent.includes("without dataflow"),
@@ -436,7 +438,8 @@ add_task(async function test_TryCanvas() {
   const response = await fetch(`/trydelta/rev-canvas/${head}/canvas.json`);
   is(response.headers.get("Access-Control-Allow-Origin"), "*",
      "Its model is JSON which other sites can read");
-  is((await response.json()).nodes.length, 9, "with its cards");
+  // (Its C++'s and JS's functions', and its web-platform-test page's.)
+  is((await response.json()).nodes.length, 10, "with its cards");
 });
 
 // Its JS's functions are cards too, as its C++'s are, from its TypeScript

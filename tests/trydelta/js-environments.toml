@@ -1,0 +1,13 @@
+# The trydelta tree's JS environments: web-platform-tests' (revs/1's
+# testing/web-platform/tests/), whose try pushes' analysis is the tree's (see
+# scripts/try-analyze-web.sh).
+# (testharness.js defines its API in a function it calls at once.)
+unwrap = ["testing/web-platform/tests/resources/testharness.js"]
+
+[wpt]
+root = "testing/web-platform/tests"
+window_harness = ["resources/testharness.js"]
+worker_harness = ["resources/testharness.js"]
+
+[globals.window]
+lib = ["ESNext", "DOM"]

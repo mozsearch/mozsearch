@@ -64,6 +64,9 @@
       "codesearch_path": "$WORKING/trydelta/livegrep.idx",
       "codesearch_port": 8085,
       "search_endpoint": "query",
+      "wpt_root": "testing/web-platform",
+      "js_environments": "trydelta/js-environments.toml",
+      "js_environments_analysis": true,
       "scip_subtrees": {
         "typescript": {
           "scip_index_path": "$WORKING/trydelta/typescript.scip",

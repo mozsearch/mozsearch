@@ -19,22 +19,26 @@ TREE_NAME=$2
 # js-analyze's of its markup and styles, if it wrote one (html-analyze.sh's,
 # or js-analyze.sh's for XUL; they leave out those pages' scripts and
 # handlers), with merge-analyses, as two platforms' (the analysis-markup and
-# analysis-scripts directories of each page's files).
-PAGES=$INDEX_ROOT/js-environments-pages
+# analysis-scripts directories of each page's files).  (A try push's analysis
+# gives it its own directories, as js-environments-analyze.sh's:
+# JS_ENVIRONMENTS_PAGES, and JS_ENVIRONMENTS_ANALYSIS, its pages' markup's and
+# the merged analyses'.)
+PAGES=${JS_ENVIRONMENTS_PAGES:-$INDEX_ROOT/js-environments-pages}
+ANALYSIS=${JS_ENVIRONMENTS_ANALYSIS:-$INDEX_ROOT/analysis}
 if [ ! -d "$PAGES" ]; then
     echo "There are no pages' JS environments' analyses."
     exit 0
 fi
-MERGE=$INDEX_ROOT/js-environments-pages-merge
+MERGE=$PAGES-merge
 rm -rf "$MERGE"
 mkdir -p "$MERGE/merged" "$MERGE/analysis-markup"
 mv "$PAGES" "$MERGE/analysis-scripts"
 (cd "$MERGE/analysis-scripts" && find . -type f | sed 's#^\./##' | LC_ALL=C sort) > "$MERGE/pages"
-(cd "$INDEX_ROOT/analysis" && while IFS= read -r page; do
+(cd "$ANALYSIS" && while IFS= read -r page; do
      if [ -f "$page" ]; then printf '%s\n' "$page"; fi
  done < "$MERGE/pages") > "$MERGE/markup"
-(cd "$INDEX_ROOT/analysis" && xargs -r -d '\n' -a "$MERGE/markup" cp --parents -t "$MERGE/analysis-markup")
+(cd "$ANALYSIS" && xargs -r -d '\n' -a "$MERGE/markup" cp --parents -t "$MERGE/analysis-markup")
 echo "Merging $(wc -l < "$MERGE/pages") pages' JS environments' analyses, $(wc -l < "$MERGE/markup") with their markup's."
 (cd "$MERGE" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$MERGE/merged" < pages)
-cp -a "$MERGE/merged/." "$INDEX_ROOT/analysis/"
+cp -a "$MERGE/merged/." "$ANALYSIS/"
 rm -rf "$MERGE"

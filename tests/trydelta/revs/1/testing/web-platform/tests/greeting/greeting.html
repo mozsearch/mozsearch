@@ -1,0 +1,17 @@
+<!doctype html>
+<title>A greeting</title>
+<script src="/resources/testharness.js"></script>
+<link rel="stylesheet" href="support/greeting.css">
+<style>
+  p { margin: var(--greeting-gap); }
+</style>
+<p onclick="greetVisitor('you')">Hi</p>
+<script>
+function greetVisitor(name) {
+  return "Hello, " + name;
+}
+
+test(() => {
+  assert_equals(greetVisitor("you"), "Hello, you");
+}, "A greeting");
+</script>

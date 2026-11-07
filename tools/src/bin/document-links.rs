@@ -15,11 +15,19 @@
 //   pages linking it.
 // A file without analysis is left as it is.
 //
-// Usage: document-links INDEX_ROOT
+// A try push's (see scripts/try-analyze-web.sh) are its own: its head's
+// links (LINKS, rather than INDEX_ROOT's), its analysis (ANALYSIS, rather
+// than INDEX_ROOT/analysis), with the tree's (BASE, ex: INDEX_ROOT/analysis,
+// gzipped or not) for the files it doesn't change, and only the files it
+// changes written (ONLY, a list of paths).
+//
+// Usage: document-links INDEX_ROOT [--links LINKS] [--analysis ANALYSIS]
+//          [--base BASE] [--only ONLY]
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use rayon::prelude::*;
 use serde_json::{Value, json};
@@ -42,8 +50,36 @@ struct Analysis {
     defined: BTreeSet<String>,
 }
 
-fn read_analysis(path: &Path, prefix: &str) -> Option<Analysis> {
-    let text = fs::read_to_string(path).ok()?;
+/// A file's analysis, in `dir`, or else in `base` (gzipped or not; see
+/// compress-outputs.sh), with whether it's `dir`'s.
+fn read_analysis(
+    dir: &Path,
+    base: Option<&Path>,
+    path: &str,
+    prefix: &str,
+) -> Option<(Analysis, bool)> {
+    let (text, own) = match fs::read_to_string(dir.join(path)) {
+        Ok(text) => (text, true),
+        Err(_) => {
+            let base = base?;
+            let text = match fs::read_to_string(base.join(path))
+                .ok()
+                .filter(|t| !t.is_empty())
+            {
+                Some(text) => text,
+                None => {
+                    let mut text = String::new();
+                    flate2::read::GzDecoder::new(
+                        fs::File::open(base.join(format!("{}.gz", path))).ok()?,
+                    )
+                    .read_to_string(&mut text)
+                    .ok()?;
+                    text
+                }
+            };
+            (text, false)
+        }
+    };
     let lines: Vec<String> = text.lines().map(str::to_string).collect();
     let mut defined = BTreeSet::new();
     for line in lines
@@ -59,26 +95,48 @@ fn read_analysis(path: &Path, prefix: &str) -> Option<Analysis> {
             defined.insert(name.to_string());
         }
     }
-    Some(Analysis { lines, defined })
+    Some((Analysis { lines, defined }, own))
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() != 2 {
-        eprintln!("Usage: document-links INDEX_ROOT");
+    let usage = "Usage: document-links INDEX_ROOT [--links LINKS] [--analysis ANALYSIS] [--base BASE] [--only ONLY]";
+    if args.len() < 2 || args.len() % 2 != 0 {
+        eprintln!("{}", usage);
         std::process::exit(1);
     }
     let index_root = Path::new(&args[1]);
-    let links: BTreeMap<String, Vec<FileLink>> =
-        match fs::read_to_string(index_root.join("js-environments-links.json")) {
-            Ok(text) => {
-                serde_json::from_str(&text).expect("Couldn't parse js-environments-links.json")
+    let mut links_path = index_root.join("js-environments-links.json");
+    let mut analysis_dir = index_root.join("analysis");
+    let mut base: Option<PathBuf> = None;
+    let mut only: Option<HashSet<String>> = None;
+    for pair in args[2..].chunks(2) {
+        match pair[0].as_str() {
+            "--links" => links_path = PathBuf::from(&pair[1]),
+            "--analysis" => analysis_dir = PathBuf::from(&pair[1]),
+            "--base" => base = Some(PathBuf::from(&pair[1])),
+            "--only" => {
+                only = Some(
+                    fs::read_to_string(&pair[1])
+                        .expect("Couldn't read ONLY")
+                        .lines()
+                        .map(str::to_string)
+                        .collect(),
+                )
             }
-            Err(_) => {
-                println!("document-links: no js-environments-links.json");
-                return;
+            _ => {
+                eprintln!("{}", usage);
+                std::process::exit(1);
             }
-        };
+        }
+    }
+    let links: BTreeMap<String, Vec<FileLink>> = match fs::read_to_string(&links_path) {
+        Ok(text) => serde_json::from_str(&text).expect("Couldn't parse the links"),
+        Err(_) => {
+            println!("document-links: no {}", links_path.display());
+            return;
+        }
+    };
 
     // ## Documents: each page with its stylesheets, and theirs (`@import`ed).
     let mut documents: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
@@ -113,11 +171,13 @@ fn main() {
     let mut paths: BTreeSet<&str> = links.keys().map(String::as_str).collect();
     paths.extend(documents.values().flatten().copied());
     let paths: Vec<&str> = paths.into_iter().collect();
-    let analyses: HashMap<&str, Analysis> = paths
+    let analyses: HashMap<&str, (Analysis, bool)> = paths
         .par_iter()
         .filter_map(|path| {
             let analysis = read_analysis(
-                &index_root.join("analysis").join(path),
+                &analysis_dir,
+                base.as_deref(),
+                path,
                 &custom_property_prefix(path),
             )?;
             Some((*path, analysis))
@@ -127,7 +187,11 @@ fn main() {
     let written: Vec<(usize, usize)> = paths
         .par_iter()
         .filter_map(|path| {
-            let analysis = analyses.get(path)?;
+            // (Only the analysis's own, and those ONLY lists.)
+            let (analysis, own) = analyses.get(path)?;
+            if !own || only.as_ref().is_some_and(|only| !only.contains(*path)) {
+                return None;
+            }
             let mut lines = analysis.lines.clone();
             let mut added_links = 0;
             for link in links.get(*path).into_iter().flatten() {
@@ -164,7 +228,7 @@ fn main() {
                         .filter(|file| {
                             analyses
                                 .get(*file)
-                                .is_some_and(|a| a.defined.contains(name))
+                                .is_some_and(|(a, _)| a.defined.contains(name))
                         })
                         .take(MAX_DEFINITIONS)
                         .map(|file| format!("{}{}", custom_property_prefix(file), name))
@@ -221,7 +285,7 @@ fn main() {
             }
             let mut text = lines.join("\n");
             text.push('\n');
-            fs::write(index_root.join("analysis").join(path), text).ok()?;
+            fs::write(analysis_dir.join(path), text).ok()?;
             Some((added_links, cross))
         })
         .collect();

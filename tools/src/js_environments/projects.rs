@@ -52,6 +52,12 @@ pub struct ProjectsOptions<'a> {
     pub flavors: Option<BTreeSet<String>>,
     /// The files other analysis covers.
     pub covered: &'a HashSet<String>,
+    /// If any, the only files to document (ex: a try push's changed files;
+    /// see scripts/try-analyze-web.sh): only the projects documenting any of
+    /// them are written, each documenting only them (as each script is
+    /// documented by the same project as without them, the first of its kind
+    /// with it, so that its analysis is the tree's but for its changes).
+    pub only_files: Option<&'a HashSet<String>>,
     /// How many projects a batch has.
     pub batch_size: usize,
 }
@@ -522,6 +528,7 @@ pub fn write_projects(
             .chain(&group.roots)
             .filter(|path| !opts.covered.contains(*path))
             .filter(|path| documented.insert((group.kind.clone(), path.to_string())))
+            .filter(|path| opts.only_files.is_none_or(|only| only.contains(*path)))
             .collect();
         if only.is_empty() {
             continue;
