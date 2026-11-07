@@ -32,7 +32,7 @@ use tree_sitter::{Node, Parser};
 
 use super::discover::{Discovery, Role};
 use super::rules::{Flavor, Rules, Scope, glob_set};
-use super::scan::{inline_file, scan_page};
+use super::scan::{PageSyntax, inline_file, scan_page};
 
 /// The directory of the scope shims, which scip-indexer's `--shims` doesn't
 /// write analysis files for (see `scope_shim`).
@@ -42,14 +42,6 @@ pub const SHIMS_DIR: &str = "__jsenv_shims__";
 /// `scan::inline_file`), whose analyses scip-indexer's `--inline-pages`
 /// writes as their pages'; and the list of those pages, `inline-pages`.
 pub const INLINE_DIR: &str = "__jsenv_inline__";
-
-/// Whether a page is XML (XHTML, XUL, SVG), whose scripts' text has entities
-/// and CDATA sections.
-fn is_xml_page(path: &str) -> bool {
-    [".xhtml", ".xht", ".xul", ".svg", ".xml"]
-        .iter()
-        .any(|e| path.ends_with(e))
-}
 
 pub struct ProjectsOptions<'a> {
     pub files_root: &'a Path,
@@ -367,7 +359,7 @@ pub fn write_projects(
         .par_iter()
         .filter_map(|page| {
             let source = fs::read_to_string(opts.files_root.join(page)).ok()?;
-            let text = inline_file(&source, &scan_page(&source), is_xml_page(page))?;
+            let text = inline_file(&source, &scan_page(&source), PageSyntax::of(page))?;
             let path = inline_dir.join(format!("{}.js", page));
             fs::create_dir_all(path.parent()?).ok()?;
             fs::write(&path, text).ok()?;

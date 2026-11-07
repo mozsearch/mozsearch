@@ -3922,6 +3922,42 @@ class HTMLParser extends BaseParser {
   }
 }
 
+// An SVG document's scripts (SVG's `<script>`s without an `href` or
+// `xlink:href`, and HTML's prefixed ones, ex: `<h:script>`, without a `src`),
+// styles (`<style>`s, `style` attributes) and event handlers, as an XML
+// document's (its scripts' and styles' text their CDATA sections').
+class SVGParser extends XMLParser {
+  ontag(tagName, tag) {
+    switch (tag.local.toUpperCase()) {
+    case "SCRIPT":
+      if (!("SRC" in tag.attrs) && !("HREF" in tag.attrs) && !("XLINK:HREF" in tag.attrs)) {
+        this.handleScript(this.curText, tag);
+      }
+      break;
+    case "STYLE":
+      this.handleStyle(this.curText, tag);
+      break;
+    }
+
+    this.handleAttributes(tag);
+  }
+}
+
+function analyzeSVG(filename)
+{
+  let text = preprocess(filename, line => `<!--${line}-->`);
+
+  ensureSax();
+  let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: true});
+
+  let parser2 = new SVGParser(filename, parser, text);
+
+  parser.write(text);
+  parser.close();
+
+  parser2.processEventListeners();
+}
+
 function analyzeXUL(filename)
 {
   let text = preprocess(filename, line => `<!--${line}-->`);
@@ -4175,6 +4211,8 @@ function analyzeFile(filename)
     analyzeXUL(filename);
   } else if (filename.endsWith(".html")) {
     analyzeHTML(filename);
+  } else if (filename.endsWith(".svg")) {
+    analyzeSVG(filename);
   } else {
     analyzeJS(filename);
   }

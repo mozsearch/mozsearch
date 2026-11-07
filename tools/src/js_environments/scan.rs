@@ -140,7 +140,18 @@ fn handler_values(tag: &[u8]) -> Vec<std::ops::Range<usize>> {
     values
 }
 
-/// A page's scripts, frames and base.
+/// A `<script>`'s URL: its `src`, or an SVG one's `href` (or its older
+/// `xlink:href`).
+fn script_src(el: &lol_html::html_content::Element) -> Option<String> {
+    el.get_attribute("src")
+        .or_else(|| el.get_attribute("href"))
+        .or_else(|| el.get_attribute("xlink:href"))
+}
+
+/// A page's scripts, frames and base: an HTML page's, or an SVG document's
+/// (whose `<script>`s are SVG's, with `href`s, and HTML's, as prefixed
+/// elements of its namespace, ex: `<h:script src="..."/>`; lol_html's
+/// tokenizer has their CDATA sections' text as their text).
 pub fn scan_page(source: &str) -> PageScan {
     let scan = Rc::new(RefCell::new(PageScan::default()));
     // (Whether the `<script>` whose text is next is a JS one.)
@@ -148,8 +159,24 @@ pub fn scan_page(source: &str) -> PageScan {
     let (scripts, texts, frames, bases) = (scan.clone(), scan.clone(), scan.clone(), scan.clone());
     let handlers = scan.clone();
     let (in_js_start, in_js_text) = (in_js.clone(), in_js.clone());
+    let prefixed_scripts = scan.clone();
     let settings = Settings::new()
         .append_element_content_handler(element!("*", move |el| {
+            // (An XML document's prefixed HTML `<script>`, with a `src`.)
+            if el.tag_name().ends_with(":script")
+                && let Some(src) = el.get_attribute("src")
+            {
+                let (js, module) = is_js_type(el.get_attribute("type").as_deref());
+                if js {
+                    let line = line_of(source, el.source_location().bytes().start);
+                    prefixed_scripts.borrow_mut().scripts.push(PageScript {
+                        src: Some(src),
+                        inline: None,
+                        module,
+                        line,
+                    });
+                }
+            }
             if el
                 .attributes()
                 .iter()
@@ -168,11 +195,12 @@ pub fn scan_page(source: &str) -> PageScan {
         }))
         .append_element_content_handler(element!("script", move |el| {
             let (js, module) = is_js_type(el.get_attribute("type").as_deref());
-            *in_js_start.borrow_mut() = js && el.get_attribute("src").is_none();
+            let src = script_src(el);
+            *in_js_start.borrow_mut() = js && src.is_none();
             if js {
                 let line = line_of(source, el.source_location().bytes().start);
                 scripts.borrow_mut().scripts.push(PageScript {
-                    src: el.get_attribute("src"),
+                    src,
                     inline: None,
                     module,
                     line,
@@ -219,11 +247,42 @@ pub fn scan_page(source: &str) -> PageScan {
     scan
 }
 
-/// What an inline script file has before an event handler's value, in the
-/// blanks before it (its tag's and attribute's name): a statement of an
-/// arrow function taking the event (its `this` is the element's, which no
-/// analysis follows anyway).
-pub const HANDLER_PREFIX: &str = ";(event)=>{";
+/// How a page's inline code reads: an HTML page's; an XML document's (XHTML's,
+/// XUL's), whose scripts' text has entities and CDATA sections; or an SVG
+/// document's, an XML one whose event handlers' event is `evt`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PageSyntax {
+    Html,
+    Xml,
+    Svg,
+}
+
+impl PageSyntax {
+    /// A page's, by its extension.
+    pub fn of(path: &str) -> PageSyntax {
+        if path.ends_with(".svg") {
+            PageSyntax::Svg
+        } else if [".xhtml", ".xht", ".xul", ".xml"]
+            .iter()
+            .any(|e| path.ends_with(e))
+        {
+            PageSyntax::Xml
+        } else {
+            PageSyntax::Html
+        }
+    }
+
+    /// What an inline script file has before an event handler's value, in
+    /// the blanks before it (its tag's and attribute's name): a statement of
+    /// an arrow function taking the event (its `this` is the element's, which
+    /// no analysis follows anyway).
+    pub fn handler_prefix(self) -> &'static str {
+        match self {
+            PageSyntax::Svg => ";(evt)=>{",
+            _ => ";(event)=>{",
+        }
+    }
+}
 
 /// Blanks for `text`: a space for each of its UTF-16 code units (whose
 /// columns analyses count), keeping its newlines (but `\r`s, which JS but not
@@ -333,9 +392,11 @@ fn push_script(out: &mut String, text: &str, xml: bool) {
 /// are the page's (see `push_blanks`): the rest of the page blanked, each
 /// script after a `;` (its start tag's `>`'s place), so that it's a
 /// statement of its own, and each handler as a statement of a function (see
-/// `HANDLER_PREFIX`; a handler without room for it, too far left on its line,
+/// `PageSyntax::handler_prefix`; a handler without room for it, too far left on its line,
 /// is left out), with its value's entities decoded; or None if it has none.
-pub fn inline_file(source: &str, scan: &PageScan, xml: bool) -> Option<String> {
+pub fn inline_file(source: &str, scan: &PageScan, syntax: PageSyntax) -> Option<String> {
+    let xml = syntax != PageSyntax::Html;
+    let prefix = syntax.handler_prefix();
     let mut pieces: Vec<(std::ops::Range<usize>, bool)> = scan
         .scripts
         .iter()
@@ -369,12 +430,12 @@ pub fn inline_file(source: &str, scan: &PageScan, xml: bool) -> Option<String> {
             continue;
         }
         let room = out.len() - out.trim_end_matches(' ').len();
-        if room < HANDLER_PREFIX.len() {
+        if room < prefix.len() {
             push_blanks(&mut out, text);
             continue;
         }
-        out.truncate(out.len() - HANDLER_PREFIX.len());
-        out.push_str(HANDLER_PREFIX);
+        out.truncate(out.len() - prefix.len());
+        out.push_str(prefix);
         push_decoded(&mut out, text);
         code = true;
         // (Its end, in its quote's place, or that of what ends it unquoted;
@@ -615,7 +676,7 @@ mod tests {
     fn test_inline_file() {
         let page = "<html><body onload=\"init()\">\n<script>\nvar x = 1;\n</script><script src=\"a.js\"></script>\n<button onclick='go(x, &quot;\u{e9}&quot;)'>Go</button><b oncut=a()>\u{1f600}\n<script><!--\nfunction init() {}\n//--></script><p onclick=\"z()\"></p>\n</body></html>";
         let scan = scan_page(page);
-        let file = inline_file(page, &scan, false).unwrap();
+        let file = inline_file(page, &scan, PageSyntax::Html).unwrap();
         // (The same lines, of the same UTF-16 lengths.)
         let lengths = |text: &str| -> Vec<usize> {
             text.split('\n').map(|l| l.encode_utf16().count()).collect()
@@ -640,15 +701,51 @@ mod tests {
         // a page without code.)
         let xhtml =
             "<script>//<![CDATA[\nif (a < b) {}\n//]]></script><script>c &amp;&amp; d</script>";
-        let file = inline_file(xhtml, &scan_page(xhtml), true).unwrap();
+        let file = inline_file(xhtml, &scan_page(xhtml), PageSyntax::Xml).unwrap();
         assert_eq!(
             file,
             "       ;//         \nif (a < b) {}\n//                   ;c &&         d         "
         );
         assert_eq!(
-            inline_file("<p>hi</p>", &scan_page("<p>hi</p>"), false),
+            inline_file("<p>hi</p>", &scan_page("<p>hi</p>"), PageSyntax::Html),
             None
         );
+    }
+
+    #[test]
+    fn test_scan_svg() {
+        let svg = r#"<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:h="http://www.w3.org/1999/xhtml" onload="init()">
+<h:script src="/resources/testharness.js"/>
+<script href="helper.js"/>
+<script type="text/ecmascript"><![CDATA[
+  function init() { return 1 < 2; }
+]]></script>
+</svg>
+"#;
+        let scan = scan_page(svg);
+        let srcs: Vec<Option<&str>> = scan.scripts.iter().map(|s| s.src.as_deref()).collect();
+        assert_eq!(
+            srcs,
+            vec![Some("/resources/testharness.js"), Some("helper.js"), None]
+        );
+        assert_eq!(
+            scan.handlers
+                .iter()
+                .map(|r| &svg[r.clone()])
+                .collect::<Vec<_>>(),
+            vec!["init()"]
+        );
+        // (Its CDATA section's text, whose markers its file blanks.)
+        let file = inline_file(svg, &scan, PageSyntax::Svg).unwrap();
+        let lines: Vec<&str> = file.split('\n').map(str::trim_end).collect();
+        assert_eq!(
+            lines[1],
+            "                                                                              ;(evt)=>{init()}"
+        );
+        assert_eq!(lines[4], "                                       ;");
+        assert_eq!(lines[5], "  function init() { return 1 < 2; }");
+        assert_eq!(lines[6], "");
     }
 
     #[test]

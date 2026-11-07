@@ -104,7 +104,7 @@ for line in lines:
 
         js.append(path + '\n')
 
-    if ext in ['.html', '.xhtml']:
+    if ext in ['.html', '.xhtml', '.svg']:
         if 'filter_html' in repo_files:
             if not repo_files['filter_html'](path):
                 continue

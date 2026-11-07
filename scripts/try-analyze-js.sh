@@ -53,7 +53,7 @@ awk 'FILENAME == ARGV[1] { js[$0] = FNR; next }
      FILENAME == ARGV[2] { html[$0] = FNR; next }
      $0 in js { print js[$0], $0; next }
      $0 in html { print html[$0], $0; next }
-     /\.(js|jsm|mjs|html|xhtml)$/ { print 100000000 + (++added), $0 }' \
+     /\.(js|jsm|mjs|html|xhtml|svg)$/ { print 100000000 + (++added), $0 }' \
     "$JS_FILES" "$HTML_FILES" "$CHANGED" |
     while read -r NUMBER FILE; do
         # (Not those it removes, nor those already analyzed.)

@@ -138,7 +138,7 @@ Files:
   basically the HTML contents of the config repo's `help.html` with all the
   searchfox UI scaffolding wrapped around it by `cmd_batch_render.rs` with
   `help_index.liquid` just like is done for `templates/search.html`.
-- `html-files`: A list of all the '.html' files in the tree produced by
+- `html-files`: A list of all the '.html', '.xhtml' and '.svg' files in the tree produced by
   `find-repo-files.py` found and that the per-config `repo_files.py` didn't
   veto.  Used by `html-analyze.sh` to know what files to process when invoked by
   `mkindex.sh`.

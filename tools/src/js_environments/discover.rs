@@ -118,7 +118,7 @@ fn dir_of(path: &str) -> &str {
 }
 
 const SCRIPT_EXTENSIONS: &[&str] = &[".js", ".mjs", ".jsm", ".sjs"];
-const PAGE_EXTENSIONS: &[&str] = &[".html", ".htm", ".xhtml", ".xht", ".xul"];
+const PAGE_EXTENSIONS: &[&str] = &[".html", ".htm", ".xhtml", ".xht", ".xul", ".svg"];
 
 fn is_script(path: &str) -> bool {
     SCRIPT_EXTENSIONS.iter().any(|e| path.ends_with(e))

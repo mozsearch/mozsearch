@@ -222,3 +222,23 @@ add_task(async function test_HtmlAnalysisAfterFirstElement() {
        .some(span => span.dataset.symbols.startsWith("CSSPROP_")),
      "A page's style after its first element has its analysis");
 });
+
+// An SVG document is analyzed as a page too (see scan.rs's `PageSyntax`, and
+// js-analyze.js's SVGParser): its HTML <h:script>'s testharness.js and its
+// inline script, in a CDATA section, are its environment's, and its event
+// handler, whose event is `evt`, calls the inline script's function; its
+// style's custom properties are its own.
+add_task(async function test_JsEnvironmentsSvg() {
+  await TestUtils.loadPath("/tests/source/testing/web-platform/tests/jsenv-pages/svg-scripts.svg");
+  ok(section()?.querySelector(".js-env-roots li[data-root='testing/web-platform/tests/jsenv-pages/svg-scripts.svg']"),
+     "An SVG document has its environment");
+  const loaded = "testing/web-platform/tests/jsenv-pages/svg-scripts.svg/loaded().";
+  ok(symbolsOn(3, "loaded").endsWith(loaded), "whose event handler's call is of its inline script's function");
+  ok(symbolsOn(3, "evt"), "with its event");
+  ok(symbolsOn(12, "loaded").endsWith(loaded), "its definition");
+  ok(symbolsOn(16, "test").endsWith("testing/web-platform/tests/resources/testharness.js/test()."),
+     "and its inline script's test() is its harness's");
+  ok([...frame.contentDocument.querySelectorAll("#line-6 span[data-symbols]")].some(span =>
+       span.dataset.symbols == "CSSPROP_testing/web@2Dplatform/tests/jsenv@2Dpages/svg@2Dscripts@2Esvg/@2D@2Dsvg@2Dfill"),
+     "Its style's custom properties are its own");
+});
