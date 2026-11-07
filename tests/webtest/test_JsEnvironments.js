@@ -59,6 +59,8 @@ add_task(async function test_JsEnvironmentsOfWorkerScript() {
      "The page's tree has the worker it starts, where");
   is(scripts(worker).join(", "), "jsenv/worker_jsenv.js test, jsenv/worker_helper.js loaded",
      "with the scripts loaded into it");
+  is(worker.querySelector("li[aria-current]")?.textContent.replace(/\s+/g, " ").trim(),
+     "jsenv/worker_helper.js loaded at worker_jsenv.js:1", "saying \"loaded\" once");
   ok(worker.querySelector("li[aria-current] .js-env-from a")?.getAttribute("href")
        .endsWith("/tests/source/jsenv/worker_jsenv.js#1"),
      "where it's loaded from");

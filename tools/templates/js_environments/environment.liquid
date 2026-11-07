@@ -1,6 +1,8 @@
 {%- comment %}A JS environment's tree (see config_defaults/panel_sections/tests_environments.liquid):
 its global, its test's manifest, how it was started (a worker's or frame's),
-its scripts in the order they're loaded into it (the file's own marked), and
+its scripts in the order they're loaded into it (the file's own marked; each
+with its role, and where a script loaded it: a loaded script's "loaded at",
+not "loaded loaded at"), and
 the environments it starts, each the same way; its links to its scripts keep
 its test's path (`test_root`) as `?test=`, for their pages' panels.{% endcomment -%}
 <span class="js-env-global">{{ env.global | escape }}</span>
@@ -14,7 +16,7 @@ its test's path (`test_root`) as `?test=`, for their pages' panels.{% endcomment
 <ol class="js-env-scripts">
 {%- for script in env.scripts %}
   <li class="js-env-script js-env-role-{{ script.role | escape }}"{% if script.path == path %} aria-current="true"{% endif %}><a href="/{{ tree }}/source/{{ script.path | escape }}{% if test_root != script.path %}?test={{ test_root | escape }}{% endif %}">{{ script.path | escape }}</a> <span class="js-env-role">{{ script.role | escape }}</span>
-  {%- if script contains "from" %} <span class="js-env-from">loaded at <a href="/{{ tree }}/source/{{ script.from[0] | escape }}#{{ script.from[1] | escape }}">{{ script.from[0] | split: "/" | last | escape }}:{{ script.from[1] | escape }}</a></span>{% endif -%}
+  {%- if script contains "from" %} <span class="js-env-from">{% if script.role != "loaded" %}loaded {% endif %}at <a href="/{{ tree }}/source/{{ script.from[0] | escape }}#{{ script.from[1] | escape }}">{{ script.from[0] | split: "/" | last | escape }}:{{ script.from[1] | escape }}</a></span>{% endif -%}
   </li>
 {%- endfor %}
 </ol>
