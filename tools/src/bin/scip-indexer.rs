@@ -457,6 +457,42 @@ struct NestedSymbol {
     nesting_range: SourceRange,
 }
 
+/// The grammars documents are parsed with (for their nesting; see
+/// `nesting_query`).
+#[derive(Clone, Copy)]
+enum Grammar {
+    Python,
+    Rust,
+    Typescript,
+    Tsx,
+    Java,
+    Kotlin,
+}
+
+/// A grammar's language and nesting query, compiled once per process, not
+/// once per document: compiling one (tree-sitter's analysis of its patterns)
+/// was 86% of scip-indexer's CPU for a batch of 8,735 small documents
+/// (web-platform-tests' Test262 tests; single-threaded, 88.7 s, now 6.8 s).
+fn nesting_query(grammar: Grammar) -> &'static (tree_sitter::Language, tree_sitter::Query) {
+    static QUERIES: [std::sync::OnceLock<(tree_sitter::Language, tree_sitter::Query)>; 6] =
+        [const { std::sync::OnceLock::new() }; 6];
+    QUERIES[grammar as usize].get_or_init(|| {
+        let (language, nesting): (tree_sitter::Language, &Vec<SitterNesting>) = match grammar {
+            Grammar::Python => (tree_sitter_python::LANGUAGE.into(), &PYTHON_NESTING),
+            Grammar::Rust => (tree_sitter_rust::LANGUAGE.into(), &RUST_NESTING),
+            Grammar::Typescript => (
+                tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+                &JS_NESTING,
+            ),
+            Grammar::Tsx => (tree_sitter_typescript::LANGUAGE_TSX.into(), &JS_NESTING),
+            Grammar::Java => (tree_sitter_java::LANGUAGE.into(), &JAVA_NESTING),
+            Grammar::Kotlin => (tree_sitter_kotlin_ng::LANGUAGE.into(), &KOTLIN_NESTING),
+        };
+        let query = compile_nesting_queries(&language, nesting);
+        (language, query)
+    })
+}
+
 fn compile_nesting_queries(
     lang: &tree_sitter::Language,
     nesting: &[SitterNesting],
@@ -1490,36 +1526,29 @@ fn analyze_using_scip(
         };
         write_line(&mut file, &file_target_data);
 
-        // XXX Because typescript has different languages for typescript and tsx,
-        // we currently need to create the parser and the queries on a per-file
-        // basis.  We should revisit this if profiling shows this is a big problem.
-        // Same thing with Java and Kotlin
+        // (TypeScript has a grammar for TSX besides its own, and the JVM ones
+        // for Java and Kotlin, so the grammar is the document's.)
         let mut parser = tree_sitter::Parser::new();
-        let (ts_lang, ts_nesting): (tree_sitter::Language, &Vec<SitterNesting>) = match lang {
-            ScipLang::Python => (tree_sitter_python::LANGUAGE.into(), &PYTHON_NESTING),
-            ScipLang::Rust => (tree_sitter_rust::LANGUAGE.into(), &RUST_NESTING),
+        let grammar = match lang {
+            ScipLang::Python => Grammar::Python,
+            ScipLang::Rust => Grammar::Rust,
             ScipLang::Typescript => {
                 if doc.relative_path.ends_with(".tsx") || doc.relative_path.ends_with(".jsx") {
-                    (tree_sitter_typescript::LANGUAGE_TSX.into(), &JS_NESTING)
+                    Grammar::Tsx
                 } else {
-                    (
-                        tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
-                        &JS_NESTING,
-                    )
+                    Grammar::Typescript
                 }
             }
             ScipLang::Jvm => {
                 if doc.relative_path.ends_with(".kt") {
-                    (tree_sitter_kotlin_ng::LANGUAGE.into(), &KOTLIN_NESTING)
+                    Grammar::Kotlin
                 } else {
-                    (tree_sitter_java::LANGUAGE.into(), &JAVA_NESTING)
+                    Grammar::Java
                 }
             }
         };
-        parser
-            .set_language(&ts_lang)
-            .expect("Error loading grammar");
-        let ts_query = compile_nesting_queries(&ts_lang, ts_nesting);
+        let (ts_lang, ts_query) = nesting_query(grammar);
+        parser.set_language(ts_lang).expect("Error loading grammar");
         let name_capture_ix = ts_query.capture_index_for_name("name").unwrap();
         let body_capture_ix = ts_query.capture_index_for_name("body").unwrap();
 
@@ -1533,7 +1562,7 @@ fn analyze_using_scip(
 
         let mut query_cursor = tree_sitter::QueryCursor::new();
         let mut query_matches =
-            query_cursor.matches(&ts_query, parse_tree.root_node(), &source_contents[..]);
+            query_cursor.matches(ts_query, parse_tree.root_node(), &source_contents[..]);
         let mut next_parse_match;
         let mut next_parse_loc = Location::default();
         let mut next_parse_nesting = SourceRange::default();
