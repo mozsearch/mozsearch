@@ -15,9 +15,11 @@
 //! projects').  The documents' analyses are then merged as platforms' (a kind's
 //! analysis directory each; see scripts/js-environments-analyze.sh), so that
 //! a script in several kinds of environments (ex: an xpcshell test's and a
-//! mochitest page's) has each one's definitions.  Pages' inline scripts
-//! aren't documented yet.  Projects are written in batches by kind, for
-//! scip-typescript processes each indexing a batch.
+//! mochitest page's) has each one's definitions.  A page's inline scripts and
+//! event handlers are a file of their own (see `scan::inline_file`, in
+//! `INLINE_DIR`), its environment's root, whose analysis is the page's (see
+//! scip-indexer's `--inline-pages`).  Projects are written in batches by
+//! kind, for scip-typescript processes each indexing a batch.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -30,10 +32,24 @@ use tree_sitter::{Node, Parser};
 
 use super::discover::{Discovery, Role};
 use super::rules::{Flavor, Rules, Scope, glob_set};
+use super::scan::{inline_file, scan_page};
 
 /// The directory of the scope shims, which scip-indexer's `--shims` doesn't
 /// write analysis files for (see `scope_shim`).
 pub const SHIMS_DIR: &str = "__jsenv_shims__";
+
+/// The directory of pages' inline scripts' files (`<page>.js`, see
+/// `scan::inline_file`), whose analyses scip-indexer's `--inline-pages`
+/// writes as their pages'; and the list of those pages, `inline-pages`.
+pub const INLINE_DIR: &str = "__jsenv_inline__";
+
+/// Whether a page is XML (XHTML, XUL, SVG), whose scripts' text has entities
+/// and CDATA sections.
+fn is_xml_page(path: &str) -> bool {
+    [".xhtml", ".xht", ".xul", ".svg", ".xml"]
+        .iter()
+        .any(|e| path.ends_with(e))
+}
 
 pub struct ProjectsOptions<'a> {
     pub files_root: &'a Path,
@@ -300,7 +316,6 @@ pub fn write_projects(
     read: &dyn Fn(&str) -> Option<String>,
     opts: &ProjectsOptions,
 ) -> io::Result<ProjectsSummary> {
-    let abs = |path: &str| opts.files_root.join(path).to_string_lossy().to_string();
     fs::create_dir_all(opts.out_dir.join("projects"))?;
     fs::create_dir_all(opts.out_dir.join("batches"))?;
     fs::create_dir_all(opts.out_dir.join(SHIMS_DIR))?;
@@ -337,6 +352,43 @@ pub fn write_projects(
     let selected = |name: &str| match &opts.flavors {
         Some(flavors) => flavors.contains(name),
         None => flavor_global(name).is_some(),
+    };
+    // The pages' inline scripts' files (see `INLINE_DIR`), by page.
+    let pages: BTreeSet<&str> = discovery
+        .environments
+        .iter()
+        .filter(|env| selected(&env.flavor))
+        .flat_map(|env| env.scripts.iter())
+        .filter(|s| s.role == Role::Inline)
+        .map(|s| s.path.as_str())
+        .collect();
+    let inline_dir = opts.out_dir.join(INLINE_DIR);
+    let inline_files: HashMap<&str, PathBuf> = pages
+        .par_iter()
+        .filter_map(|page| {
+            let source = fs::read_to_string(opts.files_root.join(page)).ok()?;
+            let text = inline_file(&source, &scan_page(&source), is_xml_page(page))?;
+            let path = inline_dir.join(format!("{}.js", page));
+            fs::create_dir_all(path.parent()?).ok()?;
+            fs::write(&path, text).ok()?;
+            Some((*page, path))
+        })
+        .collect();
+    let mut inline_pages: Vec<&str> = inline_files.keys().copied().collect();
+    inline_pages.sort();
+    fs::write(
+        opts.out_dir.join("inline-pages"),
+        inline_pages
+            .iter()
+            .map(|p| format!("{}\n", p))
+            .collect::<String>(),
+    )?;
+    // (A file's path, or a page's inline scripts' file's.)
+    let abs = |path: &str| -> String {
+        match inline_files.get(path) {
+            Some(file) => file.to_string_lossy().to_string(),
+            None => opts.files_root.join(path).to_string_lossy().to_string(),
+        }
     };
     let mut summary = ProjectsSummary::default();
     // The environments, grouped by their kinds and contexts: the scripts
@@ -376,11 +428,17 @@ pub fn write_projects(
             })
             .collect();
         // (Its root, if it's one of its JS scripts, ex: a test, or a worker's
-        // script; not a page.)
+        // script; or for a page, its inline scripts' file, if it has one.)
         let root = scripts
             .iter()
             .find(|s| s.path == env.root && s.role == Role::Test)
-            .map(|s| s.path.clone());
+            .map(|s| s.path.clone())
+            .or_else(|| {
+                env.scripts
+                    .iter()
+                    .find(|s| s.role == Role::Inline && inline_files.contains_key(s.path.as_str()))
+                    .map(|s| s.path.clone())
+            });
         let context: Vec<String> = scripts
             .iter()
             .filter(|s| Some(&s.path) != root.as_ref())
@@ -416,7 +474,7 @@ pub fn write_projects(
     // uses but doesn't declare, in the one project of its kind documenting
     // it, whose roots are only some of those it's loaded before): the
     // top-level names of its kind's environments' roots, which it mentions.
-    let read = |path: &str| fs::read_to_string(opts.files_root.join(path)).ok();
+    let read = |path: &str| fs::read_to_string(abs(path)).ok();
     let roots: BTreeSet<&str> = groups
         .iter()
         .flat_map(|g| g.roots.iter().map(String::as_str))
@@ -526,7 +584,7 @@ pub fn write_projects(
         *summary.documents.entry(group.kind.clone()).or_default() += only.len();
         let cost: u64 = only
             .iter()
-            .filter_map(|p| fs::metadata(opts.files_root.join(p)).ok())
+            .filter_map(|p| fs::metadata(abs(p)).ok())
             .map(|m| m.len())
             .sum();
         by_kind

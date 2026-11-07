@@ -28,8 +28,15 @@ TREE_NAME=$2
 # scope's members uses of their definitions) merged as platforms' into the
 # tree's analysis (merge-analyses), so that a script in several kinds of
 # environments has each one's definitions.  js-analyze, which runs after it,
-# leaves out the files it analyzes.  (JS_ENVIRONMENTS_FLAVORS, a
-# comma-separated list, limits it to some flavors.)
+# leaves out the files it analyzes.  Pages' inline scripts and event handlers
+# are analyzed as files of their own (js-environments-projects'
+# __jsenv_inline__/<page>.js, with the pages' positions), whose analyses
+# scip-indexer's --inline-pages makes the pages', merged into
+# js-environments-pages/ rather than the tree's analysis, as js-analyze's of
+# their markup (and its styles) is to come: it leaves out the scripts and
+# handlers of the pages there, and js-environments-pages.sh then merges both.
+# (JS_ENVIRONMENTS_FLAVORS, a comma-separated list, limits it to some
+# flavors.)
 RULES=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].js_environments // empty' "$CONFIG_FILE")
 ANALYSIS=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].js_environments_analysis // false' "$CONFIG_FILE")
 if [ -z "$RULES" ] || [ "$ANALYSIS" != "true" ] || [ ! -f "$INDEX_ROOT/js-environments.json" ]; then
@@ -37,7 +44,8 @@ if [ -z "$RULES" ] || [ "$ANALYSIS" != "true" ] || [ ! -f "$INDEX_ROOT/js-enviro
     exit 0
 fi
 WORK=$INDEX_ROOT/js-environments-work
-rm -rf "$WORK"
+PAGES=$INDEX_ROOT/js-environments-pages
+rm -rf "$WORK" "$PAGES"
 mkdir -p "$WORK/scip"
 JOBS=${JS_ENVIRONMENTS_JOBS:-$(( $(nproc) > 2 ? $(nproc) / 2 : 1 ))}
 
@@ -77,6 +85,7 @@ index_projects() {
     local status=0
     scip-indexer "$CONFIG_FILE" "$TREE_NAME" --subtree-name typescript --subtree-root "" \
         --analysis-root "$WORK/analysis-$kind" --shims __jsenv_shims__ --no-leftovers \
+        --inline-pages "$WORK/__jsenv_inline__" \
         "$WORK/scip/$name.scip" > "$WORK/scip/$name.indexer.log" 2>&1 || status=1
     rm -f "$WORK/scip/$name.scip"
     return $status
@@ -108,8 +117,14 @@ export WORK FILES_ROOT CONFIG_FILE TREE_NAME
 parallel -j "$JOBS" --halt now,fail=1 index_batch < "$WORK/batches.lst"
 grep -h "^unexpected error" "$WORK"/scip/*.log | cut -c1-200 | sort | uniq -c | sort -rn | head -20 || true
 
-# The kinds' analyses, merged.
-(cd "$WORK" && find . -path './analysis-*' -type f | sed 's#^\./analysis-[^/]*/##' | sort -u) > "$WORK/analyzed"
-echo "Merging the analysis of $(wc -l < "$WORK/analyzed") files of JS environments."
-(cd "$WORK" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$INDEX_ROOT/analysis" < analyzed)
-rm -rf "$WORK"/analysis-* "$WORK/projects"
+# The kinds' analyses, merged: the scripts' into the tree's analysis, and the
+# pages' into js-environments-pages/.
+(cd "$WORK" && find . -path './analysis-*' -type f | sed 's#^\./analysis-[^/]*/##' | LC_ALL=C sort -u) > "$WORK/analyzed"
+LC_ALL=C sort -u "$WORK/inline-pages" > "$WORK/inline-pages.sorted"
+LC_ALL=C comm -12 "$WORK/analyzed" "$WORK/inline-pages.sorted" > "$WORK/analyzed-pages"
+LC_ALL=C comm -23 "$WORK/analyzed" "$WORK/inline-pages.sorted" > "$WORK/analyzed-scripts"
+echo "Merging the analysis of $(wc -l < "$WORK/analyzed-scripts") files and $(wc -l < "$WORK/analyzed-pages") pages of JS environments."
+(cd "$WORK" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$INDEX_ROOT/analysis" < analyzed-scripts)
+mkdir -p "$PAGES"
+(cd "$WORK" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$PAGES" < analyzed-pages)
+rm -rf "$WORK"/analysis-* "$WORK/projects" "$WORK/__jsenv_inline__"

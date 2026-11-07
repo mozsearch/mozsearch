@@ -1,7 +1,7 @@
 //! A tree's JS environment rules (ex: config's firefox-shared/js-environments.toml):
 //! its test flavors, by the moz.build variables declaring their manifests,
 //! with their globals and harness scripts; the URLs files are loaded at; and
-//! web-platform-tests' root and harness scripts.
+//! web-platform-tests' roots and harness scripts (and Test262's).
 
 use std::collections::BTreeMap;
 
@@ -145,6 +145,34 @@ pub struct WptRules {
     pub window_harness: Vec<String>,
     /// And in a worker.
     pub worker_harness: Vec<String>,
+    /// And for a `.extension.js` test (tools/serve/serve.py's
+    /// ExtensionHandler's: testharness's, testdriver's and
+    /// web-extensions-helper.js), else the window's.
+    #[serde(default)]
+    pub extension_harness: Vec<String>,
+    /// Other roots of tests, by their URLs' prefixes (ex: `"/_mozilla/" =
+    /// "testing/web-platform/mozilla/tests"`), whose tests' path-absolute
+    /// URLs are the root's but those with one of the prefixes.
+    #[serde(default)]
+    pub extra_roots: BTreeMap<String, String>,
+    /// Its Test262 tests, if it runs them.
+    pub test262: Option<Test262Rules>,
+}
+
+/// web-platform-tests' Test262 tests: each `.js` file with frontmatter in
+/// `tests`' directories (but `_FIXTURE.js` files, which tests import), which
+/// it runs in a window after `harness`, the test's frontmatter's `includes`
+/// (in `includes_dir`), and, if it's `async`, `async_harness`, as a module if
+/// it's a `module` one (tools/serve/serve.py's Test262WindowTestBaseHandler;
+/// paths relative to the root).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Test262Rules {
+    pub tests: Vec<String>,
+    pub harness: Vec<String>,
+    pub includes_dir: String,
+    #[serde(default)]
+    pub async_harness: Vec<String>,
 }
 
 impl Rules {

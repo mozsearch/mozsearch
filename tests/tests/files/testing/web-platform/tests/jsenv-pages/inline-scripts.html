@@ -1,0 +1,18 @@
+<!doctype html>
+<title>A page's inline scripts, event handlers and styles</title>
+<script src="/resources/testharness.js"></script>
+<link rel="stylesheet" href="support/linked.css">
+<style>
+  :root { --inline-gap: 4px; }
+  p { margin: var(--inline-gap); }
+</style>
+<p id="target" onclick="clicked(event)" style="padding: var(--inline-gap)">Click</p>
+<script>
+function clicked(event) {
+  return event.type;
+}
+
+test(() => {
+  assert_equals(clicked({ type: "click" }), "click");
+}, "An inline script's function, which its page's event handler calls");
+</script>

@@ -99,6 +99,15 @@ struct ScipIndexerCli {
     #[arg(long, value_parser)]
     shims: Option<String>,
 
+    /// The directory of pages' inline scripts' files (`<page>.js`, ex:
+    /// js-environments-projects' `__jsenv_inline__`): their documents are
+    /// their pages', whose analyses they write (their sources being the
+    /// files, which have the pages' positions), and so are their symbols
+    /// (their namespaces from the directory's down to the file's, the page's
+    /// path's, as a tree file's would be).
+    #[arg(long, value_parser)]
+    inline_pages: Option<PathBuf>,
+
     /// rustc analysis directories or scip inputs
     #[arg(value_parser)]
     inputs: Vec<PathBuf>,
@@ -850,6 +859,159 @@ fn resolve_shims(index: &mut scip::types::Index, shims: &str) {
         .retain(|s| !aliases.contains_key(&s.symbol));
 }
 
+/// The package scip-typescript names a file's symbols by, and the file's
+/// namespaces after it (its Packages.ts): those of the nearest directory above
+/// it with a package.json (its name and version, `HEAD` without one; an
+/// anonymous package, None, without a name), and its path from there; or
+/// None, and its absolute path.
+fn js_package_of(file: &Path) -> (Option<scip::types::Package>, Vec<String>) {
+    let mut names: Vec<String> = file
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .into_iter()
+        .collect();
+    let mut dir = file.parent().map(Path::to_path_buf);
+    while let Some(d) = dir {
+        let package_json = d.join("package.json");
+        if package_json.is_file() {
+            let json: serde_json::Value = std::fs::read_to_string(&package_json)
+                .ok()
+                .and_then(|text| serde_json::from_str(&text).ok())
+                .unwrap_or_default();
+            let package = json["name"].as_str().map(|name| scip::types::Package {
+                manager: "npm".to_string(),
+                name: name.to_string(),
+                version: json["version"].as_str().unwrap_or("HEAD").to_string(),
+                ..Default::default()
+            });
+            names.reverse();
+            return (package, names);
+        }
+        if let Some(name) = d.file_name() {
+            names.push(name.to_string_lossy().to_string());
+        }
+        dir = d.parent().map(Path::to_path_buf);
+    }
+    names.reverse();
+    (None, names)
+}
+
+/// Make pages' inline scripts' documents their pages' (see
+/// `ScipIndexerCli::inline_pages`), returning each page's file: their paths,
+/// and their symbols', whose package and namespaces down to their file's
+/// (`.../<dir>/<page>.js/`) become those a tree file at the page's path
+/// would have (see `js_package_of`).
+fn resolve_inline_pages(
+    index: &mut scip::types::Index,
+    dir: &Path,
+    files_root: &Path,
+) -> std::collections::HashMap<String, PathBuf> {
+    use std::collections::HashMap;
+    let mut files: HashMap<String, PathBuf> = HashMap::new();
+    let Some(marker) = dir.file_name().and_then(|n| n.to_str()) else {
+        return files;
+    };
+    // (A path's page, its components after the directory's, without `.js`.)
+    let page_of = |path: &str| -> Option<String> {
+        let mut parts = path.split('/');
+        parts.by_ref().find(|part| *part == marker)?;
+        let rest: Vec<&str> = parts.collect();
+        rest.join("/").strip_suffix(".js").map(str::to_string)
+    };
+    for doc in index.documents.iter_mut() {
+        if let Some(page) = page_of(&doc.relative_path) {
+            files.insert(page.clone(), dir.join(format!("{}.js", page)));
+            doc.relative_path = page;
+        }
+    }
+    if files.is_empty() {
+        return files;
+    }
+    let packages: HashMap<&str, (Option<scip::types::Package>, Vec<String>)> = files
+        .keys()
+        .map(|page| (page.as_str(), js_package_of(&files_root.join(page))))
+        .collect();
+    let rewrite = |symbol: &mut String| {
+        if !symbol.contains(marker) || symbol.starts_with("local ") {
+            return;
+        }
+        let Ok(mut parsed) = scip::symbol::parse_symbol(symbol) else {
+            return;
+        };
+        let Some(at) = parsed.descriptors.iter().position(|d| d.name == marker) else {
+            return;
+        };
+        let mut descriptors: Vec<scip::types::Descriptor> =
+            parsed.descriptors.drain(at + 1..).collect();
+        // (The file's namespace, `<page>.js`, the one whose path is a page's.)
+        let mut path = String::new();
+        let mut file = None;
+        for (i, descriptor) in descriptors.iter().enumerate() {
+            if !path.is_empty() {
+                path.push('/');
+            }
+            path.push_str(&descriptor.name);
+            if let Some(package) = path.strip_suffix(".js").and_then(|p| packages.get(p)) {
+                file = Some((i, package));
+                break;
+            }
+        }
+        let Some((i, (package, names))) = file else {
+            return;
+        };
+        let rest = descriptors.split_off(i + 1);
+        let suffix = descriptors[i].suffix;
+        parsed.descriptors = names
+            .iter()
+            .map(|name| scip::types::Descriptor {
+                name: name.clone(),
+                suffix,
+                ..Default::default()
+            })
+            .chain(rest)
+            .collect();
+        if let Some(package) = package {
+            parsed.package = protobuf::MessageField::some(package.clone());
+        }
+        *symbol = scip::symbol::format_symbol(parsed);
+    };
+    let rewrite_info = |info: &mut scip::types::SymbolInformation| {
+        rewrite(&mut info.symbol);
+        rewrite(&mut info.enclosing_symbol);
+        for relationship in info.relationships.iter_mut() {
+            rewrite(&mut relationship.symbol);
+        }
+    };
+    for doc in index.documents.iter_mut() {
+        for occurrence in doc.occurrences.iter_mut() {
+            rewrite(&mut occurrence.symbol);
+        }
+        doc.symbols.iter_mut().for_each(rewrite_info);
+        // (And its hovers' file name, ex: its module's, `module <page>.js`.)
+        if let Some(name) = files
+            .contains_key(&doc.relative_path)
+            .then(|| doc.relative_path.rsplit('/').next())
+            .flatten()
+        {
+            let file_name = format!("{}.js", name);
+            for info in doc.symbols.iter_mut() {
+                for text in info.documentation.iter_mut() {
+                    if text.contains(&file_name) {
+                        *text = text.replace(&file_name, name);
+                    }
+                }
+                if let Some(signature) = info.signature_documentation.as_mut()
+                    && signature.text.contains(&file_name)
+                {
+                    signature.text = signature.text.replace(&file_name, name);
+                }
+            }
+        }
+    }
+    index.external_symbols.iter_mut().for_each(rewrite_info);
+    files
+}
+
 #[allow(clippy::too_many_arguments)]
 fn analyze_using_scip(
     tree_config: &config::TreeConfig,
@@ -859,6 +1021,7 @@ fn analyze_using_scip(
     analysis_root: Option<&Path>,
     leftovers: bool,
     shims: Option<&str>,
+    inline_pages: Option<&Path>,
     scip_file: PathBuf,
 ) {
     use protobuf::Message;
@@ -872,6 +1035,9 @@ fn analyze_using_scip(
     if let Some(shims) = shims {
         resolve_shims(&mut index, shims);
     }
+    let inline_files = inline_pages
+        .map(|dir| resolve_inline_pages(&mut index, dir, Path::new(&tree_config.paths.files_path)))
+        .unwrap_or_default();
     let index = index;
 
     let mut scip_symbol_to_structured: UstrMap<AnalysisStructured> = UstrMap::default();
@@ -1323,8 +1489,11 @@ fn analyze_using_scip(
         .documents
         .iter()
         .map(|doc| {
-            let source_fname =
-                tree_config.find_source_file(&format!("{}/{}", subtree_root, &doc.relative_path));
+            let source_fname = match inline_files.get(&doc.relative_path) {
+                Some(file) => file.to_string_lossy().to_string(),
+                None => tree_config
+                    .find_source_file(&format!("{}/{}", subtree_root, &doc.relative_path)),
+            };
             let readable = File::open(&source_fname)
                 .and_then(|f| f.metadata())
                 .is_ok_and(|meta| meta.is_file());
@@ -1445,6 +1614,7 @@ fn analyze_using_scip(
             write_document_analysis(
                 doc,
                 source_fname,
+                inline_files.contains_key(&doc.relative_path),
                 subtree_root,
                 analysis_root,
                 lang,
@@ -1461,6 +1631,7 @@ fn analyze_using_scip(
     fn write_document_analysis(
         doc: &Document,
         source_fname: &str,
+        inline_page: bool,
         subtree_root: &str,
         analysis_root: &Path,
         lang: &ScipLang,
@@ -1500,8 +1671,14 @@ fn analyze_using_scip(
             }
         };
 
-        let file_pretty = doc.relative_path.clone();
-        let file_sym = format!("FILE_{}", mangle_file(&file_pretty));
+        // (A page's is js-analyze's, as the page's markup's analysis has it
+        // too, which they're merged with; see scripts/js-environments-pages.sh.)
+        let file_pretty = if inline_page {
+            format!("file {}", doc.relative_path)
+        } else {
+            doc.relative_path.clone()
+        };
+        let file_sym = format!("FILE_{}", mangle_file(&doc.relative_path));
         let file_target_data = WithLocation {
             data: AnalysisTarget {
                 target: TargetTag::Target,
@@ -1990,6 +2167,7 @@ fn main() {
             cli.analysis_root.as_deref(),
             !cli.no_leftovers,
             cli.shims.as_deref(),
+            cli.inline_pages.as_deref(),
             file,
         );
     }

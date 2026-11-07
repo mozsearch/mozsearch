@@ -218,6 +218,90 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
         },
         "coverage": null
       }
+    },
+    {
+      "path": "testing/web-platform/tests/jsenv-pages/worker-test.worker.js",
+      "concise": {
+        "path_kind": "test",
+        "is_dir": false,
+        "file_size": 232,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
+      "path": "testing/web-platform/tests/resources/testharness.js",
+      "concise": {
+        "path_kind": "test",
+        "is_dir": false,
+        "file_size": 534,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
+      "path": "testing/web-platform/tests/third_party/test262/harness/assert.js",
+      "concise": {
+        "path_kind": "test",
+        "is_dir": false,
+        "file_size": 288,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "---\ndescription: A stub of Test262's assertions.\ndefines: [assert]\n---",
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
+      "path": "testing/web-platform/tests/third_party/test262/harness/compareArray.js",
+      "concise": {
+        "path_kind": "test",
+        "is_dir": false,
+        "file_size": 213,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "---\ndescription: A stub of Test262's array comparison, which tests include.\ndefines: [compareArray]\n---",
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
+      "path": "testing/web-platform/tests/third_party/test262/harness/sta.js",
+      "concise": {
+        "path_kind": "test",
+        "is_dir": false,
+        "file_size": 143,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "---\ndescription: A stub of Test262's error.\ndefines: [Test262Error]\n---",
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
+      "path": "testing/web-platform/tests/third_party/test262/test/built-ins/Array/compare.js",
+      "concise": {
+        "path_kind": "test",
+        "is_dir": false,
+        "file_size": 302,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "---\ndescription: An include's function\nincludes: [compareArray.js]\n---",
+        "info": {},
+        "coverage": null
+      }
     }
   ]
 }

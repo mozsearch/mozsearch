@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::rules::{Rules, glob_set};
+use super::rules::{Rules, WptRules, glob_set};
 use super::scan::{Load, LoadKind, PageScan, scan_page, scan_script};
 use crate::file_metadata::test_manifests::{TestEntry, join_normalized};
 
@@ -31,6 +31,8 @@ pub enum Role {
     Inline,
     /// A web-platform-test's `META: script`.
     Meta,
+    /// A Test262 test's frontmatter's `includes`.
+    Include,
     /// A script another loads (`importScripts`, the subscript loader, `load()`).
     Loaded,
 }
@@ -145,8 +147,8 @@ impl<'a> Discoverer<'a> {
     }
 
     /// The file a URL (relative to `base_dir`, or one of the rules' URLs, or
-    /// for a web-platform-test, path-absolute from its root) loads, if the
-    /// tree has it.
+    /// for a web-platform-test, path-absolute from its root, or from an extra
+    /// root's, by its prefix) loads, if the tree has it.
     fn resolve(&self, url: &str, base_dir: &str, wpt: bool) -> Option<String> {
         let url = url.trim();
         let path = if let Some(file) = self.inputs.rules.url_file(url) {
@@ -162,7 +164,14 @@ impl<'a> Discoverer<'a> {
             let url = url.split(['?', '#']).next().unwrap_or(url);
             match (url.strip_prefix('/'), &self.inputs.rules.wpt) {
                 (Some(absolute), Some(wpt_rules)) if wpt => {
-                    join_normalized(&wpt_rules.root, absolute)
+                    match wpt_rules
+                        .extra_roots
+                        .iter()
+                        .find(|(prefix, _)| url.starts_with(prefix.as_str()))
+                    {
+                        Some((prefix, dir)) => join_normalized(dir, &url[prefix.len()..]),
+                        None => join_normalized(&wpt_rules.root, absolute),
+                    }
                 }
                 (Some(_), _) => return None,
                 (None, _) => join_normalized(base_dir, url),
@@ -343,6 +352,15 @@ impl<'a> Discoverer<'a> {
         }
         if let Some(s) = scripts.iter_mut().find(|s| s.role == Role::Inline) {
             s.inline = inline;
+        } else if !scan.handlers.is_empty() {
+            // (Its event handlers are its inline code too.)
+            scripts.push(Script {
+                path: page.to_string(),
+                role: Role::Inline,
+                module: false,
+                inline: vec![],
+                from: None,
+            });
         }
         let (parent_id, started) = match parent {
             Some((id, started)) => (Some(id), Some(started)),
@@ -722,112 +740,329 @@ impl<'a> Discoverer<'a> {
         }
     }
 
-    /// web-platform-tests: a `.any.js` test's variants (`META: global=`, by
-    /// default a window and a dedicated worker), `.window.js` and
-    /// `.worker.js` tests, and pages loading testharness.js.
+    /// web-platform-tests, in each of its roots: a `.any.js` test's variants
+    /// (`META: global=`, by default a window and a dedicated worker),
+    /// `.worker.js`, `.window.js` and `.extension.js` tests (by its manifest's
+    /// rules: tools/manifest/sourcefile.py's, by its name's flags, in that
+    /// order), and its pages with scripts or event handlers (tests, as its
+    /// manifest has those loading testharness.js, references, crash tests,
+    /// manual tests; and its support pages which no test loads as a frame),
+    /// each in a window of its own; and its Test262 tests (see `wpt_test262`).
     fn wpt_tests(&mut self) {
         let rules = self.inputs.rules;
         let Some(wpt) = &rules.wpt else {
             return;
         };
-        let root = format!("{}/", wpt.root);
-        let window_harness: Vec<String> = wpt
-            .window_harness
+        let harness_of = |list: &[String]| -> Vec<String> {
+            list.iter().map(|h| join_normalized(&wpt.root, h)).collect()
+        };
+        let window_harness = harness_of(&wpt.window_harness);
+        let worker_harness = harness_of(&wpt.worker_harness);
+        let extension_harness = if wpt.extension_harness.is_empty() {
+            window_harness.clone()
+        } else {
+            harness_of(&wpt.extension_harness)
+        };
+        let test262_dirs: Vec<String> = wpt
+            .test262
             .iter()
-            .map(|h| join_normalized(&wpt.root, h))
-            .collect();
-        let worker_harness: Vec<String> = wpt
-            .worker_harness
-            .iter()
-            .map(|h| join_normalized(&wpt.root, h))
+            .flat_map(|t| &t.tests)
+            .map(|d| format!("{}/", join_normalized(&wpt.root, d)))
             .collect();
         let files = self.inputs.files;
-        let mut tests: Vec<&String> = files.iter().filter(|p| p.starts_with(&root)).collect();
-        tests.sort();
-        for test in tests {
-            let name = test.rsplit('/').next().unwrap_or(test);
-            if is_wpt_support(&test[root.len()..]) {
-                continue;
-            }
-            let variants: Vec<&str> = if name.ends_with(".any.js") {
-                let Some(source) = self.read(test) else {
+        let roots: Vec<String> = std::iter::once(format!("{}/", wpt.root))
+            .chain(wpt.extra_roots.values().map(|r| format!("{}/", r)))
+            .collect();
+        let no_harness: Vec<String> = vec![];
+        let mut support_pages: Vec<&String> = vec![];
+        for root in &roots {
+            let mut tests: Vec<&String> = files
+                .iter()
+                .filter(|p| p.starts_with(root.as_str()))
+                .collect();
+            tests.sort();
+            for test in tests {
+                let name = test.rsplit('/').next().unwrap_or(test);
+                if test262_dirs.iter().any(|d| test.starts_with(d.as_str())) {
                     continue;
-                };
-                any_variants(&source)
-            } else if name.ends_with(".window.js") {
-                vec!["window"]
-            } else if name.ends_with(".worker.js") {
-                vec!["dedicatedworker"]
-            } else if is_page(test) {
-                let loads_harness = self.page_scan(test).is_some_and(|scan| {
-                    scan.scripts.iter().any(|s| {
-                        s.src
-                            .as_deref()
-                            .is_some_and(|s| s.ends_with("/resources/testharness.js"))
-                    })
-                });
-                if loads_harness {
-                    self.page_environment(test, "window", "wpt", None, 0);
                 }
-                continue;
-            } else {
-                continue;
-            };
-            let source = self.read(test).unwrap_or_default();
-            let metas = meta_scripts(&source);
-            for variant in variants {
-                let worker = variant.trim_end_matches("-module") != "window";
-                let harness = if worker {
-                    &worker_harness
-                } else {
-                    &window_harness
-                };
-                let mut scripts: Vec<Script> = harness
-                    .iter()
-                    .filter(|h| self.inputs.files.contains(*h))
-                    .map(|h| Script {
-                        path: h.clone(),
-                        role: Role::Harness,
-                        module: false,
-                        inline: vec![],
-                        from: None,
-                    })
-                    .collect();
-                for (meta, line) in &metas {
-                    match self.resolve(meta, dir_of(test), true) {
-                        Some(path) => scripts.push(Script {
-                            path,
-                            role: Role::Meta,
+                if is_wpt_support(&test[root.len()..]) {
+                    if is_page(test) {
+                        support_pages.push(test);
+                    }
+                    continue;
+                }
+                let flags: Vec<&str> = name.split('.').skip(1).collect();
+                let js = name.ends_with(".js");
+                let (variants, harness, metas): (Vec<&str>, Option<&Vec<String>>, bool) =
+                    if js && flags.contains(&"any") {
+                        let Some(source) = self.read(test) else {
+                            continue;
+                        };
+                        (any_variants(&source), None, true)
+                    } else if js && flags.contains(&"worker") {
+                        // (Its page starts it as it is: it loads testharness.js
+                        // itself, and its META scripts aren't loaded.)
+                        (vec!["dedicatedworker"], Some(&no_harness), false)
+                    } else if js && flags.contains(&"window") {
+                        (vec!["window"], Some(&window_harness), true)
+                    } else if js && flags.contains(&"extension") {
+                        (vec!["window"], Some(&extension_harness), true)
+                    } else {
+                        if is_page(test)
+                            && self
+                                .page_scan(test)
+                                .is_some_and(|s| !s.scripts.is_empty() || !s.handlers.is_empty())
+                        {
+                            self.page_environment(test, "window", "wpt", None, 0);
+                        }
+                        continue;
+                    };
+                let source = self.read(test).unwrap_or_default();
+                let metas = if metas { meta_scripts(&source) } else { vec![] };
+                for variant in variants {
+                    let worker = variant.trim_end_matches("-module") != "window";
+                    let harness = harness.unwrap_or(if worker {
+                        &worker_harness
+                    } else {
+                        &window_harness
+                    });
+                    let mut scripts: Vec<Script> = harness
+                        .iter()
+                        .filter(|h| self.inputs.files.contains(*h))
+                        .map(|h| Script {
+                            path: h.clone(),
+                            role: Role::Harness,
                             module: false,
                             inline: vec![],
-                            from: Some((test.clone(), *line)),
-                        }),
-                        None => self.note(test, *line, "Meta", Some(meta.clone())),
+                            from: None,
+                        })
+                        .collect();
+                    for (meta, line) in &metas {
+                        match self.resolve(meta, dir_of(test), true) {
+                            Some(path) => scripts.push(Script {
+                                path,
+                                role: Role::Meta,
+                                module: false,
+                                inline: vec![],
+                                from: Some((test.clone(), *line)),
+                            }),
+                            None => self.note(test, *line, "Meta", Some(meta.clone())),
+                        }
                     }
+                    scripts.push(Script {
+                        path: test.clone(),
+                        role: Role::Test,
+                        module: variant.ends_with("-module"),
+                        inline: vec![],
+                        from: None,
+                    });
+                    let id = self.push(Environment {
+                        id: 0,
+                        global: variant.trim_end_matches("-module").to_string(),
+                        flavor: "wpt".to_string(),
+                        root: test.clone(),
+                        manifest: None,
+                        ancestor: None,
+                        variant: Some(variant.to_string()),
+                        scripts,
+                        parent: None,
+                        started: None,
+                    });
+                    self.expand(id, dir_of(test), 0);
                 }
-                scripts.push(Script {
-                    path: test.clone(),
-                    role: Role::Test,
-                    module: variant.ends_with("-module"),
-                    inline: vec![],
-                    from: None,
-                });
-                let id = self.push(Environment {
-                    id: 0,
-                    global: variant.trim_end_matches("-module").to_string(),
-                    flavor: "wpt".to_string(),
-                    root: test.clone(),
-                    manifest: None,
-                    ancestor: None,
-                    variant: Some(variant.to_string()),
-                    scripts,
-                    parent: None,
-                    started: None,
-                });
-                self.expand(id, dir_of(test), 0);
             }
         }
+        // (Support pages, but those an environment has already: ex, a test's
+        // frame.)
+        let mut have: HashSet<String> = self
+            .out
+            .environments
+            .iter()
+            .map(|e| e.root.clone())
+            .collect();
+        for page in support_pages {
+            if have.contains(page)
+                || !self
+                    .page_scan(page)
+                    .is_some_and(|s| !s.scripts.is_empty() || !s.handlers.is_empty())
+            {
+                continue;
+            }
+            let first = self.out.environments.len();
+            self.page_environment(page, "window", "wpt", None, 0);
+            have.extend(
+                self.out.environments[first..]
+                    .iter()
+                    .map(|e| e.root.clone()),
+            );
+        }
+        self.wpt_test262(wpt);
     }
+
+    /// web-platform-tests' Test262 tests (see `rules::Test262Rules`), each in
+    /// a window (its variant `test262`, or `test262-module` for a module).
+    fn wpt_test262(&mut self, wpt: &WptRules) {
+        let Some(test262) = &wpt.test262 else {
+            return;
+        };
+        let files = self.inputs.files;
+        let dirs: Vec<String> = test262
+            .tests
+            .iter()
+            .map(|d| format!("{}/", join_normalized(&wpt.root, d)))
+            .collect();
+        let in_tree = |list: &[String]| -> Vec<String> {
+            list.iter()
+                .map(|h| join_normalized(&wpt.root, h))
+                .filter(|h| files.contains(h))
+                .collect()
+        };
+        let harness = in_tree(&test262.harness);
+        let async_harness = in_tree(&test262.async_harness);
+        let includes_dir = join_normalized(&wpt.root, &test262.includes_dir);
+        let mut tests: Vec<&String> = files
+            .iter()
+            .filter(|p| {
+                p.ends_with(".js")
+                    && !p.ends_with("_FIXTURE.js")
+                    && dirs.iter().any(|d| p.starts_with(d.as_str()))
+            })
+            .collect();
+        tests.sort();
+        let read = self.inputs.read;
+        let records: Vec<Option<Test262Record>> = tests
+            .par_iter()
+            .map(|test| read(test).and_then(|source| test262_record(&source)))
+            .collect();
+        for (test, record) in tests.into_iter().zip(records) {
+            // (Without frontmatter, it's a support file.)
+            let Some(record) = record else {
+                continue;
+            };
+            let harness_script = |path: &String| Script {
+                path: path.clone(),
+                role: Role::Harness,
+                module: false,
+                inline: vec![],
+                from: None,
+            };
+            let mut scripts: Vec<Script> = harness.iter().map(harness_script).collect();
+            for include in &record.includes {
+                let path = join_normalized(&includes_dir, include);
+                if files.contains(&path) {
+                    scripts.push(Script {
+                        path,
+                        role: Role::Include,
+                        module: false,
+                        inline: vec![],
+                        from: Some((test.clone(), record.includes_line)),
+                    });
+                } else {
+                    self.note(test, record.includes_line, "Include", Some(include.clone()));
+                }
+            }
+            if record.is_async {
+                scripts.extend(async_harness.iter().map(harness_script));
+            }
+            scripts.push(Script {
+                path: test.clone(),
+                role: Role::Test,
+                module: record.module,
+                inline: vec![],
+                from: None,
+            });
+            let id = self.push(Environment {
+                id: 0,
+                global: "window".to_string(),
+                flavor: "wpt".to_string(),
+                root: test.clone(),
+                manifest: None,
+                ancestor: None,
+                variant: Some(
+                    if record.module {
+                        "test262-module"
+                    } else {
+                        "test262"
+                    }
+                    .to_string(),
+                ),
+                scripts,
+                parent: None,
+                started: None,
+            });
+            self.expand(id, dir_of(test), 0);
+        }
+    }
+}
+
+/// A Test262 test's frontmatter's (`/*--- ... ---*/`, YAML) `includes`, with
+/// their line, and whether its `flags` have `module` and `async`.
+#[derive(Debug, Default, PartialEq)]
+struct Test262Record {
+    includes: Vec<String>,
+    includes_line: u32,
+    module: bool,
+    is_async: bool,
+}
+
+/// A Test262 test's record, if it has frontmatter (as wpt's
+/// tools/manifest/test262.py reads it: only its `includes` and `flags`, each
+/// a flow list, `[a, b]`, or a block one, of `- a` lines).
+fn test262_record(source: &str) -> Option<Test262Record> {
+    let start = source.find("/*---")? + "/*---".len();
+    let end = start + source[start..].find("---*/")?;
+    let first_line = super::scan::line_of(source, start);
+    let mut record = Test262Record::default();
+    let lines: Vec<&str> = source[start..end].lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i];
+        let key_line = first_line + i as u32;
+        i += 1;
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        if key.starts_with(char::is_whitespace) || !matches!(key, "includes" | "flags") {
+            continue;
+        }
+        let value = value.split(" #").next().unwrap_or("").trim();
+        let mut items: Vec<String> = vec![];
+        if let Some(list) = value.strip_prefix('[') {
+            items.extend(
+                list.trim_end_matches(']')
+                    .split(',')
+                    .map(|v| v.trim().trim_matches(['"', '\'']).to_string())
+                    .filter(|v| !v.is_empty()),
+            );
+        } else if value.is_empty() {
+            while i < lines.len() {
+                let Some(item) = lines[i].trim_start().strip_prefix("- ") else {
+                    break;
+                };
+                if !lines[i].starts_with(char::is_whitespace) {
+                    break;
+                }
+                items.push(
+                    item.split(" #")
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .trim_matches(['"', '\''])
+                        .to_string(),
+                );
+                i += 1;
+            }
+        }
+        if key == "includes" {
+            record.includes = items;
+            record.includes_line = key_line;
+        } else {
+            record.module = items.iter().any(|f| f == "module");
+            record.is_async = items.iter().any(|f| f == "async");
+        }
+    }
+    Some(record)
 }
 
 /// How deep frames and workers are followed (a worker's worker's ...).
@@ -979,6 +1214,38 @@ mod tests {
             meta_scripts("// META: script=/common/utils.js\n\n// META: script=resources/x.js\n"),
             vec![("/common/utils.js".to_string(), 1)]
         );
+    }
+
+    #[test]
+    fn test_test262_record() {
+        assert_eq!(
+            test262_record(
+                "// Copyright\n/*---\ndescription: x\nincludes: [propertyHelper.js, compareArray.js]\nflags: [module, async]\n---*/\nverifyProperty();\n"
+            ),
+            Some(Test262Record {
+                includes: vec![
+                    "propertyHelper.js".to_string(),
+                    "compareArray.js".to_string()
+                ],
+                includes_line: 4,
+                module: true,
+                is_async: true,
+            })
+        );
+        // (Block lists, and other keys' nested lines.)
+        assert_eq!(
+            test262_record(
+                "/*---\nnegative:\n  phase: parse\n  type: SyntaxError\nincludes:\n  - a.js\n  - \"b.js\" # why\nflags:\n  - onlyStrict\n---*/\n"
+            ),
+            Some(Test262Record {
+                includes: vec!["a.js".to_string(), "b.js".to_string()],
+                includes_line: 5,
+                module: false,
+                is_async: false,
+            })
+        );
+        // (A fixture, or a harness's support file.)
+        assert_eq!(test262_record("export var x = 1;\n"), None);
     }
 
     #[test]

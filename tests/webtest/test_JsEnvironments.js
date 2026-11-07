@@ -159,3 +159,45 @@ add_task(async function test_JsEnvironmentsDiagramContext() {
        .includes("test:"),
      "but not a harness's without one");
 });
+
+// A web-platform-tests page's inline scripts and event handlers are analyzed
+// in its environment, as a file of their own whose analysis is the page's
+// (see scan.rs's `inline_file`, and scip-indexer's --inline-pages): its
+// handler's call is of its inline script's function, a symbol of the page's,
+// and its test() is testharness.js's.
+function symbolsOn(line, name) {
+  return [...frame.contentDocument.querySelectorAll(`#line-${line} span[data-symbols]`)]
+    .find(span => span.textContent == name)?.dataset.symbols || "";
+}
+
+add_task(async function test_JsEnvironmentsInlineScripts() {
+  await TestUtils.loadPath("/tests/source/testing/web-platform/tests/jsenv-pages/inline-scripts.html");
+  ok(section()?.querySelector(".js-env-roots li[data-root='testing/web-platform/tests/jsenv-pages/inline-scripts.html']"),
+     "A web-platform-tests page has its environment");
+  const clicked = "testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().";
+  ok(symbolsOn(9, "clicked").endsWith(clicked), "whose event handler's call is of the page's function");
+  ok(symbolsOn(11, "clicked").endsWith(clicked), "its inline script's definition");
+  ok(symbolsOn(15, "test").endsWith("testing/web-platform/tests/resources/testharness.js/test()."),
+     "and its inline script's test() is its harness's");
+  ok(!frame.contentDocument.querySelector("#file span[data-symbols^='#']"),
+     "rather than of js-analyze's names");
+});
+
+// A `.worker.js` test loads its harness itself, and a Test262 test runs
+// after its harness and its frontmatter's includes.
+add_task(async function test_JsEnvironmentsWptKinds() {
+  await TestUtils.loadPath("/tests/source/testing/web-platform/tests/jsenv-pages/worker-test.worker.js");
+  is(scripts(section().querySelector(".js-env-roots > li.js-env")).join(", "),
+     "testing/web-platform/tests/jsenv-pages/worker-test.worker.js test, " +
+     "testing/web-platform/tests/resources/testharness.js loaded",
+     "A .worker.js test's environment has the harness it loads");
+  ok(symbolsOn(5, "test").endsWith("testing/web-platform/tests/resources/testharness.js/test()."),
+     "whose test() it calls");
+
+  await TestUtils.loadPath("/tests/source/testing/web-platform/tests/third_party/test262/test/built-ins/Array/compare.js");
+  ok(symbolsOn(7, "compareArray").endsWith("testing/web-platform/tests/third_party/test262/harness/compareArray.js/compareArray()."),
+     "A Test262 test's call is of its include's function");
+  ok(symbolsOn(7, "assert").endsWith("testing/web-platform/tests/third_party/test262/harness/assert.js/assert()."),
+     "and of its harness's");
+});
+

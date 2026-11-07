@@ -21,6 +21,10 @@ export LC_CTYPE=C.UTF-8
 # handful of jobs (js-analyze ran at ~2.7 cores of 32 for a minute).
 ANALYZE_FILES_PER_JOB=250
 
+# (The pages whose inline scripts and event handlers their JS environments'
+# analysis has, in js-environments-pages/, get only their markup's analysis
+# here; see js-environments-analyze.sh.)
+#
 # Add line number for the file list with `nl`, which is used as a global
 # fileIndex and used for local variable symbols.
 #
@@ -28,5 +32,6 @@ ANALYZE_FILES_PER_JOB=250
 cat $INDEX_ROOT/html-files | nl -w1 -s " " | \
     parallel --pipe -N $ANALYZE_FILES_PER_JOB --halt 2 \
     js -f $MOZSEARCH_PATH/scripts/js-analyze.js -- \
-    $MOZSEARCH_PATH $FILES_ROOT $INDEX_ROOT/analysis $MOZSEARCH_WASM_DIR
+    $MOZSEARCH_PATH $FILES_ROOT $INDEX_ROOT/analysis $MOZSEARCH_WASM_DIR \
+    $INDEX_ROOT/js-environments-pages
 echo $?

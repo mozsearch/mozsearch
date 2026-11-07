@@ -31,6 +31,23 @@ input_file: inputs/web/files/nav-panel/wpt__some_cross_global_test__navpanel__ht
     </li>
   </ul>
 </div>
+  <h4 id="panel-js-environments">JS environments</h4>
+<div class="panel-js-environments">
+  <ul class="js-env-roots">
+    <li class="js-env" data-root="testing/web-platform/tests/complex-tests/some_cross_global_test.any.js"><span class="js-env-flavor">wpt</span> in a <span class="js-env-global">window</span>
+<ol class="js-env-scripts">
+  <li class="js-env-script js-env-role-harness"><a href="/tests/source/testing/web-platform/tests/resources/testharness.js?test=testing/web-platform/tests/complex-tests/some_cross_global_test.any.js">testing/web-platform/tests/resources/testharness.js</a> <span class="js-env-role">harness</span></li>
+  <li class="js-env-script js-env-role-test" aria-current="true"><a href="/tests/source/testing/web-platform/tests/complex-tests/some_cross_global_test.any.js">testing/web-platform/tests/complex-tests/some_cross_global_test.any.js</a> <span class="js-env-role">test</span></li>
+</ol>
+</li>
+    <li class="js-env" data-root="testing/web-platform/tests/complex-tests/some_cross_global_test.any.js"><span class="js-env-flavor">wpt</span> in a <span class="js-env-global">dedicatedworker</span>
+<ol class="js-env-scripts">
+  <li class="js-env-script js-env-role-harness"><a href="/tests/source/testing/web-platform/tests/resources/testharness.js?test=testing/web-platform/tests/complex-tests/some_cross_global_test.any.js">testing/web-platform/tests/resources/testharness.js</a> <span class="js-env-role">harness</span></li>
+  <li class="js-env-script js-env-role-test" aria-current="true"><a href="/tests/source/testing/web-platform/tests/complex-tests/some_cross_global_test.any.js">testing/web-platform/tests/complex-tests/some_cross_global_test.any.js</a> <span class="js-env-role">test</span></li>
+</ol>
+</li>
+  </ul>
+</div>
   <h4>Revision control</h4>
   <ul>
   <li>

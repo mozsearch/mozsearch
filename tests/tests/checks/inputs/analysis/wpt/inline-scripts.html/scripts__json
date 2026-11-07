@@ -1,0 +1,1 @@
+filter-analysis testing/web-platform/tests/jsenv-pages/inline-scripts.html --symbol-prefix 'S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/'

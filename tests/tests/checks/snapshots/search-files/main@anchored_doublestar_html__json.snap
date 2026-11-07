@@ -210,6 +210,20 @@ input_file: inputs/search-files/anchored_doublestar_html__json
       }
     },
     {
+      "path": "testing/web-platform/tests/jsenv-pages/inline-scripts.html",
+      "concise": {
+        "path_kind": "test",
+        "is_dir": false,
+        "file_size": 559,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "A page's inline scripts, event handlers and styles",
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
       "path": "tests/file_something.html",
       "concise": {
         "path_kind": "test",

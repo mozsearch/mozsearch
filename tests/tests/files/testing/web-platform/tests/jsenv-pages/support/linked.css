@@ -1,0 +1,4 @@
+/* A test's stylesheet, whose custom properties are its own. */
+:root {
+  --linked-gap: 2px;
+}

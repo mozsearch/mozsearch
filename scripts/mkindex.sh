@@ -198,6 +198,12 @@ if should_perform "css-analyze"; then
     $MOZSEARCH_PATH/scripts/css-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "css-analyze.sh"
 fi
 
+# Pages' analyses of their inline scripts (js-environments-analyze's) and of
+# their markup (js- and html-analyze's), merged.
+if should_perform "js-environments-pages"; then
+    $MOZSEARCH_PATH/scripts/js-environments-pages.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments-pages.sh"
+fi
+
 if [[ -n $IDL_ANALYZE_PID ]]; then
     echo "Performing idl-analyze-wait step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     IDL_ANALYZE_STATUS=0

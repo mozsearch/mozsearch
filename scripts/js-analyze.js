@@ -13,6 +13,10 @@ let gCouldBeJson = false;
 // Attribute name for logError to use heuristics to downgrade errors.
 let gAttrName = "";
 
+// Whether the file is a page whose inline scripts and event handlers its JS
+// environments' analysis has (see `inlinePagesRoot`), so that they're left out.
+let gInlineAnalyzed = false;
+
 const ERROR_INTERVENTIONS = [
   {
     includes: "expected expression, got '<': ",
@@ -3438,6 +3442,9 @@ class BaseParser {
   }
 
   handleEventListener(tag, prop) {
+    if (gInlineAnalyzed) {
+      return;
+    }
     let text = tag.attrs[prop].value;
     let line = tag.attrs[prop].valueLine;
     let column = tag.attrs[prop].valueColumn;
@@ -3508,6 +3515,9 @@ class BaseParser {
   }
 
   handleScript(text, tag) {
+    if (gInlineAnalyzed) {
+      return;
+    }
     let target = this.getScriptTarget(tag);
 
     if (target !== "script" && target !== "module") {
@@ -4163,6 +4173,7 @@ function analyzeFile(filename)
 }
 
 function resetState() {
+  gInlineAnalyzed = false;
   gParsedAs = "script";
   gFilename = "";
   gIncludeUsed = false;
@@ -4187,6 +4198,11 @@ mozSearchRoot = scriptArgs[0];
 const localRoot = scriptArgs[1];
 const analysisRoot = scriptArgs[2];
 const wasmPath = scriptArgs[3];
+// The analyses of the pages whose inline scripts and event handlers
+// js-environments-analyze.sh analyzed, in their JS environments (see
+// scripts/js-environments-pages.sh, which merges them with these), if any:
+// only those pages' markup (and styles) is analyzed here.
+const inlinePagesRoot = scriptArgs[4];
 
 while (true) {
   const line = readline();
@@ -4216,6 +4232,15 @@ while (true) {
     continue;
   } catch {
     // pass
+  }
+
+  if (inlinePagesRoot) {
+    try {
+      os.file.readFile(inlinePagesRoot + "/" + sourcePath);
+      gInlineAnalyzed = true;
+    } catch {
+      // pass
+    }
   }
 
   const origOut = os.file.redirect(analysisFile);

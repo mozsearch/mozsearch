@@ -30,6 +30,8 @@ pub struct PageScript {
 pub struct PageScan {
     /// Its JS scripts, in order (not those of other types, ex: JSON).
     pub scripts: Vec<PageScript>,
+    /// Its event handler attributes' (`on*`'s) values' bytes, in order.
+    pub handlers: Vec<std::ops::Range<usize>>,
     /// Its `<iframe>`s' and `<frame>`s' `src`s, with their lines.
     pub frames: Vec<(String, u32)>,
     /// Its `<base>`'s `href`, if any.
@@ -68,14 +70,102 @@ fn is_js_type(script_type: Option<&str>) -> (bool, bool) {
     }
 }
 
+fn is_html_space(b: u8) -> bool {
+    matches!(b, b'\t' | b'\n' | b'\x0c' | b'\r' | b' ')
+}
+
+/// Whether an attribute's name is an event handler's (`on` and a word of 3
+/// letters or more, as the shortest events' names are, ex: `oncut`, `onend`,
+/// rather than ex: `one`).
+fn is_handler_name(name: &[u8]) -> bool {
+    name.len() >= 5
+        && name[..2].eq_ignore_ascii_case(b"on")
+        && name[2..].iter().all(u8::is_ascii_alphabetic)
+}
+
+/// The bytes of a start tag's event handler attributes' values (without
+/// their quotes), relative to it, as the HTML tokenizer reads its attributes.
+fn handler_values(tag: &[u8]) -> Vec<std::ops::Range<usize>> {
+    let mut values = vec![];
+    let n = tag.len();
+    let mut i = 1;
+    while i < n && !is_html_space(tag[i]) && tag[i] != b'/' && tag[i] != b'>' {
+        i += 1;
+    }
+    loop {
+        while i < n && (is_html_space(tag[i]) || tag[i] == b'/') {
+            i += 1;
+        }
+        if i >= n || tag[i] == b'>' {
+            break;
+        }
+        let name_start = i;
+        // (A name's first character can be `=`.)
+        i += 1;
+        while i < n && !is_html_space(tag[i]) && !matches!(tag[i], b'/' | b'>' | b'=') {
+            i += 1;
+        }
+        let name = &tag[name_start..i];
+        while i < n && is_html_space(tag[i]) {
+            i += 1;
+        }
+        if i >= n || tag[i] != b'=' {
+            continue;
+        }
+        i += 1;
+        while i < n && is_html_space(tag[i]) {
+            i += 1;
+        }
+        let value = if i < n && (tag[i] == b'"' || tag[i] == b'\'') {
+            let quote = tag[i];
+            i += 1;
+            let start = i;
+            while i < n && tag[i] != quote {
+                i += 1;
+            }
+            let value = start..i;
+            i = (i + 1).min(n);
+            value
+        } else {
+            let start = i;
+            while i < n && !is_html_space(tag[i]) && tag[i] != b'>' {
+                i += 1;
+            }
+            start..i
+        };
+        if is_handler_name(name) && !tag[value.clone()].iter().all(|b| is_html_space(*b)) {
+            values.push(value);
+        }
+    }
+    values
+}
+
 /// A page's scripts, frames and base.
 pub fn scan_page(source: &str) -> PageScan {
     let scan = Rc::new(RefCell::new(PageScan::default()));
     // (Whether the `<script>` whose text is next is a JS one.)
     let in_js = Rc::new(RefCell::new(false));
     let (scripts, texts, frames, bases) = (scan.clone(), scan.clone(), scan.clone(), scan.clone());
+    let handlers = scan.clone();
     let (in_js_start, in_js_text) = (in_js.clone(), in_js.clone());
     let settings = Settings::new()
+        .append_element_content_handler(element!("*", move |el| {
+            if el
+                .attributes()
+                .iter()
+                .any(|a| is_handler_name(a.name().as_bytes()))
+            {
+                let tag = el.source_location().bytes();
+                if let Some(text) = source.as_bytes().get(tag.clone()) {
+                    handlers.borrow_mut().handlers.extend(
+                        handler_values(text)
+                            .into_iter()
+                            .map(|v| tag.start + v.start..tag.start + v.end),
+                    );
+                }
+            }
+            Ok(())
+        }))
         .append_element_content_handler(element!("script", move |el| {
             let (js, module) = is_js_type(el.get_attribute("type").as_deref());
             *in_js_start.borrow_mut() = js && el.get_attribute("src").is_none();
@@ -127,6 +217,178 @@ pub fn scan_page(source: &str) -> PageScan {
             .retain(|s| s.src.is_some() || s.inline.is_some());
     }
     scan
+}
+
+/// What an inline script file has before an event handler's value, in the
+/// blanks before it (its tag's and attribute's name): a statement of an
+/// arrow function taking the event (its `this` is the element's, which no
+/// analysis follows anyway).
+pub const HANDLER_PREFIX: &str = ";(event)=>{";
+
+/// Blanks for `text`: a space for each of its UTF-16 code units (whose
+/// columns analyses count), keeping its newlines (but `\r`s, which JS but not
+/// searchfox's lines would count).
+fn push_blanks(out: &mut String, text: &str) {
+    for c in text.chars() {
+        if c == '\n' {
+            out.push('\n');
+        } else {
+            for _ in 0..c.len_utf16() {
+                out.push(' ');
+            }
+        }
+    }
+}
+
+/// The character an entity at `text`'s start is, if it's a simple one (or a
+/// numeric reference to an ASCII character), with its length.
+fn entity(text: &str) -> Option<(char, usize)> {
+    if !text.starts_with('&') {
+        return None;
+    }
+    let end = text.bytes().take(10).position(|b| b == b';')?;
+    let name = &text[1..end];
+    let c = match name {
+        "amp" => '&',
+        "lt" => '<',
+        "gt" => '>',
+        "quot" => '"',
+        "apos" => '\'',
+        _ => {
+            let n = if let Some(hex) = name.strip_prefix("#x").or_else(|| name.strip_prefix("#X")) {
+                u32::from_str_radix(hex, 16).ok()?
+            } else {
+                name.strip_prefix('#')?.parse().ok()?
+            };
+            char::from_u32(n).filter(char::is_ascii)?
+        }
+    };
+    Some((c, end + 1))
+}
+
+/// `text` with its entities decoded, each run of them padded with spaces to
+/// its length after it (so that `&amp;&amp;` is `&&`), so that what's after
+/// it stays in its column.
+fn push_decoded(out: &mut String, text: &str) {
+    let mut rest = text;
+    while let Some(i) = rest.find('&') {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        let mut run = 0;
+        while let Some((c, len)) = entity(rest) {
+            out.push(c);
+            run += len - 1;
+            rest = &rest[len..];
+        }
+        if run == 0 {
+            out.push('&');
+            rest = &rest[1..];
+        }
+        for _ in 0..run {
+            out.push(' ');
+        }
+    }
+    out.push_str(rest);
+}
+
+/// An inline script's text as JS: an XML page's (XHTML's, XUL's, SVG's) with
+/// its CDATA sections' markers blanked and its entities decoded outside them
+/// (as the XML parser does), and either's leading `<!--` and trailing `-->`
+/// (which old pages hide their scripts in, and TypeScript doesn't take as
+/// comments) blanked.
+fn push_script(out: &mut String, text: &str, xml: bool) {
+    let start = out.len();
+    if xml {
+        let mut rest = text;
+        while let Some(i) = rest.find("<![CDATA[") {
+            push_decoded(out, &rest[..i]);
+            push_blanks(out, "<![CDATA[");
+            rest = &rest[i + "<![CDATA[".len()..];
+            let end = rest.find("]]>").unwrap_or(rest.len());
+            out.push_str(&rest[..end]);
+            if end < rest.len() {
+                push_blanks(out, "]]>");
+                rest = &rest[end + "]]>".len()..];
+            } else {
+                rest = "";
+            }
+        }
+        push_decoded(out, rest);
+    } else {
+        out.push_str(text);
+    }
+    let script = &out[start..];
+    let trimmed = script.trim_start();
+    if trimmed.starts_with("<!--") {
+        let at = start + script.len() - trimmed.len();
+        out.replace_range(at..at + 4, "    ");
+    }
+    let end = start + out[start..].trim_end().len();
+    if out[start..end].ends_with("-->") {
+        out.replace_range(end - 3..end, "   ");
+    }
+}
+
+/// A page's inline scripts and event handlers as a JS file whose positions
+/// are the page's (see `push_blanks`): the rest of the page blanked, each
+/// script after a `;` (its start tag's `>`'s place), so that it's a
+/// statement of its own, and each handler as a statement of a function (see
+/// `HANDLER_PREFIX`; a handler without room for it, too far left on its line,
+/// is left out), with its value's entities decoded; or None if it has none.
+pub fn inline_file(source: &str, scan: &PageScan, xml: bool) -> Option<String> {
+    let mut pieces: Vec<(std::ops::Range<usize>, bool)> = scan
+        .scripts
+        .iter()
+        .filter_map(|s| s.inline.clone())
+        .map(|r| (r, false))
+        .chain(scan.handlers.iter().map(|r| (r.clone(), true)))
+        .filter(|(r, _)| {
+            r.end <= source.len()
+                && source.is_char_boundary(r.start)
+                && source.is_char_boundary(r.end)
+        })
+        .collect();
+    pieces.sort_by_key(|(r, _)| r.start);
+    let mut out = String::with_capacity(source.len());
+    let mut at = 0;
+    let mut code = false;
+    for (range, handler) in pieces {
+        if range.start < at {
+            continue;
+        }
+        push_blanks(&mut out, &source[at..range.start]);
+        at = range.end;
+        let text = &source[range];
+        if !handler {
+            if out.ends_with(' ') {
+                out.pop();
+                out.push(';');
+            }
+            push_script(&mut out, text, xml);
+            code |= !text.trim().is_empty();
+            continue;
+        }
+        let room = out.len() - out.trim_end_matches(' ').len();
+        if room < HANDLER_PREFIX.len() {
+            push_blanks(&mut out, text);
+            continue;
+        }
+        out.truncate(out.len() - HANDLER_PREFIX.len());
+        out.push_str(HANDLER_PREFIX);
+        push_decoded(&mut out, text);
+        code = true;
+        // (Its end, in its quote's place, or that of what ends it unquoted;
+        // or before the newline ending it.)
+        out.push('}');
+        if let Some(c) = source[at..].chars().next().filter(|c| *c != '\n') {
+            for _ in 1..c.len_utf16() {
+                out.push(' ');
+            }
+            at += c.len_utf8();
+        }
+    }
+    push_blanks(&mut out, &source[at..]);
+    code.then_some(out)
 }
 
 /// How a script loads another.
@@ -339,6 +601,54 @@ mod tests {
         );
         let inline = scan.scripts[2].inline.clone().unwrap();
         assert_eq!(page[inline].trim(), "var x = 1;");
+    }
+
+    #[test]
+    fn test_handler_values() {
+        let tag =
+            br#"<button id=b onclick="go(1)" ONMOUSEOVER='x()' onkeyup=y() one="no" onblur="  ">"#;
+        let values: Vec<&[u8]> = handler_values(tag).into_iter().map(|r| &tag[r]).collect();
+        assert_eq!(values, vec![&b"go(1)"[..], b"x()", b"y()"]);
+    }
+
+    #[test]
+    fn test_inline_file() {
+        let page = "<html><body onload=\"init()\">\n<script>\nvar x = 1;\n</script><script src=\"a.js\"></script>\n<button onclick='go(x, &quot;\u{e9}&quot;)'>Go</button><b oncut=a()>\u{1f600}\n<script><!--\nfunction init() {}\n//--></script><p onclick=\"z()\"></p>\n</body></html>";
+        let scan = scan_page(page);
+        let file = inline_file(page, &scan, false).unwrap();
+        // (The same lines, of the same UTF-16 lengths.)
+        let lengths = |text: &str| -> Vec<usize> {
+            text.split('\n').map(|l| l.encode_utf16().count()).collect()
+        };
+        assert_eq!(lengths(&file), lengths(page));
+        let lines: Vec<&str> = file.split('\n').map(str::trim_end).collect();
+        assert_eq!(
+            lines,
+            vec![
+                "         ;(event)=>{init()}",
+                "       ;",
+                "var x = 1;",
+                "",
+                "      ;(event)=>{go(x, \"     \u{e9}\"     )}          ;(event)=>{a()}",
+                "       ;",
+                "function init() {}",
+                "//             ;(event)=>{z()}",
+                "",
+            ]
+        );
+        // (An XHTML page's CDATA and entities, a run of them decoded together;
+        // a page without code.)
+        let xhtml =
+            "<script>//<![CDATA[\nif (a < b) {}\n//]]></script><script>c &amp;&amp; d</script>";
+        let file = inline_file(xhtml, &scan_page(xhtml), true).unwrap();
+        assert_eq!(
+            file,
+            "       ;//         \nif (a < b) {}\n//                   ;c &&         d         "
+        );
+        assert_eq!(
+            inline_file("<p>hi</p>", &scan_page("<p>hi</p>"), false),
+            None
+        );
     }
 
     #[test]

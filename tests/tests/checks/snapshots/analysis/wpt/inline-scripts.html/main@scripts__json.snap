@@ -1,0 +1,202 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/wpt/inline-scripts.html/scripts__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/"
+  },
+  {
+    "loc": "00009:24-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "clicked",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked()."
+  },
+  {
+    "loc": "00011:9-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "clicked",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked()."
+  },
+  {
+    "loc": "00011:17-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "event",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().(event)",
+    "context": "clicked",
+    "contextsym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked()."
+  },
+  {
+    "loc": "00012:9-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "event",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().(event)",
+    "context": "clicked",
+    "contextsym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked()."
+  },
+  {
+    "loc": "00016:16-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "clicked",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked()."
+  },
+  {
+    "loc": "00016:26-30",
+    "target": 1,
+    "kind": "def",
+    "pretty": "type0",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/type0:"
+  },
+  {
+    "loc": "00001:0",
+    "source": 1,
+    "syntax": "def",
+    "pretty": " ",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/",
+    "type": "module inline-scripts.html"
+  },
+  {
+    "loc": "00009:24-31",
+    "source": 1,
+    "syntax": "use,method",
+    "pretty": "method clicked",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().",
+    "type": "any"
+  },
+  {
+    "loc": "00011:9-16",
+    "source": 1,
+    "syntax": "def,method",
+    "pretty": "method clicked",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().",
+    "nestingRange": "11:24-13:1",
+    "type": "any"
+  },
+  {
+    "loc": "00011:17-22",
+    "source": 1,
+    "syntax": "def,arg",
+    "pretty": "arg event",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().(event)",
+    "type": "any"
+  },
+  {
+    "loc": "00012:9-14",
+    "source": 1,
+    "syntax": "use,arg",
+    "pretty": "arg event",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().(event)",
+    "type": "any"
+  },
+  {
+    "loc": "00016:16-23",
+    "source": 1,
+    "syntax": "use,method",
+    "pretty": "method clicked",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().",
+    "type": "any"
+  },
+  {
+    "loc": "00016:26-30",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field type0",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/type0:",
+    "type": "string"
+  },
+  {
+    "loc": "00001:0",
+    "structured": 1,
+    "pretty": "",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/",
+    "type_pretty": "module inline-scripts.html",
+    "kind": "",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00011:9-16",
+    "structured": 1,
+    "pretty": "clicked",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().",
+    "js_sym": "#clicked",
+    "type_pretty": "any",
+    "kind": "method",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00011:17-22",
+    "structured": 1,
+    "pretty": "event",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/clicked().(event)",
+    "type_pretty": "any",
+    "kind": "arg",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00016:26-30",
+    "structured": 1,
+    "pretty": "type0",
+    "sym": "S_js_typescript_test-ts/testing/web-platform/tests/jsenv-pages/inline-scripts.html/type0:",
+    "type_pretty": "string",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  }
+]

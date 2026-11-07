@@ -1,10 +1,11 @@
 # The tests tree's JS environments (see tools/src/js_environments/rules.rs
 # and files/jsenv/): xpcshell, mochitest and browser-chrome tests (with a
 # scope), by the moz.build variables declaring their manifests, and JS shell
-# tests by their paths.
+# tests by their paths; and web-platform-tests' (files/testing/web-platform/,
+# ex: jsenv-pages/), with Test262's.
 load_globals = ["xpcshell", "js-shell"]
 # (Its helpers are in a function it calls at once.)
-unwrap = ["jsenv/shell/shell.js"]
+unwrap = ["jsenv/shell/shell.js", "testing/web-platform/tests/resources/testharness.js"]
 
 [[flavors]]
 name = "xpcshell"
@@ -32,6 +33,17 @@ include = ["jsenv/shell/tests/*.js"]
 global = "js-shell"
 dir_heads_root = "jsenv/shell"
 dir_heads = ["shell.js"]
+
+[wpt]
+root = "testing/web-platform/tests"
+window_harness = ["resources/testharness.js"]
+worker_harness = ["resources/testharness.js"]
+extra_roots = { "/_mozilla/" = "testing/web-platform/mozilla/tests" }
+
+[wpt.test262]
+tests = ["third_party/test262/test"]
+harness = ["third_party/test262/harness/assert.js", "third_party/test262/harness/sta.js"]
+includes_dir = "third_party/test262/harness"
 
 [urls]
 "/tests/" = ""
