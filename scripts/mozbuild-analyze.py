@@ -23,6 +23,8 @@ def to_loc(line, c1, c2):
 # platforms' (`__GENERATED__/__{platform}__/{path}`).
 def get_platforms(obj_root):
     platforms = [""]
+    if not os.path.isdir(obj_root):
+        return platforms
     for name in os.listdir(obj_root):
         objdir = os.path.join(obj_root, name)
         if os.path.isdir(objdir) and name.startswith("__") and name.endswith("__"):
@@ -61,12 +63,15 @@ class AnalysisWriter:
         })
 
     def write(self):
+        # (Its directory, which an analysis of only some files, ex: a try
+        # push's, may not have yet.)
+        os.makedirs(os.path.dirname(self.analysis_path), exist_ok=True)
         with open(self.analysis_path, "w") as f:
             for item in sorted(self.items, key=lambda x: x["loc"]):
                 print(json.dumps(item), file=f)
 
 
-def analyze(local_path, files_root, analysis_root, obj_root, platforms):
+def analyze(local_path, files_root, analysis_root, obj_roots, platforms):
     mozbuild_path = os.path.join(files_root, local_path)
     analysis_path = os.path.join(analysis_root, local_path)
 
@@ -110,20 +115,29 @@ def analyze(local_path, files_root, analysis_root, obj_root, platforms):
                     local_target = os.path.join(local_dir, target)
 
                 local_target = os.path.normpath(local_target)
-                if os.path.isfile(os.path.join(obj_root, platform, local_target)):
+                if any(os.path.isfile(os.path.join(obj_root, platform, local_target))
+                       for obj_root in obj_roots):
                     webpath = os.path.join("__GENERATED__", platform, local_target)
                     w.add_use("FILE", webpath, n.lineno, n.col_offset, n.end_col_offset)
 
     w.write()
 
 
+# Usage: mozbuild-analyze.py INDEX_ROOT FILES_ROOT OBJ_ROOT ANALYSIS_ROOT [OBJ_ROOT...] < paths
+#
+# The objdirs after the first are more generated files of the tree's (ex: a
+# try push's objdir, with those it adds; see try-analyze-rest.sh).
 index_root = sys.argv[1]
 files_root = sys.argv[2]
-obj_root = sys.argv[3]
+obj_roots = [sys.argv[3]] + sys.argv[5:]
 analysis_root = sys.argv[4]
 
-platforms = get_platforms(obj_root)
+platforms = []
+for obj_root in obj_roots:
+    for platform in get_platforms(obj_root):
+        if platform not in platforms:
+            platforms.append(platform)
 
 for local_path in sys.stdin:
     local_path = local_path.strip()
-    analyze(local_path, files_root, analysis_root, obj_root, platforms)
+    analyze(local_path, files_root, analysis_root, obj_roots, platforms)

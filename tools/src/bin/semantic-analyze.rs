@@ -4,7 +4,7 @@
 // documents (see `tools::rendered_docs::analysis`).
 //
 // Usage:
-//   semantic-analyze FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths
+//   semantic-analyze [--write-only LIST] FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths
 //
 // Paths (relative to FILES_ROOT, one per line, ex: the repo-files list) which
 // mappings apply to, and documents, get their analysis (all of those mappings'
@@ -14,8 +14,11 @@
 // definitions or constants in any file (see `semantic_analyzer::Resolve`) are
 // written once all of the files are analyzed.  DOC_TREES_JSON is the map of the
 // documentation's staged layout (see `file_format::doc_trees`), if the tree
-// has one.
+// has one.  With --write-only, only the paths LIST lists are written (ex: a
+// try push's analyzed files and those it changes; see try-analyze-rest.sh),
+// all of the paths still analyzed for what their uses can name.
 
+use std::collections::HashSet;
 use std::io::BufRead;
 use std::path::Path;
 use std::process::exit;
@@ -80,14 +83,33 @@ fn analyze_file(
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let mut args: Vec<String> = std::env::args().collect();
+    let write_only: Option<HashSet<String>> =
+        match args.iter().position(|arg| arg == "--write-only") {
+            Some(i) if i + 1 < args.len() => {
+                let list = args.remove(i + 1);
+                args.remove(i);
+                let text = std::fs::read_to_string(&list).unwrap_or_else(|e| {
+                    eprintln!("Couldn't read {}: {}", list, e);
+                    exit(1);
+                });
+                Some(
+                    text.lines()
+                        .filter(|line| !line.is_empty())
+                        .map(String::from)
+                        .collect(),
+                )
+            }
+            _ => None,
+        };
     if args.len() != 3 && args.len() != 4 {
         eprintln!(
-            "Usage: {} FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths",
+            "Usage: {} [--write-only LIST] FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths",
             args[0]
         );
         exit(1);
     }
+    let writes = |path: &str| write_only.as_ref().is_none_or(|list| list.contains(path));
     let (files_root, analysis_root) = (Path::new(&args[1]), Path::new(&args[2]));
     let _ = rayon::ThreadPoolBuilder::new()
         .num_threads(
@@ -139,9 +161,9 @@ fn main() {
                         unresolved,
                         ..
                     } = analysis;
-                    if unresolved.is_empty() {
+                    if writes(path) && unresolved.is_empty() {
                         writing.push((path, records));
-                    } else {
+                    } else if writes(path) {
                         resolving.push((path, records, unresolved));
                     }
                     analyzed += 1;

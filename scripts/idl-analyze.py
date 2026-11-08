@@ -27,6 +27,8 @@ import json
 import re
 import sys
 
+from analysis_files import AnalysisFiles
+
 def find_line_column(text, token, pos):
     while text[pos : pos + len(token)] != token:
         if text[pos] == '\n':
@@ -107,10 +109,9 @@ def read_cpp_analysis(fname, cdata_line_map):
     base = os.path.basename(fname)
     (idlName, suffix) = os.path.splitext(base)
     headerName = idlName + '.h'
-    p = os.path.join(indexRoot, 'analysis', '__GENERATED__', 'dist', 'include', headerName)
-    try:
-        lines = open(p).readlines()
-    except IOError as e:
+    p = os.path.join('__GENERATED__', 'dist', 'include', headerName)
+    lines = analysis_files.lines(p)
+    if lines is None:
         return None
     cdata_analysis = []
     methods = {}
@@ -495,10 +496,15 @@ parser.add_argument('index_root', help="The location to read the C++ analysis fr
 parser.add_argument('xpidl_file', help="The full path to the XPIDL file to analyze")
 parser.add_argument('objdir', help="The path to the objdir, where we will read the generated C++ header to build the line map")
 parser.add_argument('--do-not-fill-binding-slots', action="store_true", help="Do not generate synthetic bindingSlots items, expect other analyzers to fill slotOwner instead.")
+parser.add_argument('--analysis-root', help="The analysis to read the C++ analysis from, rather than the index root's")
+parser.add_argument('--base-analysis', help="The analysis (gzipped or not) for the files the analysis root doesn't have, ex: the tree's, for a try push's (see try-analyze-rest.sh)")
+parser.add_argument('--incomplete', help="A list of the analysis root's files which have only some of their records (see build-try-delta's --incomplete), read with the base analysis' too")
 
 args = parser.parse_args()
 
 indexRoot = args.index_root
+analysis_files = AnalysisFiles(args.analysis_root or os.path.join(indexRoot, 'analysis'),
+                               args.base_analysis, args.incomplete)
 fname = args.xpidl_file
 objdir = args.objdir
 fill_binding_slots = not args.do_not_fill_binding_slots

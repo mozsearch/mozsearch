@@ -11,6 +11,8 @@ import sys
 
 import WebIDL
 
+from analysis_files import AnalysisFiles
+
 # local path => records.
 analysis_map = {}
 
@@ -205,14 +207,11 @@ class CppSymbolsBuilder:
 
 
 def read_cpp_analysis_one(path, cpp_symbols):
-    '''Read given analysis file and collect C++ symbols for generated code.'''
+    '''Read given analysis file (relative to the analysis root) and collect
+    C++ symbols for generated code.'''
 
-    if not os.path.exists(path):
-        return
-
-    try:
-        lines = open(path).readlines()
-    except IOError as e:
+    lines = analysis_files.lines(path)
+    if lines is None:
         return
 
     builder = CppSymbolsBuilder(cpp_symbols)
@@ -248,12 +247,12 @@ def read_cpp_analysis(analysis_root, local_path, bindings_local_path):
 
     if bindings_local_path:
         # Override the paths for bindings for testing.
-        p = os.path.join(analysis_root, bindings_local_path, 'include', header_name)
+        p = os.path.join(bindings_local_path, 'include', header_name)
         read_cpp_analysis_one(p, cpp_symbols)
-        p = os.path.join(analysis_root, bindings_local_path, 'src', cpp_name)
+        p = os.path.join(bindings_local_path, 'src', cpp_name)
         read_cpp_analysis_one(p, cpp_symbols)
     else:
-        generated_dir = os.path.join(analysis_root, '__GENERATED__')
+        generated_dir = '__GENERATED__'
         header_local_path = os.path.join('dist', 'include', 'mozilla', 'dom', header_name)
         cpp_local_path = os.path.join('dom', 'bindings', cpp_name)
 
@@ -262,7 +261,7 @@ def read_cpp_analysis(analysis_root, local_path, bindings_local_path):
         p = os.path.join(generated_dir, cpp_local_path)
         read_cpp_analysis_one(p, cpp_symbols)
 
-        for name in os.listdir(generated_dir):
+        for name in analysis_files.listdir(generated_dir):
             if name.startswith('__'):
                 p = os.path.join(generated_dir, name, header_local_path)
                 read_cpp_analysis_one(p, cpp_symbols)
@@ -1011,6 +1010,8 @@ parser.add_argument('analysis_root', help="The path to the analysis directory, w
 parser.add_argument('cache_dir', help="Path to a directory for the WebIDL parser to put temporary files into")
 parser.add_argument('bindings_local_path', help="Overrides analysis_root when for testing")
 parser.add_argument('--do-not-fill-js-binding-slots', action="store_true", help="Do not generate synthetic JS bindingSlots items, expect other analyzers to fill slotOwner instead.")
+parser.add_argument('--base-analysis', help="The analysis (gzipped or not) for the C++ analysis files the analysis directory doesn't have, ex: the tree's, for a try push's (see try-analyze-rest.sh)")
+parser.add_argument('--incomplete', help="A list of the analysis directory's files which have only some of their records (see build-try-delta's --incomplete), read with the base analysis' too")
 
 args = parser.parse_args()
 
@@ -1022,6 +1023,7 @@ bindings_local_path = args.bindings_local_path
 if bindings_local_path == 'null':
     bindings_local_path = None
 fill_js_binding_slots = not args.do_not_fill_js_binding_slots
+analysis_files = AnalysisFiles(analysis_root, args.base_analysis, args.incomplete)
 
 productions = parse_files(index_root, files_root, analysis_root, cache_dir, bindings_local_path)
 handle_productions(productions)

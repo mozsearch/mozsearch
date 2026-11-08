@@ -639,6 +639,9 @@ class AnalysisWriter:
         })
 
     def write(self):
+        # (Its directory, which an analysis of only some files, ex: a try
+        # push's, may not have yet.)
+        os.makedirs(os.path.dirname(self.analysis_path), exist_ok=True)
         with open(self.analysis_path, "w") as f:
             for item in self.items:
                 print(json.dumps(item), file=f)

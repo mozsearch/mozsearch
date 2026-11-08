@@ -61,7 +61,66 @@ fn get_options_parser() -> Options {
         "List of generated/objdir files, probably `objdir-files`.",
         "FILES_LIST",
     );
+    opts.optopt(
+        "",
+        "base-analysis",
+        "The analysis (gzipped or not) for the files ANALYSIS_DIR doesn't have, ex: the tree's, for a try push's (see scripts/try-analyze-rest.sh).",
+        "DIR",
+    );
+    opts.optopt(
+        "",
+        "incomplete",
+        "List of ANALYSIS_DIR's files which have only some of their records (see build-try-delta's --incomplete), read with --base-analysis's too.",
+        "FILES_LIST",
+    );
+    opts.optopt(
+        "",
+        "only",
+        "List of the IPDL files (by path, relative to BASE_DIR) whose analysis is written; the others are parsed, for their types and protocols, but not analyzed.",
+        "FILES_LIST",
+    );
     opts
+}
+
+/// Where a file's C++ analysis is read from: ANALYSIS_DIR's, or, for the
+/// files it doesn't have, the base's (`--base-analysis`), and also the base's
+/// for those it has only some of the records of (`--incomplete`).
+struct AnalysisFiles {
+    root: PathBuf,
+    base: Option<PathBuf>,
+    incomplete: HashSet<String>,
+}
+
+impl AnalysisFiles {
+    /// The analysis files of `path` (relative to the analysis' root), for
+    /// `read_analyses`.
+    fn paths(&self, path: &str) -> Vec<String> {
+        let own = self.root.join(path).to_string_lossy().into_owned();
+        let Some(base) = &self.base else {
+            return vec![own];
+        };
+        // (`read_analyses` reads `{path}.gz`, or else `{path}`: a web server's
+        // analysis is gzipped, with an empty file of its own name.)
+        let base = format!("{}.gz", base.join(path).display());
+        let has_own = std::fs::metadata(&own).is_ok_and(|m| m.len() > 0);
+        match (has_own, self.incomplete.contains(path)) {
+            (true, true) => vec![own, base],
+            (true, false) => vec![own],
+            (false, _) => vec![base],
+        }
+    }
+}
+
+/// A list file's lines, if it's given.
+fn load_set(filename: Option<String>) -> HashSet<String> {
+    let Some(filename) = filename else {
+        return HashSet::new();
+    };
+    BufReader::new(File::open(filename).unwrap())
+        .lines()
+        .map(|line| line.unwrap())
+        .filter(|line| !line.is_empty())
+        .collect()
 }
 
 fn load_file_list(filenames_file: &str) -> BTreeMap<String, String> {
@@ -897,6 +956,13 @@ fn main() {
     let base_path = Path::new(&base_dir);
     let analysis_path = Path::new(&analysis_dir);
 
+    let analysis_files = AnalysisFiles {
+        root: analysis_path.to_path_buf(),
+        base: matches.opt_str("base-analysis").map(PathBuf::from),
+        incomplete: load_set(matches.opt_str("incomplete")),
+    };
+    let only = matches.opt_str("only").map(|list| load_set(Some(list)));
+
     let mut file_names = Vec::new();
     for f in matches.free {
         file_names.push(PathBuf::from(f));
@@ -937,11 +1003,22 @@ fn main() {
     let content_facing = content_facing_protocols(&tus);
 
     for (_, tu) in tus {
-        println!("Analyzing {:?}", tu.file_name);
-
         let path = tu.file_name.as_path();
         let relative = path.strip_prefix(base_path).unwrap();
+        if only
+            .as_ref()
+            .is_some_and(|only| !only.contains(relative.to_string_lossy().as_ref()))
+        {
+            continue;
+        }
+        println!("Analyzing {:?}", tu.file_name);
+
         let absolute = analysis_path.join(relative);
+        // (Its directory, which an analysis of only some files, ex: a try
+        // push's, may not have yet.)
+        if let Some(dir) = absolute.parent() {
+            std::fs::create_dir_all(dir).unwrap();
+        }
         // (Buffered: a record's JSON is written in many small pieces.)
         let mut outputf = BufWriter::new(File::create(absolute).unwrap());
 
@@ -956,11 +1033,11 @@ fn main() {
                 .unwrap_or_default();
             let generated = match objdir_files_map.get(&format!("{}.h", stem)) {
                 Some(header) => {
-                    let mut paths = vec![analysis_path.join(header).to_string_lossy().into_owned()];
-                    println!("  Reading data structures' header {:?}", &paths[0]);
+                    let mut paths = analysis_files.paths(header);
+                    println!("  Reading data structures' header {:?}", &paths);
                     // (And their `.cpp`, which defines unions' constructors.)
                     if let Some(cpp) = objdir_files_map.get(&format!("{}.cpp", stem)) {
-                        paths.push(analysis_path.join(cpp).to_string_lossy().into_owned());
+                        paths.extend(analysis_files.paths(cpp));
                     }
                     GeneratedSymbols::load(&paths)
                 }
@@ -1027,12 +1104,9 @@ fn main() {
             // ### Parent Analyses
             let mut parent_ana_files = vec![];
             if let Some(parent_fname) = objdir_files_map.get(&format!("{}Parent.h", &ns.name.id)) {
-                let parent_path = analysis_path
-                    .join(parent_fname)
-                    .to_string_lossy()
-                    .into_owned();
-                println!("  Reading Parent header {:?}", &parent_path);
-                parent_ana_files.push(parent_path);
+                let parent_paths = analysis_files.paths(parent_fname);
+                println!("  Reading Parent header {:?}", &parent_paths);
+                parent_ana_files.extend(parent_paths);
             } else {
                 println!(
                     "  Unable to find Parent header for protocol: {}",
@@ -1042,12 +1116,9 @@ fn main() {
             if let Some(parent_impl_fname) =
                 repo_files_map.get(&format!("{}Parent.h", &ns.name.id[1..]))
             {
-                let parent_impl_path = analysis_path
-                    .join(parent_impl_fname)
-                    .to_string_lossy()
-                    .into_owned();
-                println!("  Reading Parent impl header {:?}", &parent_impl_path);
-                parent_ana_files.push(parent_impl_path);
+                let parent_impl_paths = analysis_files.paths(parent_impl_fname);
+                println!("  Reading Parent impl header {:?}", &parent_impl_paths);
+                parent_ana_files.extend(parent_impl_paths);
             } else {
                 println!(
                     "  Unable to find Parent impl header for protocol: {}",
@@ -1060,12 +1131,9 @@ fn main() {
             // ### Child Analyses
             let mut child_ana_files = vec![];
             if let Some(child_fname) = objdir_files_map.get(&format!("{}Child.h", &ns.name.id)) {
-                let child_path = analysis_path
-                    .join(child_fname)
-                    .to_string_lossy()
-                    .into_owned();
-                println!("  Reading Child header {:?}", &child_path);
-                child_ana_files.push(child_path);
+                let child_paths = analysis_files.paths(child_fname);
+                println!("  Reading Child header {:?}", &child_paths);
+                child_ana_files.extend(child_paths);
             } else {
                 println!(
                     "  Unable to find Child header for protocol: {}",
@@ -1075,12 +1143,9 @@ fn main() {
             if let Some(child_impl_fname) =
                 repo_files_map.get(&format!("{}Child.h", &ns.name.id[1..]))
             {
-                let child_impl_path = analysis_path
-                    .join(child_impl_fname)
-                    .to_string_lossy()
-                    .into_owned();
-                println!("  Reading Child impl header {:?}", &child_impl_path);
-                child_ana_files.push(child_impl_path);
+                let child_impl_paths = analysis_files.paths(child_impl_fname);
+                println!("  Reading Child impl header {:?}", &child_impl_paths);
+                child_ana_files.extend(child_impl_paths);
             } else {
                 println!(
                     "  Unable to find Child impl header for protocol: {}",

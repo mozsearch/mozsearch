@@ -1,0 +1,1 @@
+_ZN8trydelta9UseWidgetEv$int32 trydelta::UseWidget()

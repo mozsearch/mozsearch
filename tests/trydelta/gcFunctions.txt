@@ -1,0 +1,2 @@
+GC Function: _ZN8trydelta9UseWidgetEv$int32 trydelta::UseWidget()
+  (GC)

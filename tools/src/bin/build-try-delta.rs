@@ -216,10 +216,13 @@ fn result_paths(data: &CrossrefData) -> BTreeSet<Ustr> {
 /// The records of the files with web spec citations (see
 /// `spec_analyze::citations`) at the head, of those of `paths` the push
 /// analyzes or changes, by path: their records in `tip_root` (if any), with
-/// the citations, if the tree's `SPEC_` symbols are a linked tree's.  As
-/// indexing adds them to the files' analysis after the compilers' (see
-/// scripts/spec-analyze.sh), so that the files' records are the base's if
-/// the push doesn't change them, and the push's files have their citations.
+/// the citations, if the tree's `SPEC_` symbols are a linked tree's; and,
+/// with MDN's browser-compat-data (the tree's `bcd/data.json`), its WebIDL
+/// files' records with their symbols' spec definitions and MDN pages (see
+/// `spec_analyze::bcd`).  As indexing adds them to the files' analysis after
+/// the compilers' (see scripts/spec-analyze.sh), so that the files' records
+/// are the base's if the push doesn't change them, and the push's files have
+/// their citations.
 fn cite_specs<'a>(
     cli: &Cli,
     tree_config: &config::TreeConfig,
@@ -242,7 +245,11 @@ fn cite_specs<'a>(
         return cited;
     }
 
-    // (The files with URLs; spec-analyze skips the others.)
+    let bcd = Path::new(&tree_config.paths.index_path).join("bcd/data.json");
+    let bcd = bcd.exists().then_some(bcd);
+
+    // (The files with URLs, and, with BCD, the WebIDL files; spec-analyze
+    // skips the others.)
     let (files, analysis) = (scratch.join("cite-files"), scratch.join("cite-analysis"));
     let mut citing = vec![];
     for path in paths {
@@ -257,7 +264,9 @@ fn cite_specs<'a>(
         else {
             continue;
         };
-        if !std::str::from_utf8(blob.content()).is_ok_and(|text| text.contains("://")) {
+        if !std::str::from_utf8(blob.content()).is_ok_and(|text| text.contains("://"))
+            && !(bcd.is_some() && path.ends_with(".webidl"))
+        {
             continue;
         }
         let file = files.join(path);
@@ -300,6 +309,9 @@ fn cite_specs<'a>(
             .arg(git)
             .arg(history)
             .arg(scratch.join("stale-anchors-cited.json"));
+    }
+    if let Some(bcd) = &bcd {
+        command.arg("--bcd").arg(bcd);
     }
     let status = command
         .arg(&files)

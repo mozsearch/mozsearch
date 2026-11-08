@@ -1,0 +1,11 @@
+namespace mozilla {
+namespace trydelta {
+
+[ChildProc=any]
+async protocol PGadget {
+child:
+    async Poke(int32_t aAmount);
+};
+
+}  // namespace trydelta
+}  // namespace mozilla

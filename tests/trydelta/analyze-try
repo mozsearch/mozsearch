@@ -9,9 +9,9 @@ set -o pipefail # Check all commands in a pipeline
 # (PUSH_REVS, as the import's) rebased onto the indexed revision (here, the
 # tree's head) is compiled with the indexer (all of the tree's C++, since it's
 # small; see build), its TypeScript, JS, pages and stylesheets analyzed as the
-# tree's are (see try-analyze-typescript.sh and try-analyze-web.sh), and its
-# semantic delta
-# built from that analysis.  Its
+# tree's are (see try-analyze-typescript.sh and try-analyze-web.sh), and the
+# rest of its files too, with its analysis' URLs and GC (see
+# try-analyze-rest.sh), and its semantic delta built from that analysis.  Its
 # steps are "semantic::" steps, which the push's page names if it fails (see
 # try_import's `semantic_failure`).
 #
@@ -63,6 +63,11 @@ echo "Performing semantic::typescript step for $NAME : $(date +"%Y-%m-%dT%H:%M:%
 echo "Performing semantic::web step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 "$MOZSEARCH_PATH/scripts/try-analyze-web.sh" "$CONFIG_FILE" "$TREE_NAME" "$TREE_INDEX_ROOT" \
     "$WORK/files" "$WORK/changed.lst" "$WORK/tip-analysis"
+# (And the rest of its analyses, as the tree's: its WebIDL's, IPDL's, TOML's,
+# semantic analysis and moz.build files', and its analysis' URLs and GC.)
+echo "Performing semantic::rest step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+"$MOZSEARCH_PATH/scripts/try-analyze-rest.sh" "$CONFIG_FILE" "$TREE_NAME" "$TREE_INDEX_ROOT" \
+    "$WORK/files" "$WORK/objdir" "$WORK/changed.lst" "$WORK/tip-analysis"
 
 echo "Performing semantic::delta step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 # (A stack on a newer trunk revision which needs its changes is analyzed with

@@ -50,3 +50,14 @@ check-token-counts $HISTORY_ROOT --show 20
 
 echo "Performing setup::build-commit-index step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 build-commit-index $GIT_ROOT $HISTORY_ROOT/commit-index
+
+echo "Performing setup::metadata step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+# The hazard analysis' GC functions (UseWidget can GC; see annotate-gc), and
+# the tests tree's bit of MDN's browser-compat-data (see the tests tree's
+# setup), which a config repo's setup would download, for the tree's analysis
+# and its try pushes' (see scripts/try-analyze-rest.sh, and build-try-delta's
+# `cite_specs`).
+ln -s -f $CONFIG_REPO/$TREE_NAME/gcFunctions.txt $INDEX_ROOT
+ln -s -f $CONFIG_REPO/$TREE_NAME/allFunctions.txt $INDEX_ROOT
+mkdir -p $INDEX_ROOT/bcd
+cp $CONFIG_REPO/tests/bcd/data.json $INDEX_ROOT/bcd/data.json

@@ -1,0 +1,10 @@
+EXPORTS += [
+    "gadget.h",
+    "widget.h",
+]
+
+UNIFIED_SOURCES += [
+    "gadget_prefs.cpp",
+    "user.cpp",
+    "widget.cpp",
+]

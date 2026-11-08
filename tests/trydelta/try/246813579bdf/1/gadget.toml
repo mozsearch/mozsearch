@@ -1,0 +1,5 @@
+[DEFAULT]
+support-files = ["gadget.h"]
+prefs = ["gadget.loudness=true"]
+
+["test_gadget.html"]
