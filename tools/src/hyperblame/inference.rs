@@ -91,6 +91,9 @@
 //!    history attribute: the code of a handler removed from an element with an
 //!    id is followed to the code after a string of that id which the revision
 //!    added (ex: `case "allTabsMenu-searchTabs":`; see `infer_handler_moves`).
+//! 7. Boilerplate (license headers and modelines) is only its own file's: its
+//!    tokens which the passes above found copied, moved or evolved from
+//!    another file are added (see `detach_foreign_boilerplate`).
 //!
 //! ## Future work
 //!
@@ -192,8 +195,9 @@ pub enum FileChangeKind {
     /// back to treating tokens as copied (`TokenOrigin::Unchanged` relative to
     /// the old file) if they were not moved from somewhere else.  This means
     /// that tokens which were removed from the original file are treated as
-    /// moved, and tokens which still exist in the original file (ex: shared
-    /// boilerplate or a true copy) are treated as copied.
+    /// moved, and tokens which still exist in the original file (ex: a true
+    /// copy) are treated as copied, but boilerplate, which is only its own
+    /// file's (see `detach_foreign_boilerplate`).
     Copied,
 }
 
@@ -1925,6 +1929,7 @@ fn finalize(mut state: InferenceState) -> Vec<FileInference> {
             }
         }
     }
+    detach_foreign_boilerplate(&mut state);
 
     let mut results: Vec<FileInference> = state
         .origins
@@ -1972,6 +1977,48 @@ fn finalize(mut state: InferenceState) -> Vec<FileInference> {
     }
 
     results
+}
+
+/// Boilerplate (license headers and modelines; see
+/// `tree_sitter_support::boilerplate`) is only its own file's: a token of it
+/// which the passes found copied, moved or evolved from another file is added,
+/// and that file's token is extinguished, if it was removed.  Its own file's
+/// old version (renamed or not) keeps its history, but a copy's source doesn't.
+/// Boilerplate is shared by huge numbers of unrelated files, so it isn't
+/// evidence that two files are related (see `PairingSupport`), but its long
+/// identical runs are what the passes match best: ex: in 2010, IndexedDB's new
+/// headers, which git paired with unrelated files as copies (and the history
+/// then didn't keep as copies), got those files' tri-license blocks' history,
+/// which in 2014 `dom/indexedDB/ActorsParent.cpp` got with their code, so that
+/// its MPL 2 header's tokens' history began with `layout/build/nsLayoutCID.h`'s
+/// 2001 relicensing.
+fn detach_foreign_boilerplate(state: &mut InferenceState) {
+    for file in 0..state.inputs.len() {
+        // (A copy's old version is its source's.)
+        let copied = state.inputs[file].kind == FileChangeKind::Copied;
+        for new_idx in 0..state.origins[file].len() {
+            let from = match state.origins[file][new_idx] {
+                TokenOrigin::Added => continue,
+                TokenOrigin::Unchanged { .. } => None,
+                TokenOrigin::Moved {
+                    from_file,
+                    old_lineno,
+                }
+                | TokenOrigin::Evolved {
+                    from_file,
+                    old_lineno,
+                } => Some((from_file as usize, old_lineno as usize - 1)),
+            };
+            let own = !copied && from.is_none_or(|(from_file, _)| from_file == file);
+            if own || state.new_tokens[file][new_idx].effective_class() != TokenClass::Boilerplate {
+                continue;
+            }
+            if let Some((from_file, old_idx)) = from {
+                state.fates[from_file][old_idx] = Some(RemovedFate::Extinguished);
+            }
+            state.origins[file][new_idx] = TokenOrigin::Added;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2735,6 +2782,86 @@ mod tests {
             .split_whitespace()
             .map(|t| format_token_line("%", class, t))
             .collect()
+    }
+
+    #[test]
+    fn test_foreign_boilerplate() {
+        let license = classed(
+            TokenClass::Boilerplate,
+            "/* This Source Code Form is subject to the terms of the Mozilla Public License */",
+        );
+        let is_license =
+            |file: &[String], idx: usize| idx < license.len() && file[idx] == license[idx];
+        let code = |body: &str| {
+            let mut lines = license.clone();
+            lines.extend(toks("%", body));
+            lines
+        };
+
+        // A copy of an unrelated file which shares its license header: the
+        // header is added, the code it shares (ex: `int`) copied.
+        let (old, new) = (code("int frob = 1 ;"), code("int wobble = 2 ;"));
+        let inputs = vec![input(FileChangeKind::Copied, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        for (idx, origin) in results[0].origins.iter().enumerate() {
+            if is_license(&new, idx) {
+                assert_eq!(*origin, TokenOrigin::Added, "{}", new[idx]);
+            }
+        }
+        assert_eq!(
+            results[0].origins[license.len()],
+            TokenOrigin::Unchanged {
+                old_lineno: license.len() as u32 + 1
+            }
+        );
+
+        // Code moved from a deleted file to an added one: the code is moved,
+        // and the header added, its old tokens extinguished.
+        let body = "void frobnicateWidgets ( int widgetCount ) { return widgetCount * 2 ; }";
+        let (old, new) = (code(body), code(body));
+        let empty: Vec<String> = vec![];
+        let inputs = vec![
+            input(FileChangeKind::Deleted, &old, &empty),
+            input(FileChangeKind::Added, &empty, &new),
+        ];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        for (idx, origin) in results[1].origins.iter().enumerate() {
+            if is_license(&new, idx) {
+                assert_eq!(*origin, TokenOrigin::Added, "{}", new[idx]);
+            } else {
+                assert!(
+                    matches!(origin, TokenOrigin::Moved { from_file: 0, .. }),
+                    "{}",
+                    new[idx]
+                );
+            }
+        }
+        for removed in &results[0].removed {
+            let old_idx = removed.old_lineno as usize - 1;
+            if is_license(&old, old_idx) {
+                assert_eq!(removed.fate, RemovedFate::Extinguished, "{}", old[old_idx]);
+            } else {
+                assert!(matches!(
+                    removed.fate,
+                    RemovedFate::MovedTo { to_file: 1, .. }
+                ));
+            }
+        }
+
+        // A file's own header keeps its history, renamed or not.
+        for kind in [FileChangeKind::Modified, FileChangeKind::Renamed] {
+            let (old, new) = (code(body), code("void frobnicateWidgets ( ) { }"));
+            let inputs = vec![input(kind, &old, &new)];
+            let results = infer_revision(&inputs, &InferenceConfig::default());
+            for idx in 0..license.len() {
+                assert_eq!(
+                    results[0].origins[idx],
+                    TokenOrigin::Unchanged {
+                        old_lineno: idx as u32 + 1
+                    }
+                );
+            }
+        }
     }
 
     #[test]

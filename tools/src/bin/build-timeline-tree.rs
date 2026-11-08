@@ -1535,7 +1535,9 @@ fn preprocess_linear(
     // (sentinel, files-delta, symbol changes) we only want to treat the file as
     // a copy if the majority of its content (see `PairingSupport`) was actually
     // copied, otherwise it's a new file.  Note that the token origins still
-    // reference the copy source for the tokens that were copied.
+    // reference the copy source for the tokens that were copied (but for its
+    // boilerplate, which is only its own file's; see inference's
+    // `detach_foreign_boilerplate`).
     let downgrade: Vec<bool> = inputs_for(&pending)
         .iter()
         .zip(&inferences)
