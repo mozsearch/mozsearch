@@ -19,7 +19,9 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 /// lines can say `// webtest-group: <name>` (and why), to run with the group's other
 /// tests, in order, in one browser (ex: tests sharing a try push's import), or
 /// `// webtest-exclusive`, to run once the others are done, alone (ex: tests
-/// whose timing others' load would change).
+/// whose timing others' load would change); and `// webtest-timeout:
+/// <seconds>` (and why), for a test which takes longer than the 30 seconds a
+/// test has by default.
 #[derive(Debug, Args)]
 pub struct Webtest {
     filter: Option<String>,
@@ -37,18 +39,35 @@ struct TestOutcome {
     log: Vec<(String, String)>,
 }
 
+/// A test's leading comment lines (see `Webtest`), without their `//`s.
+fn header_lines(path: &str) -> Vec<String> {
+    let Ok(text) = fs::read_to_string(path) else {
+        return vec![];
+    };
+    text.lines()
+        .take_while(|line| {
+            let line = line.trim();
+            line.is_empty() || line.starts_with("//") || line.starts_with("\"use strict\"")
+        })
+        .map(|line| line.trim().trim_start_matches("//").trim().to_string())
+        .collect()
+}
+
+/// How long a test has to run (see `Webtest`).
+fn test_timeout(path: &str) -> Duration {
+    let seconds = header_lines(path)
+        .iter()
+        .find_map(|line| line.strip_prefix("webtest-timeout:"))
+        .and_then(|rest| rest.split_whitespace().next()?.parse().ok())
+        .unwrap_or(30);
+    Duration::from_secs(seconds)
+}
+
 /// How a test runs among the others (see `Webtest`).
 fn test_placement(path: &str) -> (Option<String>, bool) {
-    let Ok(text) = fs::read_to_string(path) else {
-        return (None, false);
-    };
     let mut group = None;
     let mut exclusive = false;
-    for line in text.lines().take_while(|line| {
-        let line = line.trim();
-        line.is_empty() || line.starts_with("//") || line.starts_with("\"use strict\"")
-    }) {
-        let line = line.trim().trim_start_matches("//").trim();
+    for line in header_lines(path) {
         // (Either can be followed by why.)
         if let Some(rest) = line.strip_prefix("webtest-group:") {
             group = rest.split_whitespace().next().map(str::to_string);
@@ -257,8 +276,7 @@ impl WebtestCommand {
 
         let start = Instant::now();
 
-        // TODO: Add special log command to increase the timeout.
-        let timeout = 30 * 1000;
+        let timeout = test_timeout(path);
 
         'test_loop: loop {
             let log_value = client
@@ -293,7 +311,7 @@ impl WebtestCommand {
                 }
             }
             let elapsed_time = start.elapsed();
-            if elapsed_time > Duration::from_millis(timeout) {
+            if elapsed_time > timeout {
                 outcome.failed = true;
                 outcome
                     .log

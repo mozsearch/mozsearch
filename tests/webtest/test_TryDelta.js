@@ -1,5 +1,8 @@
 "use strict";
 // webtest-group: trydelta-push (they import it)
+// webtest-timeout: 120 (its tasks import pushes, with their semantic
+// analysis, and wait for their pages, which took longer than the 30 seconds a
+// test has by default since 2026-11-06)
 
 // The trydelta tree's try pushes get semantic analysis (see
 // tests/trydelta/analyze-try and tools/src/try_delta.rs): 0123456789ab changes
