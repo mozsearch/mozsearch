@@ -610,11 +610,14 @@ pub fn write_projects(
         }
     }
     batches.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
-    let list: Vec<String> = batches
+    // (Empty without batches, rather than an empty line, which
+    // js-environments-analyze.sh's `parallel` would run a batch of no
+    // projects for.)
+    let list: String = batches
         .iter()
-        .map(|(_, p)| p.to_string_lossy().to_string())
+        .map(|(_, p)| format!("{}\n", p.to_string_lossy()))
         .collect();
-    fs::write(opts.out_dir.join("batches.lst"), list.join("\n") + "\n")?;
+    fs::write(opts.out_dir.join("batches.lst"), list)?;
     Ok(summary)
 }
 
