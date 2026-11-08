@@ -134,6 +134,10 @@
           # npm packages; see scripts/try-analyze-typescript.sh.)
           nodejs
           scip-typescript.packages.${system}.default
+          # (For try imports' Python and Rust analyses; see
+          # scripts/try-analyze-python.sh and try-analyze-rust.sh.)
+          scip-python
+          mozsearch-rust-analyzer
         ];
       in {
         packages = {
