@@ -8,11 +8,12 @@ set -o pipefail # Check all commands in a pipeline
 # runs this with its environment, and tools/src/try_delta.rs): its stack
 # (PUSH_REVS, as the import's) rebased onto the indexed revision (here, the
 # tree's head) is compiled with the indexer (all of the tree's C++, since it's
-# small; see build), its TypeScript, JS, pages and stylesheets analyzed as the
-# tree's are (see try-analyze-typescript.sh and try-analyze-web.sh), and the
-# rest of its files too, with its analysis' URLs and GC (see
-# try-analyze-rest.sh), and its semantic delta built from that analysis.  Its
-# steps are "semantic::" steps, which the push's page names if it fails (see
+# small; see build), its Rust indexed by rust-analyzer (the files whose
+# analysis it can change; see try-analyze-rust.sh), its TypeScript, JS, pages
+# and stylesheets analyzed as the tree's are (see try-analyze-typescript.sh
+# and try-analyze-web.sh), and the rest of its files too, with its analysis'
+# URLs and GC (see try-analyze-rest.sh), and its semantic delta built from
+# that analysis.  Its steps are "semantic::" steps, which the push's page names if it fails (see
 # try_import's `semantic_failure`).
 #
 # Usage: analyze-try NAME HEAD_REV
@@ -41,8 +42,23 @@ for SRC_FILE in $(find . -name '*.cpp' | sed 's#^\./##'); do
     MOZSEARCH_PLATFORM=linux64 $CXX "$SRC_FILE" -std=c++17 -I . -c -o "$WORK/objdir/${SRC_FILE%.cpp}.o" -Wall
 done
 popd
-# (Merged, like the tree's; see build.)
 mv "$WORK/analysis" "$WORK/analysis-linux64"
+git -C "$GIT_ROOT" diff --name-only HEAD "$REBASED" > "$WORK/changed.lst"
+
+# (And its Rust, rust-analyzer's index of the files whose analysis it can
+# change, as the tree's is; see build and try-analyze-rust.sh.)
+echo "Performing semantic::rust step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+try-rust-files "$CONFIG_FILE" "$TREE_NAME" "$WORK/files" "$WORK/changed.lst" > "$WORK/rust-files"
+if [ -s "$WORK/rust-files" ]; then
+    printf '{ "rust-analyzer.server.extraEnv": { "CARGO_TARGET_DIR": "%s" } }\n' "$WORK/objdir/cargo" \
+        > "$WORK/rust-analyzer.json"
+    (cd "$WORK/files" && rust-analyzer scip . --config-path "$WORK/rust-analyzer.json" \
+        --only-files "$WORK/rust-files" --output "$WORK/rust.scip")
+    "$MOZSEARCH_PATH/scripts/try-analyze-rust.sh" "$CONFIG_FILE" "$TREE_NAME" "$WORK/files" \
+        "$WORK/rust.scip" "$WORK/rust-files" "$WORK/analysis-linux64"
+fi
+
+# (Merged, like the tree's; see build.)
 pushd "$WORK"
 (cd analysis-linux64 && find . -type f | sed 's#^\./##') | while read -r FILE; do
     mkdir -p "$(dirname "tip-analysis/$FILE")"
@@ -53,7 +69,6 @@ popd
 # (And its JS, which the compilation doesn't analyze: with scip-typescript,
 # that of the projects at its head, as the tree's is (see build), and
 # js-analyze's, the rest of it.)
-git -C "$GIT_ROOT" diff --name-only HEAD "$REBASED" > "$WORK/changed.lst"
 echo "Performing semantic::typescript step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 (cd "$WORK/files" && find . -name '[tj]sconfig.json' | LC_ALL=C sort) > "$WORK/typescript-projects"
 "$MOZSEARCH_PATH/scripts/try-analyze-typescript.sh" "$CONFIG_FILE" "$TREE_NAME" "$WORK/files" \

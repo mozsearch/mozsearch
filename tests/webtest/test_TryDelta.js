@@ -172,7 +172,7 @@ add_task(async function test_TryDeltaSlicing() {
 
   // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp,
   // whose includes and namespace aren't dataflow.
-  await TestUtils.loadQuery("trydelta", "slice-rev:cf44a7f3620ea5451973f8c73fc181f361282efa slice-format:svg");
+  await TestUtils.loadQuery("trydelta", "slice-rev:0f5a10e8cb4481d23af653fff36d1fe411c3ff51 slice-format:svg");
   ok(sliceLinks().includes("/trydelta/source/widget.cpp#7"),
      "A landed commit's slicing links to the indexed revision's lines");
   ok(doc().querySelector(".query-result svg").textContent.includes("without dataflow"),

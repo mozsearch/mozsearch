@@ -4,8 +4,9 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# The tree's C++, compiled with the indexer for one platform (and merged, like
-# trees with several platforms' analyses; see tests/tests/build-c.sh).
+# The tree's C++, compiled with the indexer for one platform, and its Rust,
+# rust-analyzer's index of it (merged, like trees with several platforms'
+# analyses; see tests/tests/build-c.sh).
 
 echo "Performing build::build-c step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
@@ -19,6 +20,22 @@ for SRC_FILE in $(git ls-files '*.cpp'); do
     MOZSEARCH_PLATFORM=linux64 $CXX $SRC_FILE -std=c++17 -I . -c -o $OBJDIR/${SRC_FILE%.cpp}.o -Wall
 done
 mv $INDEX_ROOT/analysis $INDEX_ROOT/analysis-linux64
+
+echo "Performing build::rust-analyzer step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+# (Its configuration, build scripts' outputs and index outside of the objdir,
+# whose text files are the tree's generated files.  Its try pushes' analysis
+# is of the files they can change; see analyze-try.)
+cat > $INDEX_ROOT/rust-analyzer.json <<EOF
+{
+  "rust-analyzer.server.extraEnv": {
+    "CARGO_TARGET_DIR": "$INDEX_ROOT/rust-target"
+  }
+}
+EOF
+rust-analyzer scip . --output $INDEX_ROOT/rust.scip --config-path $INDEX_ROOT/rust-analyzer.json
+scip-indexer $CONFIG_FILE $TREE_NAME --subtree-root "." --analysis-root $INDEX_ROOT/analysis-linux64 \
+    $INDEX_ROOT/rust.scip
+
 mkdir -p $INDEX_ROOT/analysis
 # (merge-analyses takes the platform from the analysis-PLATFORM directory.)
 pushd $INDEX_ROOT
