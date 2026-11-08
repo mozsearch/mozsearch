@@ -62,6 +62,17 @@ pub struct BlameInfo {
     /// don't know.  (A source page's, if the history has the file's journal.)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub changes: Vec<Option<u32>>,
+    /// The path most of each commit's tokens had in it (an index into
+    /// `paths`), for the commits whose tokens mostly weren't in the file's own
+    /// path then (ex: before a rename, or a file it got code from), or, for a
+    /// commit without any, the path of its removals, for the file timeline's
+    /// links to the commit's diff of the file and the file then.
+    #[serde(
+        rename = "commitPaths",
+        default,
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
+    pub commit_paths: BTreeMap<usize, usize>,
 }
 
 /// About how many tokens each chunk of the popup's data has.  Chunks end at
@@ -262,6 +273,7 @@ fn page_blame_with_chunk_tokens(
             peephole_url: None,
             history_url: None,
             changes: vec![],
+            commit_paths: BTreeMap::new(),
         },
         ranks: vec![],
         commit_indices: HashMap::new(),
@@ -282,6 +294,8 @@ fn page_blame_with_chunk_tokens(
     let mut chunk_tokens = 0;
     // The last LINENO in the chunk for each commit and path, for deltas.
     let mut last_linenos: HashMap<(usize, usize), u32> = HashMap::new();
+    // How many tokens each commit has in each path, for `commit_paths`.
+    let mut path_tokens: HashMap<(usize, usize), u32> = HashMap::new();
     for (line_index, line_blame) in line_blames.iter().enumerate() {
         let tokens = &blame.tokens[line_blame.tokens.clone()];
         indexer.info.token_counts.push(tokens.len() as u32);
@@ -308,6 +322,7 @@ fn page_blame_with_chunk_tokens(
             let introduced = &token.data.introduced;
             let commit = indexer.commit(&introduced.source_rev, &mut meta);
             let path = indexer.path(&introduced.path);
+            *path_tokens.entry((commit, path)).or_default() += 1;
             match groups.iter_mut().find(|g| g.0 == commit && g.1 == path) {
                 Some(group) => group.2.push(introduced.lineno),
                 None => groups.push((commit, path, vec![introduced.lineno])),
@@ -380,6 +395,7 @@ fn page_blame_with_chunk_tokens(
         first.removal_above = Some(indexer.removal(marker, &mut meta));
     }
     interpolate_blank_lines(&mut lines);
+    indexer.info.commit_paths = commit_paths(&path_tokens, &lines);
 
     PageBlame {
         lines,
@@ -387,6 +403,48 @@ fn page_blame_with_chunk_tokens(
         chunks,
         scope_changes: vec![],
     }
+}
+
+/// The path most of each commit's tokens had in it (see
+/// `BlameInfo::commit_paths`), from how many each commit has in each path, or,
+/// for a commit without tokens, its removals' (by how many tokens they
+/// removed), for the commits whose path isn't the file's own (index 0).  Ties
+/// go to the file's own, and then to the first path.
+fn commit_paths(
+    path_tokens: &HashMap<(usize, usize), u32>,
+    lines: &[StripLine],
+) -> BTreeMap<usize, usize> {
+    let mut counts: BTreeMap<usize, BTreeMap<usize, u32>> = BTreeMap::new();
+    for (&(commit, path), &count) in path_tokens {
+        *counts.entry(commit).or_default().entry(path).or_default() += count;
+    }
+    let mut removal_counts: BTreeMap<usize, BTreeMap<usize, u32>> = BTreeMap::new();
+    for line in lines {
+        let removals = line
+            .removal_above
+            .iter()
+            .chain(&line.removal_below)
+            .chain(&line.removals_within);
+        for removal in removals {
+            *removal_counts
+                .entry(removal.commit)
+                .or_default()
+                .entry(removal.path)
+                .or_default() += removal.num_removed;
+        }
+    }
+    for (commit, paths) in removal_counts {
+        counts.entry(commit).or_insert(paths);
+    }
+    counts
+        .into_iter()
+        .filter_map(|(commit, paths)| {
+            let (&path, _) = paths
+                .iter()
+                .max_by_key(|&(&path, &count)| (count, path == 0, std::cmp::Reverse(path)))?;
+            (path != 0).then_some((commit, path))
+        })
+        .collect()
 }
 
 /// Give runs of lines without tokens (blank lines) a commit so that they don't
@@ -714,6 +772,37 @@ mod tests {
     }
 
     #[test]
+    fn test_commit_paths() {
+        // Commit 0's tokens are the file's own, commit 1's mostly path 2's
+        // (ex: a file it got code from), commit 2's are tied between path 1
+        // and the file's own, and commit 3 only removed tokens, from path 1.
+        let path_tokens = HashMap::from([
+            ((0, 0), 10),
+            ((1, 0), 1),
+            ((1, 2), 5),
+            ((2, 0), 3),
+            ((2, 1), 3),
+        ]);
+        let removal = |commit, path| StripRemoval {
+            commit,
+            path,
+            first_token: 1,
+            num_removed: 4,
+            num_moved: 0,
+        };
+        let lines = vec![StripLine {
+            removal_below: Some(removal(3, 1)),
+            // (Removals don't count for commits with tokens.)
+            removals_within: vec![removal(0, 2)],
+            ..Default::default()
+        }];
+        assert_eq!(
+            commit_paths(&path_tokens, &lines),
+            BTreeMap::from([(1, 2), (3, 1)])
+        );
+    }
+
+    #[test]
     fn test_token_ranges() {
         assert_eq!(token_ranges(vec![]), vec![]);
         assert_eq!(token_ranges(vec![7, 5, 6, 9, 9]), vec![5..=7, 9..=9]);
@@ -809,6 +898,7 @@ mod tests {
                 peephole_url: None,
                 history_url: None,
                 changes: vec![],
+                commit_paths: BTreeMap::new(),
             },
             chunks: vec![],
             scope_changes: vec![],

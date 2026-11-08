@@ -30,6 +30,30 @@ add_task(async function test_FileTimeline() {
   ok(!doc.querySelector(".file-timeline-popup"), "Close closes it");
 });
 
+// A commit from before the file's rename (crossref_lookup.rs became
+// bisectable_mmap.rs) links to its diff of the file, and to the file then, at
+// the path the file had then (`BLAME_INFO.commitPaths`), which it says.
+add_task(async function test_FileTimelineRenamedPath() {
+  await TestUtils.loadPath("/searchfox/source/tools/src/file_format/bisectable_mmap.rs");
+  const doc = frame.contentDocument;
+  TestUtils.click(doc.querySelector("#revision button.file-timeline"));
+  const popup = doc.querySelector(".file-timeline-popup");
+  await waitForCondition(() => popup.querySelectorAll(".file-timeline-commits li").length > 1,
+                         "The file's commits are listed");
+  const items = [...popup.querySelectorAll(".file-timeline-commits li")];
+  ok(!items[0].querySelector(".file-timeline-path"), "The newest commit's path is the file's own");
+  const old = items.find(item => item.querySelector(".file-timeline-path"));
+  is(old?.querySelector(".file-timeline-path").textContent,
+     "in tools/src/file_format/crossref_lookup.rs",
+     "A commit from before the rename says the path the file had then");
+  const link = text => [...old.querySelectorAll(".file-timeline-extras a")].find(a => a.textContent == text);
+  ok(link("file").getAttribute("href").endsWith("/tools/src/file_format/crossref_lookup.rs"),
+     "and links to the file then");
+  await TestUtils.loadPath(link("diff").getAttribute("href"));
+  ok(!frame.contentDocument.body.textContent.includes("parent git submodule not found"),
+     "and to its diff of the file, which is there");
+});
+
 // The file's history's box searches it: a `text-history:` query of the file
 // (see test_HistoryGrep.js for `structopt`, which tools/Cargo.toml lost).
 add_task(async function test_FileTimelineSearch() {

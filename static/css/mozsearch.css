@@ -1550,6 +1550,11 @@ html.fancy-bar-resizing {
   margin-inline-start: 0.4rem;
   font-size: 85%;
 }
+/* (A commit's other path, ex: before a rename.) */
+.file-timeline-path {
+  color: var(--page-subtle-foreground);
+  overflow-wrap: anywhere;
+}
 .file-timeline-rev {
   fill: var(--test-results-crashes, red);
 }

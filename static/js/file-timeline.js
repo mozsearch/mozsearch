@@ -145,10 +145,23 @@ var FileTimeline = new (class FileTimeline {
       document.querySelector("#rev-id a")?.getAttribute("href")?.split("/").pop();
   }
 
-  /** The page of the file's outline diff from `from` (see outline.js) to the page's revision. */
-  outlineDiffURL(from, to = this.pageRev()) {
+  /**
+   * The page of the file's outline diff from `from` (see outline.js) to the
+   * page's revision, or of the file at `path`.
+   */
+  outlineDiffURL(from, to = this.pageRev(), path = this.path()) {
     const tree = document.getElementById("data")?.dataset.tree;
-    return `/${tree}/outline-diff/${encodeURIComponent(from)}/${to}/${this.path()}`;
+    return `/${tree}/outline-diff/${encodeURIComponent(from)}/${to}/${path}`;
+  }
+
+  /**
+   * The path most of a commit's tokens had in it (`BLAME_INFO.commitPaths`),
+   * if it isn't the page's file's (ex: before a rename, or a file it got code
+   * from), else the page's file's.
+   */
+  commitPath(index) {
+    const path = this.info.commitPaths?.[index];
+    return path === undefined ? this.path() : this.info.paths[path];
   }
 
   /**
@@ -439,14 +452,21 @@ var FileTimeline = new (class FileTimeline {
       TrustedHTML.set(header, (headers[commit.index]?.header ?? commit.rev.slice(0, 12)).split("<br>")[0]);
       link.textContent = header.content.textContent;
       // (The commit's diff of the file, the file then, how its outline
-      // changed, and highlighting the changes since it.)
-      const path = this.path();
+      // changed, and highlighting the changes since it: in the path most of
+      // its tokens had then, which it says if it's another's.)
+      const path = this.commitPath(commit.index);
       const parent = headers[commit.index]?.parent ?? `${commit.rev}^`;
       const extras = document.createElement("span");
       extras.className = "file-timeline-extras";
+      if (path != this.path()) {
+        const where = document.createElement("span");
+        where.className = "file-timeline-path";
+        where.textContent = `in ${path}`;
+        extras.append(where, " ");
+      }
       for (const [text, href] of [["diff", `/${tree}/diff/${commit.rev}/${path}`],
                                   ["file", `/${tree}/rev/${commit.rev}/${path}`],
-                                  ["outline", this.outlineDiffURL(parent, commit.rev)]]) {
+                                  ["outline", this.outlineDiffURL(parent, commit.rev, path)]]) {
         const a = document.createElement("a");
         a.href = href;
         a.textContent = text;
