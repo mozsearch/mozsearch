@@ -32,8 +32,10 @@ use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use git2::{Delta, Repository};
+use rayon::prelude::*;
 use ustr::{Ustr, ustr};
 
+use tools::file_format::analysis::analysis_values_from;
 use tools::file_format::bisectable_mmap::{BisectableMmap, write_bisectable};
 use tools::file_format::config;
 use tools::file_format::crossref::{CrossrefData, CrossrefPatch};
@@ -121,22 +123,23 @@ impl Phases {
     }
 }
 
-/// The lines of an analysis file (gzipped or not), if it exists.
+/// The records of an analysis file (gzipped or not), if it exists, as their
+/// readers read them, which is as indexing writes the tree's (see
+/// normalize-analyses): escaped, with their locals' symbols processed, each
+/// serialized again.  So a file's records are the same text whatever wrote
+/// them (ex: merge-analyses' records can have a key twice, which they don't
+/// once read, and Python's analyzers write spaces).
 fn read_records(path: &Path) -> Option<Vec<String>> {
     let gz = PathBuf::from(format!("{}.gz", path.display()));
-    let text = if gz.exists() {
-        let mut text = String::new();
-        GzDecoder::new(File::open(&gz).ok()?)
-            .read_to_string(&mut text)
-            .ok()?;
-        text
+    let reader: Box<dyn Read> = if gz.exists() {
+        Box::new(GzDecoder::new(File::open(&gz).ok()?))
     } else {
-        fs::read_to_string(path).ok()?
+        Box::new(File::open(path).ok()?)
     };
     Some(
-        text.lines()
-            .filter(|line| !line.is_empty())
-            .map(String::from)
+        analysis_values_from(BufReader::new(reader), &path.to_string_lossy())
+            .iter()
+            .map(|value| value.to_string())
             .collect(),
     )
 }
@@ -456,19 +459,31 @@ fn main() {
     let base_analysis = Path::new(&paths.index_path).join("analysis");
     let mut analyzed: BTreeMap<String, AnalyzedFile> = BTreeMap::new();
     let (mut base_list, mut tip_list) = (vec![], vec![]);
-    for path in &written {
-        let tip = match cited.get(path) {
-            Some(records) => records.clone(),
-            None => read_records(&tip_root.join(path)).unwrap_or_default(),
-        };
-        let base = read_records(&base_analysis.join(path));
-        let change = changed.get(path).copied();
+    // (The files' records are read and compared in parallel, keeping those
+    // of the files whose records the push changes, or which it changes.)
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(cli.threads)
+        .build()
+        .unwrap();
+    let differing: Vec<(&String, Vec<String>, Option<Vec<String>>)> = pool.install(|| {
+        written
+            .par_iter()
+            .filter_map(|path| {
+                let tip = match cited.get(path) {
+                    Some(records) => records.clone(),
+                    None => read_records(&tip_root.join(path)).unwrap_or_default(),
+                };
+                let base = read_records(&base_analysis.join(path));
+                let tip_set: BTreeSet<&String> = tip.iter().collect();
+                let base_set: BTreeSet<&String> = base.iter().flatten().collect();
+                let same = !changed.contains_key(path) && tip_set == base_set;
+                (!same).then_some((path, tip, base))
+            })
+            .collect()
+    });
+    for (path, tip, base) in differing {
         let complete = !incomplete.contains(path);
         let tip_set: BTreeSet<&String> = tip.iter().collect();
-        let base_set: BTreeSet<&String> = base.iter().flatten().collect();
-        if change.is_none() && tip_set == base_set {
-            continue;
-        }
         // (Incomplete files keep the base's records too; see `AnalyzedFile`.)
         let mut records: Vec<String> = tip.clone();
         if !complete {
