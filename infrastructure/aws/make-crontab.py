@@ -9,7 +9,8 @@ import sys
 #
 # After HOURS, send a failure email (which shuts the instance down), first
 # uploading the log (see upload-log.sh) as a "failed" log named LOG_NAME if
-# given.
+# given.  The email's FAILURE_SHUTDOWN_HOURS is this environment's, if it's
+# set (see send-failure-email.py).
 
 subj_prefix = sys.argv[1]
 dest_email = sys.argv[2]
@@ -25,6 +26,9 @@ s = when.strftime('%M %H %d %m *')
 s += ' '
 if log_name:
     s += os.path.join(dir_path, 'upload-log.sh') + ' failed ' + log_name + '; '
+shutdown_hours = os.environ.get('FAILURE_SHUTDOWN_HOURS')
+if shutdown_hours:
+    s += 'FAILURE_SHUTDOWN_HOURS=' + str(float(shutdown_hours)) + ' '
 s += os.path.join(dir_path, 'send-failure-email.py') + ' ' + subj_prefix + ' ' + dest_email + '\n'
 
 print(s)

@@ -38,7 +38,11 @@ handle_error() {
     # Record the failure in the instance's status tag (see set-status.py), and
     # keep the whole log, since the email only has its tail and the instance's
     # local storage is lost when it shuts down.
-    $AWS_ROOT/set-status.py "failed: ${TARGETSCRIPT:-main.sh}; see the emailed log${KEEP_ON_FAILURE:+ (the instance was left running)}" || true
+    local kept=${KEEP_ON_FAILURE:+ (the instance was left running)}
+    if [ -z "$kept" ] && [ -n "${FAILURE_SHUTDOWN_HOURS:-}" ]; then
+        kept=" (the instance stops at $(date -u -d "+${FAILURE_SHUTDOWN_HOURS} hours" +"%Y-%m-%d %H:%M") UTC)"
+    fi
+    $AWS_ROOT/set-status.py "failed: ${TARGETSCRIPT:-main.sh}; see the emailed log$kept" || true
     $AWS_ROOT/upload-log.sh failed "${CHANNEL:-unknown}_${TARGETSCRIPT:-main}" || true
     if [ -d "/index-ebs/interrupted" ]; then
         cp ~/index-log /index-ebs/interrupted/index-log || true
@@ -60,6 +64,15 @@ handle_error() {
 # TARGETSCRIPT, so we leave them in $*
 TARGETSCRIPT=$1; shift
 MAXHOURS=$1; shift
+
+# A reblame's failure leaves its instance up for 8 hours (unless
+# FAILURE_SHUTDOWN_HOURS says otherwise; see send-failure-email.py), with its
+# local storage, whose history took a day: 2026-11-08's firefox regeneration,
+# whose upload failed at its end, was lost when its instance stopped 5 minutes
+# later, as failed instances did.
+if [ "$TARGETSCRIPT" = "rebuild-blame.sh" ]; then
+    export FAILURE_SHUTDOWN_HOURS=${FAILURE_SHUTDOWN_HOURS:-8}
+fi
 
 # See index.sh and rebuild-blame.sh for the arguments to this script.
 # This code assumes that the first two arguments for both of those scripts

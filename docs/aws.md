@@ -444,10 +444,14 @@ Instances record their progress in their `status` tag (see
 ssh-ing in with `infrastructure/aws/reblame-status.py`, which also lists the
 recent reblame logs and prints the end of one with `--tail`.  If a run fails,
 or is still running after 14 days, the failure email has the end of the log,
-the whole log is uploaded as `failed-*.gz`, and the instance shuts down.  With
-`--setenv KEEP_ON_FAILURE=1`, a failure leaves the instance (and its SSD)
-running instead, for runs you're watching; the 14 day limit still shuts it
-down.
+the whole log is uploaded as `failed-*.gz`, and the instance shuts down 8 hours
+later (`--setenv FAILURE_SHUTDOWN_HOURS=N` for another delay), as the email
+says (and the `status` tag, unless it timed out), so that what it built, on its SSD, which is
+lost once it stops, can be salvaged meanwhile: ssh in, and `sudo systemctl
+stop` the poweroff timer (see `systemctl list-timers`) to keep it longer.
+(Other instances shut down 5 minutes after a failure.)  With `--setenv
+KEEP_ON_FAILURE=1`, a failure leaves the instance (and its SSD) running
+instead, for runs you're watching; the 14 day limit still shuts it down.
 
 ### Upgrading a running history rebuild
 
