@@ -32,11 +32,24 @@ import aws_credentials  # (Before using boto3; see there.)
 from rich import box, print
 from rich.console import Console
 from rich.markup import escape
+from rich.measure import Measurement
 from rich.table import Table
+from rich.text import Text
 from rich.tree import Tree
 from rich.traceback import install
 
 console = Console()
+
+# Free-text instance tags (ex: a reblame's status; see set-status.py), which
+# no column is wide enough for: each instance's are lines of their own, after
+# its channel's tables, with when they were updated (their `-updated` tags).
+TEXT_TAGS = ('status',)
+# The tags whose values are instances' start times, by their kinds (see the
+# trigger scripts).
+START_TIME_TAGS = ('indexer', 'web-server', 'blame-builder', 'costly-maintenance')
+# Timestamps' fractional seconds (ex: the start times'), which only widen
+# their columns.
+FRACTIONAL_SECONDS = re.compile(r'^(\d{4}-\d\d-\d\d[ T]\d\d:\d\d:\d\d)\.\d+')
 
 # These are documented in the `HelperResult` doc-block below.
 HANDS_OFF_RELEASE_CHANNELS = 1
@@ -263,13 +276,9 @@ class ChannelHelper:
                 return '[red]stopped[/red]'
             return state
 
-        def populate_node_with_instances(node, instances):
+        def populate_node_with_instances(node, instances, depth):
             if len(instances) == 0:
                 return
-
-            # Build up a table to describe the list of instances so we get a
-            # grid/table visual layout.
-            table = Table(box=box.SIMPLE)
 
             # build up all known tags first
             tag_keys = ['(start time)']
@@ -277,49 +286,89 @@ class ChannelHelper:
                 for key in instance['tags'].keys():
                     # suppress tags we've already handled
                     # - channel: already a grouping heuristic
-                    # - web-server/indexer: these encode the start time and
-                    #   for table purposes it's preferable to fold them, but it
-                    #   is misleading.
-                    if key == 'channel' or key == 'web-server' or key == 'indexer':
+                    # - web-server/indexer (and blame-builder and
+                    #   costly-maintenance, for reblame and maintenance
+                    #   instances): these encode the start time and for table
+                    #   purposes it's preferable to fold them, but it is
+                    #   misleading.
+                    # - the free-text tags and their times, which are lines of
+                    #   their own (see TEXT_TAGS).
+                    if key == 'channel' or key in START_TIME_TAGS:
+                        continue
+                    if key in TEXT_TAGS or key.removesuffix('-updated') in TEXT_TAGS:
                         continue
                     if key not in tag_keys:
                         tag_keys.append(key)
             tag_keys.sort()
 
-            # populate the table headers
-            table.add_column('role')
-            table.add_column('target_groups')
-            table.add_column('id')
-            table.add_column('state')
-            table.add_column('group')
-            for key in tag_keys:
-                table.add_column(key)
-
-
-            # Instances as table rows
-            for instance in instances:
-                cells = [
-                    instance['role'],
-                    ','.join(instance['target_groups']),
-                    instance['id'],
-                    colorize_state(instance['state']),
-                    instance['group'],
-                ]
+            def tag_value(instance, key):
+                if key == '(start time)':
+                    if instance['role'] == 'indexer':
+                        key = 'indexer'
+                    else:
+                        key = 'web-server'
+                    if key not in instance['tags']:
+                        key = next((tag for tag in START_TIME_TAGS if tag in instance['tags']), key)
                 # NB: It's possible the instance has keys the source of the keys
                 # did not.
-                for key in tag_keys:
-                    if key == '(start time)':
-                        if instance['role'] == 'indexer':
-                            key = 'indexer'
-                        else:
-                            key = 'web-server'
-                    value = instance['tags'].get(key, None)
-                    if value and key.endswith('repo'):
-                        value = value.replace('https://github.com/', '')
-                    cells.append(value)
-                table.add_row(*cells)
+                value = instance['tags'].get(key, None)
+                if value and key.endswith('repo'):
+                    value = value.replace('https://github.com/', '')
+                if value:
+                    value = FRACTIONAL_SECONDS.sub(r'\1', value)
+                return value
 
-            node.add(table)
+            # The columns, by header, with the instances' cells.
+            columns = {
+                'id': [instance['id'] for instance in instances],
+                'role': [instance['role'] for instance in instances],
+                'target_groups': [','.join(instance['target_groups']) for instance in instances],
+                'state': [colorize_state(instance['state']) for instance in instances],
+                'group': [instance['group'] for instance in instances],
+            }
+            for key in tag_keys:
+                columns[key] = [tag_value(instance, key) for instance in instances]
+
+            def make_table(headers):
+                # Build up a table to describe the list of instances so we get
+                # a grid/table visual layout.
+                table = Table(box=box.SIMPLE)
+                for header in headers:
+                    table.add_column(header, no_wrap=True)
+                for row in range(len(instances)):
+                    table.add_row(*[columns[header][row] for header in headers])
+                return table
+
+            # As many columns as fit in the console in each table, in order,
+            # each table after the first starting with the instances' ids again,
+            # rather than one table that rich squeezes into the console, which
+            # truncated its columns (ids included) with ellipses.  (The tree's
+            # guides take 4 characters a level.)
+            available = console.width - 4 * depth
+            groups = [['id']]
+            for header in columns:
+                if header == 'id':
+                    continue
+                candidate = groups[-1] + [header]
+                width = Measurement.get(console, console.options, make_table(candidate)).maximum
+                if len(groups[-1]) > 1 and width > available:
+                    groups.append(['id', header])
+                else:
+                    groups[-1] = candidate
+            for headers in groups:
+                node.add(make_table(headers))
+
+            # And their free-text tags.
+            for instance in instances:
+                for key in TEXT_TAGS:
+                    value = instance['tags'].get(key)
+                    if not value:
+                        continue
+                    updated = instance['tags'].get(f'{key}-updated')
+                    when = ''
+                    if updated:
+                        when = ' (' + FRACTIONAL_SECONDS.sub(r'\1', updated) + ')'
+                    node.add(Text.assemble((instance['id'], 'bold'), f' {key}{when}: {value}'))
 
 
         def populate_node_with_channels(node, chans):
@@ -327,7 +376,8 @@ class ChannelHelper:
             for channel in chans:
                 node_name = f"{channel['name']}: ({', '.join(channel['pieces'])})"
                 chan_node = node.add(node_name)
-                populate_node_with_instances(chan_node, channel['instances'])
+                # (The tree, its kind's node, the channel's node.)
+                populate_node_with_instances(chan_node, channel['instances'], 3)
 
         populate_node_with_channels(tree.add("Release"), release_channels)
         populate_node_with_channels(tree.add("Development"), dev_channels)
