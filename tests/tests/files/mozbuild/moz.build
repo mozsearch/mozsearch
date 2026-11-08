@@ -52,3 +52,6 @@ with Files("**"):
 
 with Files("*.py"):
     BUG_COMPONENT = ("Core", "Python Fixtures")
+
+# A generated file of the objdir itself, rather than a platform's.
+EXPORTS += ["!/generated.h"]

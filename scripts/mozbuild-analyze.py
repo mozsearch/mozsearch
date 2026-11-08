@@ -19,8 +19,10 @@ def to_loc(line, c1, c2):
     return f"{line:05d}:{c1}-{c2}"
 
 
+# The objdir's own generated files (`__GENERATED__/{path}`), and its
+# platforms' (`__GENERATED__/__{platform}__/{path}`).
 def get_platforms(obj_root):
-    platforms = [obj_root]
+    platforms = [""]
     for name in os.listdir(obj_root):
         objdir = os.path.join(obj_root, name)
         if os.path.isdir(objdir) and name.startswith("__") and name.endswith("__"):

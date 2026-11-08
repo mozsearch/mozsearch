@@ -75,6 +75,12 @@ add_task(async function test_toml() {
       line: 43,
       path: "__GENERATED__/__linux64__/mozbuild/generated-header2.h",
     },
+    // (The objdir's own generated file, by its path in the tree, rather than
+    // in the objdir.)
+    {
+      line: 57,
+      path: "__GENERATED__/generated.h",
+    },
   ];
 
   for (const test of tests) {
