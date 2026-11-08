@@ -6,7 +6,11 @@
 # status they record in their "status" tag as they go (see set-status.py; ex:
 # "timeline: 1200/5000 revisions (24.0%), 350/min, ETA 11m"), and the most
 # recent of their logs, which are uploaded to S3 when they finish or fail.
-# (Terminated instances are only listed for about an hour.)
+# (Terminated instances are only listed for about an hour.)  A history tool's
+# status also has the revisions it had done hours before, `{DONE@EPOCH}` (see
+# build-history.py's `Progress.PACE_WINDOW`), which is shown as its pace since
+# then, which, unlike its rate, has the waits between its chunks (ex: for
+# repacks), and when it would finish at that pace.
 #
 # Usage: reblame-status.py [--logs N] [--tail [KEY]]
 #   --logs N: How many recent logs to list (default 5).
@@ -14,8 +18,9 @@
 #     most recent).
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import gzip
+import re
 
 import boto3
 import aws_credentials  # (Before using boto3; see there.)
@@ -28,9 +33,18 @@ KINDS = {
 }
 LOG_BUCKET = 'indexer-logs'
 
+# A history tool's progress in a status, with its earlier sample (see above).
+PROGRESS = re.compile(r'(?P<label>[\w-]+): (?P<done>\d+)/(?P<total>\d+) revisions[^;{]*'
+                      r'\{(?P<then>\d+)@(?P<at>\d+)\}')
+SAMPLE = re.compile(r' \{\d+@\d+\}')
+
 
 def age(when, now):
-    seconds = int((now - when).total_seconds())
+    return duration((now - when).total_seconds())
+
+
+def duration(seconds):
+    seconds = int(seconds)
     days, seconds = divmod(seconds, 86400)
     hours, seconds = divmod(seconds, 3600)
     minutes = seconds // 60
@@ -59,7 +73,29 @@ def show_instances(now):
             when = ''
             if updated:
                 when = f' ({age(datetime.fromisoformat(updated), now)} ago)'
-            print(f'  status{when}: {status}')
+            print(f'  status{when}: {SAMPLE.sub("", status)}')
+            if updated:
+                for line in paces(status, datetime.fromisoformat(updated)):
+                    print(f'  {line}')
+
+
+def paces(status, updated):
+    """Lines saying each history tool's pace since its earlier sample, and
+    when it would finish at it, from its status recorded at `updated`."""
+    lines = []
+    for m in PROGRESS.finditer(status):
+        done, total, then = int(m['done']), int(m['total']), int(m['then'])
+        span = updated.timestamp() - int(m['at'])
+        if span <= 0 or done <= then:
+            continue
+        per_second = (done - then) / span
+        finish = updated + timedelta(seconds=(total - done) / per_second)
+        line = (f"{m['label']}: {60 * per_second:.0f}/min over the last {duration(span)}, "
+                f"waits included: done around {finish:%Y-%m-%d %H:%M} UTC")
+        if m['label'] == 'timeline':
+            line += ", then the history's final repack and upload"
+        lines.append(line)
+    return lines
 
 
 def recent_logs(s3):

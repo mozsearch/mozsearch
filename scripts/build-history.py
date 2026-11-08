@@ -753,6 +753,14 @@ class Progress:
     # The rate (and so the ETA) is over about this long, so that a slow
     # revision (ex: that window start) doesn't skew it for long.
     RATE_WINDOW = 600
+    # And the pace over about this long, of wall-clock time, which the waits
+    # between chunks (ex: for repacks; see `PackMaintenance.wait_for_repacks`)
+    # slow down, unlike the rate, since the tools aren't running then: the
+    # status has the window's first sample, `{DONE@EPOCH}` (the revisions done
+    # then, and its Unix time), which reblame-status.py makes a pace and a
+    # finishing time of, rather than the status saying them, which instances'
+    # status tags are too short for.
+    PACE_WINDOW = 3 * 3600
 
     def __init__(self, label, status):
         self.label = label
@@ -767,6 +775,10 @@ class Progress:
         self.reported = False
         # (time, done) samples for the rate, oldest first.
         self.samples = collections.deque([(self.start, 0)])
+        # (Unix time, done) samples for the pace, oldest first, from the first
+        # revision this process started (rather than its start, for a resumed
+        # history's sake).
+        self.pace_samples = collections.deque()
         # Another tool's Progress whose total is at least ours, if any: when the
         # timeline follows the syntax, each timeline chunk only knows about the
         # revisions the syntax has processed so far.
@@ -786,6 +798,10 @@ class Progress:
             # Keep one sample from before the window.
             while len(self.samples) > 2 and self.samples[1][0] < self.revision_started - self.RATE_WINDOW:
                 self.samples.popleft()
+            wall = time.time()
+            self.pace_samples.append((wall, self.done))
+            while len(self.pace_samples) > 2 and self.pace_samples[1][0] < wall - self.PACE_WINDOW:
+                self.pace_samples.popleft()
             # Always report the tool starting, even just after the last tool's
             # final report.  (Later chunks start just after a report.)
             self.report(force=not self.reported)
@@ -810,6 +826,9 @@ class Progress:
         started = self.revision_started
         if started is not None and now - started >= self.SLOW_REVISION:
             message += f", on revision {self.done + 1} for {format_duration(now - started)}"
+        if total and self.pace_samples and self.done > self.pace_samples[0][1]:
+            wall_then, done_then = self.pace_samples[0]
+            message += f" {{{done_then}@{int(wall_then)}}}"
         self.status.report(message, force, key=self.label)
 
 
