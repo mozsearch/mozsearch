@@ -10,7 +10,9 @@ then
     exit 1
 fi
 
-MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
+# (Exported, for the trees' upload scripts, as indexer-run.sh and
+# indexer-setup.sh export it for theirs.)
+export MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 export CONFIG_REPO=$(readlink -f $1)
 WORKING=$(readlink -f $2)
