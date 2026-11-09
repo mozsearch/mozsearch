@@ -53,6 +53,20 @@ input_file: inputs/search-files/anchored_doublestar_html__json
       }
     },
     {
+      "path": "html/elided-handler.html",
+      "concise": {
+        "path_kind": "normal",
+        "is_dir": false,
+        "file_size": 143,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
       "path": "html/html-in-script.html",
       "concise": {
         "path_kind": "normal",

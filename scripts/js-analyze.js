@@ -2258,6 +2258,18 @@ class Analyzer extends ASTVisitor {
             gParsedAs === "script") {
           gParsedAs = "module";
           ast = Reflect.parse(text, { loc: true, source: filename, line, target: gParsedAs });
+        } else if (ex.message.includes("return not in function") && gParsedAs === "script" &&
+                   line === 1 && !attrName && /\.c?js$/.test(filename)) {
+          // A Node script (CommonJS), which Node runs as a function's body,
+          // where `return` is allowed (ex: wot-thing-description's
+          // context/toRDF.js's, after printing its usage): parsed as one,
+          // whose statements are the program's.  (The function's header is on
+          // a line before the file's, as an event handler's is, and a
+          // hashbang, which can only start a file, is left out.)
+          const body = text.replace(/^#![^\n]*/, hashbang => " ".repeat(hashbang.length));
+          const wrapped = Reflect.parse(`(function () {\n${body}\n})`,
+                                        { loc: true, source: filename, line: line - 1, target: gParsedAs });
+          ast = { type: "Program", body: wrapped.body[0].expression.body.body, loc: wrapped.loc };
         } else {
           // just re-throw because it didn't seem to be an import error.
           throw ex;
@@ -3466,6 +3478,12 @@ class BaseParser {
     let line = tag.attrs[prop].valueLine;
     let column = tag.attrs[prop].valueColumn;
 
+    // (An example's elided handler, ex: mathml-core's `<input
+    // onchange="...">`, has nothing to analyze.)
+    if (/^\s*(\.\.\.|…)\s*$/.test(text)) {
+      return;
+    }
+
     let spaces = " ".repeat(column);
     text = `(function (val) {\n${spaces}${text}\n})`;
 
@@ -3939,12 +3957,67 @@ class HTMLParser extends BaseParser {
 // `xlink:href`, and HTML's prefixed ones, ex: `<h:script>`, without a `src`),
 // styles (`<style>`s, `style` attributes) and event handlers, as an XML
 // document's (its scripts' and styles' text their CDATA sections').
+// (Blanks for an entity reference sax left as it was, as it isn't one it
+// knows: one XML would replace with another file's text, or one the page
+// doesn't declare, ex: the DOM test suite's `<script>&svgunit;</script>`, of
+// `<!ENTITY svgunit SYSTEM "svgunit.js">`, whose text Gecko doesn't load.)
+function blankEntityReferences(text) {
+  return text.replace(/&[A-Za-z_:][\w.:-]*;/g, ref => " ".repeat(ref.length));
+}
+
 class SVGParser extends XMLParser {
+  constructor(filename, parser, text) {
+    super(filename, parser, text);
+    this.text = text;
+    // The script element being parsed, if any (its depth in the stack), and
+    // its text: its text children's, as XML's script text is, with blanks
+    // for its child elements (ex: `innerHTML='<circle r="50"/>'`'s element),
+    // so that the text after them keeps its position.
+    this.script = null;
+  }
+
+  onopentag(tag) {
+    super.onopentag(tag);
+    if (!this.script) {
+      if (tag.local.toUpperCase() == "SCRIPT") {
+        this.script = { depth: this.stack.length, text: "", childStart: 0 };
+      }
+    } else if (this.stack.length == this.script.depth + 1) {
+      // (sax's startTagPosition is just after the tag's "<".)
+      this.script.childStart = this.parser.startTagPosition - 1;
+    }
+  }
+
+  onclosetag(tagName) {
+    let script = this.script;
+    if (script && this.stack.length == script.depth + 1) {
+      script.text += this.text.slice(script.childStart, this.parser.position).replace(/[^\n]/g, " ");
+    }
+    super.onclosetag(tagName);
+    if (script && this.stack.length < script.depth) {
+      this.script = null;
+    }
+  }
+
+  ontext(text) {
+    super.ontext(text);
+    if (this.script && this.stack.length == this.script.depth) {
+      this.script.text += blankEntityReferences(text);
+    }
+  }
+
+  oncdata(text) {
+    super.oncdata(text);
+    if (this.script && this.stack.length == this.script.depth) {
+      this.script.text += replaceEntities(text);
+    }
+  }
+
   ontag(tagName, tag) {
     switch (tag.local.toUpperCase()) {
     case "SCRIPT":
       if (!("SRC" in tag.attrs) && !("HREF" in tag.attrs) && !("XLINK:HREF" in tag.attrs)) {
-        this.handleScript(this.curText, tag);
+        this.handleScript(this.script ? this.script.text : this.curText, tag);
       }
       break;
     case "STYLE":

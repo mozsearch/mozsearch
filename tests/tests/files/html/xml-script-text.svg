@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<!DOCTYPE svg [
+  <!ENTITY helpers SYSTEM "helpers.js">
+]>
+<svg xmlns="http://www.w3.org/2000/svg">
+  <!-- XML's script text: an entity's (another file's text, which Gecko
+  doesn't load, nor js-analyze), and the text around an element in a script
+  (whose markup isn't its text). -->
+  <script type="text/ecmascript">&helpers;&undeclared;</script>
+  <script>let svgScriptBeforeChild = '<circle r="5"/>'; let svgScriptAfterChild = 1;</script>
+</svg>
