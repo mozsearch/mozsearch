@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>htmldiff</title>
+  </head>
+  <body>
+    <!-- A page htmldiff made, as specs' diffs between two of their versions
+    are: its scripts have line breaks between their words, which JS doesn't
+    allow between `()` and `=>`, so that js-analyze can't parse this one,
+    which it says in an INFO, not a WARN (which would fail the tests tree's
+    build). -->
+    <p>The <del class="diff-old">old</del><ins class="diff-new">new</ins> text.</p>
+    <script>
+(()
+=>
+{
+const
+htmlDiffBrokenScript
+=
+1;
+})()
+</script>
+  </body>
+</html>

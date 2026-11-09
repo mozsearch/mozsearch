@@ -10,6 +10,9 @@ let gFilename = "";
 let gIncludeUsed = false;
 // Was the first character of the file `{`?
 let gCouldBeJson = false;
+// Is the file a page htmldiff made (see `HTMLDIFF_MARKUP`), whose scripts'
+// syntax errors are the diff's, which should downgrade errors/warnings?
+let gHtmlDiff = false;
 // Attribute name for logError to use heuristics to downgrade errors.
 let gAttrName = "";
 
@@ -389,6 +392,15 @@ function logError(msg)
   if (severity === "WARN" && gCouldBeJson && msg.includes("SyntaxError: unexpected token")) {
     severity = "INFO";
     msg = `Downgrading warning to info because file could be JSON because it starts with '{': ${msg}`;
+  }
+  // A page htmldiff made (ex: a spec's diff between two of its versions, as
+  // wubspecs' wot-thing-description/publication/ver20/1-fpwd/diff.html is)
+  // has its markup of changes in its scripts too, and line breaks between
+  // their words, which JS doesn't allow everywhere (ex: between `()` and
+  // `=>`), so that browsers can't run them either.
+  if (severity === "WARN" && gHtmlDiff) {
+    severity = "INFO";
+    msg = `Downgrading warning to info because the page is an htmldiff, which changed its scripts: ${msg}`;
   }
 
   // This means we may end up needing to add a bunch of tree-specific
@@ -3177,6 +3189,7 @@ function preprocess(filename, comment)
   gFilename = filename;
   gIncludeUsed = false;
   gCouldBeJson = false;
+  gHtmlDiff = false;
 
   let text;
   try {
@@ -3977,6 +3990,12 @@ function analyzeXUL(filename)
   parser2.processEventListeners();
 }
 
+// The markup of htmldiff's changes (W3C's htmldiff, which specs' diffs between
+// two of their versions are made with): `<ins class="diff-new">`, `<del
+// class="diff-old">` and `<span class="diff-chg">`, quoted or not (ex: after
+// HTML Tidy).
+const HTMLDIFF_MARKUP = /<(?:ins|del|span)\s+class=["']?diff-(?:new|old|chg)\b/i;
+
 function analyzeHTML(filename)
 {
   let text = preprocess(filename, line => `<!--${line}-->`);
@@ -3984,6 +4003,7 @@ function analyzeHTML(filename)
   if (filename.endsWith(".inc")) {
     text = "<root>" + text + "</root>";
   }
+  gHtmlDiff = HTMLDIFF_MARKUP.test(text);
 
   ensureSax();
   // (multipleRoots: a page's elements after its first top-level one's end,
@@ -4225,6 +4245,7 @@ function resetState() {
   gFilename = "";
   gIncludeUsed = false;
   gCouldBeJson = false;
+  gHtmlDiff = false;
   gAttrName = "";
   nextSymId = 0;
   nextSymId2 = 0;

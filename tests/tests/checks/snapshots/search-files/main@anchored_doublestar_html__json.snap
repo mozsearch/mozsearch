@@ -72,6 +72,20 @@ input_file: inputs/search-files/anchored_doublestar_html__json
       }
     },
     {
+      "path": "html/htmldiff.html",
+      "concise": {
+        "path_kind": "normal",
+        "is_dir": false,
+        "file_size": 596,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "htmldiff",
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
       "path": "html/invalid-entity-ref.html",
       "concise": {
         "path_kind": "normal",
