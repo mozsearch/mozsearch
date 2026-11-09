@@ -1614,6 +1614,35 @@ fn write_file_recency(index_path: &str, table: BTreeMap<String, FileRecency>) {
     ext_out.flush().unwrap();
 }
 
+/// Wait for dataflow-summarize, if it's running alongside us (see
+/// scripts/crossref.sh), before reading what it writes (its summaries and
+/// lock regions): until the file `DATAFLOW_SUMMARIZE_STATUS` names has its
+/// exit status, exiting if it failed.  Without the variable, its outputs are
+/// already there (or the tree has none).
+fn wait_for_dataflow_summarize() {
+    let Ok(status_path) = std::env::var("DATAFLOW_SUMMARIZE_STATUS") else {
+        return;
+    };
+    let started = std::time::Instant::now();
+    let status = loop {
+        if let Ok(text) = std::fs::read_to_string(&status_path) {
+            break text;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    };
+    let waited = started.elapsed().as_secs_f64();
+    if waited >= 0.5 {
+        println!("crossref: waited {:.1} s for dataflow-summarize", waited);
+    }
+    if status.trim() != "0" {
+        eprintln!(
+            "crossref: dataflow-summarize failed (status {})",
+            status.trim()
+        );
+        std::process::exit(1);
+    }
+}
+
 /// Give the mutexes whose guards hold them in regions (see
 /// `dataflow::locks::FileLocks`, which dataflow-summarize writes into the
 /// index's `lock-regions` before crossref runs, for trees with dataflow
@@ -1621,6 +1650,7 @@ fn write_file_recency(index_path: &str, table: BTreeMap<String, FileRecency>) {
 /// their context menus' "Where it's held" (the `lock-held:` view; see
 /// lock_held.rs).
 fn add_lock_regions(index_path: &str, meta_table: &mut MetaTable) {
+    wait_for_dataflow_summarize();
     let Ok(text) = std::fs::read_to_string(format!("{}/lock-regions", index_path)) else {
         return;
     };
@@ -1676,7 +1706,11 @@ fn process_class_fields(
     let field_types: Vec<(Ustr, Ustr)> = meta_table
         .values()
         .filter(|meta| meta.kind.as_str() == "class" || meta.kind.as_str() == "struct")
-        .flat_map(|meta| meta.fields.iter().map(|field| (field.sym, field.type_pretty)))
+        .flat_map(|meta| {
+            meta.fields
+                .iter()
+                .map(|field| (field.sym, field.type_pretty))
+        })
         .filter(|(_, type_pretty)| !type_pretty.is_empty())
         .collect();
     for (sym, type_pretty) in field_types {
@@ -3092,6 +3126,7 @@ fn add_dataflow_hints(
 fn read_dataflow_outputs(
     index_path: &str,
 ) -> (UstrMap<Category>, Vec<FieldEdge>, UstrMap<Summary>) {
+    wait_for_dataflow_summarize();
     let mut categories = UstrMap::default();
     let mut field_edges = vec![];
     let mut accessors = UstrMap::default();
