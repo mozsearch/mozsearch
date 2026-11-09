@@ -443,7 +443,11 @@ mod tests {
         };
         let page = render(&grep);
         assert!(page.contains("every revision (12) of the 2 files which have it now"), "{}", page);
-        assert!(page.contains("<code>a.cpp</code>, <code>b.cpp</code>"), "{}", page);
+        // (Its files listed in a collapsed `<details>`, as file name matches
+        // are, with their paths' links.)
+        assert!(page.contains(r#"<details class="history-grep-now-files">"#), "{}", page);
+        assert!(page.contains("The 2 files which have it now</summary>"), "{}", page);
+        assert!(page.contains(r#"<a href="/tests/source/b.cpp">b.cpp</a>"#), "{}", page);
         grep.now_files.clear();
         grep.now_note = Some("60 files have it now".to_string());
         let page = render(&grep);

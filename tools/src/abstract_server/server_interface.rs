@@ -425,6 +425,17 @@ pub trait AbstractServer {
         None
     }
 
+    /// A path's path kind, whether that's the indexed revision's (rather than
+    /// guessed from its path), and its subsystem, for the facets of paths the
+    /// indexed revision may not have (ex: a history grep's files; see
+    /// `file_facet_info`, which is of its files).
+    fn path_facet_info(&self, path: &str) -> (Ustr, bool, Option<Ustr>) {
+        match self.file_facet_info(path) {
+            Some((kind, subsystem)) => (kind, true, subsystem),
+            None => (ustr::ustr(""), false, None),
+        }
+    }
+
     /// The tree's path kinds' keys and names (see per-file-info.toml), in
     /// their display order.
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {

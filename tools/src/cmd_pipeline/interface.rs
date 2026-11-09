@@ -1038,6 +1038,9 @@ pub enum ResultFacetKind {
     /// We're faceting paths by their subsystem (ex: "Firefox/Sidebar"), whose
     /// groups are "Product/" and "Product/Component".
     PathBySubsystem,
+    /// We're faceting paths by their file type (ex: "C/C++"), whose groups
+    /// are "Type:" and "Type:.extension"; see `facets::file_type`.
+    PathByType,
 }
 
 /// A context-sensitive facet for results.  Facets are only created when

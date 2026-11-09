@@ -44,7 +44,7 @@ pub struct FacetsConfig {
     pub expanded_subsystems: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct PathKindConfig {
     pub name: Ustr,
     #[serde(default)]
@@ -61,7 +61,7 @@ pub struct PathKindConfig {
 /// based on its path.  This is secondary to any explicit mappings received via
 /// explicit lists of files from the textfile/jsonfile mechanisms which will
 /// clobber the value computed by these heuristics.
-#[derive(Default, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct PathKindHeuristics {
     #[serde(default)]
     pub dir_names: Vec<String>,

@@ -24,6 +24,10 @@
     report's threads; see `TextFile::facets`.){% endcomment %}
     {%- elsif view_facets %}
     {% include 'navigation_panel.liquid' expanded: true, panel: null, panel_facets: view_facets.facets, panel_group_by: false, panel_sort_by: false, panel_noun: view_facets.noun, panel_nouns: view_facets.nouns %}
+    {%- comment %}(Or with the facets of a history grep's rows' files, but
+    collapsed at first, as its rows are wide; see `history_grep_facets`.){% endcomment %}
+    {%- elsif history_facets %}
+    {% include 'navigation_panel.liquid' expanded: false, panel: null, panel_facets: history_facets.facets, panel_group_by: false, panel_sort_by: false %}
     {%- elsif graph_badges %}
     {% include 'navigation_panel.liquid' expanded: true, panel: null %}
     {%- else %}

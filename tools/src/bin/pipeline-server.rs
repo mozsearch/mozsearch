@@ -36,6 +36,7 @@ use tools::{
     file_format::config::{self, SearchEndpoint},
     file_format::jumpref::{JumprefData, JumprefTraversals},
     file_format::recency::Recency,
+    hyperblame::history_grep::HistoryGrep,
     logging::{LoggedSpan, init_logging},
     memory_budget,
     query::{chew_query::chew_query, dwim::dwim_target, normalize::normalize_input},
@@ -236,6 +237,40 @@ fn results_file_facets(
     json!({ "facets": facets, "files": data, "lenses": lenses })
 }
 
+/// The facets of a history grep's rows' files (see
+/// query_results/history_grep_root.liquid), as `results_file_facets`' are of
+/// file-centric results' files: their path kinds (guessed from their paths,
+/// for files the indexed revision doesn't have, ex: removed ones; see
+/// `AbstractServer::path_facet_info`), subsystems, directories and types, as
+/// `{"facets": [...], "files": {PATH: {facets, groups, title}}}`, or null if
+/// there are none (ex: the rows are one file's).
+fn history_grep_facets(server: &(dyn AbstractServer + Send + Sync), grep: &HistoryGrep) -> Value {
+    let mut seen = HashSet::new();
+    let files: Vec<FacetFile> = grep
+        .rows
+        .iter()
+        .filter(|row| seen.insert(row.path.as_str()))
+        .map(|row| {
+            let (kind, known, subsystem) = server.path_facet_info(&row.path);
+            FacetFile {
+                path: row.path.clone(),
+                kind,
+                known,
+                subsystem,
+            }
+        })
+        .collect();
+    let (facets, data) = file_facets(
+        &files,
+        &PathKinds(server.path_kinds()),
+        &server.expanded_subsystems(),
+    );
+    if facets.is_empty() {
+        return Value::Null;
+    }
+    json!({ "facets": facets, "files": data })
+}
+
 /// The facets of a client-side diagram's nodes (see `graph_facets`), as
 /// `{"facets": [...], "nodes": [{sym, pretty, facets}]}`, for
 /// query_results/graph_input.liquid.  Beside the subsystems' facet's label,
@@ -265,6 +300,17 @@ fn graph_facets_value(
             tree: jumpref.tree,
             subsystem: jumpref.meta.as_ref().and_then(|meta| meta.subsystem),
             class: jumpref.meta.as_ref().and_then(|meta| meta.parent_sym),
+            // (Its definition's file, or its declaration's.)
+            path: jumpref
+                .jumps
+                .definition
+                .as_ref()
+                .or(jumpref.jumps.declaration.as_ref())
+                .map(|jump| {
+                    jump.rsplit_once('#')
+                        .map_or(jump.as_str(), |(path, _)| path)
+                        .to_string()
+                }),
         })
         .collect();
     if nodes.is_empty() {
@@ -609,6 +655,11 @@ async fn handle_query(
             }
             _ => Value::Null,
         };
+        // (A history grep's rows' files'.)
+        let history_facets = match &result {
+            PipelineValues::HistoryGrep(grep) => history_grep_facets(server.as_ref(), grep),
+            _ => Value::Null,
+        };
         let graph_facets = match &result {
             PipelineValues::GraphInput(graphs) => {
                 graph_facets_value(&tree, &preset, query, rev.map(String::as_str), graphs)
@@ -699,6 +750,7 @@ async fn handle_query(
             "SYM_INFO_STR": tools::html_escape::escape_json_for_script(&sym_info_str),
             "file_facets": file_facets,
             "graph_facets": graph_facets,
+            "history_facets": history_facets,
             "view_facets": view_facets,
             "graph_badges": graph_badges,
             "too_expensive": too_expensive.clone().unwrap_or(Value::Null),

@@ -36,7 +36,7 @@ use crate::file_format::local_symbols::process_local_symbols;
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::file_format::per_file_info::read_detailed_file_info;
 use crate::file_format::recency::FileRecency;
-use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
+use crate::file_format::repo_data_ingestion::{PathKindConfig, RepoIngestionConfig};
 use crate::file_format::token_names::{NameMatch, TokenNameMatches, TokenNames};
 use crate::format::format_code;
 use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
@@ -223,6 +223,9 @@ pub struct LocalIndex {
     js_environment_paths: Arc<OnceLock<Option<Arc<HashSet<String>>>>>,
     /// The tree's path kinds' keys and names, in display order.
     path_kinds: Vec<(Ustr, Ustr)>,
+    /// And their rules, which guess a path's kind from its path (see
+    /// `heuristic_path_kind`), for paths the index doesn't have.
+    path_kind_configs: Arc<BTreeMap<Ustr, PathKindConfig>>,
     /// The subsystems whose nested values facets show at first (see
     /// `FacetsConfig`).
     expanded_subsystems: Vec<String>,
@@ -731,6 +734,21 @@ impl AbstractServer for LocalIndex {
 
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.path_kinds.clone()
+    }
+
+    fn path_facet_info(&self, path: &str) -> (Ustr, bool, Option<Ustr>) {
+        match self.file_facet_info(path) {
+            Some((kind, subsystem)) => (kind, true, subsystem),
+            None if !self.path_kind_configs.is_empty() => (
+                crate::file_format::repo_data_ingestion::heuristic_path_kind(
+                    &self.path_kind_configs,
+                    path,
+                ),
+                false,
+                None,
+            ),
+            None => (ustr::ustr(""), false, None),
+        }
     }
 
     fn expanded_subsystems(&self) -> Vec<String> {
@@ -1468,14 +1486,19 @@ fn fab_server(
     let expanded_subsystems = per_file_info
         .as_ref()
         .map_or_else(Vec::new, |config| config.facets.expanded_subsystems.clone());
-    let path_kinds = per_file_info.map_or_else(Vec::new, |config| {
-        let mut kinds: Vec<_> = config.pathkind.into_iter().collect();
+    let path_kind_configs: Arc<BTreeMap<Ustr, PathKindConfig>> = Arc::new(
+        per_file_info
+            .map(|config| config.pathkind)
+            .unwrap_or_default(),
+    );
+    let path_kinds = {
+        let mut kinds: Vec<_> = path_kind_configs.iter().collect();
         kinds.sort_by_key(|(_, kind)| kind.sort_order);
         kinds
             .into_iter()
-            .map(|(key, kind)| (key, kind.name))
+            .map(|(key, kind)| (*key, kind.name))
             .collect()
-    });
+    };
     let ident_path = format!("{}/identifiers", tree_config.paths.index_path);
     let ident_map = IdentMap::new(&ident_path);
 
@@ -1566,6 +1589,7 @@ fn fab_server(
         js_environment_paths: Arc::new(OnceLock::new()),
         file_lookup_path,
         path_kinds,
+        path_kind_configs,
         expanded_subsystems,
         head_info,
         analysis_normalized,

@@ -63,6 +63,7 @@ impl MaybeFacetRoot {
             ResultFacetKind::PathByPath => ("Path".to_string(), 3, Some("*".to_string())),
             ResultFacetKind::PathByKind => ("Path kind".to_string(), 0, None),
             ResultFacetKind::PathBySubsystem => ("Subsystem".to_string(), 0, None),
+            ResultFacetKind::PathByType => ("Type".to_string(), 0, None),
         };
         let (compiled, breadth) = self.root.compile("".to_string(), clump_thresh, other);
         if breadth > 1 {
@@ -544,6 +545,72 @@ impl PathKinds {
 /// The subsystem facet's value for files without subsystems.
 pub const UNKNOWN_SUBSYSTEM: &str = "?";
 
+/// A file's type, for the type facet (see `file_facets`): a name for people
+/// (ex: "C/C++" for .cpp, .h and .mm files, or "Other"), and its extension
+/// (ex: ".cpp"), or its name if it has none (ex: "Makefile").
+pub fn file_type(path: &str) -> (&'static str, String) {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let ext = match name.rfind('.') {
+        Some(at) if at > 0 => &name[at + 1..],
+        _ => "",
+    };
+    let type_name = match ext.to_ascii_lowercase().as_str() {
+        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hpp" | "hxx" | "inc" | "m" | "mm" => "C/C++",
+        "js" | "jsm" | "mjs" | "cjs" | "sjs" | "jsx" => "JavaScript",
+        "ts" | "mts" | "cts" | "tsx" => "TypeScript",
+        "json" => "JSON",
+        "rs" => "Rust",
+        "py" | "pyi" => "Python",
+        "java" => "Java",
+        "kt" | "kts" => "Kotlin",
+        "idl" | "webidl" | "ipdl" | "ipdlh" | "aidl" => "IDL",
+        "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" | "svg" => "HTML/XML",
+        "css" | "scss" | "less" => "CSS",
+        "ftl" | "properties" | "dtd" => "Localization",
+        "build" | "mozbuild" | "configure" | "mk" | "gn" | "gni" | "cmake" => "Build",
+        "toml" => "TOML",
+        "yml" | "yaml" => "YAML",
+        "ini" => "INI",
+        "sh" | "bash" => "Shell",
+        "md" | "rst" | "txt" => "Text",
+        "" if name == "Makefile" || name.starts_with("Makefile.") => "Build",
+        _ => match crate::languages::select_formatting(path) {
+            crate::languages::FormatAs::Binary => "Binary",
+            _ => "Other",
+        },
+    };
+    let piece = match ext {
+        "" => name.to_string(),
+        ext => format!(".{}", ext),
+    };
+    (type_name, piece)
+}
+
+/// A file's values in a type facet, from the top, with their names: its type
+/// (ex: `("C/C++:", "C/C++")`), then its extension in that (ex: `("C/C++:.cpp",
+/// ".cpp")`); see `file_type`.  For the facets of paths of values (the
+/// lock-held views', crash sets' and diagrams'), as `file_facets`' type facet
+/// has them.
+pub fn type_value_path(path: &str) -> Vec<(String, String)> {
+    let (type_name, extension) = file_type(path);
+    vec![
+        (format!("{}:", type_name), type_name.to_string()),
+        (format!("{}:{}", type_name, extension), extension),
+    ]
+}
+
+/// Whether a type facet of `type_value_path`s would have more than one value
+/// (by their extensions), without which it's left out, as facets with one
+/// value are.
+pub fn type_values_split<'a>(values: impl IntoIterator<Item = &'a str>) -> bool {
+    values
+        .into_iter()
+        .filter(|value| !value.ends_with(':'))
+        .collect::<HashSet<_>>()
+        .len()
+        > 1
+}
+
 /// The "Last changed" facet of results' lines, by their history digests (see
 /// `file_format::recency`), if any have them: its values (newest first, then
 /// "unknown"), with how many files have lines in each and a sparkline of their
@@ -1000,10 +1067,12 @@ pub fn file_facets(
     let kind_order = |kind: &str| kinds.order(kind);
     let kind_name = |kind: &str| kinds.name(kind);
 
-    // Each file's path kind, subsystem, and directory, placed in the facets.
+    // Each file's path kind, subsystem, directory and type, placed in the
+    // facets.
     let mut kind_facet = MaybeFacetRoot::new(ResultFacetKind::PathByKind);
     let mut subsystem_facet = MaybeFacetRoot::new(ResultFacetKind::PathBySubsystem);
     let mut dir_facet = MaybeFacetRoot::new(ResultFacetKind::PathByPath);
+    let mut type_facet = MaybeFacetRoot::new(ResultFacetKind::PathByType);
     // (A subsystem which others are in, ex: "Core/Networking" and
     // "Core/Networking/HTTP", is its group's own files, like a directory's
     // files beside its subdirectories.)
@@ -1030,6 +1099,12 @@ pub fn file_facets(
         subsystem_facet.place_item(subsystem_pieces, path);
         dir_facet.place_item(
             dir_of(&file.path).split_inclusive('/').map(ustr).collect(),
+            path,
+        );
+        // (Its type, "C/C++:", and its extension in that, "C/C++:.cpp".)
+        let (type_name, extension) = file_type(&file.path);
+        type_facet.place_item(
+            vec![ustr(&format!("{}:", type_name)), ustr(&extension)],
             path,
         );
     }
@@ -1062,6 +1137,17 @@ pub fn file_facets(
             None => name.to_string(),
         }
     };
+    // (A type alone at the top, or with its extensions; an extension in its
+    // type, or alone at the top if its type is the only one, ex: "C/C++
+    // (.h)" beside "C/C++ (.cpp)".)
+    let type_name = |value: &str, parent: &str| match value.split_once(':') {
+        Some((type_name, "")) => type_name.to_string(),
+        Some((type_name, extension)) if parent.is_empty() => {
+            format!("{} ({})", type_name, extension)
+        }
+        Some((_, extension)) => extension.to_string(),
+        None => value.to_string(),
+    };
     let mut facets = vec![];
     // (The directory facet is `/query/`'s "Path" facet, but "Directory" is
     // clearer next to the "Group by" choices.)
@@ -1071,7 +1157,7 @@ pub fn file_facets(
         Option<ResultFacetRoot>,
         &'n dyn Fn(&str, &str) -> String,
     );
-    let facet_specs: [FacetSpec; 3] = [
+    let facet_specs: [FacetSpec; 4] = [
         ("kind", None, kind_facet.compile(), &|value, _| {
             kind_name(value)
         }),
@@ -1082,6 +1168,7 @@ pub fn file_facets(
             &subsystem_name,
         ),
         ("dir", Some("Directory"), dir_facet.compile(), &dir_name),
+        ("type", None, type_facet.compile(), &type_name),
     ];
     for (key, label, root, name) in facet_specs {
         let Some(root) = root else {
@@ -1116,6 +1203,11 @@ pub fn file_facets(
                 None if group.label == UNKNOWN_SUBSYSTEM => {
                     "Files without subsystems, or not in the indexed revision".to_string()
                 }
+                None if key == "type" => match group.label.split_once(':') {
+                    Some((type_name, "")) => format!("{} files", type_name),
+                    Some((type_name, extension)) => format!("{} files: {}", type_name, extension),
+                    None => group.label.clone(),
+                },
                 None => group.label.clone(),
             };
             FacetValueView {
@@ -1133,11 +1225,14 @@ pub fn file_facets(
             .into_iter()
             .map(|group| view(key, group, "", &mut vec![], name, &mut memberships))
             .collect();
-        // (The unknown subsystem and the other directories last.)
+        // (The unknown subsystem, the other directories and the other types
+        // last.)
         fn biggest_first(values: &mut [FacetValueView]) {
             values.sort_by(|a, b| {
                 let last = |value: &FacetValueView| {
-                    value.value == UNKNOWN_SUBSYSTEM || value.value.ends_with('*')
+                    value.value == UNKNOWN_SUBSYSTEM
+                        || value.value.ends_with('*')
+                        || value.value.starts_with("Other:")
                 };
                 last(a)
                     .cmp(&last(b))
@@ -1208,14 +1303,16 @@ pub fn file_facets(
 /// name (graph.js's blocks are the nodes with the same pretty name, ex: a
 /// function's overloads), the linked tree whose symbol it is, if it isn't the
 /// diagram's tree's, its subsystem (ex: "Core/DOM: Workers", or for a spec's
-/// symbol, its spec, ex: "html"), and its class's symbol, if it's in one
-/// (ex: "T_mozilla::dom::WorkerPrivate").
+/// symbol, its spec, ex: "html"), its class's symbol, if it's in one (ex:
+/// "T_mozilla::dom::WorkerPrivate"), and the path of its definition's file,
+/// if it has one.
 pub struct GraphFacetNode {
     pub sym: Ustr,
     pub pretty: Ustr,
     pub tree: Option<Ustr>,
     pub subsystem: Option<Ustr>,
     pub class: Option<Ustr>,
+    pub path: Option<String>,
 }
 
 /// facets.js's data for a diagram's node (see query_results/graph_input.liquid):
@@ -1241,10 +1338,12 @@ pub struct GraphFacets {
 /// them: "Subsystem", hierarchical (ex: "Core", then "DOM: Workers"), under
 /// their trees if they're in several ("Tree and subsystem", the diagram's
 /// tree first, ex: wubspecs' specs, then firefox-disco's subsystems, for its
-/// implementations of their algorithms); and "Class", their classes.  The
-/// counts are of blocks (see `GraphFacetNode::pretty`).  The subsystems'
-/// facet is left out if none of its values would leave anything out, unless
-/// `keep_subsystems` (ex: for its links; see `FacetView::actions`).
+/// implementations of their algorithms); "Class", their classes; and "Type",
+/// their definitions' files' types (see `type_value_path`), if they're of
+/// more than one.  The counts are of blocks (see `GraphFacetNode::pretty`).
+/// The subsystems' facet is left out if none of its values would leave
+/// anything out, unless `keep_subsystems` (ex: for its links; see
+/// `FacetView::actions`).
 pub fn graph_facets(
     own_tree: &str,
     nodes: &[GraphFacetNode],
@@ -1428,6 +1527,62 @@ pub fn graph_facets(
     class_values.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.value.cmp(&b.value)));
     if !class_values.is_empty() {
         facets.push(FacetView::new("class", "Class".to_string(), class_values));
+    }
+
+    // The types of their definitions' files, and those types' extensions.
+    let mut types = Level::default();
+    let mut type_names: HashMap<String, String> = HashMap::new();
+    for node in nodes {
+        let Some(path) = node.path.as_deref() else {
+            continue;
+        };
+        let mut level = &mut types;
+        for (value, name) in type_value_path(path) {
+            level = level.nested.entry(value.clone()).or_default();
+            level.blocks.insert(node.pretty);
+            memberships
+                .entry(node.sym)
+                .or_default()
+                .entry("type")
+                .or_default()
+                .insert(value.clone());
+            type_names.insert(value, name);
+        }
+    }
+    fn type_views(level: Level, names: &HashMap<String, String>) -> Vec<FacetValueView> {
+        let mut values: Vec<FacetValueView> = level
+            .nested
+            .into_iter()
+            .map(|(value, nested)| FacetValueView {
+                count: nested.blocks.len() as u32,
+                values: type_views(nested, names),
+                name: names.get(&value).cloned().unwrap_or_default(),
+                title: match value.split_once(':') {
+                    Some((type_name, "")) => format!("Defined in {} files", type_name),
+                    Some((type_name, extension)) => {
+                        format!("Defined in {} files: {}", type_name, extension)
+                    }
+                    None => value.clone(),
+                },
+                value,
+                ..Default::default()
+            })
+            .collect();
+        values.sort_by(|a, b| {
+            let last = |value: &FacetValueView| value.value.starts_with("Other:");
+            last(a)
+                .cmp(&last(b))
+                .then(b.count.cmp(&a.count))
+                .then_with(|| a.value.cmp(&b.value))
+        });
+        values
+    }
+    if type_values_split(type_names.keys().map(String::as_str)) {
+        facets.push(FacetView::new(
+            "type",
+            "Type".to_string(),
+            type_views(types, &type_names),
+        ));
     }
 
     let mut seen = HashSet::new();
@@ -1618,6 +1773,93 @@ mod tests {
     }
 
     #[test]
+    fn test_type_facet() {
+        let file = |path: &str| FacetFile {
+            path: path.to_string(),
+            kind: ustr("normal"),
+            known: true,
+            subsystem: None,
+        };
+        let type_values = |paths: &[&str]| -> Option<Vec<String>> {
+            let files: Vec<FacetFile> = paths.iter().map(|path| file(path)).collect();
+            let (facets, _) = file_facets(&files, &PathKinds(vec![]), &[]);
+            let facet = facets.into_iter().find(|f| f.key == "type")?;
+            Some(
+                facet
+                    .values
+                    .iter()
+                    .map(|value| {
+                        let nested: Vec<String> = value
+                            .values
+                            .iter()
+                            .map(|v| format!("{} {}", v.name, v.count))
+                            .collect();
+                        match nested.is_empty() {
+                            true => format!("{} {}", value.name, value.count),
+                            false => {
+                                format!("{} {} ({})", value.name, value.count, nested.join(", "))
+                            }
+                        }
+                    })
+                    .collect(),
+            )
+        };
+        // Types with their extensions nested, the biggest first, "Other" last,
+        // and a type with one extension alone.
+        assert_eq!(
+            type_values(&[
+                "a.cpp",
+                "x/b.cpp",
+                "c.h",
+                "d.js",
+                "e.sys.mjs",
+                "f.rs",
+                "Makefile",
+                "g.html.ini",
+                "h.liquid",
+            ])
+            .unwrap(),
+            vec![
+                "C/C++ 3 (.cpp 2, .h 1)",
+                "JavaScript 2 (.js 1, .mjs 1)",
+                "Build (Makefile) 1",
+                "INI (.ini) 1",
+                "Rust (.rs) 1",
+                "Other (.liquid) 1",
+            ]
+        );
+        // One type's extensions, at the top.
+        assert_eq!(
+            type_values(&["a.cpp", "b.cpp", "c.h"]).unwrap(),
+            vec!["C/C++ (.cpp) 2", "C/C++ (.h) 1"]
+        );
+        // And no facet for one extension, as for any facet with one value.
+        assert_eq!(type_values(&["a.cpp", "b.cpp"]), None);
+
+        let files = [file("dom/a.cpp"), file("dom/b.h"), file("c.js")];
+        let (facets, data) = file_facets(&files, &PathKinds(vec![]), &[]);
+        let facet = facets.iter().find(|f| f.key == "type").unwrap();
+        assert_eq!(facet.label, "Type");
+        assert_eq!(facet.values[0].title, "C/C++ files");
+        assert_eq!(facet.values[0].values[0].title, "C/C++ files: .cpp");
+        let in_facet: serde_json::Value = serde_json::from_str(&data["dom/a.cpp"].facets).unwrap();
+        assert_eq!(in_facet["type"], json!(["C/C++:", "C/C++:.cpp"]));
+
+        // The values of the facets of paths of values (the lock-held views',
+        // crash sets' and diagrams'), which are left out with one extension.
+        assert_eq!(
+            type_value_path("dom/a.cpp"),
+            vec![
+                ("C/C++:".to_string(), "C/C++".to_string()),
+                ("C/C++:.cpp".to_string(), ".cpp".to_string()),
+            ]
+        );
+        assert!(!type_values_split(["C/C++:", "C/C++:.cpp"]));
+        assert!(type_values_split(["C/C++:", "C/C++:.cpp", "C/C++:.h"]));
+        assert!(type_values_split(["C/C++:.cpp", "Rust:.rs"]));
+    }
+
+    #[test]
     fn test_rearranged_facets() {
         // (As a server without `FacetView::new`'s arrangement serialized it.)
         let values: Vec<serde_json::Value> = (0..12)
@@ -1746,6 +1988,7 @@ mod tests {
                 tree: tree.map(ustr),
                 subsystem: subsystem.map(ustr),
                 class: class.map(ustr),
+                path: None,
             }
         };
         // A spec's algorithms, and a linked tree's implementations of them

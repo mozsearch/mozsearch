@@ -49,8 +49,11 @@ const EXTENSION = "8fd663e345a9d63fd2cf0fe6e02d87c5ac16f190";
 add_task(async function test_TextHistoryNowFiles() {
   await TestUtils.loadQuery("searchfox", "text-history:'searchfox.org/mozilla-central/search'");
   await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
-  ok(doc().querySelector(".history-grep-now")?.textContent.includes("extension/background.js"),
-     "It checked the every revision of the file which has it now too");
+  const nowFiles = doc().querySelector(".history-grep-now-files");
+  ok(nowFiles && !nowFiles.open, "It checked the every revision of the files which have it now too, which are collapsed");
+  ok([...nowFiles.querySelectorAll(".query-file-names li")]
+       .some(li => li.textContent.replace(/\s+/g, "") == "extension/background.js"),
+     "and listed as the file name matches of a search are, ex: extension/background.js");
   const added = rows().find(row => row.querySelector(`a[href="/searchfox/commit/${EXTENSION}"]`));
   ok(added?.textContent.includes("extension/background.js"),
      "finding the commit which added it");
@@ -69,6 +72,20 @@ add_task(async function test_TextHistoryCompound() {
   for (const path of ["tools/src/query_limits.rs", "tools/templates/query_results.liquid"]) {
     ok(rows().some(row => row.textContent.includes(path)), `finding where ${path} got it`);
   }
+
+  // (Its rows' files have the search results' facets, ex: their types, in
+  // the navigation panel, which is collapsed at first, as the rows are wide.)
+  ok(doc().getElementById("panel-content").getAttribute("aria-expanded") == "false",
+     "The navigation panel is collapsed at first");
+  const rust = doc().querySelector('.facet[data-facet="type"] .facet-value[data-value="Rust:.rs"]');
+  ok(rust, "The rows' files have a type facet");
+  const shown = () => rows().filter(row => !row.hidden);
+  const all = shown().length;
+  TestUtils.click(rust);
+  await waitForCondition(() => shown().length < all, "Selecting Rust filters the rows");
+  ok(shown().every(row => row.dataset.path.endsWith(".rs")), "to the Rust files' rows");
+  TestUtils.click(doc().querySelector(".facet-clear"));
+  await waitForCondition(() => shown().length == all, "and showing all files shows every row again");
 });
 
 add_task(async function test_TextHistoryHash() {

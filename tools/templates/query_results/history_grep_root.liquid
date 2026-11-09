@@ -44,9 +44,18 @@
   {%- if now_count > 0 and grep.tokens_note == nil and grep.tokens != empty %}
   <p class="history-grep-now">
     And every revision ({{ grep.now_candidates | escape }}) of the {% if now_count != 1 %}{{ now_count | escape }} files which have it{% else %}file which has it{% endif %} now,
-    which sees what those names' changes can't (ex: code changed around them):
-    {% for file in grep.now_files %}<code>{{ file | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}.
+    which sees what those names' changes can't (ex: code changed around them).
   </p>
+  {%- comment %}(Those files, collapsed at first, listed as `/query/`'s file
+  name matches are; see query_results/pathkind_group.liquid.){% endcomment %}
+  <details class="history-grep-now-files">
+    <summary>The {% if now_count != 1 %}{{ now_count | escape }} files which have it{% else %}file which has it{% endif %} now</summary>
+    <ul class="query-file-names">
+    {%- for file in grep.now_files %}
+      <li>{% include 'path.liquid' path: file, path_rev: "" %}</li>
+    {%- endfor %}
+    </ul>
+  </details>
   {%- elsif grep.now_note %}
   <p class="history-grep-now">The files which have it now weren't checked: {{ grep.now_note | escape }}.</p>
   {%- endif %}
@@ -107,9 +116,13 @@
     <thead>
       <tr><th>Date</th><th>Revision</th><th>File</th><th class="history-grep-count-header" title="How many matches the file (not the whole tree) had before and after the revision">Matches</th><th>Changes</th></tr>
     </thead>
-    <tbody>
+    {%- comment %}(The rows are the facets' items, by their files, if there are
+    facets; see `history_grep_facets` and facets.js.){% endcomment %}
+    <tbody{% if history_facets %} class="facet-items"{% endif %}>
       {%- for row in grep.rows %}
-      <tr{% if row.backout %} class="history-grep-backout"{% endif %}>
+      {%- assign facet_data = false %}
+      {%- if history_facets %}{% assign facet_data = history_facets.files[row.path] %}{% endif %}
+      <tr{% if row.backout %} class="history-grep-backout"{% endif %}{% if facet_data %} data-path="{{ row.path | escape }}" data-facets="{{ facet_data.facets | escape }}"{% endif %}>
         <td class="history-grep-date"{% if row.committed %} title="Committed {{ row.committed | escape }}"{% endif %}>{{ row.date | escape }}</td>
         <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ row.rev | escape }}"><code>{{ row.rev | slice: 0, 12 | escape }}</code></a> {{ row.header }}</td>
         <td><a href="/{{ tree }}/rev/{{ row.rev | escape }}/{{ row.path | escape }}">{{ row.path | escape }}</a>

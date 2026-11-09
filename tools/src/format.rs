@@ -13395,6 +13395,14 @@ dir_names = ["tests"]
             names("dir"),
             vec![("dom/base/".to_string(), 3), ("dom/ other".to_string(), 2)]
         );
+        // And their types, of one extension each.
+        assert_eq!(
+            names("type"),
+            vec![
+                ("C/C++ (.cpp)".to_string(), 3),
+                ("HTML/XML (.html)".to_string(), 2),
+            ]
+        );
 
         // facets.js's data: the values each file is in (with their
         // ancestors), and its group for each way of grouping.
@@ -13402,7 +13410,12 @@ dir_names = ["tests"]
         let facets: serde_json::Value = serde_json::from_str(&gone.facets).unwrap();
         assert_eq!(
             facets,
-            json!({"kind": ["test"], "subsystem": ["?"], "dir": ["dom/*"]})
+            json!({
+                "kind": ["test"],
+                "subsystem": ["?"],
+                "dir": ["dom/*"],
+                "type": ["HTML/XML:.html"]
+            })
         );
         let file_groups: serde_json::Value = serde_json::from_str(&gone.groups).unwrap();
         assert_eq!(file_groups["kind"], json!([1, "Test files"]));

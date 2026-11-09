@@ -7402,7 +7402,8 @@ textarea.monospace {
   text-align: left;
   padding: 0.3em 0;
 }
-.history-grep-files {
+.history-grep-files,
+.history-grep-now-files {
   margin: 0.5em 0;
 }
 .history-grep-ignored {

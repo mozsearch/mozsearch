@@ -834,7 +834,8 @@ fn nested_path(top: &str, parts: &[&str]) -> ValuePath {
 /// tops: how it holds the mutex (a guard, by its type; a proof; a callee, by
 /// its depth); the fields it accesses (by class, then field, then how); the
 /// calls it makes (by class, then method); the other mutexes it acquires; its
-/// function (by class, then method); its file's subsystem and directories.
+/// function (by class, then method); its file's subsystem, directories and
+/// type (see `facets::type_value_path`).
 fn region_facet_values(
     view: &LockHeldView,
     region: &ViewRegion,
@@ -941,6 +942,10 @@ fn region_facet_values(
     if dirs.len() > 1 {
         out.push(("directory", vec![nested_path("", &dirs[..dirs.len() - 1])]));
     }
+    out.push((
+        "type",
+        vec![crate::cmd_pipeline::facets::type_value_path(&region.path)],
+    ));
     out
 }
 
@@ -1010,9 +1015,19 @@ pub fn view_facets(view: &LockHeldView) -> Value {
         ("function", "Function"),
         ("subsystem", "Subsystem"),
         ("directory", "Directory"),
+        ("type", "Type"),
     ] {
+        // (The type facet only with more than one value; see
+        // `type_values_split`.)
         if let Some(level) = roots.remove(key)
             && !level.nested.is_empty()
+            && (key != "type"
+                || crate::cmd_pipeline::facets::type_values_split(
+                    level
+                        .nested
+                        .values()
+                        .flat_map(|level| level.nested.keys().map(String::as_str)),
+                ))
         {
             facets.push(FacetView::new(key, label.to_string(), views(level)));
         }

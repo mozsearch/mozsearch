@@ -1940,10 +1940,10 @@ type ValuePath = Vec<(String, String)>;
 /// A crash's facets' values (see `set_facets`), as paths from their facets'
 /// tops: its family's and variant's; what its threads other than the
 /// crashing one were busy with, by thread (ex: "QuotaManager IO" › "dom/quota";
-/// or its pending blockers; see `CrashDigest::features`); the subsystems and
-/// the directories of its distinctive busy threads' files (theirs and their
-/// parents'; see `CrashSetView::subsystems`); its version, platform and
-/// process type.
+/// or its pending blockers; see `CrashDigest::features`); the subsystems,
+/// the directories (theirs and their parents') and the types (see
+/// `facets::type_value_path`) of its distinctive busy threads' files (see
+/// `CrashSetView::subsystems`); its version, platform and process type.
 fn crash_facet_values(view: &CrashSetView, at: usize) -> Vec<(&'static str, Vec<ValuePath>)> {
     let digest = &view.digests[at];
     let (family, variant) = view
@@ -2021,6 +2021,13 @@ fn crash_facet_values(view: &CrashSetView, at: usize) -> Vec<(&'static str, Vec<
         .into_iter()
         .map(nested)
         .collect();
+    // (And their files' types; see `facets::type_value_path`.)
+    let types: Vec<ValuePath> = paths
+        .iter()
+        .map(|path| crate::cmd_pipeline::facets::type_value_path(path))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
     let one = |value: &str| match value.is_empty() {
         true => vec![vec![("unknown".to_string(), "unknown".to_string())]],
         false => vec![vec![(slug(value), value.to_string())]],
@@ -2036,6 +2043,7 @@ fn crash_facet_values(view: &CrashSetView, at: usize) -> Vec<(&'static str, Vec<
         ("busy", busy),
         ("subsystem", subsystems),
         ("directory", directories),
+        ("type", types),
         ("version", one(&digest.version)),
         ("platform", one(&digest.platform)),
         ("process", one(&digest.process_type)),
@@ -2110,12 +2118,22 @@ pub fn set_facets(view: &CrashSetView) -> Value {
         ("busy", "Busy with"),
         ("subsystem", "Subsystems involved"),
         ("directory", "Directories involved"),
+        ("type", "Types involved"),
         ("version", "Version"),
         ("platform", "Platform"),
         ("process", "Process type"),
     ] {
+        // (The type facet only with more than one value; see
+        // `type_values_split`.)
         if let Some(level) = roots.remove(key)
             && !level.nested.is_empty()
+            && (key != "type"
+                || crate::cmd_pipeline::facets::type_values_split(
+                    level
+                        .nested
+                        .values()
+                        .flat_map(|level| level.nested.keys().map(String::as_str)),
+                ))
         {
             facets.push(FacetView::new(key, label.to_string(), views(level)));
         }

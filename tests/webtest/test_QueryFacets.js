@@ -24,3 +24,27 @@ add_task(async function test_QueryFacets() {
      "The status says how many files are shown");
   ok(frame.contentWindow.location.search.includes("facet-kind=test"), "The selection is in the URL");
 });
+
+// And a type facet (see `facets::file_type`), of types (ex: "JavaScript")
+// and their extensions in them, if the files are of more than one.
+add_task(async function test_QueryTypeFacet() {
+  await TestUtils.loadQuery("tests", "console");
+
+  const doc = frame.contentDocument;
+  const values = [...doc.querySelectorAll('.facet[data-facet="type"] .facet-value')];
+  ok(values.length > 1, "The results have a type facet, with more than one value");
+  // (An item's facets, with its file's, if it's a line, as facets.js has them.)
+  const facetsOf = item => ({
+    ...JSON.parse(item.parentElement.closest("[data-facets]")?.dataset.facets || "{}"),
+    ...JSON.parse(item.dataset.facets),
+  });
+  const items = () => [...doc.querySelectorAll(".facet-items [data-facets]")];
+  const isOf = (item, value) => (facetsOf(item).type || []).includes(value);
+  const value = values.find(button => items().some(item => !isOf(item, button.dataset.value)));
+  ok(value, "and a value some of the files aren't");
+  TestUtils.click(value);
+  await waitForCondition(() => items().filter(item => !item.hidden).every(item => isOf(item, value.dataset.value)),
+                         "Selecting it filters the results to its files");
+  ok(items().some(item => item.hidden), "hiding the others");
+  ok(frame.contentWindow.location.search.includes("facet-type="), "The selection is in the URL");
+});

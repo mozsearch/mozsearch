@@ -196,6 +196,10 @@ impl AbstractServer for TryOverlay {
         self.base.file_facet_info(path)
     }
 
+    fn path_facet_info(&self, path: &str) -> (Ustr, bool, Option<Ustr>) {
+        self.base.path_facet_info(path)
+    }
+
     // (A try push's context has its branch's crash reports and rules.)
     async fn crash_report(&self, id: &str) -> Result<std::sync::Arc<Value>> {
         self.base.crash_report(id).await
