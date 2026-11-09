@@ -82,11 +82,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794210665,
-        "narHash": "sha256-+HEXibb5csKdok5RAn/n4NC3m/eadzRbSBilhDI7f/c=",
+        "lastModified": 1794214740,
+        "narHash": "sha256-ale/pf3xssgFO9sqex1Mlr+dN1LyzYC0YSclsPTomc0=",
         "owner": "mozsearch",
         "repo": "scip-typescript",
-        "rev": "123e96d72edc7c7c6cd0e2a89c0a3000d6e3af50",
+        "rev": "70ca3ceaf872b27df4dfa25ef5e3e0174a4b2bce",
         "type": "github"
       },
       "original": {

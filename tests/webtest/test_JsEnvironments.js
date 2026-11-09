@@ -93,10 +93,17 @@ add_task(async function test_JsEnvironmentsScope() {
   // (Its DOM is the tree's lib replacement's, jsenv/types/, as Firefox's
   // browser-chrome tests' is Gecko's typings; see js-environments.toml's
   // browser-window, and scripts/js-environments-analyze.sh.)
-  const poke = symbolsOf("poke").split(",").find(sym => sym.endsWith("index.d.ts/Gadget#poke()."));
-  ok(poke, "Its DOM is the tree's lib replacement's");
-  is(frame.contentWindow.SYM_INFO[poke]?.meta?.slotOwner?.sym, "WEBIDL_Gadget_poke",
+  const pokes = [...frame.contentDocument.querySelectorAll("#file span[data-symbols]")]
+    .filter(span => span.textContent == "poke")
+    .map(span => span.dataset.symbols.split(",").find(sym => sym.endsWith("index.d.ts/Gadget#poke().")));
+  ok(pokes[0], "Its DOM is the tree's lib replacement's");
+  is(frame.contentWindow.SYM_INFO[pokes[0]]?.meta?.slotOwner?.sym, "WEBIDL_Gadget_poke",
      "whose members are bound to the tree's WebIDL");
+  // (And its JS's types flow: see scip-typescript's
+  // scripts/patch-typescript.cjs.)
+  is(pokes.length, 3, "It pokes thrice");
+  is(pokes[1], pokes[0], "the gadget a variable another task assigned");
+  is(pokes[2], pokes[0], "and the gadget a function's calls pass it");
 });
 
 // A JS shell test's helpers are its directories' shell.js's, which defines

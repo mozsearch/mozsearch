@@ -10,3 +10,19 @@ add_task(async function test_dom() {
   new Gadget().poke();
 });
 
+// A variable which one task assigns is of the assigned value's type in the
+// others, and a function's parameter of its calls' arguments' (with
+// scip-typescript's TypeScript; see its scripts/patch-typescript.cjs).
+let gadget;
+add_task(async function setup_gadget() {
+  gadget = new Gadget();
+});
+add_task(async function test_assigned() {
+  gadget.poke();
+});
+function pokeIt(thing) {
+  thing.poke();
+}
+add_task(async function test_parameter() {
+  pokeIt(new Gadget());
+});
