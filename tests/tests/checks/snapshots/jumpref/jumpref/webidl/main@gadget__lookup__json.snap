@@ -98,6 +98,13 @@ input_file: inputs/jumpref/jumpref/webidl/gadget__lookup__json
               "implKind": null,
               "ownerLang": "idl",
               "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
+            },
+            {
+              "slotKind": "method",
+              "slotLang": "js",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "S_js_typescript_index.d.ts/Gadget#poke()."
             }
           ],
           "ontologySlots": [],

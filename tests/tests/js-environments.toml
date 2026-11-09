@@ -52,8 +52,11 @@ includes_dir = "third_party/test262/harness"
 # types; see js_environments_analysis in config.json.)
 [globals.window]
 lib = ["ESNext", "DOM"]
+# (Browser-chrome tests' DOM is the tree's lib replacement's, files/jsenv/types/,
+# as Firefox's browser-chrome tests' tsconfig, tools/@types/tsconfig.json's, is
+# Gecko's typings.)
 [globals.browser-window]
-lib = ["ESNext", "DOM"]
+extends = "jsenv/types/tsconfig.json"
 [globals.xpcshell]
 lib = ["ESNext"]
 [globals.dedicatedworker]

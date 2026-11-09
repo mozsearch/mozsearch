@@ -548,6 +548,9 @@ pub fn write_projects(
         } else if types.and_then(|t| t.extends.as_ref()).is_none() {
             compiler_options["lib"] = json!(["ESNext"]);
         }
+        for (key, value) in types.into_iter().flat_map(|t| &t.compiler_options) {
+            compiler_options[key] = value.clone();
+        }
         let mut project = json!({
             "compilerOptions": compiler_options,
             "files": files,

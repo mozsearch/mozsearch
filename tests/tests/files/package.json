@@ -6,7 +6,8 @@
   "license": "MPL",
   "private": true,
   "devDependencies": {
-    "typescript": "6.0.3",
-    "@types/node": "24.1.0"
+    "@types/node": "24.1.0",
+    "@typescript/lib-dom": "file:jsenv/types",
+    "typescript": "6.0.3"
   }
 }

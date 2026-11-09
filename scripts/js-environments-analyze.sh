@@ -70,6 +70,26 @@ js-environments-projects "$FILES_ROOT" "$ENV_INDEX" "$CONFIG_REPO/$RULES" "$WORK
     ${JS_ENVIRONMENTS_FLAVORS:+--flavors "$JS_ENVIRONMENTS_FLAVORS"} \
     ${JS_ENVIRONMENTS_ONLY_FILES:+--only-files "$JS_ENVIRONMENTS_ONLY_FILES"}
 
+# The tree's lib replacements (its package.json's `@typescript/lib-*`
+# dependencies on its own directories, ex: Firefox's @typescript/lib-dom,
+# tools/@types/, Gecko's typings, generated from its WebIDL, whose members are
+# bound to it), linked as npm installs them, in the node_modules above the
+# projects, which scip-typescript looks them up in for a project whose
+# TypeScript replaces its libs (`libReplacement`, ex: one extending Firefox's
+# tools/@types/tsconfig.json; without them, it has TypeScript's own).  Not the
+# checkout's node_modules, which only some have (ex: a try push's), with other
+# packages' types too (ex: @types/node's globals).
+if [ -f "$FILES_ROOT/package.json" ]; then
+    { jq -r '(.dependencies // {}) + (.devDependencies // {}) | to_entries[]
+             | select((.key | startswith("@typescript/lib-")) and (.value | startswith("file:")))
+             | "\(.key)\t\(.value | ltrimstr("file:"))"' "$FILES_ROOT/package.json" || true; } |
+        while IFS=$'\t' read -r PACKAGE DIR; do
+            echo "Lib replacement $PACKAGE: $DIR"
+            mkdir -p "$WORK/node_modules/$(dirname "$PACKAGE")"
+            ln -sfn "$FILES_ROOT/$DIR" "$WORK/node_modules/$PACKAGE"
+        done
+fi
+
 # Each batch's index, in its kind's analysis directory, of files of any size
 # (but those bigger than JS_ENVIRONMENTS_MAX_FILE_SIZE, a scip-typescript
 # --max-file-byte-size, if it's given, which js-analyze analyzes): with the
@@ -144,4 +164,4 @@ echo "Merging the analysis of $(wc -l < "$WORK/analyzed-scripts") files and $(wc
 (cd "$WORK" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$OUT" < analyzed-scripts)
 mkdir -p "$PAGES"
 (cd "$WORK" && parallel --pipe -N 500 --halt now,fail=1 merge-analyses --batch "$PAGES" < analyzed-pages)
-rm -rf "$WORK"/analysis-* "$WORK/projects" "$WORK/__jsenv_inline__"
+rm -rf "$WORK"/analysis-* "$WORK/projects" "$WORK/__jsenv_inline__" "$WORK/node_modules"

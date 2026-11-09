@@ -1,0 +1,5 @@
+{
+  "description": "The tests tree's lib replacement of TypeScript's DOM lib, as Firefox's tools/@types is Gecko's typings (see the js-environments.toml's browser-window global)",
+  "private": true,
+  "types": "./index.d.ts"
+}

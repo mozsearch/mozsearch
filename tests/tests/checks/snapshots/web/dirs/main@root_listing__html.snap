@@ -647,14 +647,14 @@ input_file: inputs/web/dirs/root_listing__html
         <tr>
           <td class="name"><a href="/tests/source/package-lock.json" class="mimetype-fixed-container mimetype-icon-json">package-lock.json</a></td>
           <td class="description"><a href="/tests/source/package-lock.json" title=""></td>
-          <td class="size"><a href="/tests/source/package-lock.json">1440</a></td>
+          <td class="size"><a href="/tests/source/package-lock.json">1638</a></td>
           <td class="coverage"><a href="/tests/source/package-lock.json" class="cov-percentage cov-percentage-none" title="There&#39;s no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td class="name"><a href="/tests/source/package.json" class="mimetype-fixed-container mimetype-icon-json">package.json</a></td>
           <td class="description"><a href="/tests/source/package.json" title=""></td>
-          <td class="size"><a href="/tests/source/package.json">226</a></td>
+          <td class="size"><a href="/tests/source/package.json">273</a></td>
           <td class="coverage"><a href="/tests/source/package.json" class="cov-percentage cov-percentage-none" title="There&#39;s no coverage data available for this file.">-</a></td>
         </tr>
 

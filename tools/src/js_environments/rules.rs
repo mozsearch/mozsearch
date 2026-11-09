@@ -57,13 +57,19 @@ pub fn glob_set(patterns: &[String]) -> globset::GlobSet {
 
 /// A global kind's TypeScript configuration: a tsconfig.json to extend
 /// (ex: Gecko's tools/@types/tsconfig.json, with its DOM and XPCOM types),
-/// or TypeScript's libraries (ex: `["ESNext", "WebWorker"]`), or both.
+/// or TypeScript's libraries (ex: `["ESNext", "WebWorker"]`), or both, and
+/// compiler options for its projects, over the extended configuration's (ex:
+/// `{ paths = {} }` for web content, whose tests import none of the modules
+/// Gecko's chrome:// and resource:// paths map, which tools/@types' typings'
+/// module types otherwise add to each of their programs).
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GlobalTypes {
     pub extends: Option<String>,
     #[serde(default)]
     pub lib: Vec<String>,
+    #[serde(default)]
+    pub compiler_options: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A test flavor's scope (ex: browser-chrome's): its harness loads a test
@@ -217,5 +223,20 @@ mod tests {
             Some("dom/indexedDB/test/helpers.js")
         );
         assert_eq!(rules.url_file("helpers.js"), None);
+    }
+
+    #[test]
+    fn test_global_compiler_options() {
+        let rules = Rules::parse(
+            r#"
+[globals.window]
+extends = "tools/@types/tsconfig.json"
+compiler_options = { paths = {}, noImplicitAny = false }
+"#,
+        )
+        .unwrap();
+        let options = &rules.globals["window"].compiler_options;
+        assert_eq!(options["paths"], serde_json::json!({}));
+        assert_eq!(options["noImplicitAny"], serde_json::json!(false));
     }
 }

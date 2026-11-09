@@ -90,6 +90,13 @@ add_task(async function test_JsEnvironmentsScope() {
      "and its prototype's");
   ok(symbolsOf("browserHelper").endsWith("jsenv/browser/head.js/browserHelper()."),
      "and the test's head file's functions are globals");
+  // (Its DOM is the tree's lib replacement's, jsenv/types/, as Firefox's
+  // browser-chrome tests' is Gecko's typings; see js-environments.toml's
+  // browser-window, and scripts/js-environments-analyze.sh.)
+  const poke = symbolsOf("poke").split(",").find(sym => sym.endsWith("index.d.ts/Gadget#poke()."));
+  ok(poke, "Its DOM is the tree's lib replacement's");
+  is(frame.contentWindow.SYM_INFO[poke]?.meta?.slotOwner?.sym, "WEBIDL_Gadget_poke",
+     "whose members are bound to the tree's WebIDL");
 });
 
 // A JS shell test's helpers are its directories' shell.js's, which defines
