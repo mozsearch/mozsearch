@@ -965,6 +965,18 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// `rev_changed_lines` in the coordinates of `context`'s versions of the
+    /// files, with the commits making them by the tree's history (for a try
+    /// push's overlay, whose base this is: its head is the context, and its
+    /// history is the tree's).
+    fn rev_changed_lines_at(
+        &self,
+        _context: &str,
+        _spec: &str,
+    ) -> Result<crate::dataflow::slice::ChangedLines> {
+        Err(ServerError::Unsupported)
+    }
+
     /// Fetch the records of a token-centric history timeline journal (see
     /// `hyperblame::journals`) as JSON values, newest to oldest.  `target` is a
     /// tree-relative path for future and files-delta journals, and a token for

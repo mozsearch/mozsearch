@@ -19,6 +19,8 @@
 // test_SpecCitations.js's diagram has as many of as it shows.)
 
 const PUSH = "0123456789ab";
+// The indexed revision, "Let widgets shrink".
+const INDEXED = "726c411529861d97d70da085d302ee0c86b07c54";
 const NEW_FROB = "_ZN8trydelta6Widget4FrobEib";
 const UNPOKE = "SPEC_example_unpoke";
 const OLD_FROB = "_ZN8trydelta6Widget4FrobEi";
@@ -172,7 +174,7 @@ add_task(async function test_TryDeltaSlicing() {
 
   // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp
   // and sprockets.cpp, whose includes and namespaces aren't dataflow.
-  await TestUtils.loadQuery("trydelta", "slice-rev:726c411529861d97d70da085d302ee0c86b07c54 slice-format:svg");
+  await TestUtils.loadQuery("trydelta", `slice-rev:${INDEXED} slice-format:svg`);
   ok(sliceLinks().includes("/trydelta/source/widget.cpp#7"),
      "A landed commit's slicing links to the indexed revision's lines");
   ok(doc().querySelector(".query-result svg").textContent.includes("without dataflow"),
@@ -698,4 +700,19 @@ add_task(async function test_TryDeltaWithTrunk() {
   ok(!["added", "changed"].includes(status("trydelta::TrunkTwo")),
      "but not the trunk revision's (TrunkTwo calls CountWidgets: a card of the context)");
   ok(!model.other_files.some(file => file.path == "trunk2.cpp"), "nor its files");
+
+  // The slicing of its range from the indexed revision has the commits making
+  // its units' lines, by the tree's token-centric history (see
+  // `rev_lines::history_line_commits`): CountGadgets is the stack's, and
+  // trunk2.cpp the trunk revision's.
+  const query = `slice-rev:${INDEXED}..${head} slice-format:json`;
+  const response = await fetch(
+    `/trydelta/query/default?q=${encodeURIComponent(query)}&rev=${head}`,
+    { headers: { Accept: "application/json" }, cache: "no-store" });
+  const units = (await response.json())?.JsonValue?.value?.units ?? [];
+  const gadgets = units.find(u => u.path == "counter.h" && u.text.some(t => t.includes("CountGadgets")));
+  is(gadgets?.commits?.join(), head, "A unit's commit is the one adding its lines");
+  const trunkUnit = units.find(u => u.path == "trunk2.cpp");
+  ok(trunkUnit?.commits?.length == 1 && trunkUnit.commits[0] != head,
+     `and another unit's another one's: ${trunkUnit?.commits}`);
 });

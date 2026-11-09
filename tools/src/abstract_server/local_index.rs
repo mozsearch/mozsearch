@@ -691,6 +691,19 @@ impl AbstractServer for LocalIndex {
     }
 
     fn rev_changed_lines(&self, spec: &str) -> Result<crate::dataflow::slice::ChangedLines> {
+        // (The indexed revision's files.)
+        let head = self
+            .head_info
+            .as_ref()
+            .map_or("HEAD".to_string(), |info| info.rev.clone());
+        self.rev_changed_lines_at(&head, spec)
+    }
+
+    fn rev_changed_lines_at(
+        &self,
+        context: &str,
+        spec: &str,
+    ) -> Result<crate::dataflow::slice::ChangedLines> {
         let bad = |message: String| {
             ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::BadInput,
@@ -703,12 +716,14 @@ impl AbstractServer for LocalIndex {
             .as_deref()
             .ok_or(ServerError::Unsupported)?;
         let repo = git2::Repository::open(path).map_err(|err| bad(err.message().to_string()))?;
-        // (The indexed revision's files.)
-        let head = self
-            .head_info
-            .as_ref()
-            .map_or("HEAD".to_string(), |info| info.rev.clone());
-        crate::rev_lines::rev_changed_lines(&repo, &head, spec).map_err(bad)
+        // (Its token-centric history, if it has one, for the lines' commits.)
+        let cfg = self.tree_config_loaded();
+        let history = cfg
+            .trees
+            .get(&self.tree_name)
+            .and_then(|tree| tree.git.as_ref())
+            .and_then(|git| git.history.as_ref());
+        crate::rev_lines::rev_changed_lines(&repo, history, context, spec).map_err(bad)
     }
 
     fn file_facet_info(&self, path: &str) -> Option<(Ustr, Option<Ustr>)> {

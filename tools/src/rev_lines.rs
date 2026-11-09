@@ -4,12 +4,13 @@
 //! analysis slicing uses: the indexed revision, or a try push's head), with
 //! the commits making them.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 
-use git2::{BlameOptions, Commit, Delta, DiffOptions, Patch, Repository, Sort};
+use git2::{Commit, Delta, DiffOptions, Patch, Repository, Sort};
 
 use crate::dataflow::slice::{ChangedLines, FileChange};
+use crate::hyperblame::token_blame::{TreeHistory, blame_tokens};
 
 /// The lines (1-based) of `new` which differ from `old` (all of them if
 /// there's no `old`): the ones it adds or changes, and with those, the ones
@@ -124,14 +125,49 @@ fn blob_at(repo: &Repository, commit: &Commit, path: &str) -> Option<Vec<u8>> {
     Some(repo.find_blob(entry.id()).ok()?.content().to_vec())
 }
 
+/// Which of a range's `commits` (their ids, oldest first) made each line of
+/// `path` at `to` (line `l` at `l - 1`; `source`, its contents), by the
+/// tree's token-centric history (see `hyperblame::token_blame`): the newest of
+/// them which introduced one of the line's tokens, or none (ex: a line the
+/// range only moved, whose tokens are older).  None if the history doesn't
+/// have `to` or the file.
+fn history_line_commits(
+    history: &TreeHistory,
+    to: &Commit,
+    path: &str,
+    source: &[u8],
+    commits: &[String],
+) -> Option<Vec<Option<usize>>> {
+    let timeline_commit = history.timeline_commit(to.id())?;
+    let file_history = history.file_history(&timeline_commit, path).ok()??;
+    let blame = blame_tokens(std::str::from_utf8(source).ok()?, &file_history).ok()?;
+    let index: HashMap<&str, usize> = commits
+        .iter()
+        .enumerate()
+        .map(|(i, commit)| (commit.as_str(), i))
+        .collect();
+    let mut lines: Vec<Option<usize>> = vec![None; blame.line_starts.len()];
+    for token in &blame.tokens {
+        if let Some(&i) = index.get(token.data.introduced.source_rev.as_ref())
+            && let Some(line) = lines.get_mut(token.line)
+        {
+            *line = Some(line.map_or(i, |j| j.max(i)));
+        }
+    }
+    Some(lines)
+}
+
 /// The lines a revision changes (`<rev>`: a commit's changes from its first
 /// parent; `<a>..<b>`: those from `a` to `b`), in the coordinates of
-/// `context`'s versions of the files, with the commits making them (the
-/// range's, by blame).  Lines changed again since aren't there, nor are files
-/// `context` doesn't have (they're in the notes).  And the lines it removes, in
-/// the old side's coordinates (all of a removed file's).
+/// `context`'s versions of the files, with the commits making them: a
+/// commit's, its; a range's, by the tree's token-centric history (see
+/// `history_line_commits`), which slicing a range needs (a tree without it has
+/// none).  Lines changed again since aren't there, nor are files `context`
+/// doesn't have (they're in the notes).  And the lines it removes, in the old
+/// side's coordinates (all of a removed file's).
 pub fn rev_changed_lines(
     repo: &Repository,
+    history: Option<&TreeHistory>,
     context: &str,
     spec: &str,
 ) -> Result<ChangedLines, String> {
@@ -227,20 +263,13 @@ pub fn rev_changed_lines(
         let mut line_commits: BTreeMap<u32, String> = BTreeMap::new();
         if let [only] = commits.as_slice() {
             line_commits.extend(added.iter().map(|line| (*line, only.clone())));
-        } else if commits.len() > 1 {
-            let mut options = BlameOptions::new();
-            options.newest_commit(to.id());
-            if let Some(from) = &from {
-                options.oldest_commit(from.id());
-            }
-            if let Ok(blame) = repo.blame_file(Path::new(path), Some(&mut options)) {
-                for line in &added {
-                    if let Some(hunk) = blame.get_line(*line as usize) {
-                        let id = hunk.final_commit_id().to_string();
-                        if commits.contains(&id) {
-                            line_commits.insert(*line, id);
-                        }
-                    }
+        } else if commits.len() > 1
+            && let Some(history) = history
+            && let Some(by_line) = history_line_commits(history, &to, path, new.content(), &commits)
+        {
+            for line in &added {
+                if let Some(Some(index)) = by_line.get(*line as usize - 1) {
+                    line_commits.insert(*line, commits[*index].clone());
                 }
             }
         }
@@ -291,6 +320,43 @@ mod tests {
         assert_eq!(touched.into_iter().collect::<Vec<_>>(), vec![1, 2]);
         let (added, _) = changed_lines(None, b"x\ny");
         assert_eq!(added.into_iter().collect::<Vec<_>>(), vec![1, 2]);
+    }
+
+    #[test]
+    fn test_rev_changed_lines_commits() {
+        let dir = std::env::temp_dir().join(format!("rev-lines-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let repo = Repository::init(&dir).unwrap();
+        let sig = git2::Signature::new("t", "t@t", &git2::Time::new(0, 0)).unwrap();
+        let commit = |text: &str, parents: &[git2::Oid]| -> git2::Oid {
+            let mut builder = repo.treebuilder(None).unwrap();
+            builder
+                .insert("a", repo.blob(text.as_bytes()).unwrap(), 0o100644)
+                .unwrap();
+            let tree = repo.find_tree(builder.write().unwrap()).unwrap();
+            let parents: Vec<Commit> = parents
+                .iter()
+                .map(|id| repo.find_commit(*id).unwrap())
+                .collect();
+            let parents: Vec<&Commit> = parents.iter().collect();
+            repo.commit(None, &sig, &sig, "c", &tree, &parents).unwrap()
+        };
+        let c0 = commit("1\n2\n3\n", &[]);
+        let c1 = commit("1\nX\n3\n", &[c0]);
+        let c2 = commit("0\n1\nX\n3\n", &[c1]);
+        // A commit's lines are its.
+        let changes = rev_changed_lines(&repo, None, &c2.to_string(), &c2.to_string()).unwrap();
+        let a = &changes.files["a"];
+        assert_eq!(a.added.iter().copied().collect::<Vec<_>>(), vec![1]);
+        assert_eq!(a.commits[&1], c2.to_string());
+        // A range's are by the history, which this tree doesn't have.
+        let range = format!("{}..{}", c0, c2);
+        let changes = rev_changed_lines(&repo, None, &c2.to_string(), &range).unwrap();
+        let a = &changes.files["a"];
+        assert_eq!(a.added.iter().copied().collect::<Vec<_>>(), vec![1, 3]);
+        assert!(a.commits.is_empty());
+        assert_eq!(changes.commits, vec![c1.to_string(), c2.to_string()]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

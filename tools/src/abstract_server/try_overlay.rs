@@ -654,15 +654,11 @@ impl AbstractServer for TryOverlay {
         ))
     }
 
+    // (In the head's coordinates, by the tree's repo and history, which have
+    // the push's commits rebased onto the indexed revision; see
+    // import-try-rebased.sh.)
     fn rev_changed_lines(&self, spec: &str) -> Result<crate::dataflow::slice::ChangedLines> {
-        crate::rev_lines::rev_changed_lines(&self.repo()?, &self.delta.meta.head, spec).map_err(
-            |message| {
-                ServerError::StickyProblem(ErrorDetails {
-                    layer: ErrorLayer::BadInput,
-                    message,
-                })
-            },
-        )
+        self.base.rev_changed_lines_at(&self.delta.meta.head, spec)
     }
 
     async fn fetch_history_journal(
