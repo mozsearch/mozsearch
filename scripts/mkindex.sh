@@ -243,6 +243,12 @@ fi
 
 if should_perform_web "js-analyze"; then
     $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME || web_analysis_error "js-analyze.sh"
+elif [[ -n $WEB_ANALYSIS_SHARED && -s $INDEX_ROOT/web-analysis-js-files ]] && should_perform "js-analyze"; then
+    # (But for the files whose analyses before the steps weren't the other
+    # tree's, ex: C++ .inc files another platform's build compiled.)
+    echo "(For the $(wc -l < $INDEX_ROOT/web-analysis-js-files) files whose analyses aren't ${WEB_ANALYSIS_FROM}'s.)"
+    $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME $INDEX_ROOT/web-analysis-js-files ||
+        handle_tree_error "js-analyze.sh"
 fi
 
 if should_perform_web "html-analyze"; then

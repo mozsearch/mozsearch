@@ -15,7 +15,9 @@ set -o pipefail # Check all commands in a pipeline
 # consumer's) restores them, once its own js-environments step has made the
 # environments (which the URL map its build's chrome maps make could change),
 # if what they depend on is the same, and if it has the same analyses before
-# the steps of the files the steps analyze, rather than running the steps (on
+# the steps of the files the steps analyze (but `.inc` files', which only
+# js-analyze reads, whose analyses its js-analyze step then makes, ex: of
+# C++ another platform's build compiled), rather than running the steps (on
 # config8's 2026-11-09 run, firefox-try's took 4.7 minutes, its crossref's
 # inputs, the indexing's last; its analyses of a sample of 4,500 of the
 # files were firefox-disco's, byte for byte).  Otherwise (ex: the producer's
@@ -35,7 +37,8 @@ set -o pipefail # Check all commands in a pipeline
 #     try-analyze-web.sh's js-environments-work/covered);
 #   web-analysis-share.sh restore CONFIG_FILE TREE_NAME PRODUCER
 #     after the tree's js-environments step, restores PRODUCER's snapshot, if
-#     it can, and exits with 1 if it doesn't.
+#     it can (listing in INDEX_ROOT/web-analysis-js-files the files its
+#     js-analyze step still analyzes), and exits with 1 if it doesn't.
 #
 # The snapshots are in WEB_ANALYSIS_DIR (by default the working directory's
 # tmp/web-analysis/, which indexer-run.sh empties when it starts and ends,
@@ -172,9 +175,15 @@ snapshot)
 restore)
     PRODUCER=$4
     SNAP=$DIR/$PRODUCER
+    # (The files its js-analyze step still analyzes, if its web analyses are
+    # the producer's; see mkindex.sh.)
+    OWN=$INDEX_ROOT/web-analysis-js-files
+    KEPT=$DIR/$TREE_NAME.kept
+    TAKEN=$DIR/$TREE_NAME.taken
+    rm -f "$OWN"
     refuse() {
         echo "warning: Tree '$TREE_NAME': its web analyses aren't $PRODUCER's, as $1, so its web analysis steps make them."
-        rm -f "$BEFORE" "$DIR/$TREE_NAME.existing"
+        rm -f "$BEFORE" "$DIR/$TREE_NAME.existing" "$DIR/$TREE_NAME.differing" "$OWN" "$KEPT" "$TAKEN"
         exit 1
     }
     if [ ! -f "$SNAP/complete" ]; then
@@ -196,43 +205,78 @@ restore)
     if [ -n "$DIFFERENT" ]; then
         refuse "what they depend on differs: $DIFFERENT"
     fi
-    if ! cmp -s "$SNAP/before" <(web_before "$SNAP/files"); then
-        refuse "$(diff "$SNAP/before" <(web_before "$SNAP/files") | grep '^[<>]' | cut -c3- | sort -u | wc -l) of the files they analyze had other analyses before them"
+    # The files the steps analyze whose analyses before them differ, which
+    # can only be files js-analyze alone reads (`.inc` files, which neither
+    # the SCIP indexes nor the JS environments do, ex: C++'s, which the
+    # producer's build of another platform compiled, whose analysis its
+    # js-analyze then left as it was: on config8's 2026-11-09 run, 34 of
+    # firefox-try's files, for firefox-disco's Windows, macOS and Android
+    # builds), as it analyzes each file alone, and skips those analyzed
+    # already: the tree's js-analyze step analyzes those the producer had
+    # analyses of, and keeps its analyses of those it has (theirs, if the
+    # producer's js-analyze made any, aren't copied over them).
+    DIFFERING=$DIR/$TREE_NAME.differing
+    diff "$SNAP/before" <(web_before "$SNAP/files") | grep '^[<>]' | sort -k2 > "$DIFFERING" || true
+    OTHERS=$(cut -c3- "$DIFFERING" | grep -cv '\.inc$' || true)
+    if [ "$OTHERS" != 0 ]; then
+        refuse "$OTHERS of the files they analyze had other analyses before them (ex: $(cut -c3- "$DIFFERING" | grep -v '\.inc$' | examples /dev/stdin))"
     fi
+    sed -n 's/^< //p' "$DIFFERING" | sort -u | comm -12 - <(sort -u "$INDEX_ROOT/js-files") > "$OWN"
+    sed -n 's/^> //p' "$DIFFERING" | sort -u > "$KEPT"
+    rm -f "$DIFFERING"
+    # (The snapshot's analysis files it takes: all of them, but those it
+    # keeps its own of.)
+    comm -23 "$SNAP/files" "$KEPT" > "$TAKEN"
     EXISTING=$DIR/$TREE_NAME.existing
-    listing | cut -f1 | sort -u | comm -12 - "$SNAP/files" > "$EXISTING"
+    listing | cut -f1 | sort -u | comm -12 - "$TAKEN" > "$EXISTING"
     if [ -s "$EXISTING" ]; then
         refuse "it has $(wc -l < "$EXISTING") of their analysis files already (ex: $(examples "$EXISTING"))"
     fi
     rm -f "$EXISTING"
     START=$SECONDS
     # (Hard links, if it's the last consumer, as the snapshot isn't needed
-    # then, whose later steps can rewrite them.  If copying them fails, those
-    # it copied are removed, as its steps then make them, and
-    # js-environments-analyze merges its analyses into those there are.)
+    # then, whose later steps can rewrite them, and file by file if it keeps
+    # any of their files' analyses.  If copying them fails, those it copied
+    # are removed, as its steps then make them, and js-environments-analyze
+    # merges its analyses into those there are.)
     REMAINING=$(grep -vx "$TREE_NAME" "$SNAP/consumers" || true)
     copy() {
+        local link=
         if [ -z "$REMAINING" ]; then
+            link=l
+        fi
+        if ! cmp -s "$TAKEN" "$SNAP/files"; then
+            (cd "$SNAP/analysis" &&
+                 xargs -r -d '\n' -a "$TAKEN" -n 1000 cp -a$link --parents -t "$INDEX_ROOT/analysis/")
+            return
+        fi
+        if [ -n "$link" ]; then
             cp -al "$SNAP/analysis/." "$INDEX_ROOT/analysis/" 2>/dev/null && return 0
         fi
         cp -a "$SNAP/analysis/." "$INDEX_ROOT/analysis/"
     }
     if ! copy; then
-        (cd "$INDEX_ROOT/analysis" && xargs -r -d '\n' -a "$SNAP/files" rm -f)
+        (cd "$INDEX_ROOT/analysis" && xargs -r -d '\n' -a "$TAKEN" rm -f)
         refuse "copying their analysis files failed"
     fi
     if [ -f "$SNAP/covered" ]; then
         mkdir -p "$INDEX_ROOT/js-environments-work"
         cut -f1 "$BEFORE" | sort -u - "$SNAP/covered" > "$INDEX_ROOT/js-environments-work/covered"
     fi
-    COUNT=$(wc -l < "$SNAP/files")
+    COUNT=$(wc -l < "$TAKEN")
     if [ -z "$REMAINING" ]; then
         rm -rf "$SNAP"
     else
         echo "$REMAINING" > "$SNAP/consumers"
     fi
-    rm -f "$BEFORE"
     echo "web-analysis-share: $TREE_NAME's web analyses are $PRODUCER's: $COUNT analysis files, in $((SECONDS - START)) s."
+    if [ -s "$OWN" ]; then
+        echo "web-analysis-share: but for $(wc -l < "$OWN") files $PRODUCER had other analyses of before its steps, which its js-analyze step analyzes (ex: $(examples "$OWN"))."
+    fi
+    if [ -s "$KEPT" ]; then
+        echo "web-analysis-share: and it keeps its own analyses of $(wc -l < "$KEPT") files $PRODUCER had none of before its steps (ex: $(examples "$KEPT"))."
+    fi
+    rm -f "$BEFORE" "$KEPT" "$TAKEN"
     ;;
 *)
     echo "Usage: web-analysis-share.sh list|snapshot|restore CONFIG_FILE TREE_NAME [FAILED|PRODUCER]" 1>&2

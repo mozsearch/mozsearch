@@ -5,7 +5,8 @@
 // document-links steps') are the trydelta tree's (`web_analysis_from`; see
 // scripts/web-analysis-share.sh), the same revision's, whose build has the
 // C++ and Rust its doesn't.  (If they weren't, its indexing would warn, which
-// fails the webtests' indexing.)
+// fails the webtests' indexing.)  But for sprockets.inc, C++ which trydelta's
+// build analyzes, which its own js-analyze analyzes, as trydelta's skipped it.
 
 const FILES = [
   "hello.js",
@@ -33,4 +34,11 @@ add_task(async function test_WebAnalysisShared() {
      "trydelta has its C++'s analysis");
   is((await rawAnalysis("trydelta-shared", "widget.cpp")).status, 404,
      "trydelta-shared, which doesn't build it, doesn't");
+
+  const theirs = await rawAnalysis("trydelta", "sprockets.inc");
+  ok(theirs.text.includes("kLargeSprocketTeeth"), "trydelta has its included C++'s analysis");
+  const own = await rawAnalysis("trydelta-shared", "sprockets.inc");
+  is(own.status, 200, "and trydelta-shared has its js-analyze's");
+  ok(own.text.includes('"FILE_') && !own.text.includes("kLargeSprocketTeeth"),
+     "its own, a file's definition");
 });

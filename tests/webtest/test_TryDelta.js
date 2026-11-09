@@ -170,9 +170,9 @@ add_task(async function test_TryDeltaSlicing() {
   ok(added && clusterOf(removed) == clusterOf(added),
      "which are in the cluster of what replaces them");
 
-  // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp,
-  // whose includes and namespace aren't dataflow.
-  await TestUtils.loadQuery("trydelta", "slice-rev:0f5a10e8cb4481d23af653fff36d1fe411c3ff51 slice-format:svg");
+  // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp
+  // and sprockets.cpp, whose includes and namespaces aren't dataflow.
+  await TestUtils.loadQuery("trydelta", "slice-rev:726c411529861d97d70da085d302ee0c86b07c54 slice-format:svg");
   ok(sliceLinks().includes("/trydelta/source/widget.cpp#7"),
      "A landed commit's slicing links to the indexed revision's lines");
   ok(doc().querySelector(".query-result svg").textContent.includes("without dataflow"),
