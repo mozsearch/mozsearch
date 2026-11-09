@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# Only the tree's JS, with scip-typescript, as trydelta's build has it (its
+# typescript scip subtree's; see there), whose analyses are trydelta's if they
+# can be (see setup), but its own scip-analyze step's otherwise.
+
+echo "Performing build::scip-typescript step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+(cd $FILES_ROOT && find . -name '[tj]sconfig.json' | LC_ALL=C sort) > $INDEX_ROOT/typescript-projects
+$MOZSEARCH_PATH/scripts/scip-typescript-index.sh $FILES_ROOT $INDEX_ROOT/typescript-projects \
+    $INDEX_ROOT/typescript.scip

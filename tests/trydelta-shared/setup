@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# The trydelta tree's checkout and history, whose web analyses (see
+# scripts/web-analysis-share.sh) are the trydelta tree's (its config's
+# `web_analysis_from`), as firefox-try's are firefox-disco's: a tree of the
+# same revision whose build has other platforms' analyses (here, none of its
+# C++ and Rust), whose analyses of its JS, pages and stylesheets are the same.
+
+echo "Performing setup::metadata step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+# (The tests tree's bit of MDN's browser-compat-data, as trydelta's setup has
+# it, for spec-analyze; see there.)
+mkdir -p $INDEX_ROOT/bcd
+cp $CONFIG_REPO/tests/bcd/data.json $INDEX_ROOT/bcd/data.json

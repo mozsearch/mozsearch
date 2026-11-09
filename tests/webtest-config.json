@@ -80,6 +80,32 @@
         "note": "The data API's config route doesn't expose this."
       }
     },
+    "trydelta-shared": {
+      "priority": 65,
+      "on_error": "halt",
+      "cache": "everything",
+      "index_path": "$WORKING/trydelta-shared",
+      "files_path": "$WORKING/trydelta/git",
+      "objdir_path": "$WORKING/trydelta-shared/objdir",
+      "git_path": "$WORKING/trydelta/git",
+      "history_path": "$WORKING/trydelta/history",
+      "codesearch_path": "$WORKING/trydelta-shared/livegrep.idx",
+      "codesearch_port": 8087,
+      "search_endpoint": "query",
+      "wpt_root": "testing/web-platform",
+      "js_environments": "trydelta/js-environments.toml",
+      "js_environments_analysis": true,
+      "scip_subtrees": {
+        "typescript": {
+          "scip_index_path": "$WORKING/trydelta-shared/typescript.scip",
+          "subtree_root": ""
+        }
+      },
+      "linked_trees": {
+        "SPEC_": "tests"
+      },
+      "web_analysis_from": "trydelta"
+    },
     "specpr": {
       "priority": 60,
       "on_error": "halt",
@@ -95,6 +121,6 @@
   },
 
   "pipeline_trees": true,
-  "setup_groups": [["tests"], ["searchfox", "searchfox-line-blame"], ["spechist"], ["trydelta"], ["specpr"]],
+  "setup_groups": [["tests"], ["searchfox", "searchfox-line-blame"], ["spechist"], ["trydelta", "trydelta-shared"], ["specpr"]],
   "allow_webtest": true
 }

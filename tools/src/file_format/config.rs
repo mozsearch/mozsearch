@@ -279,6 +279,13 @@ pub struct TreeConfigPaths {
     /// so, would then differ from its own).
     #[serde(default)]
     pub js_environments_analysis: bool,
+    /// The tree, indexed before this one, whose web analyses (its
+    /// scip-analyze, js-environments-analyze, js-, html- and css-analyze,
+    /// js-environments-pages and document-links steps' analyses) are this
+    /// one's, if they would be the same (ex: firefox-try's, firefox-disco's,
+    /// the same revision's); see scripts/web-analysis-share.sh.
+    #[serde(default)]
+    pub web_analysis_from: Option<String>,
     /// Where the tree's pages send searches: router.py's `/search` (the
     /// default), or the pipeline-server's `/query/default` (`"query"`); see
     /// `SearchEndpoint` and `search_url`.

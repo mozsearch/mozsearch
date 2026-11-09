@@ -131,17 +131,72 @@ fi
 
 export RUST_LOG=info
 
-if should_perform "scip-analyze"; then
-    # Transform any .scip files the config `scip_subtrees` setting tells us
-    # about. This does not generate any .scip files; instead it is assumed that
-    # they would have been generated in the config's `build` script.  It's also
-    # assumed that for complicated situations like firefox-main where
-    # merge-analyses may be required, that the scripts will handle calling
-    # `scip-analyze.sh` or `scip-indexer` directly and will not list them in
-    # `scip_subtrees`.
+# The web analysis steps (scip-analyze, js-environments-analyze, js-, html- and
+# css-analyze, js-environments-pages and document-links) can be another tree's
+# (`web_analysis_from`, the producer's, indexed first), whose own make a
+# snapshot of their analyses for it, which its restore (the
+# web-analysis-restore step, after js-environments) takes, if it can; see
+# web-analysis-share.sh.  (A failed step's analyses aren't shared.)
+WEB_ANALYSIS_FROM=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].web_analysis_from // empty' "$CONFIG_FILE")
+WEB_ANALYSIS_FOR=$(jq -r --arg tree "$TREE_NAME" \
+    '[.trees | to_entries[] | select(.value.web_analysis_from == $tree) | .key] | join(" ")' "$CONFIG_FILE")
+WEB_ANALYSIS_SHARED=
+WEB_ANALYSIS_FAILED=
+web_analysis_error() {
+    WEB_ANALYSIS_FAILED=1
+    handle_tree_error "$1"
+}
+# (A web analysis step, unless the tree's web analyses are another's.)
+should_perform_web() {
+    if [[ -n $WEB_ANALYSIS_SHARED ]]; then
+        if [[ ${SKIP_UNTIL:-} == "$1" ]]; then
+            SKIP_UNTIL=
+        fi
+        echo "Skipping $1 step (the tree's web analyses are ${WEB_ANALYSIS_FROM}'s)"
+        return 1
+    fi
+    should_perform "$1"
+}
+
+if [[ -n $WEB_ANALYSIS_FROM$WEB_ANALYSIS_FOR ]] && should_perform "web-analysis-list"; then
+    $MOZSEARCH_PATH/scripts/web-analysis-share.sh list "$CONFIG_FILE" "$TREE_NAME" ||
+        handle_tree_error "web-analysis-share.sh list"
+fi
+
+# idl-analyze runs in the background while the web analysis steps do: its
+# WebIDL half is one python process (1.3 minutes for firefox-disco on the
+# 2026-10-27 config8 run, on one core), and they write different analysis
+# files (idl-analyze reads only the build's C++ analysis, of the IDL's
+# generated headers).  Its log is shown once it's waited for (the
+# idl-analyze-wait step).
+IDL_ANALYZE_PID=
+IDL_ANALYZE_LOG=$INDEX_ROOT/idl-analyze.log
+if should_perform "idl-analyze"; then
+    $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME > "$IDL_ANALYZE_LOG" 2>&1 &
+    IDL_ANALYZE_PID=$!
+fi
+
+# Transform any .scip files the config `scip_subtrees` setting tells us
+# about. This does not generate any .scip files; instead it is assumed that
+# they would have been generated in the config's `build` script.  It's also
+# assumed that for complicated situations like firefox-main where
+# merge-analyses may be required, that the scripts will handle calling
+# `scip-analyze.sh` or `scip-indexer` directly and will not list them in
+# `scip_subtrees`.  (For a tree whose web analyses can be another's, after
+# its web-analysis-restore step, if they aren't.)
+scip_analyze() {
     $MOZSEARCH_PATH/scripts/scip-analyze.sh \
         "$CONFIG_FILE" \
-        "$TREE_NAME" || handle_tree_error "scip-analyze.sh"
+        "$TREE_NAME" || web_analysis_error "scip-analyze.sh"
+}
+SCIP_ANALYZE_DEFERRED=
+if should_perform "scip-analyze"; then
+    if [[ -n $WEB_ANALYSIS_FROM ]]; then
+        echo "(After the web-analysis-restore step, unless the tree's web analyses are ${WEB_ANALYSIS_FROM}'s.)"
+        SCIP_ANALYZE_DEFERRED=1
+    else
+        scip_analyze
+    fi
 fi
 
 if should_perform "find-objdir-files"; then
@@ -166,47 +221,53 @@ if should_perform "js-environments"; then
     $MOZSEARCH_PATH/scripts/js-environments.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments.sh"
 fi
 
-if should_perform "js-environments-analyze"; then
-    $MOZSEARCH_PATH/scripts/js-environments-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments-analyze.sh"
+# (Its web analyses, another tree's, if they can be, once its JS environments
+# are known, or its deferred scip-analyze step.)
+if [[ -n $WEB_ANALYSIS_FROM ]] && should_perform "web-analysis-restore"; then
+    if $MOZSEARCH_PATH/scripts/web-analysis-share.sh restore "$CONFIG_FILE" "$TREE_NAME" "$WEB_ANALYSIS_FROM"; then
+        WEB_ANALYSIS_SHARED=1
+    fi
+fi
+if [[ -n $SCIP_ANALYZE_DEFERRED && -z $WEB_ANALYSIS_SHARED ]]; then
+    echo "Performing scip-analyze step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+    scip_analyze
+fi
+
+if should_perform_web "js-environments-analyze"; then
+    $MOZSEARCH_PATH/scripts/js-environments-analyze.sh $CONFIG_FILE $TREE_NAME || web_analysis_error "js-environments-analyze.sh"
 fi
 
 if should_perform "summarize-test-results"; then
     $MOZSEARCH_PATH/scripts/summarize-test-results.py $INDEX_ROOT/test-results.json $INDEX_ROOT/xpcshell-issues.json $INDEX_ROOT/mochitest-issues.json || handle_tree_error "summarize-test-results.py"
 fi
 
-# idl-analyze runs in the background while js-, html- and css-analyze do: its
-# WebIDL half is one python process (1.3 minutes for firefox-disco on the
-# 2026-10-27 config8 run, on one core), and they write different analysis
-# files (idl-analyze reads only the generated headers' C++ analysis).  Its log
-# is shown once it's waited for (the idl-analyze-wait step).
-IDL_ANALYZE_PID=
-IDL_ANALYZE_LOG=$INDEX_ROOT/idl-analyze.log
-if should_perform "idl-analyze"; then
-    $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME > "$IDL_ANALYZE_LOG" 2>&1 &
-    IDL_ANALYZE_PID=$!
+if should_perform_web "js-analyze"; then
+    $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME || web_analysis_error "js-analyze.sh"
 fi
 
-if should_perform "js-analyze"; then
-    $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-analyze.sh"
+if should_perform_web "html-analyze"; then
+    $MOZSEARCH_PATH/scripts/html-analyze.sh $CONFIG_FILE $TREE_NAME || web_analysis_error "html-analyze.sh"
 fi
 
-if should_perform "html-analyze"; then
-    $MOZSEARCH_PATH/scripts/html-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "html-analyze.sh"
-fi
-
-if should_perform "css-analyze"; then
-    $MOZSEARCH_PATH/scripts/css-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "css-analyze.sh"
+if should_perform_web "css-analyze"; then
+    $MOZSEARCH_PATH/scripts/css-analyze.sh $CONFIG_FILE $TREE_NAME || web_analysis_error "css-analyze.sh"
 fi
 
 # Pages' analyses of their inline scripts (js-environments-analyze's) and of
 # their markup (js- and html-analyze's), merged.
-if should_perform "js-environments-pages"; then
-    $MOZSEARCH_PATH/scripts/js-environments-pages.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-environments-pages.sh"
+if should_perform_web "js-environments-pages"; then
+    $MOZSEARCH_PATH/scripts/js-environments-pages.sh $CONFIG_FILE $TREE_NAME || web_analysis_error "js-environments-pages.sh"
 fi
 
 # web-platform-tests' pages' and stylesheets' links, in their analyses.
-if should_perform "document-links"; then
-    $MOZSEARCH_PATH/scripts/document-links.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "document-links.sh"
+if should_perform_web "document-links"; then
+    $MOZSEARCH_PATH/scripts/document-links.sh $CONFIG_FILE $TREE_NAME || web_analysis_error "document-links.sh"
+fi
+
+# (The web analyses, for the trees whose analyses are this one's.)
+if [[ -n $WEB_ANALYSIS_FOR ]] && should_perform "web-analysis-snapshot"; then
+    $MOZSEARCH_PATH/scripts/web-analysis-share.sh snapshot "$CONFIG_FILE" "$TREE_NAME" "$WEB_ANALYSIS_FAILED" ||
+        handle_tree_error "web-analysis-share.sh snapshot"
 fi
 
 if [[ -n $IDL_ANALYZE_PID ]]; then

@@ -33,6 +33,9 @@ EARLY_STEPS=find-repo-files,mkdirs,build
 TREES=($(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE}))
 EARLY_PID=""
 mkdir -p $WORKING/tmp
+# (Trees' web analyses' snapshots, for the trees after them whose analyses are
+# theirs, are only this run's; see scripts/web-analysis-share.sh.)
+rm -rf $WORKING/tmp/web-analysis
 
 # Start the early steps of the tree at index $1 in the background.
 start_early_steps() {
@@ -88,6 +91,7 @@ do
     echo "Disk usage after $TREE_NAME: $(df -BG --output=used,avail,size "$WORKING" | tail -1)"
     echo "Performed indexer-run section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 done
+rm -rf $WORKING/tmp/web-analysis
 
 # The uploads after setup which indexer-upload.sh started in the background
 # (ex: of the history the setup updated) are done before the "*-shared"
