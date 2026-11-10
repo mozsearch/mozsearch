@@ -34,27 +34,53 @@ add_task(async function test_QueryChangesLens() {
 });
 
 // "matches" chooses how the results' hits look (see mozsearch.css's
-// `html.lens-matches-*`): "blue" at first, and the choice is remembered.
+// `html.lens-matches-*`): "muted" at first, and the choice is remembered.
 add_task(async function test_QueryMatchesLens() {
   await TestUtils.loadQuery("searchfox", "blot_cell");
   frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("lens-matches"));
   await TestUtils.loadQuery("searchfox", "blot_cell");
 
   let doc = frame.contentDocument;
+  const win = () => frame.contentWindow;
   const choices = () => [...doc.querySelectorAll('.panel .lens-choice[data-lens="matches"]')];
-  is(JSON.stringify(choices().map(b => b.dataset.choice)), JSON.stringify(["blue", "lighter", "muted", "bold"]),
-     "There's a matches lens of choices");
+  const choose = choice => TestUtils.click(choices().find(b => b.dataset.choice == choice));
+  is(JSON.stringify(choices().map(b => b.dataset.choice)),
+     JSON.stringify(["muted", "only-bold", "grayscale", "blue", "bold"]), "There's a matches lens of choices");
   is(JSON.stringify(choices().map(b => b.getAttribute("aria-pressed"))),
-     JSON.stringify(["true", "false", "false", "false"]), "whose first is chosen at first");
-  ok(doc.documentElement.classList.contains("lens-matches-blue"), "as the page's class says");
+     JSON.stringify(["true", "false", "false", "false", "false"]), "whose first is chosen at first");
+  ok(doc.documentElement.classList.contains("lens-matches-muted"), "as the page's class says");
   const hit = doc.querySelector(".query-result mark.query-hit");
   ok(hit, "The results have hits");
-  const background = frame.contentWindow.getComputedStyle(hit).backgroundColor;
+  const background = win().getComputedStyle(hit).backgroundColor;
+  // (A colored token without a hit, ex: a keyword, and a definition's.)
+  const token = [...doc.querySelectorAll(".query-result :is(.syn_reserved, .syn_type)")]
+    .find(span => !span.querySelector("mark"));
+  ok(token, "and highlighted tokens");
+  // (As RGB bytes, through a canvas: the computed colors are `color(srgb ...)`
+  // when muted and `oklch(...)` when grayscale.)
+  const colors = () => {
+    const context = doc.createElement("canvas").getContext("2d");
+    context.fillStyle = win().getComputedStyle(token).color;
+    context.fillRect(0, 0, 1, 1);
+    return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+  };
+  const gray = ([r, g, b]) => Math.max(r, g, b) - Math.min(r, g, b) < 3;
+  ok(!gray(colors()), `Muted, its color is still a color: ${colors()}`);
 
-  TestUtils.click(choices().find(b => b.dataset.choice == "bold"));
+  choose("grayscale");
+  ok(gray(colors()), `Grayscale, it's gray: ${colors()}`);
+
+  const def = doc.querySelector(".query-result .syn_def");
+  choose("only-bold");
+  if (def) {
+    is(win().getComputedStyle(def).fontWeight, "400", "Only-bold, a definition isn't bold");
+  }
+  is(win().getComputedStyle(hit).fontWeight, "700", "but the hits are");
+
+  choose("bold");
   ok(doc.documentElement.classList.contains("lens-matches-bold") &&
-     !doc.documentElement.classList.contains("lens-matches-blue"), "Clicking another chooses it");
-  isnot(frame.contentWindow.getComputedStyle(hit).backgroundColor, background, "and changes the hits");
+     !doc.documentElement.classList.contains("lens-matches-muted"), "Clicking another chooses it");
+  isnot(win().getComputedStyle(hit).backgroundColor, background, "and changes the hits");
 
   await TestUtils.loadQuery("searchfox", "blot_cell");
   doc = frame.contentDocument;

@@ -885,7 +885,7 @@ const EarlyLayout = {
 
   /**
    * Make `choice` the choice of the lens `key`: its class on the root (ex:
-   * `lens-matches-lighter`), rather than its other choices', and its
+   * `lens-matches-grayscale`), rather than its other choices', and its
    * button's state.  (Its first choice, if it has no such choice.)
    */
   setLensChoice(key, choice) {

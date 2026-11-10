@@ -109,16 +109,22 @@ table {
   --line-highlight-background: rgb(255, 255, 204);
   --line-stuck-background: #ffe;
 
-  --syntax-type-color: teal;
-  --syntax-comment-color: darkred;
-  --syntax-reserved-color: blue;
-  --syntax-string-color: green;
-  --syntax-regex-color: #6d7b8d;
+  /* The syntax highlighting's colors (the dark theme's below), and the colors
+     the code uses, those unless a lens changes them (see
+     `html.lens-matches-*`). */
+  --syntax-type-base: teal;
+  --syntax-comment-base: darkred;
+  --syntax-reserved-base: blue;
+  --syntax-string-base: green;
+  --syntax-regex-base: #6d7b8d;
+  --syntax-type-color: var(--syntax-type-base);
+  --syntax-comment-color: var(--syntax-comment-base);
+  --syntax-reserved-color: var(--syntax-reserved-base);
+  --syntax-string-color: var(--syntax-string-base);
+  --syntax-regex-color: var(--syntax-regex-base);
   --syntax-symbol-highlight: yellow;
   /* `/query/`'s hits and other matches (distinct from the symbol highlight). */
   --query-hit-background: #d6e6ff;
-  /* (And the "lighter" matches lens's; see `mark.query-hit`.) */
-  --query-hit-lighter-background: #eaf2ff;
   --query-match-underline: #5b8fd9;
   /* `/query/`'s history digests' shades (teals, unlike the blots' reds and
      greens), from little to much changed. */
@@ -293,10 +299,9 @@ table {
     --line-highlight-background: #3c3111;
     --line-stuck-background: #221c09;
 
-    --syntax-comment-color: GrayText;
+    --syntax-comment-base: GrayText;
     --syntax-symbol-highlight: #5d4d1d;
     --query-hit-background: #1f3a5f;
-    --query-hit-lighter-background: #18283d;
     --query-match-underline: #6f9fe6;
     --recency-empty: #263030;
     --recency-1: #1d4a45;
@@ -305,10 +310,10 @@ table {
     --recency-4: #4fb3a5;
     --recency-5: #8fe0d2;
     /* Shamelessly taken from source.chromium.org's dark theme */
-    --syntax-type-color: #79a9c4;
-    --syntax-reserved-color: #d8884b;
-    --syntax-string-color: #97c67b;
-    --syntax-regex-color: #b98eff;
+    --syntax-type-base: #79a9c4;
+    --syntax-reserved-base: #d8884b;
+    --syntax-string-base: #97c67b;
+    --syntax-regex-base: #b98eff;
 
     /* Hit colors from the dark bits from https://colorbrewer2.org/#type=sequential&scheme=Blues&n=9
      * Miss background from the same link as the light colors (the darkest red in there). */
@@ -4138,32 +4143,50 @@ mark.query-match {
   text-decoration: underline dotted var(--query-match-underline) 2px;
   text-underline-offset: 3px;
 }
-/* The "matches" lens (see `results_file_facets`), for comparing ways of
-   showing the hits: "blue" (the above), "lighter" (a lighter blue), "muted"
-   (the blue, with the results' code's colors closer to gray, so that their
-   syntax highlighting is quieter than the hits) and "bold" (no background,
-   as /search/'s, whose lines have no syntax highlighting). */
-html.lens-matches-lighter mark.query-hit {
-  background-color: var(--query-hit-lighter-background);
+/* The "matches" lens (see `results_file_facets`), choices of how the hits
+   look among the results' code: "muted" (the default: the code's syntax
+   highlighting's colors closer to gray, so that they draw the eye less than
+   the hits), "only-bold" (muted, and the highlighting's bold, ex: of
+   definitions, normal, so that only the hits are bold), "grayscale" (the
+   highlighting's colors gray, of their lightnesses, but the hits'), "blue"
+   (the highlighting's colors as they are) and "bold" (as they are, without
+   the hits' background, as /search/'s, whose lines have no syntax
+   highlighting). */
+html:is(.lens-matches-muted, .lens-matches-only-bold) .query-result {
+  --syntax-type-color: color-mix(in srgb, var(--syntax-type-base) 45%, #8a8a8a);
+  --syntax-comment-color: color-mix(in srgb, var(--syntax-comment-base) 45%, #8a8a8a);
+  --syntax-reserved-color: color-mix(in srgb, var(--syntax-reserved-base) 45%, #8a8a8a);
+  --syntax-string-color: color-mix(in srgb, var(--syntax-string-base) 45%, #8a8a8a);
+  --syntax-regex-color: color-mix(in srgb, var(--syntax-regex-base) 45%, #8a8a8a);
+}
+html.lens-matches-only-bold .query-result .syn_def {
+  font-weight: normal;
+}
+html.lens-matches-grayscale .query-result {
+  --syntax-type-color: oklch(from var(--syntax-type-base) l 0 h);
+  --syntax-comment-color: oklch(from var(--syntax-comment-base) l 0 h);
+  --syntax-reserved-color: oklch(from var(--syntax-reserved-base) l 0 h);
+  --syntax-string-color: oklch(from var(--syntax-string-base) l 0 h);
+  --syntax-regex-color: oklch(from var(--syntax-regex-base) l 0 h);
+}
+/* (The hits are in their tokens' spans.) */
+html.lens-matches-grayscale .query-result .syn_type > mark.query-hit {
+  color: var(--syntax-type-base);
+}
+html.lens-matches-grayscale .query-result .syn_comment > mark.query-hit {
+  color: var(--syntax-comment-base);
+}
+html.lens-matches-grayscale .query-result :is(.syn_tag, .syn_key, .syn_reserved) > mark.query-hit {
+  color: var(--syntax-reserved-base);
+}
+html.lens-matches-grayscale .query-result .syn_string > mark.query-hit {
+  color: var(--syntax-string-base);
+}
+html.lens-matches-grayscale .query-result .syn_regex > mark.query-hit {
+  color: var(--syntax-regex-base);
 }
 html.lens-matches-bold mark.query-hit {
   background-color: transparent;
-}
-html.lens-matches-muted .query-result {
-  --syntax-type-color: color-mix(in srgb, teal 45%, #8a8a8a);
-  --syntax-comment-color: color-mix(in srgb, darkred 45%, #8a8a8a);
-  --syntax-reserved-color: color-mix(in srgb, blue 45%, #8a8a8a);
-  --syntax-string-color: color-mix(in srgb, green 45%, #8a8a8a);
-  --syntax-regex-color: color-mix(in srgb, #6d7b8d 45%, #8a8a8a);
-}
-@media (prefers-color-scheme: dark) {
-  html.lens-matches-muted .query-result {
-    --syntax-type-color: color-mix(in srgb, #79a9c4 45%, #8a8a8a);
-    --syntax-comment-color: GrayText;
-    --syntax-reserved-color: color-mix(in srgb, #d8884b 45%, #8a8a8a);
-    --syntax-string-color: color-mix(in srgb, #97c67b 45%, #8a8a8a);
-    --syntax-regex-color: color-mix(in srgb, #b98eff 45%, #8a8a8a);
-  }
 }
 /* `/query/`'s file-centric results look like `/search/`'s (see the search
    results' rules above, and search.js): its path kinds' headings like its

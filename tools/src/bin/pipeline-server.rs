@@ -233,16 +233,17 @@ fn results_file_facets(
             "title": "Show how much each result's history changed when, newest first (its history digest)",
         }));
     }
-    // (How the results' hits look, for comparing ways of showing them; see
+    // (How the results' hits look, the first choice by default; see
     // mozsearch.css's `html.lens-matches-*`.)
     lenses.push(json!({
         "key": "matches",
         "name": "matches",
         "title": "How the results' matches are highlighted",
         "choices": [
-            {"key": "blue", "name": "blue", "title": "Bold, on a blue background"},
-            {"key": "lighter", "name": "lighter", "title": "Bold, on a lighter blue background"},
-            {"key": "muted", "name": "muted", "title": "Bold, on a blue background, with the code's syntax highlighting muted"},
+            {"key": "muted", "name": "muted", "title": "Bold, on a blue background, with the code's syntax highlighting's colors muted"},
+            {"key": "only-bold", "name": "only-bold", "title": "As muted, and only the matches bold (not the highlighting's definitions)"},
+            {"key": "grayscale", "name": "grayscale", "title": "Bold, on a blue background, with the code's syntax highlighting's colors gray, but the matches'"},
+            {"key": "blue", "name": "blue", "title": "Bold, on a blue background, with the code's syntax highlighting as it is"},
             {"key": "bold", "name": "bold", "title": "Bold only, as /search/'s are"},
         ],
     }));
