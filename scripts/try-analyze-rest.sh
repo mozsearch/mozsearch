@@ -25,10 +25,11 @@ set -o pipefail # Check all commands in a pipeline
 #    generated C++ its build changes (ex: for a change to an `.ipdlh` file
 #    they include), with the files they include.
 # 4. Its TOML's (ex: test manifests').
-# 5. Its semantic analysis (see semantic-analyze), of all of the tree's files
-#    at its head, for what their uses can name, written for OUT_DIR's files
+# 5. Its semantic analysis (see semantic-analyze), written for OUT_DIR's files
 #    (whose analysis it adds to, ex: C++ files' uses of prefs) and those it
-#    changes.
+#    changes, with what all of the tree's files at its head define, for what
+#    their uses can name (those files' own, and the tree's others', which its
+#    indexing saved).
 # 6. Its moz.build files', with the tree's generated files and OBJDIR's.
 # 7. And all of OUT_DIR's files' URLs (replace-aliases.py, with the tree's URL
 #    map) and functions' GC (annotate-gc, with the tree's hazard analysis), as
@@ -184,7 +185,14 @@ echo "Analyzing the push's $(wc -l < "$WORK/toml") TOML files."
 echo "Performing try-analyze-rest::semantic step : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 { (cd "$OUT_DIR" && find . -type f | sed 's#^\./##'); cat "$WORK/at-head"; } |
     LC_ALL=C sort -u > "$WORK/semantic-files"
-semantic-analyze --write-only "$WORK/semantic-files" "$FILES_ROOT" "$OUT_DIR" \
+# (With what the tree's other files define, if its indexing saved that, so
+# that only these files are analyzed: on firefox at config8's 2026-11-09
+# revision, all of its 13,131 files took 25 s.)
+RESOLVABLES=()
+if [ -f "$INDEX_ROOT/semantic-resolvables.jsonl" ]; then
+    RESOLVABLES=(--resolvables "$INDEX_ROOT/semantic-resolvables.jsonl")
+fi
+semantic-analyze --write-only "$WORK/semantic-files" "${RESOLVABLES[@]}" "$FILES_ROOT" "$OUT_DIR" \
     "$INDEX_ROOT/doc-trees.json" < "$WORK/repo-files" ||
     echo "WARNING: The push's semantic analysis failed."
 

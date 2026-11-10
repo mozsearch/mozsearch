@@ -4,7 +4,8 @@
 // documents (see `tools::rendered_docs::analysis`).
 //
 // Usage:
-//   semantic-analyze [--write-only LIST] FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths
+//   semantic-analyze [--write-only LIST] [--save-resolvables FILE | --resolvables FILE]
+//     FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths
 //
 // Paths (relative to FILES_ROOT, one per line, ex: the repo-files list) which
 // mappings apply to, and documents, get their analysis (all of those mappings'
@@ -16,7 +17,14 @@
 // documentation's staged layout (see `file_format::doc_trees`), if the tree
 // has one.  With --write-only, only the paths LIST lists are written (ex: a
 // try push's analyzed files and those it changes; see try-analyze-rest.sh),
-// all of the paths still analyzed for what their uses can name.
+// all of the paths still analyzed for what their uses can name, unless
+// --resolvables names what the tree's files add to that (by file; see
+// `semantic_analyzer::ResolvableParts`), which --save-resolvables saves
+// (indexing does, in the index's semantic-resolvables.jsonl), in which case
+// only the paths LIST lists are analyzed, and what they add replaces the
+// tree's (as do the paths' which aren't there, ex: a try push's removed
+// files): on firefox at config8's 2026-11-09 revision, a try push's analysis
+// read 13,131 files in 25 s.
 
 use std::collections::HashSet;
 use std::io::BufRead;
@@ -29,9 +37,29 @@ use tools::file_format::doc_trees::read_doc_trees;
 use tools::rendered_docs::analysis::{TreeFiles, doc_records};
 use tools::rendered_docs::is_doc_path;
 use tools::semantic_analyzer::{
-    Analysis, CompiledMapping, Record, Resolvables, UnresolvedUse, analyze_resolving,
-    builtin_mappings, file_def_record, sort_records, write_records,
+    Analysis, CompiledMapping, Record, ResolvableParts, Resolvables, UnresolvedUse,
+    analyze_resolving, builtin_mappings, file_def_record, sort_records, write_records,
 };
+
+/// What a file adds to `Resolvables`, as --save-resolvables saves it, one per
+/// line.
+#[derive(serde::Deserialize)]
+struct SavedParts {
+    path: String,
+    #[serde(flatten)]
+    parts: ResolvableParts,
+}
+
+/// The value of the option `name`, taken out of `args`, if it's there.
+fn take_option(args: &mut Vec<String>, name: &str) -> Option<String> {
+    let i = args.iter().position(|arg| arg == name)?;
+    if i + 1 >= args.len() {
+        return None;
+    }
+    let value = args.remove(i + 1);
+    args.remove(i);
+    Some(value)
+}
 
 /// How many files' analyses are in memory at once (see `main`).  (Smaller
 /// batches were slower, without saving memory: each thread's state is most
@@ -84,27 +112,32 @@ fn analyze_file(
 
 fn main() {
     let mut args: Vec<String> = std::env::args().collect();
-    let write_only: Option<HashSet<String>> =
-        match args.iter().position(|arg| arg == "--write-only") {
-            Some(i) if i + 1 < args.len() => {
-                let list = args.remove(i + 1);
-                args.remove(i);
-                let text = std::fs::read_to_string(&list).unwrap_or_else(|e| {
-                    eprintln!("Couldn't read {}: {}", list, e);
-                    exit(1);
-                });
-                Some(
-                    text.lines()
-                        .filter(|line| !line.is_empty())
-                        .map(String::from)
-                        .collect(),
-                )
-            }
-            _ => None,
-        };
-    if args.len() != 3 && args.len() != 4 {
+    let read_file = |path: &str| {
+        std::fs::read_to_string(path).unwrap_or_else(|e| {
+            eprintln!("Couldn't read {}: {}", path, e);
+            exit(1);
+        })
+    };
+    let write_only: Option<HashSet<String>> = take_option(&mut args, "--write-only").map(|list| {
+        read_file(&list)
+            .lines()
+            .filter(|line| !line.is_empty())
+            .map(String::from)
+            .collect()
+    });
+    let save_resolvables = take_option(&mut args, "--save-resolvables");
+    // (The tree's files' parts, by path, if they're given.)
+    let tree_parts: Option<std::collections::HashMap<String, ResolvableParts>> =
+        take_option(&mut args, "--resolvables").map(|file| {
+            read_file(&file)
+                .lines()
+                .filter_map(|line| serde_json::from_str::<SavedParts>(line).ok())
+                .map(|saved| (saved.path, saved.parts))
+                .collect()
+        });
+    if (args.len() != 3 && args.len() != 4) || (tree_parts.is_some() && write_only.is_none()) {
         eprintln!(
-            "Usage: {} [--write-only LIST] FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths",
+            "Usage: {} [--write-only LIST] [--save-resolvables FILE | --resolvables FILE] FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths\n(--resolvables needs --write-only)",
             args[0]
         );
         exit(1);
@@ -139,12 +172,21 @@ fn main() {
     let mut resolvables = Resolvables::new(&mappings);
     let mut resolving: Vec<(&str, Vec<Record>, Vec<UnresolvedUse>)> = vec![];
     let (mut analyzed, mut failed) = (0, 0);
+    // (What each file analyzed adds, for --save-resolvables, or, with the
+    // tree's, to add in the paths' order once they're analyzed, as all of
+    // the files' would be.)
+    let mut parts: Vec<(&str, ResolvableParts)> = vec![];
+    // (With the tree's, only the files written are analyzed.)
+    let analyzing: Vec<&String> = paths
+        .iter()
+        .filter(|path| tree_parts.is_none() || writes(path))
+        .collect();
     // The files are analyzed in parallel (rayon), a batch at a time, so that
     // only a batch's analyses are in memory, and then taken in their order
     // (what their uses can name, errors, which wait), and those which don't
     // wait are written in parallel.  (It was single-threaded: ~2 minutes for
     // firefox-disco's.)
-    for batch in paths.chunks(ANALYSIS_BATCH) {
+    for batch in analyzing.chunks(ANALYSIS_BATCH) {
         let analyses: Vec<Option<Result<Analysis, String>>> = batch
             .par_iter()
             .map(|path| analyze_file(&mappings, files_root, path, &files))
@@ -155,7 +197,13 @@ fn main() {
             match analysis {
                 None => {}
                 Some(Ok(analysis)) => {
-                    resolvables.add(path, &analysis);
+                    let added = resolvables.parts(&analysis);
+                    if tree_parts.is_none() {
+                        resolvables.add_parts(path, &added);
+                    }
+                    if !added.is_empty() && (tree_parts.is_some() || save_resolvables.is_some()) {
+                        parts.push((path, added));
+                    }
                     let Analysis {
                         records,
                         unresolved,
@@ -178,6 +226,39 @@ fn main() {
             .into_par_iter()
             .for_each(|(path, records)| write_records(analysis_root, path, records));
     }
+    if let Some(tree_parts) = &tree_parts {
+        // (The files analyzed's, and the tree's others', which the paths
+        // still have, in the paths' order.)
+        let analyzed_paths: HashSet<&str> = analyzing.iter().map(|path| path.as_str()).collect();
+        let mut fresh: std::collections::HashMap<&str, ResolvableParts> =
+            std::mem::take(&mut parts).into_iter().collect();
+        for path in &paths {
+            let path = path.as_str();
+            if analyzed_paths.contains(path) {
+                if let Some(added) = fresh.remove(path) {
+                    resolvables.add_parts(path, &added);
+                }
+            } else if let Some(added) = tree_parts.get(path) {
+                resolvables.add_parts(path, added);
+            }
+        }
+    }
+    if let Some(file) = &save_resolvables {
+        #[derive(serde::Serialize)]
+        struct Saving<'a> {
+            path: &'a str,
+            #[serde(flatten)]
+            parts: &'a ResolvableParts,
+        }
+        let lines: String = parts
+            .iter()
+            .map(|(path, parts)| serde_json::to_string(&Saving { path, parts }).unwrap() + "\n")
+            .collect();
+        if let Err(e) = std::fs::write(file, lines) {
+            eprintln!("Couldn't write {}: {}", file, e);
+            exit(1);
+        }
+    }
     let unresolved_count: usize = resolving.iter().map(|(_, _, u)| u.len()).sum();
     let mut resolved_count = 0;
     for (path, mut records, unresolved) in resolving {
@@ -193,7 +274,17 @@ fn main() {
         write_records(analysis_root, path, records);
     }
     println!(
-        "Analyzed {} files ({} failed); resolved {} of {} uses of definitions and constants in any file",
-        analyzed, failed, resolved_count, unresolved_count
+        "Analyzed {} files ({} failed){}; resolved {} of {} uses of definitions and constants in any file",
+        analyzed,
+        failed,
+        match &tree_parts {
+            Some(tree_parts) => format!(
+                ", with the tree's other {} files' definitions",
+                tree_parts.len()
+            ),
+            None => String::new(),
+        },
+        resolved_count,
+        unresolved_count
     );
 }

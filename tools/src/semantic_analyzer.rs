@@ -1239,6 +1239,25 @@ fn task_labels(path: &str, pretty: &str) -> Vec<String> {
     labels
 }
 
+/// What a file's analysis adds to `Resolvables`: the definitions uses can
+/// name (their pretty names and symbols), and its constants (their grammars,
+/// names and values).  (A tree's are saved with its index, for its try
+/// pushes' semantic analyses, which analyze only their files; see
+/// semantic-analyze's --save-resolvables.)
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+pub struct ResolvableParts {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub defs: Vec<(String, String)>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub constants: Vec<(String, String, String)>,
+}
+
+impl ResolvableParts {
+    pub fn is_empty(&self) -> bool {
+        self.defs.is_empty() && self.constants.is_empty()
+    }
+}
+
 /// What uses in any file can name (see `Resolve`), from all of the files'
 /// analyses, for resolving the uses once all of the files are analyzed.
 #[derive(Default)]
@@ -1267,28 +1286,52 @@ impl Resolvables {
 
     /// Learn of what the analysis of the file at `path` defines.
     pub fn add(&mut self, path: &str, analysis: &Analysis) {
-        for record in &analysis.records {
-            if let Record::Target(target) = record
-                && matches!(target.data.kind, AnalysisKind::Def | AnalysisKind::DocDef)
-                && self
-                    .prefixes
-                    .iter()
-                    .any(|p| target.data.sym.starts_with(p.as_str()))
-            {
-                self.add_def(&target.data.pretty, &target.data.sym);
-                for label in task_labels(path, &target.data.pretty) {
-                    let defs = self.labels.entry(label).or_default();
-                    if !defs.iter().any(|(_, sym)| *sym == target.data.sym) {
-                        defs.push((target.data.pretty.clone(), target.data.sym.clone()));
-                    }
+        let parts = self.parts(analysis);
+        self.add_parts(path, &parts);
+    }
+
+    /// What a file's analysis adds (see `add`).
+    pub fn parts(&self, analysis: &Analysis) -> ResolvableParts {
+        let defs = analysis
+            .records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Target(target)
+                    if matches!(target.data.kind, AnalysisKind::Def | AnalysisKind::DocDef)
+                        && self
+                            .prefixes
+                            .iter()
+                            .any(|p| target.data.sym.starts_with(p.as_str())) =>
+                {
+                    Some((target.data.pretty.clone(), target.data.sym.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+        let constants = analysis
+            .constants
+            .iter()
+            .map(|c| (c.grammar.clone(), c.name.clone(), c.value.clone()))
+            .collect();
+        ResolvableParts { defs, constants }
+    }
+
+    /// Learn of what the file at `path` defines, by its `parts`.
+    pub fn add_parts(&mut self, path: &str, parts: &ResolvableParts) {
+        for (pretty, sym) in &parts.defs {
+            self.add_def(pretty, sym);
+            for label in task_labels(path, pretty) {
+                let defs = self.labels.entry(label).or_default();
+                if !defs.iter().any(|(_, def_sym)| def_sym == sym) {
+                    defs.push((pretty.clone(), sym.clone()));
                 }
             }
         }
-        for constant in &analysis.constants {
+        for (grammar, name, value) in &parts.constants {
             self.constants
-                .entry((constant.grammar.clone(), constant.name.clone()))
+                .entry((grammar.clone(), name.clone()))
                 .or_default()
-                .push((path.to_string(), constant.value.clone()));
+                .push((path.to_string(), value.clone()));
         }
     }
 

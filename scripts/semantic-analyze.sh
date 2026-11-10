@@ -14,4 +14,8 @@ fi
 # they apply to (ex: Fluent's .ftl files) out of all of the repo's files, and
 # documents (Markdown and reStructuredText) get their Sphinx labels and
 # references (with the documentation's staged layout, if the tree has one).
-semantic-analyze $FILES_ROOT $INDEX_ROOT/analysis $INDEX_ROOT/doc-trees.json < $INDEX_ROOT/repo-files
+# What they define, which uses in any file can name, is saved by file, for the
+# tree's try pushes' semantic analyses, which then analyze only their files
+# (see try-analyze-rest.sh).
+semantic-analyze --save-resolvables $INDEX_ROOT/semantic-resolvables.jsonl \
+    $FILES_ROOT $INDEX_ROOT/analysis $INDEX_ROOT/doc-trees.json < $INDEX_ROOT/repo-files
