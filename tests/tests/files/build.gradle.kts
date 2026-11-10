@@ -11,6 +11,8 @@ plugins {
 
     // Apply the java-library plugin for API and implementation separation.
     `java-library`
+
+    id("mozsearch")
 }
 
 repositories {
@@ -39,25 +41,6 @@ dependencies {
 
     // Required by the UniFFI bindings
     implementation("net.java.dev.jna:jna:5.19.1")
-
-    //
-    compileOnly("org.scip-code:scip-javac:0.13.2")
-    testCompileOnly("org.scip-code:scip-javac:0.13.2")
-    kotlinCompilerPluginClasspath("org.scip-code:scip-kotlinc:0.13.2")
-}
-
-var sourceroot = rootProject.projectDir.getCanonicalPath()
-var targetroot = rootProject.layout.buildDirectory.file("scip-targetroot").get()
-
-tasks.withType<JavaCompile> {
-    options.compilerArgs.add("-Xplugin:scip -sourceroot:${sourceroot} -targetroot:${targetroot}")
-}
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    compilerOptions.freeCompilerArgs.addAll(listOf(
-        "-P", "plugin:scip-kotlinc:sourceroot=${sourceroot}",
-        "-P", "plugin:scip-kotlinc:targetroot=${targetroot}",
-    ))
 }
 
 val generatedSources = providers.gradleProperty("generatedSources")
