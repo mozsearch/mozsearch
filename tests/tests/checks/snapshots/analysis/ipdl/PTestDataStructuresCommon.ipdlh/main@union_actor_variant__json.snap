@@ -9,7 +9,8 @@ input_file: inputs/analysis/ipdl/PTestDataStructuresCommon.ipdlh/union_actor_var
     "target": 1,
     "kind": "idl",
     "pretty": "mozilla::_foo::Actors::ArrayOfPTestDataStructuresSub",
-    "sym": "IPDL_mozilla__foo_Actors_ArrayOfPTestDataStructuresSub"
+    "sym": "IPDL_mozilla__foo_Actors_ArrayOfPTestDataStructuresSub",
+    "nameless": true
   },
   {
     "loc": "38:4-26",

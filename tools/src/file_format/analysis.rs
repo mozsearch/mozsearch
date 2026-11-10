@@ -246,6 +246,15 @@ where
     /// (see semantic_analyzer's data scopes).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ctxtra: Vec<StrT>,
+    /// For a definition, that its symbol has no name of its own: its
+    /// pretty's last part is another symbol's name (ex: an IPDL union's
+    /// variant's, its type's, whose name there is a use of the type; see
+    /// ipdl-analyze), so it's an identifier only with its parent's (ex:
+    /// "ServiceWorkerOpArgs::ServiceWorkerPushEventOpArgs", not
+    /// "ServiceWorkerPushEventOpArgs", the type's), as C++ locals are (see
+    /// crossref's identifiers).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub nameless: bool,
 }
 
 /// See TargetTag for more info

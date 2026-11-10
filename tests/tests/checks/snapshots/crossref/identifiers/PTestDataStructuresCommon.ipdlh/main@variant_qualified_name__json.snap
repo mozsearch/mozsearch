@@ -1,0 +1,14 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sl).unwrap()"
+input_file: inputs/crossref/identifiers/PTestDataStructuresCommon.ipdlh/variant_qualified_name__json
+---
+{
+  "symbols": [
+    {
+      "symbol": "IPDL_mozilla__foo_IntDouble_int",
+      "quality": "ExplicitIdentifier",
+      "from_identifier": "IntDouble::int"
+    }
+  ]
+}

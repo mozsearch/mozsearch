@@ -459,7 +459,8 @@ fn output_type_use(
 }
 
 /// Write the records of an IPDL definition: its target and source records,
-/// and its structured record (to which `structured` adds).
+/// and its structured record (to which `structured` adds).  (Of a symbol
+/// without a name of its own if `nameless`; see `AnalysisTarget::nameless`.)
 fn output_definition(
     outputf: &mut BufWriter<File>,
     loc: &str,
@@ -467,17 +468,19 @@ fn output_definition(
     pretty: &str,
     sym: &str,
     mut structured: serde_json::Value,
+    nameless: bool,
 ) {
-    emit(
-        outputf,
-        json!({
-            "loc": loc,
-            "target": 1,
-            "kind": "idl",
-            "pretty": pretty,
-            "sym": sym,
-        }),
-    );
+    let mut target = json!({
+        "loc": loc,
+        "target": 1,
+        "kind": "idl",
+        "pretty": pretty,
+        "sym": sym,
+    });
+    if nameless {
+        target["nameless"] = json!(true);
+    }
+    emit(outputf, target);
     emit(
         outputf,
         json!({
@@ -559,6 +562,7 @@ fn output_data_structures(
                     // (Its constructor parameter's.)
                     "ipdlIndex": index,
                 }),
+                false,
             );
             output_type_use(
                 outputf,
@@ -580,6 +584,7 @@ fn output_data_structures(
                 "bindingSlots": slots,
                 "fields": field_infos,
             }),
+            false,
         );
     }
 
@@ -634,6 +639,7 @@ fn output_data_structures(
                     "bindingSlots": variant_slots,
                     "ipdlIndex": index,
                 }),
+                true,
             );
             output_type_use(
                 outputf,
@@ -655,6 +661,7 @@ fn output_data_structures(
                 "bindingSlots": slots,
                 "fields": variant_infos,
             }),
+            false,
         );
     }
 }
@@ -714,6 +721,7 @@ fn output_message_params(
                 "ipdlIndex": position,
                 "ipdlOut": is_out,
             }),
+            false,
         );
         output_type_use(
             outputf,

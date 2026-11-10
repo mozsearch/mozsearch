@@ -84,6 +84,7 @@ fn to_target(
             arg_ranges: vec![],
             slot: None,
             ctxtra: vec![],
+            nameless: false,
         },
         loc,
     }

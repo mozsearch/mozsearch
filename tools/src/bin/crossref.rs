@@ -454,8 +454,12 @@ fn process_analysis_target(
         let (components, delim) = split_pretty(&pretty, split_sym);
         // (A C++ local's or parameter's name alone, ex: "aCx" or "i", would
         // be one of thousands, so it's only an identifier with its
-        // function's, ex: "Scale::aFactor".)
-        let last = if is_local {
+        // function's, ex: "Scale::aFactor"; and a symbol without a name of
+        // its own, ex: an IPDL union's variant, named for its type, would be
+        // found for the type's, ex: "ServiceWorkerPushEventOpArgs", so it's
+        // only one with its parent's, ex:
+        // "ServiceWorkerOpArgs::ServiceWorkerPushEventOpArgs".)
+        let last = if is_local || piece.nameless {
             components.len().saturating_sub(1)
         } else {
             components.len()

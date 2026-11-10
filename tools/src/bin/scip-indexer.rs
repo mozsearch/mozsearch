@@ -1694,6 +1694,7 @@ fn analyze_using_scip(
                 arg_ranges: vec![],
                 slot: None,
                 ctxtra: vec![],
+                nameless: false,
             },
             loc: Location {
                 lineno: 1,
@@ -1943,6 +1944,7 @@ fn analyze_using_scip(
                         arg_ranges: vec![],
                         slot: None,
                         ctxtra: vec![],
+                        nameless: false,
                     },
                     loc,
                 };

@@ -324,6 +324,15 @@ doesn't make the symbol their `slotOwner`, since a context can fill slots of
 many symbols.  Diagrams then go from the senders, through the symbol, to the
 receivers, and `recv` uses aren't calls.
 
+A definition's optional `nameless` property (`true`) says that its symbol has
+no name of its own: its `pretty`'s last part is another symbol's name, ex: an
+IPDL union's variant's (`mozilla::dom::ServiceWorkerOpArgs::ServiceWorkerPushEventOpArgs`)
+is its type's, whose name there is a use of the type.  So it's an identifier
+(searchable by name) only with its parent's, ex:
+`ServiceWorkerOpArgs::ServiceWorkerPushEventOpArgs`, and a search for
+`ServiceWorkerPushEventOpArgs` finds the type, as C++ locals' names are only
+identifiers with their functions'.
+
 ### Structured Records
 
 Structured records are an attempt to provide richer information about types and

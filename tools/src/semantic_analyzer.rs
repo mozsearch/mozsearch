@@ -1105,6 +1105,7 @@ pub(crate) fn target_record(
             arg_ranges: vec![],
             slot: None,
             ctxtra: vec![],
+            nameless: false,
         },
     })
 }
