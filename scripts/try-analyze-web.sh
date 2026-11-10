@@ -9,7 +9,8 @@ set -o pipefail # Check all commands in a pipeline
 # paths, ex: those the push changes) at FILES_ROOT (its head's checkout), into
 # OUT_DIR/{path}, but those OUT_DIR has already (ex: its TypeScript's):
 # 1. Its JS environments' (if the tree has them; see js-environments.sh): the
-#    tree's environments at its head, by js-environments over the tree's
+#    tree's environments at its head (the tree's own, if the push changes
+#    nothing their discovery reads), by js-environments over the tree's
 #    files (with those it adds, but those it removes, and with the tree's URL
 #    map); and, if the tree's are analyzed (see js-environments-analyze.sh),
 #    their projects documenting its files (js-environments-projects'
@@ -64,7 +65,28 @@ if [ -n "$RULES" ] && [ -s "$WORK/at-head" ]; then
     if [ -f "$INDEX_ROOT/aliases/url-map.json" ]; then
         cp "$INDEX_ROOT/aliases/url-map.json" "$WORK/index/aliases/"
     fi
-    js-environments "$FILES_ROOT" "$WORK/index" "$CONFIG_REPO/$RULES" > "$WORK/js-environments.log"
+    # (The tree's, if the push changes nothing their discovery reads, as its
+    # head is its stack rebased onto the indexed revision, whose files are the
+    # tree's checkout's; see js-environments' --unchanged: on config8's web
+    # server, discovering firefox-try's took about 30 s a push.)
+    ENVIRONMENTS=(js-environments.json js-environments-links.json js-environments-files.json js-environments-paths)
+    tree_environments() {
+        local file tree_files
+        tree_files=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].files_path // empty' "$CONFIG_FILE")
+        [ -n "$tree_files" ] && [ -d "$tree_files" ] || return 1
+        for file in "${ENVIRONMENTS[@]}"; do
+            [ -f "$INDEX_ROOT/$file" ] || return 1
+        done
+        cat "$WORK/at-head" "$WORK/removed" |
+            js-environments --unchanged "$tree_files" "$FILES_ROOT" "$INDEX_ROOT" "$CONFIG_REPO/$RULES"
+    }
+    if tree_environments; then
+        for file in "${ENVIRONMENTS[@]}"; do
+            cp "$INDEX_ROOT/$file" "$WORK/index/"
+        done
+    else
+        js-environments "$FILES_ROOT" "$WORK/index" "$CONFIG_REPO/$RULES" > "$WORK/js-environments.log"
+    fi
     if [ "$ANALYSIS" = "true" ] && [ ! -f "$COVERED" ]; then
         echo "WARNING: The tree's JS environments' analysis has no list of the files it left out, so the push's environments' files are js-analyze's."
     elif [ "$ANALYSIS" = "true" ]; then

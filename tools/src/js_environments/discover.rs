@@ -1230,6 +1230,107 @@ fn meta_scripts(source: &str) -> Vec<(String, u32)> {
         .collect()
 }
 
+/// The places (lines and columns) of what discovery takes from a page's scan,
+/// or a stylesheet's links (`ranges`, their bytes in `source`).
+fn places(source: &str, ranges: impl Iterator<Item = std::ops::Range<usize>>) -> Vec<(u32, u32)> {
+    ranges
+        .flat_map(|range| [range.start, range.end])
+        .map(|offset| line_and_column(source, offset))
+        .collect()
+}
+
+/// What discovery takes from a version of a page: its scan, its inline
+/// scripts' loads, and their places.
+fn page_facts(source: &str) -> (PageScan, Vec<Load>, Vec<(u32, u32)>) {
+    let scan = scan_page(source);
+    let mut loads = vec![];
+    for script in &scan.scripts {
+        if let Some(range) = &script.inline {
+            let first = super::scan::line_of(source, range.start);
+            loads.extend(scan_script(&source[range.clone()], first));
+        }
+    }
+    let ranges = scan
+        .scripts
+        .iter()
+        .filter_map(|script| script.inline.clone())
+        .chain(scan.handlers.iter().cloned())
+        .chain(scan.links.iter().map(|link| link.value.clone()));
+    let places = places(source, ranges);
+    (scan, loads, places)
+}
+
+/// Whether discovery finds the same in two versions of the file at `path`
+/// (`old` and `new`, or None, for a file added or removed; ex: by a try push,
+/// whose environments are its tree's if it changes nothing that discovery
+/// reads; see js-environments' --unchanged): what it takes from a page (its
+/// scan, its inline scripts' loads, and their places), a script (its loads,
+/// and web-platform-tests' META lines), a web-platform-tests stylesheet (its
+/// links, and their places), a moz.build file (its test manifests), or a
+/// test manifest (the tree's `manifests`: all of it); and, for a file added
+/// or removed, whether it's one discovery could read (a script, page,
+/// stylesheet, moz.build file or test manifest), or any file under
+/// web-platform-tests' roots (`wpt_roots`), which their pages' links can name.
+pub fn same_discovery_facts(
+    path: &str,
+    old: Option<&str>,
+    new: Option<&str>,
+    manifests: &HashSet<String>,
+    wpt_roots: &[String],
+) -> bool {
+    use crate::file_metadata::mozbuild::{is_read_mozbuild, read_mozbuild};
+    let under_wpt = wpt_roots.iter().any(|root| path.starts_with(root.as_str()));
+    let (old, new) = match (old, new) {
+        (Some(old), Some(new)) => (old, new),
+        (None, None) => return true,
+        _ => {
+            return !(is_script(path)
+                || is_page(path)
+                || path.ends_with(".css")
+                || is_read_mozbuild(path)
+                || manifests.contains(path)
+                || under_wpt);
+        }
+    };
+    if old == new {
+        return true;
+    }
+    if is_read_mozbuild(path) {
+        return read_mozbuild(old).manifests == read_mozbuild(new).manifests;
+    }
+    if manifests.contains(path) {
+        return false;
+    }
+    if is_page(path) {
+        return page_facts(old) == page_facts(new);
+    }
+    if is_script(path) {
+        return scan_script(old, 1) == scan_script(new, 1) && meta_lines(old).eq(meta_lines(new));
+    }
+    if path.ends_with(".css") && under_wpt {
+        let facts = |source: &str| {
+            let links = scan_stylesheet(source);
+            let places = places(source, links.iter().map(|link| link.value.clone()));
+            (links, places)
+        };
+        return facts(old) == facts(new);
+    }
+    true
+}
+
+/// The roots of a tree's web-platform-tests (by its rules), with slashes, for
+/// `same_discovery_facts`.
+pub fn wpt_roots(rules: &Rules) -> Vec<String> {
+    rules
+        .wpt
+        .iter()
+        .flat_map(|wpt| {
+            std::iter::once(format!("{}/", wpt.root))
+                .chain(wpt.extra_roots.values().map(|root| format!("{}/", root)))
+        })
+        .collect()
+}
+
 /// Discover a tree's environments.
 pub fn discover(inputs: Inputs) -> Discovery {
     let mut d = Discoverer {

@@ -9,9 +9,18 @@
 // inventory: how many environments of each flavor and global, how many of
 // the tree's JS files are in one (and, given COVERED, a list of the files
 // TypeScript projects already cover, how many neither covers, by directory),
-// and the loads it couldn't follow, by kind.
+// and the loads it couldn't follow, by kind.  And the test manifests, to
+// INDEX_ROOT/js-environments-manifests, for --unchanged.
 //
 // Usage: js-environments FILES_ROOT INDEX_ROOT RULES [COVERED]
+//        js-environments --unchanged OLD_ROOT NEW_ROOT INDEX_ROOT RULES < paths
+//
+// With --unchanged, whether the changes to the paths between OLD_ROOT's files
+// and NEW_ROOT's (ex: a try push's, rebased onto the indexed revision, whose
+// files INDEX_ROOT's environments are of) change what discovery finds (see
+// `discover::same_discovery_facts`): if they don't, it says so and exits with
+// 0, and the environments are INDEX_ROOT's; otherwise it says which file
+// does, and exits with 1.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -21,13 +30,51 @@ use tools::file_format::analysis_manglings::mangle_file;
 use tools::file_format::url_map::read_url_map;
 use tools::file_metadata::mozbuild::{is_read_mozbuild, read_mozbuild};
 use tools::file_metadata::test_manifests::{Manifests, join_normalized, read_manifest};
-use tools::js_environments::discover::{Inputs, Role, discover, files_json};
+use tools::js_environments::discover::{
+    Inputs, Role, discover, files_json, same_discovery_facts, wpt_roots,
+};
 use tools::js_environments::rules::Rules;
 
 const JS_EXTENSIONS: &[&str] = &[".js", ".mjs", ".jsm", ".sjs", ".cjs"];
 
+/// --unchanged's: whether the changes to the paths on stdin between
+/// `old_root` and `new_root` change what discovery finds.
+fn unchanged(old_root: &Path, new_root: &Path, index_root: &Path, rules: &Rules) -> bool {
+    let Ok(manifests) = fs::read_to_string(index_root.join("js-environments-manifests")) else {
+        println!("js-environments: the index has no list of its test manifests");
+        return false;
+    };
+    let manifests: HashSet<String> = manifests.lines().map(str::to_string).collect();
+    let roots = wpt_roots(rules);
+    for line in std::io::stdin().lines() {
+        let path = line.expect("Couldn't read the paths");
+        if path.is_empty() {
+            continue;
+        }
+        let old = fs::read_to_string(old_root.join(&path)).ok();
+        let new = fs::read_to_string(new_root.join(&path)).ok();
+        if !same_discovery_facts(&path, old.as_deref(), new.as_deref(), &manifests, &roots) {
+            println!("js-environments: {} changes what discovery finds", path);
+            return false;
+        }
+    }
+    println!("js-environments: the changes don't change what discovery finds");
+    true
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.len() == 6 && args[1] == "--unchanged" {
+        let rules = Rules::parse(&fs::read_to_string(&args[5]).expect("Couldn't read RULES"))
+            .unwrap_or_else(|e| panic!("{}: {}", args[5], e));
+        let same = unchanged(
+            Path::new(&args[2]),
+            Path::new(&args[3]),
+            Path::new(&args[4]),
+            &rules,
+        );
+        std::process::exit(if same { 0 } else { 1 });
+    }
     if args.len() != 4 && args.len() != 5 {
         eprintln!("Usage: js-environments FILES_ROOT INDEX_ROOT RULES [COVERED]");
         std::process::exit(1);
@@ -134,6 +181,18 @@ fn main() {
     paths_text.push('\n');
     fs::write(index_root.join("js-environments-paths"), paths_text)
         .expect("Couldn't write js-environments-paths");
+    // (And the test manifests, whose changes change the environments; see
+    // --unchanged.)
+    let mut manifests_text: String = manifests
+        .manifests
+        .keys()
+        .map(|path| format!("{}\n", path))
+        .collect();
+    if manifests_text.is_empty() {
+        manifests_text.push('\n');
+    }
+    fs::write(index_root.join("js-environments-manifests"), manifests_text)
+        .expect("Couldn't write js-environments-manifests");
 
     // ## The inventory.
     let mut kinds: BTreeMap<(&str, &str), usize> = BTreeMap::new();
