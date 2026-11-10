@@ -110,8 +110,8 @@ table {
   --line-stuck-background: #ffe;
 
   /* The syntax highlighting's colors (the dark theme's below), and the colors
-     the code uses, those unless a lens changes them (see
-     `html.lens-matches-*`). */
+     the code uses, those but in `/query/`'s results (see `.query-result`'s,
+     which are muted). */
   --syntax-type-base: teal;
   --syntax-comment-base: darkred;
   --syntax-reserved-base: blue;
@@ -854,9 +854,11 @@ tr.after-context-line + tr.before-context-line {
   font-size: 150%;
 }
 
+/* (Bold, not 800: with Arial, which has a Black face on Windows (Arial
+   Black, 900), 800 is that, much heavier than elsewhere's bold.) */
 .result-kind {
   font-size: var(--base-font-size);
-  font-weight: 800;
+  font-weight: bold;
 }
 
 .expando {
@@ -4143,50 +4145,19 @@ mark.query-match {
   text-decoration: underline dotted var(--query-match-underline) 2px;
   text-underline-offset: 3px;
 }
-/* The "matches" lens (see `results_file_facets`), choices of how the hits
-   look among the results' code: "muted" (the default: the code's syntax
-   highlighting's colors closer to gray, so that they draw the eye less than
-   the hits), "only-bold" (muted, and the highlighting's bold, ex: of
-   definitions, normal, so that only the hits are bold), "grayscale" (the
-   highlighting's colors gray, of their lightnesses, but the hits'), "blue"
-   (the highlighting's colors as they are) and "bold" (as they are, without
-   the hits' background, as /search/'s, whose lines have no syntax
-   highlighting). */
-html:is(.lens-matches-muted, .lens-matches-only-bold) .query-result {
+/* The results' code's syntax highlighting is quieter than their hits (bold,
+   on a blue background), so that they draw the eye: its colors closer to
+   gray, and its bold (ex: definitions') normal, so that only the hits are
+   bold. */
+.query-result {
   --syntax-type-color: color-mix(in srgb, var(--syntax-type-base) 45%, #8a8a8a);
   --syntax-comment-color: color-mix(in srgb, var(--syntax-comment-base) 45%, #8a8a8a);
   --syntax-reserved-color: color-mix(in srgb, var(--syntax-reserved-base) 45%, #8a8a8a);
   --syntax-string-color: color-mix(in srgb, var(--syntax-string-base) 45%, #8a8a8a);
   --syntax-regex-color: color-mix(in srgb, var(--syntax-regex-base) 45%, #8a8a8a);
 }
-html.lens-matches-only-bold .query-result .syn_def {
+.query-result .syn_def {
   font-weight: normal;
-}
-html.lens-matches-grayscale .query-result {
-  --syntax-type-color: oklch(from var(--syntax-type-base) l 0 h);
-  --syntax-comment-color: oklch(from var(--syntax-comment-base) l 0 h);
-  --syntax-reserved-color: oklch(from var(--syntax-reserved-base) l 0 h);
-  --syntax-string-color: oklch(from var(--syntax-string-base) l 0 h);
-  --syntax-regex-color: oklch(from var(--syntax-regex-base) l 0 h);
-}
-/* (The hits are in their tokens' spans.) */
-html.lens-matches-grayscale .query-result .syn_type > mark.query-hit {
-  color: var(--syntax-type-base);
-}
-html.lens-matches-grayscale .query-result .syn_comment > mark.query-hit {
-  color: var(--syntax-comment-base);
-}
-html.lens-matches-grayscale .query-result :is(.syn_tag, .syn_key, .syn_reserved) > mark.query-hit {
-  color: var(--syntax-reserved-base);
-}
-html.lens-matches-grayscale .query-result .syn_string > mark.query-hit {
-  color: var(--syntax-string-base);
-}
-html.lens-matches-grayscale .query-result .syn_regex > mark.query-hit {
-  color: var(--syntax-regex-base);
-}
-html.lens-matches-bold mark.query-hit {
-  background-color: transparent;
 }
 /* `/query/`'s file-centric results look like `/search/`'s (see the search
    results' rules above, and search.js): its path kinds' headings like its
@@ -4200,7 +4171,7 @@ html.lens-matches-bold mark.query-hit {
 }
 .query-result .facet-items details > summary > h2 {
   font-size: var(--base-font-size);
-  font-weight: 800;
+  font-weight: bold;
   margin: 1.25rem 0 0.4rem;
 }
 .query-result .facet-items h3.path {
@@ -4412,13 +4383,6 @@ div[role=row].change-nav-current {
 }
 .lens-label {
   font-weight: bold;
-}
-/* A lens of choices (see navigation_panel.liquid), whose buttons look like
-   the blame lens's modes' (`.panel .lens-modes button`). */
-.lens-choices {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
 }
 .facet-value.facet-empty {
   opacity: 0.45;

@@ -409,13 +409,6 @@ var Panel = new (class Panel {
         localStorage.setItem(storageKey(`lens-${button.dataset.lens}`), on ? "1" : "0");
       });
     }
-    // (And the lenses of choices' buttons, which choose.)
-    for (const button of this.panel.querySelectorAll(".lens-choice")) {
-      button.addEventListener("click", () => {
-        EarlyLayout.setLensChoice(button.dataset.lens, button.dataset.choice);
-        localStorage.setItem(storageKey(`lens-${button.dataset.lens}`), button.dataset.choice);
-      });
-    }
   }
 
   updateFancyBarOpen() {

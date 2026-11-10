@@ -53,9 +53,9 @@ use ustr::{Ustr, UstrMap};
 /// [...]}`.  And the facets of their lines, "Last changed" and
 /// "Preprocessor", if they have them, whose values the lines have (see
 /// query_results/line_span.liquid), and their files the union of theirs; see
-/// `FlattenedLineSpan::facets`.  And the results' lenses (see
-/// navigation_panel.liquid): "changes", showing the lines' history digests,
-/// if they have them, and "matches", the choices of how their hits look.
+/// `FlattenedLineSpan::facets`.  And the lenses showing more of the results
+/// (see navigation_panel.liquid), if any (or null): "changes", the lines'
+/// history digests, if they have them.
 fn results_file_facets(
     server: &(dyn AbstractServer + Send + Sync),
     results: &mut FlattenedResultsBundle,
@@ -225,28 +225,15 @@ fn results_file_facets(
     if let Some(lock) = lock {
         facets.push(lock.view);
     }
-    let mut lenses = vec![];
-    if recency {
-        lenses.push(json!({
+    let lenses = if recency {
+        json!([{
             "key": "changes",
             "name": "changes",
             "title": "Show how much each result's history changed when, newest first (its history digest)",
-        }));
-    }
-    // (How the results' hits look, the first choice by default; see
-    // mozsearch.css's `html.lens-matches-*`.)
-    lenses.push(json!({
-        "key": "matches",
-        "name": "matches",
-        "title": "How the results' matches are highlighted",
-        "choices": [
-            {"key": "muted", "name": "muted", "title": "Bold, on a blue background, with the code's syntax highlighting's colors muted"},
-            {"key": "only-bold", "name": "only-bold", "title": "As muted, and only the matches bold (not the highlighting's definitions)"},
-            {"key": "grayscale", "name": "grayscale", "title": "Bold, on a blue background, with the code's syntax highlighting's colors gray, but the matches'"},
-            {"key": "blue", "name": "blue", "title": "Bold, on a blue background, with the code's syntax highlighting as it is"},
-            {"key": "bold", "name": "bold", "title": "Bold only, as /search/'s are"},
-        ],
-    }));
+        }])
+    } else {
+        Value::Null
+    };
     json!({ "facets": facets, "files": data, "lenses": lenses })
 }
 
