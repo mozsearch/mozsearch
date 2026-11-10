@@ -53,9 +53,9 @@ use ustr::{Ustr, UstrMap};
 /// [...]}`.  And the facets of their lines, "Last changed" and
 /// "Preprocessor", if they have them, whose values the lines have (see
 /// query_results/line_span.liquid), and their files the union of theirs; see
-/// `FlattenedLineSpan::facets`.  And the lenses showing more of the results
-/// (see navigation_panel.liquid), if any (or null): "changes", the lines'
-/// history digests, if they have them.
+/// `FlattenedLineSpan::facets`.  And the results' lenses (see
+/// navigation_panel.liquid): "changes", showing the lines' history digests,
+/// if they have them, and "matches", the choices of how their hits look.
 fn results_file_facets(
     server: &(dyn AbstractServer + Send + Sync),
     results: &mut FlattenedResultsBundle,
@@ -225,15 +225,27 @@ fn results_file_facets(
     if let Some(lock) = lock {
         facets.push(lock.view);
     }
-    let lenses = if recency {
-        json!([{
+    let mut lenses = vec![];
+    if recency {
+        lenses.push(json!({
             "key": "changes",
             "name": "changes",
             "title": "Show how much each result's history changed when, newest first (its history digest)",
-        }])
-    } else {
-        Value::Null
-    };
+        }));
+    }
+    // (How the results' hits look, for comparing ways of showing them; see
+    // mozsearch.css's `html.lens-matches-*`.)
+    lenses.push(json!({
+        "key": "matches",
+        "name": "matches",
+        "title": "How the results' matches are highlighted",
+        "choices": [
+            {"key": "blue", "name": "blue", "title": "Bold, on a blue background"},
+            {"key": "lighter", "name": "lighter", "title": "Bold, on a lighter blue background"},
+            {"key": "muted", "name": "muted", "title": "Bold, on a blue background, with the code's syntax highlighting muted"},
+            {"key": "bold", "name": "bold", "title": "Bold only, as /search/'s are"},
+        ],
+    }));
     json!({ "facets": facets, "files": data, "lenses": lenses })
 }
 

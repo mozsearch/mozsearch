@@ -33,6 +33,46 @@ add_task(async function test_QueryChangesLens() {
   frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("lens-changes"));
 });
 
+// "matches" chooses how the results' hits look (see mozsearch.css's
+// `html.lens-matches-*`): "blue" at first, and the choice is remembered.
+add_task(async function test_QueryMatchesLens() {
+  await TestUtils.loadQuery("searchfox", "blot_cell");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("lens-matches"));
+  await TestUtils.loadQuery("searchfox", "blot_cell");
+
+  let doc = frame.contentDocument;
+  const choices = () => [...doc.querySelectorAll('.panel .lens-choice[data-lens="matches"]')];
+  is(JSON.stringify(choices().map(b => b.dataset.choice)), JSON.stringify(["blue", "lighter", "muted", "bold"]),
+     "There's a matches lens of choices");
+  is(JSON.stringify(choices().map(b => b.getAttribute("aria-pressed"))),
+     JSON.stringify(["true", "false", "false", "false"]), "whose first is chosen at first");
+  ok(doc.documentElement.classList.contains("lens-matches-blue"), "as the page's class says");
+  const hit = doc.querySelector(".query-result mark.query-hit");
+  ok(hit, "The results have hits");
+  const background = frame.contentWindow.getComputedStyle(hit).backgroundColor;
+
+  TestUtils.click(choices().find(b => b.dataset.choice == "bold"));
+  ok(doc.documentElement.classList.contains("lens-matches-bold") &&
+     !doc.documentElement.classList.contains("lens-matches-blue"), "Clicking another chooses it");
+  isnot(frame.contentWindow.getComputedStyle(hit).backgroundColor, background, "and changes the hits");
+
+  await TestUtils.loadQuery("searchfox", "blot_cell");
+  doc = frame.contentDocument;
+  is(choices().find(b => b.getAttribute("aria-pressed") == "true")?.dataset.choice, "bold",
+     "Later pages remember it");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("lens-matches"));
+});
+
+// The results' files' paths, as /search/'s, have no spaces between their
+// segments and separators (whose margins space them).
+add_task(async function test_QueryPathSpacing() {
+  await TestUtils.loadQuery("searchfox", "blot_cell");
+  const path = frame.contentDocument.querySelector(".query-result h3.path");
+  ok(path, "The results have paths");
+  ok(path.textContent.trim().includes("/") && !/\s/.test(path.textContent.trim()),
+     `without spaces: ${JSON.stringify(path.textContent)}`);
+});
+
 // Hierarchical facets' values (see facet_value.liquid): each with nested
 // values has a button showing and hiding them, the facet's label has buttons
 // showing all of its values or only the biggest at the top, and selected

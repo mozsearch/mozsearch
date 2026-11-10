@@ -875,6 +875,29 @@ const EarlyLayout = {
     for (const button of document.querySelectorAll(".lens-toggle")) {
       EarlyLayout.setLens(button, localStorage.getItem(storageKey(`lens-${button.dataset.lens}`)) == "1");
     }
+    // (And the lenses of choices, ex: "matches": the choice last made, or
+    // else the first.)
+    const keys = new Set([...document.querySelectorAll(".lens-choice")].map(b => b.dataset.lens));
+    for (const key of keys) {
+      EarlyLayout.setLensChoice(key, localStorage.getItem(storageKey(`lens-${key}`)));
+    }
+  },
+
+  /**
+   * Make `choice` the choice of the lens `key`: its class on the root (ex:
+   * `lens-matches-lighter`), rather than its other choices', and its
+   * button's state.  (Its first choice, if it has no such choice.)
+   */
+  setLensChoice(key, choice) {
+    const buttons = [...document.querySelectorAll(".lens-choice")].filter(b => b.dataset.lens == key);
+    if (!buttons.some(b => b.dataset.choice == choice)) {
+      choice = buttons[0]?.dataset.choice;
+    }
+    for (const button of buttons) {
+      const on = button.dataset.choice == choice;
+      document.documentElement.classList.toggle(`lens-${key}-${button.dataset.choice}`, on);
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+    }
   },
 
   setLens(button, on) {

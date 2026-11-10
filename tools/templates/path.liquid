@@ -1,13 +1,15 @@
 {%- assign path_segments = path | split: "/" %}
 <h3 class="path"><div class="mimetype-bullet mimetype-icon-{{ path | fileext | escape }}"></div>
+{% comment %}(The segments without spaces between them and their separators,
+whose margins space them, as /search/'s paths are.){% endcomment -%}
 {% for segment in path_segments -%}
     {%-  unless forloop.first -%}
     <span class="path-separator">/</span>
     {%- endunless -%}
     {%- assign path_so_far = path_segments | slice: 0, forloop.index | join: "/" -%}
-    {%- if path_rev and path_rev != empty %}
+    {%- if path_rev and path_rev != empty -%}
     <a href="/{{tree}}/rev/{{path_rev | escape}}/{{path_so_far | escape}}">{{ segment | escape }}</a>
-    {%- else %}
+    {%- else -%}
     <a href="/{{tree}}/source/{{path_so_far | escape}}">{{ segment | escape }}</a>
-    {%- endif %}
+    {%- endif -%}
 {%- endfor -%}</h3>
