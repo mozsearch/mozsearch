@@ -16,7 +16,6 @@ use axum::{
 use axum_macros::debug_handler;
 use liquid::Template;
 use serde_json::{Value, json};
-use tokio::net::TcpListener;
 use tools::{
     abstract_server::{
         AbstractServer, ServerError, make_all_local_servers, make_remote_servers,
@@ -927,6 +926,7 @@ async fn main() {
     // (Elsewhere with PIPELINE_SERVER_ADDR, ex: beside a production server's
     // on a development machine.)
     let addr = env::var("PIPELINE_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8002".to_string());
-    let listener = TcpListener::bind(&addr).await.unwrap();
+    // (Waiting for it if the previous one still has it; see `listen`.)
+    let listener = tools::listen::bind_waiting(&addr).await;
     axum::serve(listener, app).await.unwrap();
 }

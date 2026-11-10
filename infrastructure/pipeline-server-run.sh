@@ -64,6 +64,12 @@ if [[ -d /run/systemd/system ]] && sudo -n true 2>/dev/null; then
     # (The previous one's, if it's still there.)
     sudo systemctl stop $UNIT 2>/dev/null || true
     sudo systemctl reset-failed $UNIT 2>/dev/null || true
+    # (Whatever still listens on its port, for the record: on config8's web
+    # server, something did right after the stop, so that the new one failed
+    # to listen at first, in both restarts of 2026-11-10; it now waits for the
+    # port, see the tools' listen.rs.)
+    PORT=${PIPELINE_SERVER_ADDR:-0.0.0.0:8002}
+    ss -Hltnp "sport = :${PORT##*:}" || true
 
     # (Its logs are this user's, as they would be without systemd, which
     # creates the files it opens as root: so they're made here, and it

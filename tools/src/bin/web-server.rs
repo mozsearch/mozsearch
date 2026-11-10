@@ -18,7 +18,6 @@ use hyper::service::service_fn;
 use hyper::{Method, StatusCode, header};
 
 use hyper_util::rt::TokioIo;
-use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tools::abstract_server::{
     AbstractServer, make_local_server, make_remote_servers, remote_trees_config, sym_info,
@@ -2030,7 +2029,8 @@ async fn main() {
         .unwrap_or_else(|_| "0.0.0.0:8001".to_string())
         .parse()
         .unwrap();
-    let server = TcpListener::bind(addr).await.unwrap();
+    // (Waiting for it if the previous one still has it; see `listen`.)
+    let server = tools::listen::bind_waiting(&addr.to_string()).await;
     println!("Listening on http://{addr}");
     loop {
         let (stream, _) = server.accept().await.unwrap();

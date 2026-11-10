@@ -37,7 +37,17 @@ pkill -x pipeline-server || true
 # failing to start.)
 pkill -x .pipeline-serve || true
 
-sleep 0.1s
+# Wait for them to exit (up to 30 s): pkill doesn't, and an exiting process
+# keeps its port until it has torn down its memory, which a big one's (ex: the
+# pipeline-server's, with its index files mapped) takes a while, longer than
+# the 0.1 s this used to wait, so that the new ones failed to listen at first
+# and their supervisors restarted them.  (The servers also wait for their
+# ports; see the tools' listen.rs.)  Only this user's, which pkill could
+# signal.
+for i in $(seq 300); do
+    pgrep -u "$(id -u)" -x 'codesearch|\.router-wrapped|web-server|pipeline-server|\.pipeline-serve' > /dev/null || break
+    sleep 0.1s
+done
 
 nohup \
     $MOZSEARCH_PATH/infrastructure/with-auto-restart.sh \
