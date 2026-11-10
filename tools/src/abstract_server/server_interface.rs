@@ -957,6 +957,14 @@ pub trait AbstractServer {
         None
     }
 
+    /// What a file's cached data (ex: its dataflow IR; see
+    /// `dataflow::ir_cache`) depends on, if it can be cached: its server's
+    /// identity, or, for a try push's overlay, its base's, if the push doesn't
+    /// change the file or its analysis.
+    fn file_cache_identity(&self, _path: &str) -> Option<String> {
+        self.cache_identity()
+    }
+
     /// The lines a revision changes (a commit's changes from its first
     /// parent, or `<a>..<b>`'s), in the coordinates of the files this
     /// analyzes (the indexed revision's, or a try push's head's), for

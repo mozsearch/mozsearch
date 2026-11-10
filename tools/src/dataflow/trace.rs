@@ -266,6 +266,17 @@ pub struct Tracer<'s> {
     queue: VecDeque<Item>,
     seen: HashSet<(String, Ustr, String, bool)>,
     noted: HashSet<String>,
+    /// Its use of the disk cache of files' IR, which it logs when it's done.
+    ir_cache_stats: super::ir_cache::IrCacheStats,
+}
+
+impl Drop for Tracer<'_> {
+    fn drop(&mut self) {
+        let stats = &self.ir_cache_stats;
+        if super::ir_cache::enabled() && stats.hits + stats.misses > 0 {
+            eprintln!("Dataflow file IR cache: {}", stats.summary());
+        }
+    }
 }
 
 impl<'s> Tracer<'s> {
@@ -292,6 +303,7 @@ impl<'s> Tracer<'s> {
             queue: VecDeque::new(),
             seen: HashSet::new(),
             noted: HashSet::new(),
+            ir_cache_stats: Default::default(),
         }
     }
 
@@ -302,7 +314,38 @@ impl<'s> Tracer<'s> {
             return cached.clone();
         }
         let start = std::time::Instant::now();
-        let built = self.build_file(path).await;
+        // (From the disk cache, if it has it, without its source and records,
+        // which what uses its IR may not need; see `ir_cache`.)
+        let identity = if super::ir_cache::enabled() && lang_for_path(path).is_some() {
+            self.server.file_cache_identity(path)
+        } else {
+            None
+        };
+        let built = match identity
+            .as_deref()
+            .and_then(|identity| super::ir_cache::read(identity, path))
+        {
+            Some(file) => {
+                self.ir_cache_stats.hits += 1;
+                self.ir_cache_stats.hit_time += start.elapsed();
+                Ok(file)
+            }
+            None => {
+                let built = self.build_file(path).await;
+                let elapsed = start.elapsed();
+                if identity.is_some() {
+                    self.ir_cache_stats.misses += 1;
+                    self.ir_cache_stats.miss_time += elapsed;
+                }
+                if let (Some(identity), Ok(file)) = (&identity, &built)
+                    && elapsed >= super::ir_cache::MIN_BUILD_TO_CACHE
+                    && super::ir_cache::write(identity, path, file)
+                {
+                    self.ir_cache_stats.written += 1;
+                }
+                built
+            }
+        };
         if std::env::var("DATAFLOW_DEBUG").is_ok() {
             eprintln!("file {} {:?} ok={}", path, start.elapsed(), built.is_ok());
         }
@@ -636,12 +679,15 @@ impl<'s> Tracer<'s> {
         sub
     }
 
-    pub fn absorb(&mut self, sub: Tracer<'s>) {
-        self.files = sub.files;
-        self.sources = sub.sources;
-        self.records = sub.records;
-        self.xrefs = sub.xrefs;
-        self.ipdl_slots = sub.ipdl_slots;
+    pub fn absorb(&mut self, mut sub: Tracer<'s>) {
+        self.files = std::mem::take(&mut sub.files);
+        self.sources = std::mem::take(&mut sub.sources);
+        self.records = std::mem::take(&mut sub.records);
+        self.xrefs = std::mem::take(&mut sub.xrefs);
+        self.ipdl_slots = std::mem::take(&mut sub.ipdl_slots);
+        // (Logged with this one's.)
+        self.ir_cache_stats
+            .add(std::mem::take(&mut sub.ir_cache_stats));
     }
 
     /// Questions for an oracle about the calls in some files that we can't

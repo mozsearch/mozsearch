@@ -892,6 +892,11 @@ async fn main() {
             let root =
                 tools::sidecars::sidecar_root(&tree.paths.index_path).with_file_name("step-cache");
             tools::step_cache::init(&root, tools::step_cache::CAP_BYTES);
+            // (And files' dataflow IR, beside it; see `dataflow::ir_cache`.)
+            tools::dataflow::ir_cache::init(
+                &root.with_file_name("file-ir-cache"),
+                tools::dataflow::ir_cache::CAP_BYTES,
+            );
         }
         // (The trees whose data API is on; see `TreeConfigPaths::data_api`.)
         let data_api_trees = config

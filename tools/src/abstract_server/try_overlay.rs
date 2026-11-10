@@ -641,6 +641,15 @@ impl AbstractServer for TryOverlay {
         (rev == self.delta.meta.base).then(|| self.base.clonify())
     }
 
+    // (The base's, for the files whose source and analysis are the base's.)
+    fn file_cache_identity(&self, path: &str) -> Option<String> {
+        let path = path.strip_prefix('/').unwrap_or(path);
+        if self.delta.change(path).is_none() && self.delta.analysis_file(path).is_none() {
+            return self.base.file_cache_identity(path);
+        }
+        self.cache_identity()
+    }
+
     fn cache_identity(&self) -> Option<String> {
         // (The delta's, in case it's analyzed again.)
         use std::os::unix::fs::MetadataExt;

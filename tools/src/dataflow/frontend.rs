@@ -20,6 +20,7 @@ use crate::tree_sitter_support::cst_tokenizer::{
 };
 
 /// The functions of a file.
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct FileIr {
     pub path: String,
     pub lang: Lang,

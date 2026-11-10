@@ -86,7 +86,7 @@ pub fn init(root: &Path, cap: u64) {
 }
 
 /// What the binary's results could depend on: the binary itself.
-fn binary_stamp() -> String {
+pub(crate) fn binary_stamp() -> String {
     use std::os::unix::fs::MetadataExt;
     let exe = std::env::current_exe().unwrap_or_default();
     match fs::metadata(&exe) {

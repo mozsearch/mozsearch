@@ -7,10 +7,10 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Lang {
     Cpp,
@@ -19,7 +19,7 @@ pub enum Lang {
 }
 
 /// What a place is rooted at.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Root {
     /// A local variable or parameter, by symbol: C++'s `V_` symbols, scip's
     /// locals, or, without one, a key the frontend makes (ex: Kotlin's locals,
@@ -32,7 +32,7 @@ pub enum Root {
 }
 
 /// A step from a place to a part of it.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Step {
     /// A member, by symbol (or "name:<name>" without one).
     Field(Ustr),
@@ -43,7 +43,7 @@ pub enum Step {
 }
 
 /// A place: storage which values flow into and out of.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Place {
     pub root: Root,
     pub path: Vec<Step>,
@@ -98,7 +98,7 @@ impl Place {
 }
 
 /// A source of a value.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Atom {
     /// The value in a place.
     Read(Place),
@@ -114,7 +114,7 @@ pub enum Atom {
 /// A value an expression has: one of its sources, and whether it's derived
 /// from it (`a + 1`, `!a`, `a == b`) rather than it (`a`, `(T)a`,
 /// `std::move(a)`).
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Val {
     pub atom: Atom,
     pub derived: bool,
@@ -139,7 +139,7 @@ pub fn derive(vals: Vec<Val>) -> Vec<Val> {
 }
 
 /// An argument of a call.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Arg {
     pub vals: Vec<Val>,
     /// The place the argument is, if it's one (for references and pointers
@@ -163,7 +163,7 @@ pub enum CallKind {
     Macro,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Call {
     pub id: usize,
     pub line: u32,
@@ -185,7 +185,7 @@ pub struct Call {
     pub in_macro: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum EventKind {
     /// Values flow into a place: `=`, initialization, `+=` (whose values
     /// include the place's own).
@@ -206,7 +206,7 @@ pub enum EventKind {
     },
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Event {
     pub line: u32,
     pub col: u32,
@@ -229,7 +229,7 @@ impl Event {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Param {
     pub name: String,
     pub place: Place,
@@ -351,14 +351,14 @@ pub fn sym_short_name(sym: &str) -> String {
 
 /// Where something in a function needs knowledge we don't have: an oracle
 /// (a human, a better analysis, or an LLM) could answer it.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Question {
     pub line: u32,
     pub kind: QuestionKind,
     pub text: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum QuestionKind {
     /// A call whose callee we couldn't resolve to a definition.
@@ -376,7 +376,7 @@ pub enum QuestionKind {
 /// `MOZ_RELEASE_ASSERT(Validate(x))` (and `MOZ_DIAGNOSTIC_ASSERT`,
 /// `NS_ENSURE_TRUE`), the rest of its block.  (For taint: a validation
 /// blesses what it dominates.)
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Guard {
     pub call: usize,
     /// The events it dominates, `start..end`.
@@ -404,7 +404,7 @@ pub enum LockKind {
 /// `frontend`'s lock guards and `locks`): a scoped guard's events, from its
 /// construction to the end of its block (its destructor), or a proof
 /// parameter's, the whole body.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LockRegion {
     pub kind: LockKind,
     /// The guard's type (ex: "mozilla::MutexAutoLock").
@@ -449,7 +449,7 @@ impl LockRegion {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FuncIr {
     pub sym: Ustr,
     pub pretty: String,
@@ -465,10 +465,10 @@ pub struct FuncIr {
     pub calls: Vec<Call>,
     pub questions: Vec<Question>,
     /// The calls whose success dominates some of its events (see `Guard`).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub guards: Vec<Guard>,
     /// Where it holds or releases mutexes (see `LockRegion`).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub locks: Vec<LockRegion>,
     /// Display names of the symbols in its places (locals, fields, globals).
     pub names: HashMap<Ustr, String>,
