@@ -290,6 +290,13 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "tags": [],
         "description": null,
         "info": {
+          "test": {
+            "failure_count": 0,
+            "manifest": [
+              "tests/mochitest.toml"
+            ],
+            "skip_if": "os == 'mac' && debug"
+          },
           "test_results": {
             "crashes": 0,
             "daily_issue_rates": [
@@ -366,12 +373,35 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "info": {
           "test_results": {
             "crashes": 0,
+            "daily_issue_rates": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              100.0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
             "days": 21,
             "end_date": "2026-09-30",
-            "failures": 0,
-            "issues": 0,
-            "pass_rate": 100,
-            "runs": 60,
+            "failures": 1,
+            "issues": 1,
+            "pass_rate": 99.5,
+            "runs": 201,
             "skips": 0,
             "start_date": "2026-09-10",
             "state": "stable",

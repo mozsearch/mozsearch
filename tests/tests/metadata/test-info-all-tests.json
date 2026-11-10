@@ -35,6 +35,13 @@
         "test": "test_many_manifest_permutations.js",
         "run-if": "os = 'mac'",
         "fail-if": "debug"
+      },
+      {
+        "searchfox-test-repo-note": "skipped given a condition with quotes and an operator, which the tests directory listing's CI results tooltip shows as text",
+        "manifest": ["tests/mochitest.toml"],
+        "failure_count": 0,
+        "skip-if": "os == 'mac' && debug",
+        "test": "tests/test_otherthing.html"
       }
     ],
     "OtherProduct::OtherComponent": [

@@ -2,7 +2,7 @@
  "metadata": {
   "startDate": "2026-09-10",
   "endDate": "2026-09-30",
-  "searchfox-test-repo-note": "A made-up mochitest-issues.json (see scripts/summarize-test-results.py): test_otherthing.html is flaky, test_something.html stable."
+  "searchfox-test-repo-note": "A made-up mochitest-issues.json (see scripts/summarize-test-results.py): test_otherthing.html is flaky, and test_something.html failed once in 201 runs (under 1% of them)."
  },
  "tables": {
   "statuses": [
@@ -68,14 +68,23 @@
    {
     "counts": [
      30,
+     140,
      30
     ],
     "days": [
      0,
-     20
+     10,
+     10
     ]
    },
-   null,
+   {
+    "counts": [
+     1
+    ],
+    "days": [
+     12
+    ]
+   },
    null
   ]
  ]

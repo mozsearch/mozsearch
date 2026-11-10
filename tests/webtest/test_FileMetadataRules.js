@@ -117,11 +117,25 @@ add_task(async function test_TestResults() {
   const box = frame.contentDocument.querySelector("section.test-results-concise");
   ok(box?.classList.contains("info-box-warning"), "A directory with a flaky test warns");
   is(JSON.stringify([...box.querySelectorAll(".info-box-fact")].map(f => f.textContent)),
-     JSON.stringify(["2 tests", "1 flaky", "221 runs in 21 days", "3 with failures, timeouts or crashes"]),
+     JSON.stringify(["2 tests", "1 flaky", "362 runs in 21 days", "4 with failures, timeouts or crashes"]),
      "Its tests' CI results are counted");
   TestUtils.click(box.querySelector("button.info-box-details"));
   ok(frame.contentDocument.querySelector("#panel-content").style.display != "none",
      "The details button shows the panel");
   ok(frame.contentDocument.querySelector("#panel-tests + .panel-tests .test-results"),
      "whose Tests section has the CI results");
+
+  // The directory listing's rows have their issue rates (tests.firefox.dev's
+  // "Issue %": test_something.html's 1 in 201 runs), and their tooltips
+  // their summaries, as text (test_otherthing.html's skip condition has
+  // quotes and an operator).
+  const row = name => [...frame.contentDocument.querySelectorAll("tr")]
+    .find(tr => tr.querySelector("td.name a")?.textContent == name);
+  is(row("test_something.html")?.querySelector(".test-results-rate")?.textContent, "<1%",
+     "A test's issue rate under 1% is <1%");
+  is(row("test_otherthing.html")?.querySelector(".test-results-rate")?.textContent, "2%",
+     "and another's rounded");
+  const title = row("test_otherthing.html")?.querySelector("td.name a")?.getAttribute("title") ?? "";
+  ok(title.includes("6 skips, skip-if:\nos == 'mac' && debug"),
+     `and its tooltip has its skip condition: ${JSON.stringify(title)}`);
 });

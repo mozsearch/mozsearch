@@ -53,7 +53,6 @@
               {%- capture results_title -%}
                 {%- include 'test_results/summary_title.liquid' results: results, skip_if: skip_if -%}
               {%- endcapture -%}
-              {%- assign results_title = results_title | escape -%}
               {%- if file.concise.is_dir -%}
                 {%- capture results_url %}https://tests.firefox.dev/tests.html?path={{ file.path | url_encode }}{% endcapture -%}
               {%- else -%}
@@ -64,7 +63,7 @@
               {%- if results.issues > 0 -%}
                 {%- assign rate = results.issues | times: 100.0 | divided_by: results.runs -%}
                 {%- if rate < 1 -%}
-                  {%- assign issue_rate = "&lt;1%" -%}
+                  {%- assign issue_rate = "<1%" -%}
                 {%- else -%}
                   {%- capture issue_rate %}{{ rate | plus: 0.5 | floor }}%{% endcapture -%}
                 {%- endif -%}

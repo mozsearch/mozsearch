@@ -8,8 +8,8 @@ input_file: inputs/web/dirs/tests_test_results__html
       <span class="info-box-facts">
         <span class="info-box-fact">2 tests</span>
         <span class="info-box-fact">1 flaky</span>
-        <span class="info-box-fact">221 runs in 21 days</span>
-        <span class="info-box-fact">3 with failures, timeouts or crashes</span>
+        <span class="info-box-fact">362 runs in 21 days</span>
+        <span class="info-box-fact">4 with failures, timeouts or crashes</span>
       </span>
       <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
     </section>
