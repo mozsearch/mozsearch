@@ -81,6 +81,23 @@ function testContext() {
     ?.dataset.root || null;
 }
 
+/**
+ * The element whose symbols (`data-symbols`) a click or hover on `target` is
+ * of: the nearest having them, but a diagram's block naming one of its parts
+ * (`interactive-graph-block-named`, ex: a rev-canvas card, whose name is its
+ * function's, and whose code's tokens are their own symbols), only on that
+ * part (`interactive-graph-block-name`), not on the rest of it (ex: its
+ * code's whitespace, or its badges).
+ */
+function symbolElementOf(target) {
+  const elem = target.closest("[data-symbols]");
+  if (elem?.classList.contains("interactive-graph-block-named") &&
+      !target.closest(".interactive-graph-block-name")) {
+    return null;
+  }
+  return elem;
+}
+
 // A link to the pipeline-server's /query/default (diagrams, following
 // values), in the context of the try push whose code was clicked, or whose
 // pages these are, if any (data-search-rev; see `searchUrl`).
@@ -1582,7 +1599,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       }
     }
 
-    let symbolToken = event.target.closest("[data-symbols]");
+    let symbolToken = symbolElementOf(event.target);
     if (symbolToken) {
       Hover.onSymbolClicked(symbolToken);
       
@@ -2838,7 +2855,7 @@ var Hover = new (class Hover {
       return;
     }
 
-    let elem = target.closest("[data-symbols]");
+    let elem = symbolElementOf(target);
 
     this._updateHoverState(elem);
   }

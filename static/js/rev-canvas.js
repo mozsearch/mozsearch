@@ -322,7 +322,10 @@ var RevCanvas = new (class RevCanvas {
   renderBlock(block, element) {
     const node = block.data.node;
     const collapsed = this.state.collapsed.includes(node.id);
-    element.classList.add("rc-card", `rc-status-${node.status}`);
+    // (Its function's symbol is only its name's, for clicks and hovers, not
+    // its code's whitespace's, nor its badges'; see context-menu.js's
+    // `symbolElementOf`.)
+    element.classList.add("rc-card", `rc-status-${node.status}`, "interactive-graph-block-named");
     element.dataset.canvasNode = node.id;
 
     const head = document.createElement("div");
@@ -331,7 +334,7 @@ var RevCanvas = new (class RevCanvas {
     status.className = "rc-badge";
     status.textContent = node.status;
     const name = document.createElement("span");
-    name.className = "rc-name";
+    name.className = "rc-name interactive-graph-block-name";
     name.textContent = node.pretty;
     // (The other functions whose definitions are its lines, ex: other
     // instantiations of a template; see `patch_canvas::CanvasNode::others`.)

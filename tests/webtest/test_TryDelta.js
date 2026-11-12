@@ -408,6 +408,18 @@ add_task(async function test_TryCanvas() {
   is(doc().querySelectorAll(".rc-legend .rc-legend-item").length, 5,
      "A legend says what the cards' edges and the lines' backgrounds mean");
 
+  // (A card's function's symbol is its name's: clicking elsewhere in it, ex:
+  // its badge, or its code's whitespace, isn't clicking its function.)
+  const menu = doc().querySelector("#context-menu");
+  TestUtils.click(card("trydelta::Unpoke").querySelector(".rc-badge"));
+  ok(!TestUtils.isShown(menu), "Clicking a card's badge shows no context menu");
+  TestUtils.click(card("trydelta::Unpoke").querySelector(".rc-rows code"));
+  ok(!TestUtils.isShown(menu), "nor does clicking its code's whitespace");
+  TestUtils.click(card("trydelta::Unpoke").querySelector(".rc-name"));
+  await TestUtils.waitForShown(menu, "but clicking its name does");
+  ok(menu.textContent.includes("trydelta::Unpoke"), `for its function: ${menu.textContent}`);
+  frame.contentWindow.ContextMenu.hide();
+
   // (The calls' lines are marked when hovering over them.)
   const edge = doc().querySelector(
     '#interactive-graph-container g.edge[data-symbols="_ZN8trydelta11WobbleTwiceERNS_6WidgetE->_ZN8trydelta6Widget6WobbleEv"]');

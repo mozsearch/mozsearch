@@ -1281,10 +1281,12 @@ var Panel = new (class Panel {
         if (!lineno) {
           return;
         }
-        // (The hovered token's columns: its text's offset in the line's.)
+        // (The hovered token's columns: its text's offset in the line's.  A
+        // token in the line, not one containing it, ex: a rev-canvas card.)
         let start = null;
         let end = null;
-        const token = event.target.closest("[data-symbols]") ||
+        const symbolToken = event.target.closest("[data-symbols]");
+        const token = (code.contains(symbolToken) ? symbolToken : null) ||
               (event.target !== code && code.contains(event.target) ? event.target : null);
         if (token) {
           const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
