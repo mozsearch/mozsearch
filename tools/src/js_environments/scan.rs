@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::{Node, Parser};
 
 /// A page's `<script>`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PageScript {
     /// Its `src`, if any.
     pub src: Option<String>,
@@ -26,7 +26,7 @@ pub struct PageScript {
     pub line: u32,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PageScan {
     /// Its JS scripts, in order (not those of other types, ex: JSON).
     pub scripts: Vec<PageScript>,
@@ -191,7 +191,7 @@ pub enum LinkKind {
 }
 
 /// A page's or stylesheet's link: its kind, its URL, and its URL's bytes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PageLink {
     pub kind: LinkKind,
     pub url: String,
@@ -659,7 +659,7 @@ pub fn inline_file(source: &str, scan: &PageScan, syntax: PageSyntax) -> Option<
 }
 
 /// How a script loads another.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum LoadKind {
     /// `new Worker(url)`: a dedicated worker's script.
@@ -683,7 +683,7 @@ pub enum LoadKind {
 
 /// A script's load of another, by a string literal (or not: `literal` is
 /// None, for the inventory of the loads it can't follow).
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Load {
     pub kind: LoadKind,
     pub literal: Option<String>,

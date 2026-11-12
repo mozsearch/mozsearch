@@ -12,7 +12,9 @@ set -o pipefail # Check all commands in a pipeline
 #    tree's environments at its head (the tree's own, if the push changes
 #    nothing their discovery reads), by js-environments over the tree's
 #    files (with those it adds, but those it removes, and with the tree's URL
-#    map); and, if the tree's are analyzed (see js-environments-analyze.sh),
+#    map), taking what the tree's discovery took from the files the push
+#    doesn't change (js-environments' --facts); and, if the tree's are
+#    analyzed (see js-environments-analyze.sh),
 #    their projects documenting its files (js-environments-projects'
 #    --only-files), indexed with scip-typescript, but for the files the
 #    tree's TypeScript projects cover (the tree's own
@@ -80,10 +82,19 @@ if [ -n "$RULES" ] && [ -s "$WORK/at-head" ]; then
         cat "$WORK/at-head" "$WORK/removed" |
             js-environments --unchanged "$tree_files" "$FILES_ROOT" "$INDEX_ROOT" "$CONFIG_REPO/$RULES"
     }
+    # (Otherwise, the tree's discovery's facts for the files the push doesn't
+    # change, whose sources are the tree's, rather than parsing all of them
+    # again: about a third of the time; or if the index has none, or they
+    # can't be read, as before the index's next indexing, the discovery.)
     if tree_environments; then
         for file in "${ENVIRONMENTS[@]}"; do
             cp "$INDEX_ROOT/$file" "$WORK/index/"
         done
+    elif cat "$WORK/at-head" "$WORK/removed" > "$WORK/changed" &&
+            [ -f "$INDEX_ROOT/js-environments-facts.json" ] &&
+            js-environments --facts "$INDEX_ROOT/js-environments-facts.json" --changed "$WORK/changed" \
+                "$FILES_ROOT" "$WORK/index" "$CONFIG_REPO/$RULES" > "$WORK/js-environments.log"; then
+        echo "The push's JS environments took the tree's discovery's facts for the files it doesn't change."
     else
         js-environments "$FILES_ROOT" "$WORK/index" "$CONFIG_REPO/$RULES" > "$WORK/js-environments.log"
     fi

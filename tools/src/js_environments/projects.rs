@@ -360,17 +360,17 @@ pub fn write_projects(
         .filter(|s| s.role == Role::Inline)
         .map(|s| s.path.as_str())
         .collect();
+    // (Which pages have them, here, and only the projects' pages' are written,
+    // below, which with `only_files` are a few.)
     let inline_dir = opts.out_dir.join(INLINE_DIR);
+    let inline_text = |page: &str| -> Option<String> {
+        let source = fs::read_to_string(opts.files_root.join(page)).ok()?;
+        inline_file(&source, &scan_page(&source), PageSyntax::of(page))
+    };
     let inline_files: HashMap<&str, PathBuf> = pages
         .par_iter()
-        .filter_map(|page| {
-            let source = fs::read_to_string(opts.files_root.join(page)).ok()?;
-            let text = inline_file(&source, &scan_page(&source), PageSyntax::of(page))?;
-            let path = inline_dir.join(format!("{}.js", page));
-            fs::create_dir_all(path.parent()?).ok()?;
-            fs::write(&path, text).ok()?;
-            Some((*page, path))
-        })
+        .filter(|page| inline_text(page).is_some())
+        .map(|page| (*page, inline_dir.join(format!("{}.js", page))))
         .collect();
     let mut inline_pages: Vec<&str> = inline_files.keys().copied().collect();
     inline_pages.sort();
@@ -467,14 +467,70 @@ pub fn write_projects(
             groups[i].roots.push(root);
         }
     }
+    // Each group's files to document (the first of its kind's groups with a
+    // file documents it), but those `covered` lists, and with `only_files`,
+    // only those it lists.
+    let mut documented: HashSet<(String, String)> = HashSet::new();
+    let onlies: Vec<Vec<&String>> = groups
+        .iter()
+        .map(|group| {
+            group
+                .context
+                .iter()
+                .chain(&group.roots)
+                .filter(|path| !opts.covered.contains(*path))
+                .filter(|path| documented.insert((group.kind.clone(), path.to_string())))
+                .filter(|path| opts.only_files.is_none_or(|only| only.contains(*path)))
+                .collect()
+        })
+        .collect();
+    // (The documenting projects' pages' inline scripts' files.)
+    let project_pages: BTreeSet<&str> = groups
+        .iter()
+        .zip(&onlies)
+        .filter(|(_, only)| !only.is_empty())
+        .flat_map(|(group, _)| group.context.iter().chain(&group.roots))
+        .map(String::as_str)
+        .filter(|path| inline_files.contains_key(path))
+        .collect();
+    project_pages
+        .par_iter()
+        .try_for_each(|page| -> io::Result<()> {
+            let Some(text) = inline_text(page) else {
+                return Ok(());
+            };
+            let path = &inline_files[page];
+            if let Some(dir) = path.parent() {
+                fs::create_dir_all(dir)?;
+            }
+            fs::write(path, text)
+        })?;
+
     // The names each context script can use as hooks, by kind (its project's
     // `scipHookNames`; see scip-typescript's --hooks, which finds those it
     // uses but doesn't declare, in the one project of its kind documenting
     // it, whose roots are only some of those it's loaded before): the
     // top-level names of its kind's environments' roots, which it mentions.
+    // (Only those of the context scripts the projects document, from their
+    // kinds' groups having them, rather than all of the groups' roots' names,
+    // which with `only_files` are mostly of the projects' it doesn't write.)
+    let documented_contexts: HashSet<(&str, &str)> = groups
+        .iter()
+        .zip(&onlies)
+        .flat_map(|(group, only)| {
+            only.iter()
+                .filter(|path| group.context.contains(path))
+                .map(|path| (group.kind.as_str(), path.as_str()))
+        })
+        .collect();
     let read = |path: &str| fs::read_to_string(abs(path)).ok();
     let roots: BTreeSet<&str> = groups
         .iter()
+        .filter(|g| {
+            g.context
+                .iter()
+                .any(|c| documented_contexts.contains(&(g.kind.as_str(), c.as_str())))
+        })
         .flat_map(|g| g.roots.iter().map(String::as_str))
         .collect();
     let root_names: HashMap<&str, Vec<String>> = roots
@@ -485,10 +541,7 @@ pub fn write_projects(
         })
         .collect();
     let all_root_names: HashSet<&str> = root_names.values().flatten().map(String::as_str).collect();
-    let contexts: BTreeSet<&str> = groups
-        .iter()
-        .flat_map(|g| g.context.iter().map(String::as_str))
-        .collect();
+    let contexts: BTreeSet<&str> = documented_contexts.iter().map(|(_, c)| *c).collect();
     let mentioned: HashMap<&str, HashSet<&str>> = contexts
         .par_iter()
         .map(|context| {
@@ -501,6 +554,9 @@ pub fn write_projects(
     let mut hook_names: HashMap<(&str, &str), BTreeSet<&str>> = HashMap::new();
     for group in &groups {
         for context in &group.context {
+            if !documented_contexts.contains(&(group.kind.as_str(), context.as_str())) {
+                continue;
+            }
             let Some(mentions) = mentioned.get(context.as_str()).filter(|m| !m.is_empty()) else {
                 continue;
             };
@@ -518,18 +574,9 @@ pub fn write_projects(
     }
 
     let unwrap_globs = glob_set(&rules.unwrap);
-    let mut documented: HashSet<(String, String)> = HashSet::new();
     // (Each kind's projects, with their costs: their documented files' sizes.)
     let mut by_kind: BTreeMap<String, Vec<(PathBuf, u64)>> = BTreeMap::new();
-    for (n, group) in groups.iter().enumerate() {
-        let only: Vec<&String> = group
-            .context
-            .iter()
-            .chain(&group.roots)
-            .filter(|path| !opts.covered.contains(*path))
-            .filter(|path| documented.insert((group.kind.clone(), path.to_string())))
-            .filter(|path| opts.only_files.is_none_or(|only| only.contains(*path)))
-            .collect();
+    for (n, (group, only)) in groups.iter().zip(&onlies).enumerate() {
         if only.is_empty() {
             continue;
         }

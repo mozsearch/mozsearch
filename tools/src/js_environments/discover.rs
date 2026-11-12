@@ -104,6 +104,28 @@ pub struct Discovery {
     /// `wpt_links`), by path (written to a file of their own).
     #[serde(skip)]
     pub links: BTreeMap<String, Vec<FileLink>>,
+    /// What it took from the files' sources (written to a file of their own).
+    #[serde(skip)]
+    pub facts: Facts,
+}
+
+/// A web-platform-tests page's or stylesheet's links, with their URLs'
+/// places (the lines and columns of their starts and ends), and a page's
+/// `<base>`'s `href`.
+pub type LinkScan = (Vec<(PageLink, (u32, u32), (u32, u32))>, Option<String>);
+
+/// What discovery takes from the tree's files' sources by parsing them (most
+/// of its work; see `Discoverer::scan_all` and `wpt_links`), by path:
+/// scripts' loads (and pages' inline scripts', by `{page}#inline`), pages'
+/// scans, and web-platform-tests' pages' and stylesheets' links.  A try
+/// push's discovery takes its tree's for the files it doesn't change (see
+/// `Inputs::prior`), its head's other files being the tree's (its stack
+/// rebased onto the indexed revision).
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Facts {
+    pub loads: HashMap<String, Vec<Load>>,
+    pub pages: HashMap<String, Option<PageScan>>,
+    pub links: HashMap<String, LinkScan>,
 }
 
 /// A file's link to another file of the tree (see `scan::LinkKind`): its
@@ -129,6 +151,9 @@ pub struct Inputs<'a> {
     /// The file a `chrome://` or `resource://` URL loads, if known (ex: by
     /// the tree's URL map, from the build's chrome map).
     pub url_file: &'a (dyn Fn(&str) -> Option<String> + Sync),
+    /// Facts to take for the files but some (ex: a try push's tree's, but for
+    /// the files the push changes), rather than parsing them again.
+    pub prior: Option<(&'a Facts, &'a HashSet<String>)>,
 }
 
 fn dir_of(path: &str) -> &str {
@@ -157,11 +182,21 @@ struct Discoverer<'a> {
     /// Pages' scans, and scripts' loads, by path.
     pages: HashMap<String, Option<PageScan>>,
     loads: HashMap<String, Vec<Load>>,
+    /// web-platform-tests' files' link scans, by path (see `wpt_links`).
+    link_scans: HashMap<String, LinkScan>,
 }
 
 impl<'a> Discoverer<'a> {
     fn read(&self, path: &str) -> Option<String> {
         (self.inputs.read)(path)
+    }
+
+    /// The prior facts to take for `path`, if any (see `Inputs::prior`).
+    fn prior(&self, path: &str) -> Option<&'a Facts> {
+        self.inputs
+            .prior
+            .filter(|(_, changed)| !changed.contains(path))
+            .map(|(facts, _)| facts)
     }
 
     /// The file a URL (relative to `base_dir`, or one of the rules' URLs, or
@@ -203,7 +238,7 @@ impl<'a> Discoverer<'a> {
     /// (on mozilla-central, 89,556 of its 104,009 scripts, and its pages with
     /// inline scripts), and scanning them (parsing them with tree-sitter) one
     /// at a time took most of its 81 seconds, on one core, on the 2026-11-06
-    /// config8 run.
+    /// config8 run.  (But those it has prior facts for; see `Inputs::prior`.)
     fn scan_all(&mut self) {
         let read = self.inputs.read;
         let mut paths: Vec<&String> = self
@@ -220,6 +255,21 @@ impl<'a> Discoverer<'a> {
         )> = paths
             .par_iter()
             .map(|path| {
+                if let Some(facts) = self.prior(path) {
+                    let loads = is_script(path)
+                        .then(|| facts.loads.get(path.as_str()).cloned())
+                        .flatten();
+                    let page = is_page(path)
+                        .then(|| {
+                            let scan = facts.pages.get(path.as_str())?;
+                            let inline = facts.loads.get(&format!("{}#inline", path))?;
+                            Some((scan.clone(), inline.clone()))
+                        })
+                        .flatten();
+                    if loads.is_some() || page.is_some() {
+                        return (*path, loads, page);
+                    }
+                }
                 let source = read(path);
                 let loads = is_script(path).then(|| {
                     source
@@ -931,7 +981,8 @@ impl<'a> Discoverer<'a> {
             .filter(|p| under_roots(p) && (is_page(p) || p.ends_with(".css")))
             .collect();
         paths.sort();
-        // (Each file's links, with their sources' positions, in parallel.)
+        // (Each file's links, with their sources' positions, in parallel; but
+        // those it has prior facts for.)
         let scanned: Vec<(
             &String,
             Vec<(PageLink, (u32, u32), (u32, u32))>,
@@ -939,6 +990,12 @@ impl<'a> Discoverer<'a> {
         )> = paths
             .par_iter()
             .map(|path| {
+                if let Some((links, base)) = self
+                    .prior(path)
+                    .and_then(|facts| facts.links.get(path.as_str()))
+                {
+                    return (*path, links.clone(), base.clone());
+                }
                 let Some(source) = read(path) else {
                     return (*path, vec![], None);
                 };
@@ -961,6 +1018,8 @@ impl<'a> Discoverer<'a> {
             .collect();
         let mut out: BTreeMap<String, Vec<FileLink>> = BTreeMap::new();
         for (path, links, base) in scanned {
+            self.link_scans
+                .insert(path.clone(), (links.clone(), base.clone()));
             let base_dir = match &base {
                 Some(base) if !base.contains("://") => {
                     join_normalized(dir_of(path), base.trim_end_matches('/'))
@@ -1340,11 +1399,17 @@ pub fn discover(inputs: Inputs) -> Discovery {
         loads: HashMap::new(),
         unresolved_seen: HashSet::new(),
         variables: HashMap::new(),
+        link_scans: HashMap::new(),
     };
     d.scan_all();
     d.manifest_tests();
     d.path_tests();
     d.wpt_tests();
+    d.out.facts = Facts {
+        loads: d.loads,
+        pages: d.pages,
+        links: d.link_scans,
+    };
     d.out
 }
 
@@ -1437,6 +1502,128 @@ mod tests {
         );
         // (A fixture, or a harness's support file.)
         assert_eq!(test262_record("export var x = 1;\n"), None);
+    }
+
+    /// A tree of files (by path) and its discovery, with prior facts (see
+    /// `Inputs::prior`), if any.
+    fn discover_tree(
+        rules: &Rules,
+        tree: &BTreeMap<&str, &str>,
+        prior: Option<(&Facts, &HashSet<String>)>,
+    ) -> Discovery {
+        let files: HashSet<String> = tree.keys().map(|p| p.to_string()).collect();
+        let read = |path: &str| tree.get(path).map(|s| s.to_string());
+        let entries = BTreeMap::new();
+        let manifest_variables = HashMap::new();
+        let url_file = |_: &str| None;
+        discover(Inputs {
+            rules,
+            files: &files,
+            read: &read,
+            entries: &entries,
+            manifest_variables: &manifest_variables,
+            url_file: &url_file,
+            prior,
+        })
+    }
+
+    /// With prior facts (ex: a try push's tree's), but for the files which
+    /// changed (ex: the push's), discovery finds what it finds without them:
+    /// what changed files load or link to, and what unchanged ones do that
+    /// files added or removed make resolve or not.
+    #[test]
+    fn test_prior_facts() {
+        let rules = Rules::parse(
+            r#"
+load_globals = ["xpcshell"]
+[[path_flavors]]
+name = "xpcshell"
+include = ["tests/**/test_*.js"]
+global = "xpcshell"
+[wpt]
+root = "wpt"
+window_harness = ["resources/testharness.js"]
+worker_harness = ["resources/testharness.js"]
+"#,
+        )
+        .unwrap();
+        let mut tree: BTreeMap<&str, &str> = BTreeMap::from([
+            (
+                "tests/a/test_one.js",
+                "load(\"helper.js\");\nload(\"missing.js\");\n",
+            ),
+            ("tests/a/helper.js", "// a helper\n"),
+            (
+                "tests/b/test_two.js",
+                "load(\"../a/helper.js\");\nload(\"../a/later.js\");\n",
+            ),
+            ("wpt/resources/testharness.js", ""),
+            (
+                "wpt/dom/page.html",
+                "<script src=\"/resources/testharness.js\"></script>\n<script src=\"support/x.js\"></script>\n<link rel=stylesheet href=\"style.css\">\n<script>new Worker(\"worker.js\");</script>\n",
+            ),
+            ("wpt/dom/support/x.js", ""),
+            ("wpt/dom/style.css", "@import url(\"other.css\");\n"),
+            ("wpt/dom/other.css", ""),
+            ("wpt/dom/worker.js", "importScripts(\"support/x.js\");\n"),
+            (
+                "wpt/dom/test.any.js",
+                "// META: script=support/x.js\ntest();\n",
+            ),
+        ]);
+        let before = discover_tree(&rules, &tree, None);
+
+        tree.insert(
+            "tests/a/test_one.js",
+            "load(\"helper.js\");\nload(\"missing.js\");\nload(\"new.js\");\n",
+        );
+        tree.insert("tests/a/new.js", "");
+        // (Which unchanged test_two.js loads.)
+        tree.insert("tests/a/later.js", "");
+        tree.insert(
+            "wpt/dom/page.html",
+            "<script src=\"/resources/testharness.js\"></script>\n<link rel=stylesheet href=\"style.css\">\n<script>new Worker(\"worker.js\");</script>\n",
+        );
+        tree.insert(
+            "wpt/dom/style.css",
+            "@import url(\"other.css\");\n.x { background: url(img.png) }\n",
+        );
+        tree.insert("wpt/dom/img.png", "");
+        tree.remove("wpt/dom/other.css");
+        tree.insert("wpt/dom/worker.js", "importScripts(\"support/z.js\");\n");
+        tree.insert("wpt/dom/support/z.js", "");
+        let changed: HashSet<String> = [
+            "tests/a/test_one.js",
+            "tests/a/new.js",
+            "tests/a/later.js",
+            "wpt/dom/page.html",
+            "wpt/dom/style.css",
+            "wpt/dom/img.png",
+            "wpt/dom/other.css",
+            "wpt/dom/worker.js",
+            "wpt/dom/support/z.js",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+        let without = discover_tree(&rules, &tree, None);
+        let with = discover_tree(&rules, &tree, Some((&before.facts, &changed)));
+        let value = |d: &Discovery| {
+            (
+                serde_json::to_value(d).unwrap(),
+                serde_json::to_value(&d.links).unwrap(),
+            )
+        };
+        assert_eq!(value(&with), value(&without));
+        // (And the changes changed what it finds.)
+        assert_ne!(value(&without), value(&before));
+        let roots: Vec<&str> = without
+            .environments
+            .iter()
+            .flat_map(|e| e.scripts.iter().map(|s| s.path.as_str()))
+            .collect();
+        assert!(roots.contains(&"tests/a/later.js"), "{:?}", roots);
+        assert!(roots.contains(&"wpt/dom/support/z.js"), "{:?}", roots);
     }
 
     #[test]

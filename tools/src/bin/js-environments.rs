@@ -10,10 +10,23 @@
 // the tree's JS files are in one (and, given COVERED, a list of the files
 // TypeScript projects already cover, how many neither covers, by directory),
 // and the loads it couldn't follow, by kind.  And the test manifests, to
-// INDEX_ROOT/js-environments-manifests, for --unchanged.
+// INDEX_ROOT/js-environments-manifests, for --unchanged, and what it took
+// from the files' sources, to INDEX_ROOT/js-environments-facts.json, for
+// --facts.
 //
 // Usage: js-environments FILES_ROOT INDEX_ROOT RULES [COVERED]
+//        js-environments --facts FACTS --changed CHANGED FILES_ROOT INDEX_ROOT RULES
 //        js-environments --unchanged OLD_ROOT NEW_ROOT INDEX_ROOT RULES < paths
+//
+// With --facts (ex: a try push's tree's js-environments-facts.json) and
+// --changed (a list of paths, ex: those the push changes), it takes the facts
+// for the files but those (see `discover::Inputs::prior`), whose sources it
+// parses, and writes only js-environments.json and js-environments-links.json
+// (what a try push's analysis reads; see try-analyze-web.sh): the same
+// environments as without them (byte for byte), most of discovery's time
+// being parsing the files' sources and writing the tree's other outputs (on
+// firefox at d9bd6be9 locally, 5.4 s rather than 17.2 s, at most 1.2 GB
+// rather than 6.5 GB, for a push changing a test manifest).
 //
 // With --unchanged, whether the changes to the paths between OLD_ROOT's files
 // and NEW_ROOT's (ex: a try push's, rebased onto the indexed revision, whose
@@ -26,12 +39,13 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
+use rayon::prelude::*;
 use tools::file_format::analysis_manglings::mangle_file;
 use tools::file_format::url_map::read_url_map;
 use tools::file_metadata::mozbuild::{is_read_mozbuild, read_mozbuild};
 use tools::file_metadata::test_manifests::{Manifests, join_normalized, read_manifest};
 use tools::js_environments::discover::{
-    Inputs, Role, discover, files_json, same_discovery_facts, wpt_roots,
+    Discovery, Facts, Inputs, Role, discover, files_json, same_discovery_facts, wpt_roots,
 };
 use tools::js_environments::rules::Rules;
 
@@ -75,8 +89,26 @@ fn main() {
         );
         std::process::exit(if same { 0 } else { 1 });
     }
+    // (The facts to take, and the files to parse anyway.)
+    let mut args = args;
+    let mut prior: Option<(Facts, HashSet<String>)> = None;
+    if args.len() == 8 && args[1] == "--facts" && args[3] == "--changed" {
+        let facts: Facts = serde_json::from_reader(std::io::BufReader::new(
+            fs::File::open(&args[2]).expect("Couldn't open FACTS"),
+        ))
+        .expect("Couldn't parse FACTS");
+        let changed: HashSet<String> = fs::read_to_string(&args[4])
+            .expect("Couldn't read CHANGED")
+            .lines()
+            .map(str::to_string)
+            .collect();
+        prior = Some((facts, changed));
+        args.drain(1..5);
+    }
     if args.len() != 4 && args.len() != 5 {
-        eprintln!("Usage: js-environments FILES_ROOT INDEX_ROOT RULES [COVERED]");
+        eprintln!(
+            "Usage: js-environments [--facts FACTS --changed CHANGED] FILES_ROOT INDEX_ROOT RULES [COVERED]"
+        );
         std::process::exit(1);
     }
     let files_root = Path::new(&args[1]);
@@ -93,13 +125,26 @@ fn main() {
 
     // ## The test manifests moz.build files declare (with their variables),
     // and those they include.
+    // (The moz.build files' in parallel, as there are thousands, but in
+    // order, as a manifest's last declaration is its variable.)
+    let mozbuilds: Vec<&String> = repo_files.iter().filter(|p| is_read_mozbuild(p)).collect();
+    let declarations: Vec<Vec<(String, String)>> = mozbuilds
+        .par_iter()
+        .map(|path| {
+            let Some(source) = read(path) else {
+                return vec![];
+            };
+            let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
+            read_mozbuild(&source)
+                .manifests
+                .into_iter()
+                .map(|(manifest, variable)| (join_normalized(dir, &manifest), variable))
+                .collect()
+        })
+        .collect();
     let mut manifest_variables: HashMap<String, String> = HashMap::new();
-    for path in repo_files.iter().filter(|p| is_read_mozbuild(p)) {
-        let Some(source) = read(path) else { continue };
-        let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
-        for (manifest, variable) in read_mozbuild(&source).manifests {
-            manifest_variables.insert(join_normalized(dir, &manifest), variable);
-        }
+    for (manifest, variable) in declarations.into_iter().flatten() {
+        manifest_variables.insert(manifest, variable);
     }
     let declared: BTreeSet<String> = manifest_variables.keys().cloned().collect();
     let mut manifests = Manifests::default();
@@ -150,6 +195,7 @@ fn main() {
         entries: &entries,
         manifest_variables: &manifest_variables,
         url_file: &url_file,
+        prior: prior.as_ref().map(|(facts, changed)| (facts, changed)),
     });
     fs::write(
         index_root.join("js-environments.json"),
@@ -163,6 +209,17 @@ fn main() {
         serde_json::to_string(&discovery.links).unwrap(),
     )
     .expect("Couldn't write js-environments-links.json");
+    // (And with --facts, nothing else: the rest is the tree's.)
+    if prior.is_none() {
+        write_tree_outputs(index_root, &discovery, &manifests);
+    }
+    inventory(&discovery, &repo_files, args.get(4));
+}
+
+/// The outputs for the tree's own environments, but js-environments.json and
+/// js-environments-links.json: each file's, the files in any, the test
+/// manifests, and the facts.
+fn write_tree_outputs(index_root: &Path, discovery: &Discovery, manifests: &Manifests) {
     // (Each file's, for its navigation panel; see per-file-info.toml.)
     fs::write(
         index_root.join("js-environments-files.json"),
@@ -193,7 +250,18 @@ fn main() {
     }
     fs::write(index_root.join("js-environments-manifests"), manifests_text)
         .expect("Couldn't write js-environments-manifests");
+    // (And what discovery took from the files' sources, for a try push's; see
+    // --facts.)
+    let facts = fs::File::create(index_root.join("js-environments-facts.json"))
+        .expect("Couldn't create js-environments-facts.json");
+    serde_json::to_writer(std::io::BufWriter::new(facts), &discovery.facts)
+        .expect("Couldn't write js-environments-facts.json");
+}
 
+/// The inventory: how many environments of each flavor and global, how many
+/// of the tree's JS files are in one (and in the projects `covered` lists),
+/// and the loads it couldn't follow.
+fn inventory(discovery: &Discovery, repo_files: &[String], covered: Option<&String>) {
     // ## The inventory.
     let mut kinds: BTreeMap<(&str, &str), usize> = BTreeMap::new();
     let mut in_env: BTreeSet<&str> = BTreeSet::new();
@@ -225,8 +293,7 @@ fn main() {
                 .any(|d| d == "third_party" || d == "node_modules")
         })
         .collect();
-    let covered: HashSet<String> = args
-        .get(4)
+    let covered: HashSet<String> = covered
         .and_then(|p| fs::read_to_string(p).ok())
         .map(|s| s.lines().map(str::to_string).collect())
         .unwrap_or_default();
