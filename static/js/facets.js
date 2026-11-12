@@ -38,12 +38,19 @@
  * (`data-default-excluded`), unless the URL says otherwise for it (with an
  * empty `-facet-KEY=` for none).  Other scripts can show and leave out a
  * facet's values too (`window.ResultFacets`, ex: the overview of the results'
- * symbols; see query-overview.js).
+ * symbols; see query-overview.js).  And a checkbox's items can be shown or
+ * left out for each symbol whose results they are (`data-syms`, ex: one
+ * cousin method's results of `/query/`'s "cousins"; see
+ * query_results/line_span.liquid), as the value's members (`VALUE|SYMBOL`):
+ * an item is hidden if all of its members are (ex: a line which is the
+ * results of two symbols), and the items containing such items (ex: their
+ * files) if all of those are; a value with some members left out is "mixed",
+ * which a click shows all of.
  *
- * The selections, the left out values, the grouping and the sorting go in
- * the URL's query (`facet-KEY=VALUE` and `-facet-KEY=VALUE`, as a query's
- * negated terms are, repeated, `group-by=KEY` and `sort-by=size`), so links
- * reproduce the view.  The box of facets is collapsible, which we remember.
+ * The selections, the left out values and members, the grouping and the
+ * sorting go in the URL's query (`facet-KEY=VALUE` and `-facet-KEY=VALUE`, as
+ * a query's negated terms are, repeated, `group-by=KEY` and `sort-by=size`),
+ * so links reproduce the view.  The box of facets is collapsible, which we remember.
  *
  * Values with nested values have a button showing and hiding them (with
  * Shift, theirs too), and levels of values with elided ones (see
@@ -58,23 +65,62 @@
   if (!bar || !container) {
     return;
   }
+  // The facets of checkboxes, and the values each leaves out at first.
+  const toggles = new Set([...bar.querySelectorAll(".facet[data-toggles]")]
+    .map(facet => facet.dataset.facet));
   // Items can be in others (ex: `/query/`'s lines in their files), whose facets
-  // and path they have too, unless they say otherwise.
-  const items = [...container.querySelectorAll("[data-facets]")].map(element => {
+  // and path they have too, unless they say otherwise.  (Items of symbols'
+  // results are their checkboxes' values' members; see above.)
+  const ITEMS = "[data-facets], [data-syms]";
+  const byElement = new Map();
+  const items = [...container.querySelectorAll(ITEMS)].map(element => {
     const outer = element.parentElement.closest("[data-facets]");
     const scope = element.closest("[data-facet-scope]");
-    return {
+    const facets = {
+      ...JSON.parse(scope?.dataset.facetScope || "{}"),
+      ...JSON.parse(outer?.dataset.facets || "{}"),
+      ...JSON.parse(element.dataset.facets || "{}"),
+    };
+    const syms = element.dataset.syms?.split(" ") || [];
+    const members = {};
+    for (const facet of toggles) {
+      if (syms.length && facets[facet]) {
+        members[facet] = facets[facet].flatMap(value => syms.map(sym => `${value}|${sym}`));
+      }
+    }
+    const item = {
       element,
-      facets: {
-        ...JSON.parse(scope?.dataset.facetScope || "{}"),
-        ...JSON.parse(outer?.dataset.facets || "{}"),
-        ...JSON.parse(element.dataset.facets || "{}"),
-      },
+      facets,
+      members,
+      // (The items of symbols' results in it.)
+      inner: [],
       groups: JSON.parse(element.dataset.groups || "{}"),
       path: element.dataset.path || outer?.dataset.path || "",
       size: Number(element.dataset.size || 0),
     };
+    byElement.set(element, item);
+    if (syms.length) {
+      byElement.get(element.parentElement.closest(ITEMS))?.inner.push(item);
+    }
+    return item;
   });
+  // Each checkbox's values' members.
+  const allMembers = new Map();
+  for (const item of items) {
+    for (const [facet, keys] of Object.entries(item.members)) {
+      for (const key of keys) {
+        const value = key.slice(0, key.indexOf("|"));
+        if (!allMembers.has(facet)) {
+          allMembers.set(facet, new Map());
+        }
+        if (!allMembers.get(facet).has(value)) {
+          allMembers.get(facet).set(value, new Set());
+        }
+        allMembers.get(facet).get(value).add(key);
+      }
+    }
+  }
+  const membersOf = (facet, value) => allMembers.get(facet)?.get(value) || new Set();
   const buttons = [...bar.querySelectorAll(".facet-value")].map(button => ({
     button,
     facet: button.closest(".facet").dataset.facet,
@@ -82,9 +128,6 @@
     count: button.querySelector(".facet-count"),
     title: button.title,
   }));
-  // The facets of checkboxes, and the values each leaves out at first.
-  const toggles = new Set([...bar.querySelectorAll(".facet[data-toggles]")]
-    .map(facet => facet.dataset.facet));
   const defaultExcluded = new Map([...bar.querySelectorAll(".facet[data-default-excluded]")]
     .map(facet => [facet.dataset.facet, new Set(facet.dataset.defaultExcluded.split(" "))]));
   const groupBy = bar.querySelector(".facet-group-by select");
@@ -100,15 +143,86 @@
   const paths = someItems => new Set(someItems.map(item => item.path)).size;
   const allPaths = paths(items);
 
-  // The selected values, and the left out ones, by facet.
+  // The selected values, the left out ones, and the left out members of the
+  // others (of checkboxes; a value whose members are all left out is), by
+  // facet.
   const selected = new Map();
   const excluded = new Map();
+  const hiddenMembers = new Map();
   const valuesOf = (map, facet) => {
     if (!map.has(facet)) {
       map.set(facet, new Set());
     }
     return map.get(facet);
   };
+
+  // A checkbox's value's state: "hidden", "mixed" (some of its members left
+  // out) or "shown"; or of some of its symbols' members, or null if it has
+  // none of theirs.
+  function valueState(facet, value, syms = null) {
+    const all = membersOf(facet, value);
+    const keys = syms ? syms.map(sym => `${value}|${sym}`).filter(key => all.has(key)) : [...all];
+    if (syms && !keys.length) {
+      return null;
+    }
+    if (excluded.get(facet)?.has(value)) {
+      return "hidden";
+    }
+    const hidden = keys.filter(key => hiddenMembers.get(facet)?.has(key)).length;
+    return hidden == 0 ? "shown" : hidden == keys.length && syms ? "hidden" : "mixed";
+  }
+
+  // Show or leave out some of a checkbox's value's symbols' members (and the
+  // value is left out, rather than its members, if they all are).
+  function setMembersHidden(facet, value, syms, hide) {
+    const all = membersOf(facet, value);
+    const keys = syms.map(sym => `${value}|${sym}`).filter(key => all.has(key));
+    const hidden = valuesOf(hiddenMembers, facet);
+    if (valuesOf(excluded, facet).has(value)) {
+      if (hide) {
+        return;
+      }
+      excluded.get(facet).delete(value);
+      for (const key of all) {
+        hidden.add(key);
+      }
+    }
+    for (const key of keys) {
+      if (hide) {
+        hidden.add(key);
+      } else {
+        hidden.delete(key);
+      }
+    }
+    normalize(facet, value);
+  }
+
+  // A value whose members are all left out is left out.
+  function normalize(facet, value) {
+    const all = membersOf(facet, value);
+    const hidden = hiddenMembers.get(facet);
+    if (all.size && hidden && [...all].every(key => hidden.has(key))) {
+      valuesOf(excluded, facet).add(value);
+    }
+    if (excluded.get(facet)?.has(value)) {
+      for (const key of all) {
+        hidden?.delete(key);
+      }
+    }
+  }
+
+  // Show all of a checkbox's value's members.
+  function showMembers(facet, value) {
+    for (const key of membersOf(facet, value)) {
+      hiddenMembers.get(facet)?.delete(key);
+    }
+  }
+
+  // Whether all of an item's members of some facet are left out.
+  function membersHidden(item) {
+    return Object.entries(item.members).some(([facet, keys]) =>
+      keys.length && keys.every(key => hiddenMembers.get(facet)?.has(key)));
+  }
 
   function matches(item, exceptFacet) {
     for (const [facet, values] of selected) {
@@ -131,11 +245,13 @@
   function toggleValue(facet, value, shift) {
     const included = valuesOf(selected, facet);
     const left = valuesOf(excluded, facet);
-    // (A checkbox's: shown or left out.)
+    // (A checkbox's: shown or left out; or all of its members shown, if
+    // some are left out.)
     if (toggles.has(facet)) {
-      if (!left.delete(value)) {
+      if (valueState(facet, value) != "mixed" && !left.delete(value)) {
         left.add(value);
       }
+      showMembers(facet, value);
       return;
     }
     if (shift) {
@@ -152,7 +268,14 @@
 
   function update() {
     for (const item of items) {
-      item.element.hidden = !matches(item);
+      item.element.hidden = !matches(item) || membersHidden(item);
+    }
+    // (Items of symbols' results hide the items containing them, if they're
+    // all hidden.)
+    for (const item of items) {
+      if (item.inner.length && item.inner.every(inner => inner.element.hidden)) {
+        item.element.hidden = true;
+      }
     }
     for (const { button, facet, value, count, title } of buttons) {
       const n = paths(items.filter(item =>
@@ -162,8 +285,12 @@
       const left = excluded.get(facet)?.has(value);
       button.classList.toggle("facet-excluded", !!left);
       if (toggles.has(facet)) {
-        button.setAttribute("aria-pressed", left ? "false" : "true");
-        button.title = `${title}${title ? " " : ""}(${left ? "left out; click to show them" : "shown; click to leave them out"})`;
+        const mixed = valueState(facet, value) == "mixed";
+        button.classList.toggle("facet-mixed", mixed);
+        button.setAttribute("aria-pressed", left ? "false" : mixed ? "mixed" : "true");
+        const state = left ? "left out; click to show them"
+          : mixed ? "some left out; click to show them all" : "shown; click to leave them out";
+        button.title = `${title}${title ? " " : ""}(${state})`;
         continue;
       }
       button.setAttribute("aria-pressed", selected.get(facet)?.has(value) ? "true" : "false");
@@ -182,7 +309,8 @@
       }
     }
     const shown = paths(items.filter(item => !item.element.hidden));
-    const filtering = [...selected.values(), ...excluded.values()].some(values => values.size);
+    const filtering = [...selected.values(), ...excluded.values(), ...hiddenMembers.values()]
+      .some(values => values.size);
     status.textContent = filtering ? `Showing ${shown} of ${plural(allPaths)}.` : "";
     clear.classList.toggle("facet-inactive", !filtering);
     saveState();
@@ -252,7 +380,7 @@
         params.delete(key);
       }
     }
-    for (const [prefix, map] of [["facet-", selected], ["-facet-", excluded]]) {
+    for (const [prefix, map] of [["facet-", selected], ["-facet-", excluded], ["-facet-", hiddenMembers]]) {
       for (const [facet, values] of map) {
         // (Not a facet's values left out at first, if they're its only
         // choices.)
@@ -267,7 +395,8 @@
     // (And a facet which leaves out values at first, but now none: an empty
     // left out value.)
     for (const facet of defaultExcluded.keys()) {
-      if (!isDefault(facet) && !selected.get(facet)?.size && !excluded.get(facet)?.size) {
+      if (!isDefault(facet) && !selected.get(facet)?.size && !excluded.get(facet)?.size &&
+          !hiddenMembers.get(facet)?.size) {
         params.append(`-facet-${facet}`, "");
       }
     }
@@ -286,8 +415,8 @@
   function isDefault(facet) {
     const left = excluded.get(facet) || new Set();
     const initial = defaultExcluded.get(facet);
-    return !!initial && !selected.get(facet)?.size && left.size == initial.size &&
-      [...initial].every(value => left.has(value));
+    return !!initial && !selected.get(facet)?.size && !hiddenMembers.get(facet)?.size &&
+      left.size == initial.size && [...initial].every(value => left.has(value));
   }
 
   function loadState() {
@@ -301,6 +430,8 @@
       }
       if (facet && buttons.some(b => b.facet == facet && b.value == value)) {
         valuesOf(left ? excluded : selected, facet).add(value);
+      } else if (left && membersOf(facet, value.slice(0, value.indexOf("|"))).has(value)) {
+        valuesOf(hiddenMembers, facet).add(value);
       }
     }
     // (The values the facets the URL doesn't mention leave out at first.)
@@ -311,6 +442,11 @@
             valuesOf(excluded, facet).add(value);
           }
         }
+      }
+    }
+    for (const [facet, values] of allMembers) {
+      for (const value of values.keys()) {
+        normalize(facet, value);
       }
     }
     for (const [select, param] of [[groupBy, "group-by"], [sortBy, "sort-by"]]) {
@@ -408,6 +544,7 @@
     } else if (event.target.closest(".facet-clear")) {
       selected.clear();
       excluded.clear();
+      hiddenMembers.clear();
       update();
     }
   });
@@ -468,7 +605,8 @@
   setExpanded(localStorage.getItem(storageKey("facets-collapsed")) != "1");
 
   // (For other scripts: whether a facet's value is left out, and leaving it
-  // out or showing it.)
+  // out or showing it (all of its members); and a checkbox's value's state,
+  // or its symbols' members', and showing or leaving those out.)
   window.ResultFacets = {
     container,
     isExcluded: (facet, value) => !!excluded.get(facet)?.has(value),
@@ -478,6 +616,12 @@
       } else {
         excluded.get(facet)?.delete(value);
       }
+      showMembers(facet, value);
+      update();
+    },
+    valueState,
+    setMembersHidden(facet, value, syms, hide) {
+      setMembersHidden(facet, value, syms, hide);
       update();
     },
   };

@@ -631,8 +631,8 @@ pub struct FlattenedResultsBundle {
     /// `ResultRelation`), if they have several.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub relation_excluded: Vec<ResultRelation>,
-    /// The queried methods' override hierarchy, if the results have more
-    /// methods of it than those.
+    /// The queried methods' override hierarchy and the queried classes'
+    /// inheritance hierarchy, if the results have more of them than those.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub overview: Option<ResultsOverview>,
 }
@@ -1179,25 +1179,52 @@ impl ResultRelation {
     }
 }
 
-/// The override hierarchy of the queried methods (see
-/// `FlattenedResultsBundle::overview`): the methods the results have, how
-/// they relate to the queried ones, which of the others each overrides, and
-/// how many results of each kind each has, for an overview of what the
-/// results are of, and of what they leave out at first.
+/// The override hierarchy of the queried methods, and the inheritance
+/// hierarchy of the queried classes (see `FlattenedResultsBundle::overview`):
+/// the methods and classes `crossref-expand` found, how they relate to the
+/// queried ones, which of the others each overrides or inherits from, and how
+/// many results of each kind each has, for an overview of what the results
+/// are of, and of what they leave out at first (a method's), or don't have (a
+/// class's, as a class's relatives' results aren't the queried one's).
 #[derive(Serialize)]
 pub struct ResultsOverview {
     pub nodes: Vec<OverviewNode>,
+}
+
+/// How an overview's method or class relates to the queried ones.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum OverviewRelation {
+    /// One of the queried symbols.
+    #[serde(rename = "self")]
+    Queried,
+    /// A method they override (`SymbolRelation::OverriddenBy`, whose results
+    /// are `ResultRelation::Overridden`'s and `VirtualUses`'), or a
+    /// superclass (`SuperclassOf`); and theirs.
+    #[serde(rename = "ancestor")]
+    Ancestor,
+    /// One of their overrides (`OverrideOf`, `ResultRelation::Overrides`), or
+    /// subclasses (`SubclassOf`); and theirs.
+    #[serde(rename = "descendant")]
+    Descendant,
+    /// Another override of an ancestor (`CousinOverrideOf`,
+    /// `ResultRelation::Cousins`), or another subclass of one
+    /// (`CousinClassOf`); and theirs.
+    #[serde(rename = "cousin")]
+    Cousin,
 }
 
 #[derive(Serialize)]
 pub struct OverviewNode {
     pub sym: Ustr,
     pub pretty: Ustr,
-    /// Its relation (`Queried`, `Overridden` for a method a queried one
-    /// overrides, `Overrides` or `Cousins`).
-    pub relation: ResultRelation,
-    /// The other nodes it overrides.
-    pub overrides: Vec<Ustr>,
+    pub relation: OverviewRelation,
+    /// Whether it's a class (of a queried class's hierarchy) rather than a
+    /// method.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub class: bool,
+    /// The other nodes it overrides (a method), or its superclasses among
+    /// them (a class).
+    pub parents: Vec<Ustr>,
     /// Its definitions', declarations' and uses' lines, and how many of its
     /// uses are in the hierarchy's methods (calls from its overrides; see
     /// `ResultRelation`).
@@ -1205,11 +1232,18 @@ pub struct OverviewNode {
     pub declarations: u32,
     pub uses: u32,
     pub super_calls: u32,
-    /// How many methods override it, if too many for the results to have
-    /// them (see `OverloadKind::Overrides`), whose uses then aren't in the
-    /// results, as they could be calls of any of them.
+    /// How many methods override it (or classes subclass it), if too many
+    /// for the results to have them (`crossref-expand`'s local limit; see
+    /// `OverloadKind::Overrides` and `Subclasses`); a method's uses then
+    /// aren't in the results, as they could be calls of any of them.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub too_many_overrides: Option<u32>,
+    pub too_many: Option<u32>,
+    /// How many override it (or subclass it), if `crossref-expand` didn't
+    /// follow them for its limit on all of the symbols it follows (whose uses
+    /// are still in the results, as they could be calls of the queried ones
+    /// as much as without).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub over_budget: Option<u32>,
 }
 
 impl FlattenedKindGroupResults {
@@ -1421,6 +1455,11 @@ pub struct FlattenedLineSpan {
     /// didn't take part), as `TextPattern::capture_names` names them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub captures: Vec<Vec<Option<String>>>,
+    /// The symbols whose results it is, if the results have several
+    /// relations to the queried symbols (see `ResultRelation`), for showing
+    /// or leaving out each one's (ex: a cousin's; see facets.js's members).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub syms: Vec<Ustr>,
 }
 
 fn pp_is_empty(pp: &Option<Vec<String>>) -> bool {
@@ -1982,6 +2021,7 @@ mod tests {
             facets: None,
             more_hits: vec![],
             captures: vec![],
+            syms: vec![],
         };
         span.inline_context();
         // On the key line, before its newline, with an escaped context and
@@ -2009,6 +2049,7 @@ mod tests {
             facets: None,
             more_hits: vec![],
             captures: vec![],
+            syms: vec![],
         };
         span.inline_context();
         assert!(span.contents.contains(
@@ -2033,6 +2074,7 @@ mod tests {
             facets: None,
             more_hits: vec![],
             captures: vec![],
+            syms: vec![],
         };
         span.inline_context();
         assert_eq!(span.contents, row(8, "text"));
@@ -2058,6 +2100,7 @@ mod tests {
             facets: None,
             more_hits: vec![],
             captures: vec![],
+            syms: vec![],
         };
         span.inline_context();
         assert!(span.contents.contains(
@@ -2093,6 +2136,7 @@ mod tests {
             facets: None,
             more_hits: vec![],
             captures: vec![],
+            syms: vec![],
         };
         let mut by_file = FlattenedResultsByFile {
             file: ustr("a.h"),

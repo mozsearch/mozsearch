@@ -10,9 +10,11 @@
 {%- comment %}
   (With facets of lines, ex: "Last changed" with history digests, lines are
   facets.js items too, inside their files', with their values; see
-  `results_file_facets` in pipeline-server.rs.)
+  `results_file_facets` in pipeline-server.rs.  And with the symbols whose
+  results they are, if the results have several relations, which can be
+  shown or left out each; see `FlattenedLineSpan::syms`.)
 {% endcomment -%}
-<div class="file{% if line_span contains "repeated" %} query-repeated{% endif %}" role="table"{% if line_span contains "facets" %} data-facets="{{ line_span.facets | escape }}"{% endif %}>
+<div class="file{% if line_span contains "repeated" %} query-repeated{% endif %}" role="table"{% if line_span contains "facets" %} data-facets="{{ line_span.facets | escape }}"{% endif %}{% if line_span contains "syms" %} data-syms="{{ line_span.syms | join: " " | escape }}"{% endif %}>
 {{ line_span.contents }}
 {%- if line_span.context != empty -%}
 {%- if line_span.contextsym != empty -%}

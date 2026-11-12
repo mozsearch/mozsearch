@@ -5,10 +5,11 @@ use clap::Args;
 use regex::Regex;
 use ustr::{Ustr, UstrMap, UstrSet, ustr};
 
+use super::cmd_traverse::is_class_kind;
 use super::facets::MaybeFacetRoot;
 use super::interface::{
     FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
-    FlattenedResultsBundle, FlattenedResultsByFile, OverloadKind, OverviewNode,
+    FlattenedResultsBundle, FlattenedResultsByFile, OverloadKind, OverviewNode, OverviewRelation,
     PipelineJunctionCommand, PipelineValues, PresentationKind, ResultFacetKind, ResultRelation,
     ResultsOverview, SymbolCrossrefInfo, SymbolQuality, SymbolRelation, file_key,
 };
@@ -331,17 +332,84 @@ impl SearchResults {
         // map, but that complicates ownership issues massively.
         self.sym_to_pretty.insert(info.symbol, info.get_pretty());
 
-        // Skip symbols that are only here for class relationship purposes.
-        let (root_sym, relation) = match &info.relation {
-            SymbolRelation::SubclassOf(_, _)
-            | SymbolRelation::SuperclassOf(_, _)
-            | SymbolRelation::CousinClassOf(_, _) => {
-                return Ok(());
-            }
-            SymbolRelation::Queried => (info.symbol, ResultRelation::Queried),
-            SymbolRelation::OverrideOf(sym, _) => (*sym, ResultRelation::Overrides),
-            SymbolRelation::OverriddenBy(sym, _) => (*sym, ResultRelation::Overridden),
-            SymbolRelation::CousinOverrideOf(sym, _) => (*sym, ResultRelation::Cousins),
+        // How it relates to the queried symbols, as a node of the overview
+        // (see `ResultsOverview`), and as its results' (and under whose name
+        // they are), but a class's relatives', which aren't the queried
+        // class's results (the overview links to them).
+        let (overview_relation, results_relation) = match &info.relation {
+            SymbolRelation::Queried => (
+                OverviewRelation::Queried,
+                Some((info.symbol, ResultRelation::Queried)),
+            ),
+            SymbolRelation::OverriddenBy(sym, _) => (
+                OverviewRelation::Ancestor,
+                Some((*sym, ResultRelation::Overridden)),
+            ),
+            SymbolRelation::OverrideOf(sym, _) => (
+                OverviewRelation::Descendant,
+                Some((*sym, ResultRelation::Overrides)),
+            ),
+            SymbolRelation::CousinOverrideOf(sym, _) => (
+                OverviewRelation::Cousin,
+                Some((*sym, ResultRelation::Cousins)),
+            ),
+            SymbolRelation::SuperclassOf(_, _) => (OverviewRelation::Ancestor, None),
+            SymbolRelation::SubclassOf(_, _) => (OverviewRelation::Descendant, None),
+            SymbolRelation::CousinClassOf(_, _) => (OverviewRelation::Cousin, None),
+        };
+
+        let crossref = &info.crossref_info;
+        let class = match results_relation {
+            Some(_) => crossref
+                .meta
+                .as_ref()
+                .is_some_and(|meta| is_class_kind(&meta.kind)),
+            None => true,
+        };
+        // (How many override it, or subclass it, if too many for
+        // `crossref-expand` to follow, ex: `nsISupports::AddRef`, whose uses
+        // could be calls of any of them, so they aren't possible virtual calls
+        // of a queried method in any useful sense; or more than what was left
+        // of its limit for all of them.)
+        let limit_hit = |global: bool| {
+            info.overloads_hit
+                .iter()
+                .find(|overload| {
+                    let kind = match overload.kind {
+                        OverloadKind::Overrides => !class,
+                        OverloadKind::Subclasses => class,
+                        _ => false,
+                    };
+                    kind && match global {
+                        true => overload.global_limit > 0,
+                        false => overload.local_limit > 0,
+                    }
+                })
+                .map(|overload| overload.exist)
+        };
+        let too_many = limit_hit(false);
+        self.overview_nodes.push(OverviewNode {
+            sym: info.symbol,
+            pretty: info.get_pretty(),
+            relation: overview_relation,
+            class,
+            parents: crossref
+                .meta
+                .iter()
+                .flat_map(|meta| match class {
+                    true => meta.supers.iter().map(|s| s.sym).collect::<Vec<_>>(),
+                    false => meta.overrides.iter().map(|o| o.sym).collect(),
+                })
+                .collect(),
+            definitions: line_count(&crossref.definitions),
+            declarations: line_count(&crossref.declarations),
+            uses: line_count(&crossref.uses),
+            super_calls: 0,
+            too_many,
+            over_budget: limit_hit(true),
+        });
+        let Some((root_sym, relation)) = results_relation else {
+            return Ok(());
         };
 
         let root_pretty = *self.sym_to_pretty.get(&root_sym).ok_or_else(|| {
@@ -350,34 +418,6 @@ impl SearchResults {
                 message: format!("no pretty available for root_sym {}", root_sym),
             })
         })?;
-
-        // (How many override it, if too many for `crossref-expand` to follow,
-        // ex: `nsISupports::AddRef`, whose uses could be calls of any of them,
-        // so they aren't possible virtual calls of a queried method in any
-        // useful sense.)
-        let too_many_overrides = info
-            .overloads_hit
-            .iter()
-            .find(|overload| {
-                matches!(overload.kind, OverloadKind::Overrides) && overload.local_limit > 0
-            })
-            .map(|overload| overload.exist);
-        let crossref = &info.crossref_info;
-        self.overview_nodes.push(OverviewNode {
-            sym: info.symbol,
-            pretty: info.get_pretty(),
-            relation,
-            overrides: crossref
-                .meta
-                .iter()
-                .flat_map(|meta| meta.overrides.iter().map(|o| o.sym))
-                .collect(),
-            definitions: line_count(&crossref.definitions),
-            declarations: line_count(&crossref.declarations),
-            uses: line_count(&crossref.uses),
-            super_calls: 0,
-            too_many_overrides,
-        });
 
         // The symbol's digest is its definitions' (and the like), but its uses
         // and assignments (and documentation's records, which are elsewhere) get
@@ -403,7 +443,7 @@ impl SearchResults {
             // queried ones; but not those of a method overridden by too many.)
             let (relation, pretty) = match relation {
                 ResultRelation::Overridden if kind == PresentationKind::Uses => {
-                    if too_many_overrides.is_some() {
+                    if too_many.is_some() {
                         return;
                     }
                     (ResultRelation::VirtualUses, pretty)
@@ -437,6 +477,7 @@ impl SearchResults {
                         path_container,
                         own_recency,
                         own_label.clone(),
+                        info.symbol,
                     );
                 }
             }
@@ -477,13 +518,14 @@ impl SearchResults {
 
     /// `recency` is the hits' digest, if they're the symbol's own (ex: its
     /// definitions rather than its uses), and `recency_label` whose history it
-    /// is.
+    /// is; `sym` is the symbol whose results they are.
     fn ingest_path_hits(
         &mut self,
         descriptor: QualKindDescriptor,
         path_container: PathSearchResult,
         recency: Option<Recency>,
         recency_label: Option<String>,
+        sym: Ustr,
     ) {
         let path_kind_group = self
             .path_kind_groups
@@ -557,6 +599,7 @@ impl SearchResults {
                 facets: None,
                 more_hits: vec![],
                 captures: vec![],
+                syms: vec![sym],
             });
         }
     }
@@ -761,6 +804,7 @@ impl SearchResults {
                     facets: None,
                     more_hits,
                     captures,
+                    syms: vec![],
                 });
             }
             // The suppressions could mean we don't actually need this path hit,
@@ -837,6 +881,7 @@ impl SearchResults {
                         },
                         None,
                         None,
+                        base,
                     );
                 }
             }
@@ -883,19 +928,29 @@ impl SearchResults {
         if !several || relation_excluded.len() == relations.len() {
             relation_excluded.clear();
         }
-        // (The methods' hierarchy, and which of each other they override.)
-        let overview = several.then(|| {
-            let mut seen = UstrSet::default();
-            let mut nodes: Vec<OverviewNode> = self
-                .overview_nodes
-                .into_iter()
-                .filter(|node| seen.insert(node.sym))
-                .collect();
-            for node in &mut nodes {
-                node.overrides.retain(|sym| seen.contains(sym));
-            }
-            ResultsOverview { nodes }
-        });
+        // (The methods' and classes' hierarchies, and which of each other
+        // they override or inherit from, if there's more than the queried
+        // symbols, or more than the results followed.)
+        let overview = self
+            .overview_nodes
+            .iter()
+            .any(|node| {
+                node.relation != OverviewRelation::Queried
+                    || node.too_many.is_some()
+                    || node.over_budget.is_some()
+            })
+            .then(|| {
+                let mut seen = UstrSet::default();
+                let mut nodes: Vec<OverviewNode> = self
+                    .overview_nodes
+                    .into_iter()
+                    .filter(|node| seen.insert(node.sym))
+                    .collect();
+                for node in &mut nodes {
+                    node.parents.retain(|sym| seen.contains(sym));
+                }
+                ResultsOverview { nodes }
+            });
 
         let mut path_kind_results = vec![];
         for (path_kind, pk_group) in path_kind_groups {
@@ -942,8 +997,21 @@ impl SearchResults {
                         earlier.hits.sort_unstable();
                         earlier.hits.dedup();
                         earlier.recency = earlier.recency.or(later.recency);
+                        earlier.syms.append(&mut later.syms);
                         true
                     });
+                    // (Whose symbols they are matters only for showing or
+                    // leaving out each related symbol's results; see
+                    // `FlattenedLineSpan::syms`.)
+                    for span in &mut results.line_spans {
+                        match several {
+                            true => {
+                                span.syms.sort_unstable();
+                                span.syms.dedup();
+                            }
+                            false => span.syms.clear(),
+                        }
+                    }
                     // The path_hits within each file are not guaranteed to be
                     // sorted, so we sort them now.
                     results.line_spans.sort_by_key(|x| x.line_range);
@@ -1224,6 +1292,7 @@ mod tests {
             },
             None,
             None,
+            ustr("_ZN1C"),
         );
         let bundle = results.compile(10, 10, &[ustr("normal")]);
         let spans: Vec<(u32, (u32, u32))> = bundle.path_kind_results[0].kind_groups[0].by_file[0]
@@ -1253,7 +1322,7 @@ mod tests {
             pp: Ustr::default(),
             ctxtra: Ustr::default(),
         };
-        for (_sym, pretty, kind, lines) in [
+        for (sym, pretty, kind, lines) in [
             (
                 "_Z4Food",
                 "Food",
@@ -1282,6 +1351,7 @@ mod tests {
                 },
                 None,
                 None,
+                ustr(sym),
             );
         }
         let text_match = |line_num: u32, line_str: &str| {

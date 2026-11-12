@@ -223,7 +223,7 @@ fn class_of_info(info: &DerivedSymbolInfo) -> Option<Ustr> {
     }
 }
 
-fn is_class_kind(kind: &str) -> bool {
+pub(crate) fn is_class_kind(kind: &str) -> bool {
     matches!(kind, "class" | "struct" | "union" | "interface")
 }
 

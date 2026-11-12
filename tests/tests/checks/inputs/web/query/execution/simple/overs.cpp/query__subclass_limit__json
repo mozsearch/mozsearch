@@ -1,0 +1,1 @@
+query "subclass-limit:1 'DoubleBase'" | normalize-unstable-data

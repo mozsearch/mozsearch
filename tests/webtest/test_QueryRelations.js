@@ -4,9 +4,11 @@
 // `ResultRelation` and tests/tests/files/overs.cpp): its own, and the uses of
 // the methods it overrides (possible virtual calls of it) at first, with the
 // rest (the methods it overrides, its overrides and its cousins) left out by
-// the "Relation" facet, whose values are checkboxes.  (The overrides of a
-// method without a body, ex: an interface's, are left out too, as pure
-// virtual methods' declarations are definitions in the analysis.)
+// the "Relation" facet, whose values are checkboxes, or for each method by
+// the overview's buttons.  (The overrides of a method without a body, ex: an
+// interface's, are left out too, as pure virtual methods' declarations are
+// definitions in the analysis.)  And the overview of a class's inheritance
+// hierarchy.
 
 // The shown kind groups' headings (but textual occurrences', which have
 // their own rules; see kind_group.liquid).
@@ -104,7 +106,7 @@ add_task(async function test_QueryOverview() {
   is(queried?.textContent, "DoubleSubOne::doublePure", "and the queried method below it");
   ok(queried.getAttribute("href").includes(encodeURIComponent("symbol:_ZN12DoubleSubOne10doublePureEv")),
      "linking to its own results");
-  const cousins = overview.querySelector("li.overview-cousins > details > summary");
+  const cousins = overview.querySelector("li.overview-cousin > details > summary");
   ok(cousins?.textContent.startsWith("1 other override (a cousin)"),
      `and its cousin in a row of its own: ${cousins?.textContent}`);
   const button = cousins.querySelector('.overview-toggle[data-relation="cousins"]');
@@ -141,8 +143,121 @@ add_task(async function test_QueryRelationsSuperCalls() {
   TestUtils.click(relationValue("overridden"));
   ok(shownGroups().includes("Super calls (uses of SuperBase::teardown in its overrides)"),
      `whose calls are with what it overrides: ${shownGroups()}`);
-  const base = [...frame.contentDocument.querySelectorAll(".panel-overview .overview-overridden > .overview-row")]
+  const base = [...frame.contentDocument.querySelectorAll(".panel-overview .overview-ancestor > .overview-row")]
     .find(row => row.querySelector(".overview-name")?.textContent == "SuperBase::teardown");
   ok(base?.querySelector(".overview-counts")?.textContent.includes("(2 from overrides)"),
      `as the overview says: ${base?.textContent}`);
+  is(base.querySelector('.overview-toggle[data-relation="overridden"]')?.textContent, "definition, super calls",
+     "whose button shows or leaves out its definition and the super calls");
+});
+
+// Groups' headings with their counts.
+function groupCounts() {
+  return Object.fromEntries(
+    [...frame.contentDocument.querySelectorAll(".query-result details.facet-group")]
+      .filter(group => !group.hidden)
+      .map(group => group.querySelector(":scope > summary > h2"))
+      .filter(heading => heading)
+      .map(heading => heading.textContent.replace(/\s+/g, " ").trim())
+      .map(text => [text.replace(/ \(\d+ lines? across \d+ files?\)$/, ""),
+                    text.match(/\((\d+) lines? across/)?.[1]]));
+}
+
+// The overview's buttons show or leave out each method's results (a cousin's,
+// ex: TripleSubTwo::triplePure, of TripleSubOne::triplePure's two cousins),
+// and a row's all of its methods'; a relation with some of its methods'
+// results left out is "mixed", as the Relation facet says, which a click on
+// shows all of; and the URL says which are left out.
+add_task(async function test_QueryOverviewMethods() {
+  await TestUtils.loadQuery("tests", "TripleSubOne::triplePure");
+  const doc = frame.contentDocument;
+  const overview = doc.querySelector(".panel .panel-overview");
+  const cousinsRow = overview.querySelector("li.overview-cousin > details");
+  ok(cousinsRow?.querySelector("summary").textContent.startsWith("2 other overrides (cousins)"),
+     `Its cousins are in a row: ${cousinsRow?.querySelector("summary").textContent}`);
+  const rowButton = cousinsRow.querySelector(':scope > summary > .overview-toggle[data-relation="cousins"]');
+  const cousinButton = name => [...cousinsRow.querySelectorAll(".overview-row")]
+    .find(row => row.querySelector(".overview-name").textContent == name)
+    ?.querySelector('.overview-toggle[data-relation="cousins"]');
+  const two = cousinButton("TripleSubTwo::triplePure");
+  ok(two, "with a button for each of them");
+  is(two.getAttribute("aria-pressed"), "false", "whose results are left out at first");
+
+  TestUtils.click(two);
+  is(two.getAttribute("aria-pressed"), "true", "Its button shows its results");
+  const counts = groupCounts();
+  is(counts["Definitions of cousin overrides (TripleSubOne::triplePure)"], "1",
+     `and not the other cousin's: ${JSON.stringify(counts)}`);
+  is(counts["Uses of cousin overrides (TripleSubOne::triplePure)"], "1", "nor its uses");
+  const shownCousinLines = [...doc.querySelectorAll('.query-result [data-syms]')]
+    .filter(line => !line.hidden && !line.closest("[hidden]") &&
+            line.closest("[data-facet-scope]").dataset.facetScope.includes("cousins"))
+    .map(line => line.dataset.syms);
+  ok(shownCousinLines.length && shownCousinLines.every(syms => syms == "_ZN12TripleSubTwo10triplePureEv"),
+     `whose lines are only its: ${shownCousinLines}`);
+  is(rowButton.getAttribute("aria-pressed"), "mixed", "The row's button says some are shown");
+  is(relationValue("cousins").getAttribute("aria-pressed"), "mixed", "as does the Relation facet");
+  is(cousinButton("TripleSubThree::triplePure").getAttribute("aria-pressed"), "false",
+     "and the other cousin's button says it's left out");
+  const left = new URL(doc.location.href).searchParams.getAll("-facet-relation");
+  ok(left.includes("cousins|_ZN14TripleSubThree10triplePureEv") && left.includes("overridden"),
+     `which the URL says: ${left}`);
+
+  // (As links reproduce it.)
+  await TestUtils.loadPath(frame.contentWindow.location.pathname + frame.contentWindow.location.search);
+  is(groupCounts()["Definitions of cousin overrides (TripleSubOne::triplePure)"], "1",
+     "A link to the results shows them so");
+  is(relationValue("cousins").getAttribute("aria-pressed"), "mixed", "with the facet's value mixed");
+
+  // (A click on the mixed value shows all of them.)
+  TestUtils.click(relationValue("cousins"));
+  is(groupCounts()["Definitions of cousin overrides (TripleSubOne::triplePure)"], "2",
+     "Clicking the mixed value shows all of its results");
+  const reloadedRow = frame.contentDocument.querySelector(
+    '.panel-overview li.overview-cousin > details > summary > .overview-toggle[data-relation="cousins"]');
+  is(reloadedRow.getAttribute("aria-pressed"), "true", "as the row's button says");
+  TestUtils.click(reloadedRow);
+  ok(!shownGroups().some(group => group.includes("cousin")), `which leaves them all out: ${shownGroups()}`);
+  ok(relationValue("cousins").classList.contains("facet-excluded"), "as the facet's value says");
+
+  // (The uses of the method it overrides, by its button.)
+  const base = frame.contentDocument.querySelector(
+    ".panel-overview .overview-ancestor > .overview-row .overview-toggle[data-relation=\"virtual-uses\"]");
+  is(base?.getAttribute("aria-pressed"), "true", "The possible virtual calls show at first");
+  TestUtils.click(base);
+  ok(!shownGroups().some(group => group.startsWith("Possible virtual calls")),
+     `until the method's uses' button leaves them out: ${shownGroups()}`);
+});
+
+// A class's overview: the classes it inherits from above it, and their other
+// subclasses (its cousins) in a row of their own, linking to their results
+// (which aren't the queried class's).
+add_task(async function test_QueryOverviewClasses() {
+  await TestUtils.loadQuery("tests", "'DoubleSubOne'");
+  const overview = frame.contentDocument.querySelector(".panel .panel-overview");
+  const names = [...overview.querySelectorAll(".overview-name")].map(a => a.textContent);
+  is(names[0], "DoubleBase", `The class it inherits from is at the top: ${names}`);
+  const queried = overview.querySelector(".overview-queried > .overview-row > .overview-name");
+  is(queried?.textContent, "DoubleSubOne", "and the queried class below it");
+  const cousins = overview.querySelector("li.overview-cousin > details");
+  ok(cousins?.querySelector("summary").textContent.startsWith("1 other subclass (a cousin)"),
+     `and its cousin in a row of its own: ${cousins?.querySelector("summary").textContent}`);
+  const cousin = cousins.querySelector(".overview-name");
+  is(cousin?.textContent, "DoubleSubTwo", "which lists it");
+  ok(cousin.getAttribute("href").includes(encodeURIComponent("symbol:T_DoubleSubTwo")),
+     "linking to its results");
+  ok(!cousins.querySelector(".overview-toggle"), "which the queried class's results don't have");
+});
+
+// A class subclassed by more than the limit on subclasses says so, with a
+// link to the results following them anyway.
+add_task(async function test_QueryOverviewSubclassLimit() {
+  await TestUtils.loadQuery("tests", "subclass-limit:1 'DoubleBase'");
+  const overview = frame.contentDocument.querySelector(".panel .panel-overview");
+  const note = overview.querySelector(".overview-queried > .overview-row > .overview-note");
+  ok(note?.textContent.startsWith("subclassed by 2, too many to follow"),
+     `The queried class says it has too many subclasses: ${note?.textContent}`);
+  const anyway = note.querySelector("a");
+  ok(anyway?.getAttribute("href").includes(encodeURIComponent("subclass-limit:0")),
+     `with a link following them anyway: ${anyway?.getAttribute("href")}`);
 });

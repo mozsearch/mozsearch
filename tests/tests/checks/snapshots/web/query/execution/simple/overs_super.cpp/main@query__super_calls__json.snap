@@ -32,6 +32,9 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
                       5,
                       13
                     ]
+                  ],
+                  "syms": [
+                    "_ZN8SuperMid8teardownEv"
                   ]
                 }
               ]
@@ -61,6 +64,9 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
                       37,
                       45
                     ]
+                  ],
+                  "syms": [
+                    "_ZN8SuperMid8teardownEv"
                   ]
                 }
               ]
@@ -90,6 +96,9 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
                       42,
                       50
                     ]
+                  ],
+                  "syms": [
+                    "_ZN9SuperBase8teardownEv"
                   ]
                 }
               ]
@@ -119,6 +128,9 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
                       5,
                       13
                     ]
+                  ],
+                  "syms": [
+                    "_ZN9SuperLeaf8teardownEv"
                   ]
                 }
               ]
@@ -148,6 +160,9 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
                       13,
                       21
                     ]
+                  ],
+                  "syms": [
+                    "_ZN9SuperBase8teardownEv"
                   ]
                 }
               ]
@@ -177,6 +192,9 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
                       38,
                       46
                     ]
+                  ],
+                  "syms": [
+                    "_ZN9SuperBase8teardownEv"
                   ]
                 },
                 {
@@ -193,6 +211,9 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
                       38,
                       46
                     ]
+                  ],
+                  "syms": [
+                    "_ZN9SuperBase8teardownEv"
                   ]
                 }
               ]
@@ -251,6 +272,9 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
                       5,
                       13
                     ]
+                  ],
+                  "syms": [
+                    "_ZN11SuperCousin8teardownEv"
                   ]
                 }
               ]
@@ -276,7 +300,7 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
         "sym": "_ZN8SuperMid8teardownEv",
         "pretty": "SuperMid::teardown",
         "relation": "self",
-        "overrides": [
+        "parents": [
           "_ZN9SuperBase8teardownEv"
         ],
         "definitions": 1,
@@ -287,8 +311,8 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
       {
         "sym": "_ZN9SuperLeaf8teardownEv",
         "pretty": "SuperLeaf::teardown",
-        "relation": "overrides",
-        "overrides": [
+        "relation": "descendant",
+        "parents": [
           "_ZN8SuperMid8teardownEv"
         ],
         "definitions": 1,
@@ -299,8 +323,8 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
       {
         "sym": "_ZN9SuperBase8teardownEv",
         "pretty": "SuperBase::teardown",
-        "relation": "overridden",
-        "overrides": [],
+        "relation": "ancestor",
+        "parents": [],
         "definitions": 1,
         "declarations": 0,
         "uses": 3,
@@ -309,8 +333,8 @@ input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls
       {
         "sym": "_ZN11SuperCousin8teardownEv",
         "pretty": "SuperCousin::teardown",
-        "relation": "cousins",
-        "overrides": [
+        "relation": "cousin",
+        "parents": [
           "_ZN9SuperBase8teardownEv"
         ],
         "definitions": 1,

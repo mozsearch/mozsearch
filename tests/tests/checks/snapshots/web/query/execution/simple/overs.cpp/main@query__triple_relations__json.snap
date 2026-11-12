@@ -32,6 +32,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       5,
                       15
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12TripleSubOne10triplePureEv"
                   ]
                 }
               ]
@@ -61,6 +64,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       12,
                       22
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12TripleSubOne10triplePureEv"
                   ]
                 }
               ]
@@ -90,6 +96,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       8,
                       18
                     ]
+                  ],
+                  "syms": [
+                    "_ZN10TripleBase10triplePureEv"
                   ]
                 },
                 {
@@ -106,6 +115,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       8,
                       18
                     ]
+                  ],
+                  "syms": [
+                    "_ZN10TripleBase10triplePureEv"
                   ]
                 },
                 {
@@ -122,6 +134,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       10,
                       20
                     ]
+                  ],
+                  "syms": [
+                    "_ZN10TripleBase10triplePureEv"
                   ]
                 }
               ]
@@ -151,6 +166,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       13,
                       23
                     ]
+                  ],
+                  "syms": [
+                    "_ZN10TripleBase10triplePureEv"
                   ]
                 }
               ]
@@ -180,6 +198,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       5,
                       15
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12TripleSubTwo10triplePureEv"
                   ]
                 },
                 {
@@ -196,6 +217,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       5,
                       15
                     ]
+                  ],
+                  "syms": [
+                    "_ZN14TripleSubThree10triplePureEv"
                   ]
                 }
               ]
@@ -225,6 +249,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       12,
                       22
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12TripleSubTwo10triplePureEv"
                   ]
                 },
                 {
@@ -241,6 +268,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
                       14,
                       24
                     ]
+                  ],
+                  "syms": [
+                    "_ZN14TripleSubThree10triplePureEv"
                   ]
                 }
               ]
@@ -265,7 +295,7 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
         "sym": "_ZN12TripleSubOne10triplePureEv",
         "pretty": "TripleSubOne::triplePure",
         "relation": "self",
-        "overrides": [
+        "parents": [
           "_ZN10TripleBase10triplePureEv"
         ],
         "definitions": 1,
@@ -276,8 +306,8 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
       {
         "sym": "_ZN10TripleBase10triplePureEv",
         "pretty": "TripleBase::triplePure",
-        "relation": "overridden",
-        "overrides": [],
+        "relation": "ancestor",
+        "parents": [],
         "definitions": 1,
         "declarations": 0,
         "uses": 3,
@@ -286,8 +316,8 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
       {
         "sym": "_ZN12TripleSubTwo10triplePureEv",
         "pretty": "TripleSubTwo::triplePure",
-        "relation": "cousins",
-        "overrides": [
+        "relation": "cousin",
+        "parents": [
           "_ZN10TripleBase10triplePureEv"
         ],
         "definitions": 1,
@@ -298,8 +328,8 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_relations_
       {
         "sym": "_ZN14TripleSubThree10triplePureEv",
         "pretty": "TripleSubThree::triplePure",
-        "relation": "cousins",
-        "overrides": [
+        "relation": "cousin",
+        "parents": [
           "_ZN10TripleBase10triplePureEv"
         ],
         "definitions": 1,

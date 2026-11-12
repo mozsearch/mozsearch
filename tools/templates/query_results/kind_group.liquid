@@ -59,7 +59,9 @@ kind's add up from its shown groups'; see query-results.js.) {% endcomment -%}
         {%- endcase -%}
         {%- endif -%}
     </span>{% if kind_group.pretty != empty %} ({% if relation == "virtual-uses" or super_calls %}uses of {% endif %}{{ kind_group.pretty | escape }}{% if super_calls %} in its overrides{% endif %}){% endif %}
-    {%- include 'query_results/counts.liquid' file_names: 0, lines: kind_lines, files: kind_files %}</h2>
+    {%- comment %} (Which query-results.js updates in a group of symbols' results, which can be left out each.) {% endcomment -%}
+    {%- if kind_group contains "relation" %}<span class="query-group-counts">{% include 'query_results/counts.liquid' file_names: 0, lines: kind_lines, files: kind_files %}</span>
+    {%- else %}{% include 'query_results/counts.liquid' file_names: 0, lines: kind_lines, files: kind_files %}{% endif %}</h2>
     {%- if kind_repeated > 0 %} <label class="query-repeated-toggle"><input type="checkbox"> Include {{ kind_repeated | escape }} line{% if kind_repeated != 1 %}s{% endif %} already shown by other results</label>{% endif -%}
     </summary>
     {%- comment %} (The results' facets cover the "Path" facet.) {% endcomment -%}

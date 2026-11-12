@@ -32,6 +32,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
                       13,
                       23
                     ]
+                  ],
+                  "syms": [
+                    "_ZN10DoubleBase10doublePureEv"
                   ]
                 }
               ]
@@ -61,6 +64,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
                       8,
                       18
                     ]
+                  ],
+                  "syms": [
+                    "_ZN10DoubleBase10doublePureEv"
                   ]
                 },
                 {
@@ -77,6 +83,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
                       8,
                       18
                     ]
+                  ],
+                  "syms": [
+                    "_ZN10DoubleBase10doublePureEv"
                   ]
                 }
               ]
@@ -106,6 +115,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
                       5,
                       15
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12DoubleSubOne10doublePureEv"
                   ]
                 },
                 {
@@ -122,6 +134,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
                       5,
                       15
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12DoubleSubTwo10doublePureEv"
                   ]
                 }
               ]
@@ -151,6 +166,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
                       12,
                       22
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12DoubleSubOne10doublePureEv"
                   ]
                 },
                 {
@@ -167,6 +185,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
                       12,
                       22
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12DoubleSubTwo10doublePureEv"
                   ]
                 }
               ]
@@ -190,7 +211,7 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
         "sym": "_ZN10DoubleBase10doublePureEv",
         "pretty": "DoubleBase::doublePure",
         "relation": "self",
-        "overrides": [],
+        "parents": [],
         "definitions": 1,
         "declarations": 0,
         "uses": 2,
@@ -199,8 +220,8 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
       {
         "sym": "_ZN12DoubleSubOne10doublePureEv",
         "pretty": "DoubleSubOne::doublePure",
-        "relation": "overrides",
-        "overrides": [
+        "relation": "descendant",
+        "parents": [
           "_ZN10DoubleBase10doublePureEv"
         ],
         "definitions": 1,
@@ -211,8 +232,8 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
       {
         "sym": "_ZN12DoubleSubTwo10doublePureEv",
         "pretty": "DoubleSubTwo::doublePure",
-        "relation": "overrides",
-        "overrides": [
+        "relation": "descendant",
+        "parents": [
           "_ZN10DoubleBase10doublePureEv"
         ],
         "definitions": 1,

@@ -32,6 +32,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_override_l
                       5,
                       15
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12TripleSubOne10triplePureEv"
                   ]
                 }
               ]
@@ -61,6 +64,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_override_l
                       12,
                       22
                     ]
+                  ],
+                  "syms": [
+                    "_ZN12TripleSubOne10triplePureEv"
                   ]
                 }
               ]
@@ -90,6 +96,9 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_override_l
                       13,
                       23
                     ]
+                  ],
+                  "syms": [
+                    "_ZN10TripleBase10triplePureEv"
                   ]
                 }
               ]
@@ -113,7 +122,7 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_override_l
         "sym": "_ZN12TripleSubOne10triplePureEv",
         "pretty": "TripleSubOne::triplePure",
         "relation": "self",
-        "overrides": [
+        "parents": [
           "_ZN10TripleBase10triplePureEv"
         ],
         "definitions": 1,
@@ -124,13 +133,13 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_override_l
       {
         "sym": "_ZN10TripleBase10triplePureEv",
         "pretty": "TripleBase::triplePure",
-        "relation": "overridden",
-        "overrides": [],
+        "relation": "ancestor",
+        "parents": [],
         "definitions": 1,
         "declarations": 0,
         "uses": 3,
         "super_calls": 0,
-        "too_many_overrides": 3
+        "too_many": 3
       }
     ]
   }

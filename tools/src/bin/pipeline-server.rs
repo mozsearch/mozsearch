@@ -55,9 +55,9 @@ use ustr::{Ustr, UstrMap};
 /// `FlattenedLineSpan::facets`.  And the lenses showing more of the results
 /// (see navigation_panel.liquid), if any (or null): "changes", the lines'
 /// history digests, if they have them, and "overview", the queried methods'
-/// override hierarchy (on at first), if the results have more of it than
-/// those, whose data is `overview` (or null; see `ResultsOverview` and
-/// query-overview.js).
+/// override hierarchy and the queried classes' inheritance hierarchy (on at
+/// first), if the results have more of them than those, whose data is
+/// `overview` (or null; see `ResultsOverview` and query-overview.js).
 fn results_file_facets(
     server: &(dyn AbstractServer + Send + Sync),
     results: &mut FlattenedResultsBundle,
@@ -277,7 +277,7 @@ fn results_file_facets(
         lenses.push(json!({
             "key": "overview",
             "name": "overview",
-            "title": "Show the override hierarchy of the queried methods, with what the results leave out at first",
+            "title": "Show the hierarchy of the queried methods (what they override, and their overrides) or classes (their superclasses and subclasses), with what the results leave out at first",
             "default": true,
         }));
     }

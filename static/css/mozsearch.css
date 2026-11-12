@@ -4348,6 +4348,16 @@ html:not(.lens-changes) .query-recency {
   text-decoration: line-through;
   opacity: 0.75;
 }
+/* A checkbox value with some of its symbols' results left out (see
+   facets.js's members): highlighted, with a dashed border. */
+.facet-value.facet-mixed,
+.overview-toggle[aria-pressed="mixed"] {
+  background-color: var(--line-highlight-background);
+  border-style: dashed;
+  border-color: currentColor;
+  text-decoration: none;
+  opacity: 1;
+}
 .facet-value {
   user-select: none;
 }
@@ -4385,10 +4395,11 @@ div[role=row].change-nav-current {
   font-weight: bold;
 }
 /* The overview of a query's results' symbols, ex: the queried methods'
-   override hierarchy (see query-overview.js), with the "overview" lens: a
-   tree, whose nested levels are indented beside a line, the queried methods
-   bold, and its buttons showing or leaving out the results of a relation
-   like the lenses' (struck through when left out). */
+   override hierarchy, or classes' inheritance hierarchy (see
+   query-overview.js), with the "overview" lens: a tree (under headings, if
+   it has both), whose nested levels are indented beside a line, the queried
+   symbols bold, and its buttons showing or leaving out results like the
+   lenses' (struck through when left out). */
 html:not(.lens-overview) .panel-overview {
   display: none;
 }
@@ -4399,6 +4410,12 @@ html:not(.lens-overview) .panel-overview {
 }
 .panel-overview h4 {
   margin: 0 0 0.25rem;
+}
+.panel-overview h5 {
+  margin: 0.25rem 0 0;
+  font-size: 1em;
+  font-weight: normal;
+  font-style: italic;
 }
 .overview-tree ul {
   list-style: none;
@@ -4425,6 +4442,11 @@ html:not(.lens-overview) .panel-overview {
 }
 .overview-node summary {
   cursor: pointer;
+}
+/* (A row of overrides or subclasses is at its siblings' indentation, rather
+   than the page's details'.) */
+.overview-tree details {
+  margin-left: 0;
 }
 .overview-toggle {
   font: inherit;

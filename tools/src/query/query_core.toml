@@ -420,6 +420,17 @@ command = "crossref-expand"
 amend = true
 args.override-local-limit = "$0"
 
+# How many subclasses of a class the results follow (crossref-expand's
+# `subclass-local-limit`, 100 by default; 0 for no limit, but the 400 of all
+# of the symbols'), as `override-limit:` for overrides (ex: `nsISupports`'s
+# thousands of subclasses, which the overview of a query for one of them
+# says it didn't follow).  (Amending the semantic search.)
+[term.subclass-limit]
+[[term.subclass-limit.group.semantic-search]]
+command = "crossref-expand"
+amend = true
+args.subclass-local-limit = "$0"
+
 [term.pathre]
 [[term.pathre.group.file-search]]
 command = "search-files"

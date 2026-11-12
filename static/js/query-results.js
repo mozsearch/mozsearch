@@ -65,7 +65,10 @@ document.addEventListener("change", event => {
  * A path kind's counts (its heading's, as query_results/counts.liquid's) are
  * of its shown kinds' groups (as their own, `data-lines` and `data-files`,
  * add up), as facets.js hides a group of a relation it leaves out (ex: a
- * method's cousins'; see query_results/kind_group.liquid).
+ * method's cousins'; see query_results/kind_group.liquid).  And a group of
+ * symbols' results (`data-syms`), whose lines facets.js can leave out for
+ * each symbol (ex: one of the cousins), has the counts of its shown lines
+ * (but those already shown by other results), as its heading says.
  */
 function countsText(fileNames, lines, files) {
   const counted = (n, word) => `${n} ${word}${n == 1 ? "" : "s"}`;
@@ -76,6 +79,25 @@ function countsText(fileNames, lines, files) {
   return ` (${counted(files, "file")})`;
 }
 
+function groupCounts(group) {
+  if (!group.querySelector("[data-syms]")) {
+    return [Number(group.dataset.lines), Number(group.dataset.files)];
+  }
+  let lines = 0;
+  let files = 0;
+  for (const file of group.querySelectorAll(":scope > details")) {
+    const shown = file.hidden ? 0 : [...file.querySelectorAll(":scope > .file")]
+      .filter(line => !line.hidden && !line.classList.contains("query-repeated")).length;
+    lines += shown;
+    files += shown > 0 ? 1 : 0;
+  }
+  const counts = group.querySelector(":scope > summary .query-group-counts");
+  if (counts) {
+    counts.textContent = countsText(0, lines, files);
+  }
+  return [lines, files];
+}
+
 function updatePathKindCounts() {
   for (const counts of document.querySelectorAll(".query-result .query-counts")) {
     const fileNames = Number(counts.dataset.fileNames || 0);
@@ -83,8 +105,9 @@ function updatePathKindCounts() {
     let files = fileNames;
     for (const group of counts.closest("details").querySelectorAll("details.facet-group[data-lines]")) {
       if (!group.hidden) {
-        lines += Number(group.dataset.lines);
-        files += Number(group.dataset.files);
+        const [groupLines, groupFiles] = groupCounts(group);
+        lines += groupLines;
+        files += groupFiles;
       }
     }
     counts.textContent = countsText(fileNames, lines, files);

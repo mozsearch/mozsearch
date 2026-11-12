@@ -1,0 +1,140 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(frb).unwrap()"
+input_file: inputs/web/query/execution/simple/overs.cpp/query__subclass_limit__json
+---
+{
+  "path_kind_results": [
+    {
+      "path_kind": "normal",
+      "file_names": [],
+      "kind_groups": [
+        {
+          "kind": "Definitions",
+          "pretty": "DoubleBase",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 6,
+                  "line_range": [
+                    1,
+                    6
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_comment\" >/**</span>\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_comment\" > * This file is intended to create interesting test cases for searches against</span>\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_comment\" > * a base class with a limited number of overrides.</span>\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_comment\" > **/</span>\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_reserved\" >class</span> <span class=\"syn_def syn_type\" data-symbols=\"T_DoubleBase\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">DoubleBase</mark></span> {\n</code>\n</div>\n",
+                  "context": "",
+                  "contextsym": "",
+                  "hits": [
+                    [
+                      6,
+                      16
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "DoubleBase",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 11,
+                  "line_range": [
+                    11,
+                    11
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_reserved\" >class</span> <span class=\"syn_def syn_type\" data-symbols=\"T_DoubleSubOne\" data-confidences=\"[&quot;concrete&quot;]\">DoubleSubOne</span> : <span class=\"syn_reserved\" >public</span> <span class=\"syn_type\" data-symbols=\"T_DoubleBase\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">DoubleBase</mark></span> {\n</code>\n</div>\n",
+                  "context": "DoubleSubOne",
+                  "contextsym": "T_DoubleSubOne",
+                  "hits": [
+                    [
+                      28,
+                      38
+                    ]
+                  ]
+                },
+                {
+                  "key_line": 18,
+                  "line_range": [
+                    18,
+                    18
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_reserved\" >class</span> <span class=\"syn_def syn_type\" data-symbols=\"T_DoubleSubTwo\" data-confidences=\"[&quot;concrete&quot;]\">DoubleSubTwo</span> : <span class=\"syn_reserved\" >public</span> <span class=\"syn_type\" data-symbols=\"T_DoubleBase\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">DoubleBase</mark></span> {\n</code>\n</div>\n",
+                  "context": "DoubleSubTwo",
+                  "contextsym": "T_DoubleSubTwo",
+                  "hits": [
+                    [
+                      28,
+                      38
+                    ]
+                  ]
+                },
+                {
+                  "key_line": 52,
+                  "line_range": [
+                    52,
+                    52
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_type\" data-symbols=\"T_DoubleBase\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">DoubleBase</mark></span>* <span data-symbols=\"V_b5641eb0fb5c5192_1d39c9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subOne</span> = <span class=\"syn_reserved\" >new</span> <span class=\"syn_type\" data-symbols=\"_ZN12DoubleSubOneC1Ev,T_DoubleSubOne\" data-confidences=\"[&quot;concrete&quot;,&quot;concrete&quot;]\">DoubleSubOne</span>();\n</code>\n</div>\n",
+                  "context": "generateDoubleUses",
+                  "contextsym": "_Z18generateDoubleUsesv",
+                  "hits": [
+                    [
+                      0,
+                      10
+                    ]
+                  ]
+                },
+                {
+                  "key_line": 53,
+                  "line_range": [
+                    53,
+                    53
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_type\" data-symbols=\"T_DoubleBase\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">DoubleBase</mark></span>* <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subTwo</span> = <span class=\"syn_reserved\" >new</span> <span class=\"syn_type\" data-symbols=\"_ZN12DoubleSubTwoC1Ev,T_DoubleSubTwo\" data-confidences=\"[&quot;concrete&quot;,&quot;concrete&quot;]\">DoubleSubTwo</span>();\n</code>\n</div>\n",
+                  "context": "generateDoubleUses",
+                  "contextsym": "_Z18generateDoubleUsesv",
+                  "hits": [
+                    [
+                      0,
+                      10
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "content_type": "text/html",
+  "text_pattern": {
+    "re": "DoubleBase",
+    "case_sensitive": false
+  },
+  "overview": {
+    "nodes": [
+      {
+        "sym": "T_DoubleBase",
+        "pretty": "DoubleBase",
+        "relation": "self",
+        "class": true,
+        "parents": [],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 4,
+        "super_calls": 0,
+        "too_many": 2
+      }
+    ]
+  }
+}
