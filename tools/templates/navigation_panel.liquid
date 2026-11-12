@@ -14,17 +14,30 @@
            endif %}>
 {%- comment %}(The page's lenses, if it has any: toggles showing more of its
 contents, ex: "changes" for a query's results' history digests, which are
-remembered and applied as soon as their buttons are there, so that the
-contents don't change once loaded; see `EarlyLayout` in settings.js and
-panel.js's `setupLensToggles`.){% endcomment -%}
+remembered (by the kind of page, `panel_lens_family`, ex: "results" for a
+query's file-centric results, as other kinds have other lenses), and
+applied as soon as their buttons are there, so that the contents don't
+change once loaded, on or off at first as each says (`default`); see
+`EarlyLayout` in settings.js and panel.js's `setupLensToggles`.){% endcomment -%}
 {%- if panel_lenses %}
-  <div class="lens-bar">
+  <div class="lens-bar"{% if panel_lens_family %} data-lens-family="{{ panel_lens_family | escape }}"{% endif %}>
     <span class="lens-label">Lenses:</span>
     {%- for lens in panel_lenses %}
-    <button type="button" class="lens-toggle" data-lens="{{ lens.key | escape }}" aria-pressed="false" title="{{ lens.title | escape }}">{{ lens.name | escape }}</button>
+    <button type="button" class="lens-toggle" data-lens="{{ lens.key | escape }}"{% if lens.default %} data-lens-default{% endif %} aria-pressed="false" title="{{ lens.title | escape }}">{{ lens.name | escape }}</button>
     {%- endfor %}
   </div>
   <script src="/{{ tree }}/static/js/early-layout-lenses.js"></script>
+{%- endif %}
+{%- comment %}(The overview of a query's results' symbols, if they have
+one, ex: the queried methods' override hierarchy, which query-overview.js
+draws from its data, with the "overview" lens; see `ResultsOverview`.){% endcomment -%}
+{%- if panel_overview %}
+  <section class="panel-overview" aria-label="Overview">
+    <h4>Overview</h4>
+    <div class="overview-tree"></div>
+    <script type="application/json" data-global="RESULTS_OVERVIEW">{{ panel_overview | json_script }}</script>
+  </section>
+  <script defer src="/{{ tree }}/static/js/query-overview.js"></script>
 {%- endif %}
 {%- comment %}(The facets filtering the page's list of files, if it has
 one, ex: an explore page's or a query's results, and its choices of grouping

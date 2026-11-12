@@ -2,11 +2,14 @@
 
 // /query/'s lenses (see navigation_panel.liquid), at the top of the panel:
 // "changes" shows the results' history digests (see test_QueryRecency.js),
-// which are hidden at first, and is remembered (and applied before the
-// results load; see `EarlyLayout` in settings.js).
+// which are hidden at first, and is remembered for pages of results (and
+// applied before the results load; see `EarlyLayout` in settings.js).
+const CHANGES_KEY = "lens-results-changes";
 add_task(async function test_QueryChangesLens() {
   await TestUtils.loadQuery("searchfox", "blot_cell");
-  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("lens-changes"));
+  for (const key of [CHANGES_KEY, "lens-changes"]) {
+    frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey(key));
+  }
   await TestUtils.loadQuery("searchfox", "blot_cell");
 
   let doc = frame.contentDocument;
@@ -28,9 +31,9 @@ add_task(async function test_QueryChangesLens() {
   ok(doc.documentElement.classList.contains("lens-changes"), "and show the digests");
 
   TestUtils.click(lens);
-  is(frame.contentWindow.localStorage.getItem(frame.contentWindow.storageKey("lens-changes")), "0",
-     "Clicking it again turns it off for later pages too");
-  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("lens-changes"));
+  is(frame.contentWindow.localStorage.getItem(frame.contentWindow.storageKey(CHANGES_KEY)), "0",
+     "Clicking it again turns it off for later pages of results too");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey(CHANGES_KEY));
 });
 
 // The results' hits stand out (see mozsearch.css's `.query-result`): only

@@ -645,6 +645,21 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/overs_super.cpp" class="mimetype-fixed-container mimetype-icon-cpp">overs_super.cpp</a></td>
+          <td class="description"><a href="/tests/source/overs_super.cpp" title="A method&#39;s overrides calling the method they override (super calls, which
+ aren&#39;t virtual), and a call of it which could be a virtual call of any of
+ them, for /query/&#39;s results of a method in an override hierarchy (see
+ test_QueryRelations.js).
+">A method&#39;s overrides calling the method they override (super calls, which
+ aren&#39;t virtual), and a call of it which could be a virtual call of any of
+ them, for /query/&#39;s results of a method in an override hierarchy (see
+ test_QueryRelations.js).
+</td>
+          <td class="size"><a href="/tests/source/overs_super.cpp">692</a></td>
+          <td class="coverage"><a href="/tests/source/overs_super.cpp" class="cov-percentage cov-percentage-none" title="There&#39;s no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/package-lock.json" class="mimetype-fixed-container mimetype-icon-json">package-lock.json</a></td>
           <td class="description"><a href="/tests/source/package-lock.json" title=""></td>
           <td class="size"><a href="/tests/source/package-lock.json">1638</a></td>

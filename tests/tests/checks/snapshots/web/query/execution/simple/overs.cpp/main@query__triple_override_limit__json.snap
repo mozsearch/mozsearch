@@ -1,0 +1,137 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(frb).unwrap()"
+input_file: inputs/web/query/execution/simple/overs.cpp/query__triple_override_limit__json
+---
+{
+  "path_kind_results": [
+    {
+      "path_kind": "normal",
+      "file_names": [],
+      "kind_groups": [
+        {
+          "kind": "Definitions",
+          "pretty": "TripleSubOne::triplePure",
+          "relation": "self",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 32,
+                  "line_range": [
+                    32,
+                    32
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN12TripleSubOne10triplePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">triplePure</mark></span>() override {\n</code>\n</div>\n",
+                  "context": "TripleSubOne",
+                  "contextsym": "T_TripleSubOne",
+                  "hits": [
+                    [
+                      5,
+                      15
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "TripleSubOne::triplePure",
+          "relation": "self",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 76,
+                  "line_range": [
+                    76,
+                    76
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_329a6fb0fb5c5192_94a37619f041780c\" data-confidences=\"[&quot;concrete&quot;]\">explicitOne</span>.<span data-symbols=\"_ZN12TripleSubOne10triplePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">triplePure</mark></span>();\n</code>\n</div>\n",
+                  "context": "generateTripleUses",
+                  "contextsym": "_Z18generateTripleUsesv",
+                  "hits": [
+                    [
+                      12,
+                      22
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Definitions",
+          "pretty": "TripleBase::triplePure",
+          "relation": "overridden",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 27,
+                  "line_range": [
+                    27,
+                    27
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >virtual</span> <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN10TripleBase10triplePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">triplePure</mark></span>() = 0;\n</code>\n</div>\n",
+                  "context": "TripleBase",
+                  "contextsym": "T_TripleBase",
+                  "hits": [
+                    [
+                      13,
+                      23
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "content_type": "text/html",
+  "text_pattern": {
+    "re": "TripleSubOne::triplePure",
+    "case_sensitive": false
+  },
+  "relation_excluded": [
+    "overridden"
+  ],
+  "overview": {
+    "nodes": [
+      {
+        "sym": "_ZN12TripleSubOne10triplePureEv",
+        "pretty": "TripleSubOne::triplePure",
+        "relation": "self",
+        "overrides": [
+          "_ZN10TripleBase10triplePureEv"
+        ],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 1,
+        "super_calls": 0
+      },
+      {
+        "sym": "_ZN10TripleBase10triplePureEv",
+        "pretty": "TripleBase::triplePure",
+        "relation": "overridden",
+        "overrides": [],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 3,
+        "super_calls": 0,
+        "too_many_overrides": 3
+      }
+    ]
+  }
+}

@@ -12,31 +12,8 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__json
         {
           "kind": "Definitions",
           "pretty": "DoubleBase::doublePure",
-          "facets": [
-            {
-              "label": "Relation",
-              "kind": "SymbolByRelation",
-              "groups": [
-                {
-                  "label": "Overriden By",
-                  "values": [
-                    "_ZN12DoubleSubOne10doublePureEv",
-                    "_ZN12DoubleSubTwo10doublePureEv"
-                  ],
-                  "nested_groups": [],
-                  "count": 2
-                },
-                {
-                  "label": "Self",
-                  "values": [
-                    "_ZN10DoubleBase10doublePureEv"
-                  ],
-                  "nested_groups": [],
-                  "count": 1
-                }
-              ]
-            }
-          ],
+          "relation": "self",
+          "facets": [],
           "by_file": [
             {
               "file": "overs.cpp",
@@ -56,7 +33,65 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__json
                       23
                     ]
                   ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "DoubleBase::doublePure",
+          "relation": "self",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 57,
+                  "line_range": [
+                    57,
+                    57
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_b5641eb0fb5c5192_1d39c9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subOne</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n",
+                  "context": "generateDoubleUses",
+                  "contextsym": "_Z18generateDoubleUsesv",
+                  "hits": [
+                    [
+                      8,
+                      18
+                    ]
+                  ]
                 },
+                {
+                  "key_line": 58,
+                  "line_range": [
+                    58,
+                    58
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subTwo</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n",
+                  "context": "generateDoubleUses",
+                  "contextsym": "_Z18generateDoubleUsesv",
+                  "hits": [
+                    [
+                      8,
+                      18
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Definitions",
+          "pretty": "DoubleBase::doublePure",
+          "relation": "overrides",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
                 {
                   "key_line": 13,
                   "line_range": [
@@ -96,67 +131,12 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__json
         {
           "kind": "Uses",
           "pretty": "DoubleBase::doublePure",
-          "facets": [
-            {
-              "label": "Relation",
-              "kind": "SymbolByRelation",
-              "groups": [
-                {
-                  "label": "Overriden By",
-                  "values": [
-                    "_ZN12DoubleSubOne10doublePureEv",
-                    "_ZN12DoubleSubTwo10doublePureEv"
-                  ],
-                  "nested_groups": [],
-                  "count": 2
-                },
-                {
-                  "label": "Self",
-                  "values": [
-                    "_ZN10DoubleBase10doublePureEv"
-                  ],
-                  "nested_groups": [],
-                  "count": 1
-                }
-              ]
-            }
-          ],
+          "relation": "overrides",
+          "facets": [],
           "by_file": [
             {
               "file": "overs.cpp",
               "line_spans": [
-                {
-                  "key_line": 57,
-                  "line_range": [
-                    57,
-                    57
-                  ],
-                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_b5641eb0fb5c5192_1d39c9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subOne</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n",
-                  "context": "generateDoubleUses",
-                  "contextsym": "_Z18generateDoubleUsesv",
-                  "hits": [
-                    [
-                      8,
-                      18
-                    ]
-                  ]
-                },
-                {
-                  "key_line": 58,
-                  "line_range": [
-                    58,
-                    58
-                  ],
-                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subTwo</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n",
-                  "context": "generateDoubleUses",
-                  "contextsym": "_Z18generateDoubleUsesv",
-                  "hits": [
-                    [
-                      8,
-                      18
-                    ]
-                  ]
-                },
                 {
                   "key_line": 60,
                   "line_range": [
@@ -200,5 +180,46 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__json
   "text_pattern": {
     "re": "DoubleBase::doublePure",
     "case_sensitive": false
+  },
+  "relation_excluded": [
+    "overrides"
+  ],
+  "overview": {
+    "nodes": [
+      {
+        "sym": "_ZN10DoubleBase10doublePureEv",
+        "pretty": "DoubleBase::doublePure",
+        "relation": "self",
+        "overrides": [],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 2,
+        "super_calls": 0
+      },
+      {
+        "sym": "_ZN12DoubleSubOne10doublePureEv",
+        "pretty": "DoubleSubOne::doublePure",
+        "relation": "overrides",
+        "overrides": [
+          "_ZN10DoubleBase10doublePureEv"
+        ],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 1,
+        "super_calls": 0
+      },
+      {
+        "sym": "_ZN12DoubleSubTwo10doublePureEv",
+        "pretty": "DoubleSubTwo::doublePure",
+        "relation": "overrides",
+        "overrides": [
+          "_ZN10DoubleBase10doublePureEv"
+        ],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 1,
+        "super_calls": 0
+      }
+    ]
   }
 }

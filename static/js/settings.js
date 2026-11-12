@@ -867,14 +867,25 @@ const EarlyLayout = {
   },
 
   /**
-   * The lenses (see navigation_panel.liquid), as they were last left: each
-   * one's class on the root (ex: `lens-changes`), which shows more of the
-   * page, and its button's state.  Right after their buttons.
+   * The lenses (see navigation_panel.liquid), as they were last left on
+   * pages of their kind (their bar's `data-lens-family`, ex: "results"), or
+   * else on or off as each says (`data-lens-default`): each one's class on
+   * the root (ex: `lens-changes`), which shows more of the page, and its
+   * button's state.  Right after their buttons.
    */
   lenses() {
     for (const button of document.querySelectorAll(".lens-toggle")) {
-      EarlyLayout.setLens(button, localStorage.getItem(storageKey(`lens-${button.dataset.lens}`)) == "1");
+      // (Or as lenses were remembered before they were by kind of page.)
+      const stored = localStorage.getItem(EarlyLayout.lensKey(button)) ??
+        localStorage.getItem(storageKey(`lens-${button.dataset.lens}`));
+      EarlyLayout.setLens(button, stored == null ? "lensDefault" in button.dataset : stored == "1");
     }
+  },
+
+  /** Where a lens's state is remembered (see `lenses`). */
+  lensKey(button) {
+    const family = button.closest(".lens-bar")?.dataset.lensFamily;
+    return storageKey(family ? `lens-${family}-${button.dataset.lens}` : `lens-${button.dataset.lens}`);
   },
 
   setLens(button, on) {

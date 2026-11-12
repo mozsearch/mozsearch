@@ -408,6 +408,18 @@ command = "crossref-lookup"
 [[term.idprefix.group.semantic-search]]
 command = "crossref-expand"
 
+# How many overrides of a method the results follow (crossref-expand's
+# `override-local-limit`, 100 by default; 0 for no limit, but the 400 of all
+# of the symbols'): a method overridden by more is too generic for its uses
+# to be possible calls of the queried one (ex: `nsISupports::AddRef`), as the
+# results' overview says, whose link asks for them anyway (see
+# query-overview.js).  (Amending the semantic search.)
+[term.override-limit]
+[[term.override-limit.group.semantic-search]]
+command = "crossref-expand"
+amend = true
+args.override-local-limit = "$0"
+
 [term.pathre]
 [[term.pathre.group.file-search]]
 command = "search-files"

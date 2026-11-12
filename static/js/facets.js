@@ -28,6 +28,17 @@
  * The items can stand in for others, ex: a diagram's nodes (see
  * query_results/graph_input.liquid), whose page then shows only those of the
  * shown items, on their container's "facetschange" events (see graph.js).
+ * And the items in an element with facet values for all of them
+ * (`data-facet-scope`, ex: `/query/`'s groups of results of a relation to the
+ * queried symbols; see query_results/kind_group.liquid) have those too.
+ *
+ * A facet's values can be checkboxes (`data-toggles`, ex: `/query/`'s
+ * results' relations), whose clicks show or leave out their items, rather
+ * than showing only them; and a facet can leave out some values at first
+ * (`data-default-excluded`), unless the URL says otherwise for it (with an
+ * empty `-facet-KEY=` for none).  Other scripts can show and leave out a
+ * facet's values too (`window.ResultFacets`, ex: the overview of the results'
+ * symbols; see query-overview.js).
  *
  * The selections, the left out values, the grouping and the sorting go in
  * the URL's query (`facet-KEY=VALUE` and `-facet-KEY=VALUE`, as a query's
@@ -51,9 +62,11 @@
   // and path they have too, unless they say otherwise.
   const items = [...container.querySelectorAll("[data-facets]")].map(element => {
     const outer = element.parentElement.closest("[data-facets]");
+    const scope = element.closest("[data-facet-scope]");
     return {
       element,
       facets: {
+        ...JSON.parse(scope?.dataset.facetScope || "{}"),
         ...JSON.parse(outer?.dataset.facets || "{}"),
         ...JSON.parse(element.dataset.facets || "{}"),
       },
@@ -67,7 +80,13 @@
     facet: button.closest(".facet").dataset.facet,
     value: button.dataset.value,
     count: button.querySelector(".facet-count"),
+    title: button.title,
   }));
+  // The facets of checkboxes, and the values each leaves out at first.
+  const toggles = new Set([...bar.querySelectorAll(".facet[data-toggles]")]
+    .map(facet => facet.dataset.facet));
+  const defaultExcluded = new Map([...bar.querySelectorAll(".facet[data-default-excluded]")]
+    .map(facet => [facet.dataset.facet, new Set(facet.dataset.defaultExcluded.split(" "))]));
   const groupBy = bar.querySelector(".facet-group-by select");
   const defaultGroupBy = groupBy?.value;
   const sortBy = bar.querySelector(".facet-sort-by select");
@@ -112,6 +131,13 @@
   function toggleValue(facet, value, shift) {
     const included = valuesOf(selected, facet);
     const left = valuesOf(excluded, facet);
+    // (A checkbox's: shown or left out.)
+    if (toggles.has(facet)) {
+      if (!left.delete(value)) {
+        left.add(value);
+      }
+      return;
+    }
     if (shift) {
       included.delete(value);
       if (!left.delete(value)) {
@@ -128,14 +154,19 @@
     for (const item of items) {
       item.element.hidden = !matches(item);
     }
-    for (const { button, facet, value, count } of buttons) {
+    for (const { button, facet, value, count, title } of buttons) {
       const n = paths(items.filter(item =>
         matches(item, facet) && (item.facets[facet] || []).includes(value)));
       count.textContent = n;
       button.classList.toggle("facet-empty", n == 0);
-      button.setAttribute("aria-pressed", selected.get(facet)?.has(value) ? "true" : "false");
       const left = excluded.get(facet)?.has(value);
       button.classList.toggle("facet-excluded", !!left);
+      if (toggles.has(facet)) {
+        button.setAttribute("aria-pressed", left ? "false" : "true");
+        button.title = `${title}${title ? " " : ""}(${left ? "left out; click to show them" : "shown; click to leave them out"})`;
+        continue;
+      }
+      button.setAttribute("aria-pressed", selected.get(facet)?.has(value) ? "true" : "false");
       button.title = left
         ? "Left out (click to show only these; shift-click to stop leaving them out)"
         : "Click to show only these (and others selected); shift-click to leave them out";
@@ -223,9 +254,21 @@
     }
     for (const [prefix, map] of [["facet-", selected], ["-facet-", excluded]]) {
       for (const [facet, values] of map) {
+        // (Not a facet's values left out at first, if they're its only
+        // choices.)
+        if (isDefault(facet)) {
+          continue;
+        }
         for (const value of values) {
           params.append(`${prefix}${facet}`, value);
         }
+      }
+    }
+    // (And a facet which leaves out values at first, but now none: an empty
+    // left out value.)
+    for (const facet of defaultExcluded.keys()) {
+      if (!isDefault(facet) && !selected.get(facet)?.size && !excluded.get(facet)?.size) {
+        params.append(`-facet-${facet}`, "");
       }
     }
     if (groupBy && groupBy.value != defaultGroupBy) {
@@ -239,13 +282,35 @@
       location.pathname + (query ? `?${query}` : "") + location.hash);
   }
 
+  // Whether a facet's choices are those it makes at first.
+  function isDefault(facet) {
+    const left = excluded.get(facet) || new Set();
+    const initial = defaultExcluded.get(facet);
+    return !!initial && !selected.get(facet)?.size && left.size == initial.size &&
+      [...initial].every(value => left.has(value));
+  }
+
   function loadState() {
     const params = new URLSearchParams(location.search);
+    const mentioned = new Set();
     for (const [key, value] of params) {
       const left = key.startsWith("-facet-");
       const facet = (left || key.startsWith("facet-")) && key.slice(left ? "-facet-".length : "facet-".length);
+      if (facet) {
+        mentioned.add(facet);
+      }
       if (facet && buttons.some(b => b.facet == facet && b.value == value)) {
         valuesOf(left ? excluded : selected, facet).add(value);
+      }
+    }
+    // (The values the facets the URL doesn't mention leave out at first.)
+    for (const [facet, values] of defaultExcluded) {
+      if (!mentioned.has(facet)) {
+        for (const value of values) {
+          if (buttons.some(b => b.facet == facet && b.value == value)) {
+            valuesOf(excluded, facet).add(value);
+          }
+        }
       }
     }
     for (const [select, param] of [[groupBy, "group-by"], [sortBy, "sort-by"]]) {
@@ -401,6 +466,21 @@
     localStorage.setItem(storageKey("facets-collapsed"), content.hidden ? "1" : "0");
   });
   setExpanded(localStorage.getItem(storageKey("facets-collapsed")) != "1");
+
+  // (For other scripts: whether a facet's value is left out, and leaving it
+  // out or showing it.)
+  window.ResultFacets = {
+    container,
+    isExcluded: (facet, value) => !!excluded.get(facet)?.has(value),
+    setExcluded(facet, value, left) {
+      if (left) {
+        valuesOf(excluded, facet).add(value);
+      } else {
+        excluded.get(facet)?.delete(value);
+      }
+      update();
+    },
+  };
 
   loadState();
   revealSelected();

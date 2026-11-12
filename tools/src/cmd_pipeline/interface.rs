@@ -627,6 +627,14 @@ pub struct FlattenedResultsBundle {
     /// (see `cmd_compile_results::Tally`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tally: Option<super::cmd_compile_results::Tally>,
+    /// The groups' relations which the results leave out at first (see
+    /// `ResultRelation`), if they have several.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub relation_excluded: Vec<ResultRelation>,
+    /// The queried methods' override hierarchy, if the results have more
+    /// methods of it than those.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overview: Option<ResultsOverview>,
 }
 
 impl FlattenedResultsBundle {
@@ -1099,8 +1107,109 @@ pub enum PresentationKind {
 pub struct FlattenedKindGroupResults {
     pub kind: PresentationKind,
     pub pretty: Ustr,
+    /// How its symbols relate to the queried ones, if the results have
+    /// several relations (see `ResultRelation`); its lines' "relation" facet.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relation: Option<ResultRelation>,
     pub facets: Vec<ResultFacetRoot>,
     pub by_file: Vec<FlattenedResultsByFile>,
+}
+
+/// How a group of results' symbols relate to the queried ones, by their
+/// methods' override hierarchy (see `cmd_crossref_expand`), in the results'
+/// order (see `cmd_compile_results::QualKindDescriptor`): the queried
+/// symbols themselves; the uses of the methods they override, which could be
+/// calls of theirs (virtual ones; but not of a method overridden by too many
+/// to follow, ex: `nsISupports::AddRef`, whose uses aren't in the results);
+/// those methods themselves (their definitions and declarations, and their
+/// uses in the hierarchy's methods, which are calls of them from their
+/// overrides, super calls); the methods overriding them; and their cousins
+/// (the other overrides of the methods they override, and those's
+/// overrides).  The results show only
+/// the first two at first; see `FlattenedResultsBundle::relation_excluded`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ResultRelation {
+    #[serde(rename = "self")]
+    Queried,
+    VirtualUses,
+    Overridden,
+    Overrides,
+    Cousins,
+}
+
+impl ResultRelation {
+    /// Its facet value's name.
+    pub fn name(self) -> &'static str {
+        match self {
+            ResultRelation::Queried => "Itself",
+            ResultRelation::VirtualUses => "Possible virtual calls",
+            ResultRelation::Overridden => "What it overrides",
+            ResultRelation::Overrides => "Its overrides",
+            ResultRelation::Cousins => "Cousin overrides",
+        }
+    }
+
+    /// Its facet value's tooltip.
+    pub fn title(self) -> &'static str {
+        match self {
+            ResultRelation::Queried => "The queried symbols' own results",
+            ResultRelation::VirtualUses => {
+                "The uses of the methods it overrides, which could be calls of it (virtual ones)"
+            }
+            ResultRelation::Overridden => {
+                "The definitions and declarations of the methods it overrides, and the calls of them from their overrides (super calls)"
+            }
+            ResultRelation::Overrides => "The methods overriding it, and their results",
+            ResultRelation::Cousins => {
+                "The other overrides of the methods it overrides (and theirs), and their results"
+            }
+        }
+    }
+
+    /// Its facet value (as serialized).
+    pub fn key(self) -> &'static str {
+        match self {
+            ResultRelation::Queried => "self",
+            ResultRelation::VirtualUses => "virtual-uses",
+            ResultRelation::Overridden => "overridden",
+            ResultRelation::Overrides => "overrides",
+            ResultRelation::Cousins => "cousins",
+        }
+    }
+}
+
+/// The override hierarchy of the queried methods (see
+/// `FlattenedResultsBundle::overview`): the methods the results have, how
+/// they relate to the queried ones, which of the others each overrides, and
+/// how many results of each kind each has, for an overview of what the
+/// results are of, and of what they leave out at first.
+#[derive(Serialize)]
+pub struct ResultsOverview {
+    pub nodes: Vec<OverviewNode>,
+}
+
+#[derive(Serialize)]
+pub struct OverviewNode {
+    pub sym: Ustr,
+    pub pretty: Ustr,
+    /// Its relation (`Queried`, `Overridden` for a method a queried one
+    /// overrides, `Overrides` or `Cousins`).
+    pub relation: ResultRelation,
+    /// The other nodes it overrides.
+    pub overrides: Vec<Ustr>,
+    /// Its definitions', declarations' and uses' lines, and how many of its
+    /// uses are in the hierarchy's methods (calls from its overrides; see
+    /// `ResultRelation`).
+    pub definitions: u32,
+    pub declarations: u32,
+    pub uses: u32,
+    pub super_calls: u32,
+    /// How many methods override it, if too many for the results to have
+    /// them (see `OverloadKind::Overrides`), whose uses then aren't in the
+    /// results, as they could be calls of any of them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub too_many_overrides: Option<u32>,
 }
 
 impl FlattenedKindGroupResults {

@@ -406,7 +406,7 @@ var Panel = new (class Panel {
       button.addEventListener("click", () => {
         const on = button.getAttribute("aria-pressed") != "true";
         EarlyLayout.setLens(button, on);
-        localStorage.setItem(storageKey(`lens-${button.dataset.lens}`), on ? "1" : "0");
+        localStorage.setItem(EarlyLayout.lensKey(button), on ? "1" : "0");
       });
     }
   }

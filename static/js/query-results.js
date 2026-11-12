@@ -60,3 +60,38 @@ document.addEventListener("change", event => {
     showRepeated(event.target.checked);
   }
 });
+
+/**
+ * A path kind's counts (its heading's, as query_results/counts.liquid's) are
+ * of its shown kinds' groups (as their own, `data-lines` and `data-files`,
+ * add up), as facets.js hides a group of a relation it leaves out (ex: a
+ * method's cousins'; see query_results/kind_group.liquid).
+ */
+function countsText(fileNames, lines, files) {
+  const counted = (n, word) => `${n} ${word}${n == 1 ? "" : "s"}`;
+  if (lines > 0) {
+    const names = fileNames > 0 ? `${counted(fileNames, "filename")} and ` : "";
+    return ` (${names}${counted(lines, "line")} across ${counted(files, "file")})`;
+  }
+  return ` (${counted(files, "file")})`;
+}
+
+function updatePathKindCounts() {
+  for (const counts of document.querySelectorAll(".query-result .query-counts")) {
+    const fileNames = Number(counts.dataset.fileNames || 0);
+    let lines = 0;
+    let files = fileNames;
+    for (const group of counts.closest("details").querySelectorAll("details.facet-group[data-lines]")) {
+      if (!group.hidden) {
+        lines += Number(group.dataset.lines);
+        files += Number(group.dataset.files);
+      }
+    }
+    counts.textContent = countsText(fileNames, lines, files);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  updatePathKindCounts();
+  document.querySelector(".facet-items")?.addEventListener("facetschange", updatePathKindCounts);
+});

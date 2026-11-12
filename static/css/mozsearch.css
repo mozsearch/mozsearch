@@ -4384,6 +4384,67 @@ div[role=row].change-nav-current {
 .lens-label {
   font-weight: bold;
 }
+/* The overview of a query's results' symbols, ex: the queried methods'
+   override hierarchy (see query-overview.js), with the "overview" lens: a
+   tree, whose nested levels are indented beside a line, the queried methods
+   bold, and its buttons showing or leaving out the results of a relation
+   like the lenses' (struck through when left out). */
+html:not(.lens-overview) .panel-overview {
+  display: none;
+}
+.panel-overview {
+  padding: 0.5rem;
+  font-size: 0.9em;
+  border-bottom: 1px solid var(--page-border-color);
+}
+.panel-overview h4 {
+  margin: 0 0 0.25rem;
+}
+.overview-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.overview-tree ul ul {
+  margin-left: 0.4em;
+  padding-left: 0.7em;
+  border-left: 1px solid var(--blame-light-gray);
+}
+.overview-node {
+  margin: 2px 0;
+  /* (Names are long, without spaces.) */
+  overflow-wrap: anywhere;
+}
+.overview-queried > .overview-row > .overview-name {
+  font-weight: bold;
+}
+.overview-counts,
+.overview-note {
+  opacity: 0.75;
+  font-size: 0.9em;
+}
+.overview-node summary {
+  cursor: pointer;
+}
+.overview-toggle {
+  font: inherit;
+  font-size: 0.9em;
+  color: inherit;
+  background-color: var(--page-background);
+  padding: 0 5px;
+  margin-left: 2px;
+  border: 1px dashed currentColor;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+.overview-toggle[aria-pressed="true"] {
+  background-color: var(--line-highlight-background);
+  border-style: solid;
+  text-decoration: none;
+  opacity: 1;
+}
 .facet-value.facet-empty {
   opacity: 0.45;
 }

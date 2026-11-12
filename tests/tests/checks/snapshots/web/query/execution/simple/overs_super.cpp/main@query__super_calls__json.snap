@@ -1,0 +1,323 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(frb).unwrap()"
+input_file: inputs/web/query/execution/simple/overs_super.cpp/query__super_calls__json
+---
+{
+  "path_kind_results": [
+    {
+      "path_kind": "normal",
+      "file_names": [],
+      "kind_groups": [
+        {
+          "kind": "Definitions",
+          "pretty": "SuperMid::teardown",
+          "relation": "self",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs_super.cpp",
+              "line_spans": [
+                {
+                  "key_line": 15,
+                  "line_range": [
+                    15,
+                    15
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN8SuperMid8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>() override { <span class=\"syn_type\" data-symbols=\"T_SuperBase\" data-confidences=\"[&quot;concrete&quot;]\">SuperBase</span>::<span data-symbols=\"_ZN9SuperBase8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\">teardown</span>(); }\n</code>\n</div>\n",
+                  "context": "SuperMid",
+                  "contextsym": "T_SuperMid",
+                  "hits": [
+                    [
+                      5,
+                      13
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "SuperMid::teardown",
+          "relation": "self",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs_super.cpp",
+              "line_spans": [
+                {
+                  "key_line": 20,
+                  "line_range": [
+                    20,
+                    20
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN9SuperLeaf8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\">teardown</span>() override { <span class=\"syn_type\" data-symbols=\"T_SuperMid\" data-confidences=\"[&quot;concrete&quot;]\">SuperMid</span>::<span data-symbols=\"_ZN8SuperMid8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>(); }\n</code>\n</div>\n",
+                  "context": "SuperLeaf::teardown",
+                  "contextsym": "_ZN9SuperLeaf8teardownEv",
+                  "hits": [
+                    [
+                      37,
+                      45
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "SuperBase::teardown",
+          "relation": "virtual-uses",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs_super.cpp",
+              "line_spans": [
+                {
+                  "key_line": 28,
+                  "line_range": [
+                    28,
+                    28
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_Z11tearDownAllP9SuperBase\" data-confidences=\"[&quot;concrete&quot;]\">tearDownAll</span>(<span class=\"syn_type\" data-symbols=\"T_SuperBase\" data-confidences=\"[&quot;concrete&quot;]\">SuperBase</span>* <span data-symbols=\"V_7775f9d01c15bb30_0\" data-confidences=\"[&quot;concrete&quot;]\">base</span>) { <span data-symbols=\"V_7775f9d01c15bb30_0\" data-confidences=\"[&quot;concrete&quot;]\">base</span>-><span data-symbols=\"_ZN9SuperBase8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>(); }\n</code>\n</div>\n",
+                  "context": "tearDownAll",
+                  "contextsym": "_Z11tearDownAllP9SuperBase",
+                  "hits": [
+                    [
+                      42,
+                      50
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Definitions",
+          "pretty": "SuperMid::teardown",
+          "relation": "overrides",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs_super.cpp",
+              "line_spans": [
+                {
+                  "key_line": 20,
+                  "line_range": [
+                    20,
+                    20
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN9SuperLeaf8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>() override { <span class=\"syn_type\" data-symbols=\"T_SuperMid\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-match\">SuperMid</mark></span><mark class=\"query-match\">::</mark><span data-symbols=\"_ZN8SuperMid8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-match\">teardown</mark></span>(); }\n</code>\n</div>\n",
+                  "context": "SuperLeaf",
+                  "contextsym": "T_SuperLeaf",
+                  "hits": [
+                    [
+                      5,
+                      13
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Definitions",
+          "pretty": "SuperBase::teardown",
+          "relation": "overridden",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs_super.cpp",
+              "line_spans": [
+                {
+                  "key_line": 10,
+                  "line_range": [
+                    10,
+                    10
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >virtual</span> <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN9SuperBase8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>() {}\n</code>\n</div>\n",
+                  "context": "SuperBase",
+                  "contextsym": "T_SuperBase",
+                  "hits": [
+                    [
+                      13,
+                      21
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "SuperBase::teardown",
+          "relation": "overridden",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs_super.cpp",
+              "line_spans": [
+                {
+                  "key_line": 15,
+                  "line_range": [
+                    15,
+                    15
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN8SuperMid8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\">teardown</span>() override { <span class=\"syn_type\" data-symbols=\"T_SuperBase\" data-confidences=\"[&quot;concrete&quot;]\">SuperBase</span>::<span data-symbols=\"_ZN9SuperBase8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>(); }\n</code>\n</div>\n",
+                  "context": "SuperMid::teardown",
+                  "contextsym": "_ZN8SuperMid8teardownEv",
+                  "hits": [
+                    [
+                      38,
+                      46
+                    ]
+                  ]
+                },
+                {
+                  "key_line": 25,
+                  "line_range": [
+                    25,
+                    25
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN11SuperCousin8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\">teardown</span>() override { <span class=\"syn_type\" data-symbols=\"T_SuperBase\" data-confidences=\"[&quot;concrete&quot;]\">SuperBase</span>::<span data-symbols=\"_ZN9SuperBase8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>(); }\n</code>\n</div>\n",
+                  "context": "SuperCousin::teardown",
+                  "contextsym": "_ZN11SuperCousin8teardownEv",
+                  "hits": [
+                    [
+                      38,
+                      46
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "TextualOccurrences",
+          "pretty": "",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs_super.cpp",
+              "line_spans": [
+                {
+                  "key_line": 20,
+                  "line_range": [
+                    20,
+                    20
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN9SuperLeaf8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\">teardown</span>() override { <span class=\"syn_type\" data-symbols=\"T_SuperMid\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">SuperMid</mark></span><mark class=\"query-hit\">::</mark><span data-symbols=\"_ZN8SuperMid8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>(); }\n</code>\n</div>\n",
+                  "context": "SuperLeaf",
+                  "contextsym": "T_SuperLeaf",
+                  "hits": [
+                    [
+                      27,
+                      45
+                    ]
+                  ],
+                  "repeated": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Definitions",
+          "pretty": "SuperMid::teardown",
+          "relation": "cousins",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs_super.cpp",
+              "line_spans": [
+                {
+                  "key_line": 25,
+                  "line_range": [
+                    25,
+                    25
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN11SuperCousin8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">teardown</mark></span>() override { <span class=\"syn_type\" data-symbols=\"T_SuperBase\" data-confidences=\"[&quot;concrete&quot;]\">SuperBase</span>::<span data-symbols=\"_ZN9SuperBase8teardownEv\" data-confidences=\"[&quot;concrete&quot;]\">teardown</span>(); }\n</code>\n</div>\n",
+                  "context": "SuperCousin",
+                  "contextsym": "T_SuperCousin",
+                  "hits": [
+                    [
+                      5,
+                      13
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "content_type": "text/html",
+  "text_pattern": {
+    "re": "SuperMid::teardown",
+    "case_sensitive": false
+  },
+  "relation_excluded": [
+    "overridden",
+    "overrides",
+    "cousins"
+  ],
+  "overview": {
+    "nodes": [
+      {
+        "sym": "_ZN8SuperMid8teardownEv",
+        "pretty": "SuperMid::teardown",
+        "relation": "self",
+        "overrides": [
+          "_ZN9SuperBase8teardownEv"
+        ],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 1,
+        "super_calls": 0
+      },
+      {
+        "sym": "_ZN9SuperLeaf8teardownEv",
+        "pretty": "SuperLeaf::teardown",
+        "relation": "overrides",
+        "overrides": [
+          "_ZN8SuperMid8teardownEv"
+        ],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 0,
+        "super_calls": 0
+      },
+      {
+        "sym": "_ZN9SuperBase8teardownEv",
+        "pretty": "SuperBase::teardown",
+        "relation": "overridden",
+        "overrides": [],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 3,
+        "super_calls": 2
+      },
+      {
+        "sym": "_ZN11SuperCousin8teardownEv",
+        "pretty": "SuperCousin::teardown",
+        "relation": "cousins",
+        "overrides": [
+          "_ZN9SuperBase8teardownEv"
+        ],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 0,
+        "super_calls": 0
+      }
+    ]
+  }
+}

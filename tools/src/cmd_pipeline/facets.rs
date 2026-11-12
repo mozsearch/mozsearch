@@ -266,7 +266,11 @@ impl MaybeFacetGroup {
 /// key (as facets.js and URLs name it), label, and values, whether any of them
 /// have nested values, and how many of them are elided (see `FacetView::new`).
 /// And links beside its label, if any (ex: a diagram's queries without its
-/// linked trees; see `graph_facets`).
+/// linked trees; see `graph_facets`).  And whether its values' clicks show
+/// or leave out their items, as checkboxes (`toggles`), rather than showing
+/// only them, and which it leaves out at first (`default_excluded`), unless
+/// the page's URL says otherwise (ex: `/query/`'s results' relations; see
+/// facets.js).
 #[derive(Serialize)]
 pub struct FacetView {
     pub key: &'static str,
@@ -275,6 +279,8 @@ pub struct FacetView {
     pub nested: bool,
     pub more: u32,
     pub actions: Vec<FacetAction>,
+    pub toggles: bool,
+    pub default_excluded: Vec<String>,
 }
 
 /// A link beside a facet's label (see `FacetView::actions`): its text, its
@@ -404,6 +410,8 @@ impl FacetView {
             nested,
             more,
             actions: vec![],
+            toggles: false,
+            default_excluded: vec![],
         }
     }
 }

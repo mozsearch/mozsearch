@@ -26,10 +26,10 @@ use tools::{
         PipelineValues,
         builder::build_pipeline_graph,
         facets::{
-            CtxtraFacet, FacetAction, FacetFile, GraphFacetNode, LOCK_LABELS, PathKinds, PpFacet,
-            file_facets, graph_facets, last_changed_facet,
+            CtxtraFacet, FacetAction, FacetFile, FacetValueView, FacetView, GraphFacetNode,
+            LOCK_LABELS, PathKinds, PpFacet, file_facets, graph_facets, last_changed_facet,
         },
-        interface::{FlattenedResultsBundle, GraphInput},
+        interface::{FlattenedResultsBundle, GraphInput, ResultRelation},
     },
     data_api,
     file_format::config::{self, SearchEndpoint},
@@ -54,7 +54,10 @@ use ustr::{Ustr, UstrMap};
 /// query_results/line_span.liquid), and their files the union of theirs; see
 /// `FlattenedLineSpan::facets`.  And the lenses showing more of the results
 /// (see navigation_panel.liquid), if any (or null): "changes", the lines'
-/// history digests, if they have them.
+/// history digests, if they have them, and "overview", the queried methods'
+/// override hierarchy (on at first), if the results have more of it than
+/// those, whose data is `overview` (or null; see `ResultsOverview` and
+/// query-overview.js).
 fn results_file_facets(
     server: &(dyn AbstractServer + Send + Sync),
     results: &mut FlattenedResultsBundle,
@@ -224,16 +227,66 @@ fn results_file_facets(
     if let Some(lock) = lock {
         facets.push(lock.view);
     }
-    let lenses = if recency {
-        json!([{
+    // The "Relation" facet of the results' groups: how their symbols relate
+    // to the queried ones (see `ResultRelation`), if they have several, as
+    // checkboxes, some of which the results leave out at first (see
+    // `FlattenedResultsBundle::relation_excluded`); first, since it's what a
+    // symbol's results are of.  (The groups give their relation to their
+    // files and lines; see query_results/kind_group.liquid.)
+    let mut relation_files: BTreeMap<ResultRelation, HashSet<Ustr>> = BTreeMap::new();
+    for pk_group in &results.path_kind_results {
+        for kind_group in &pk_group.kind_groups {
+            if let Some(relation) = kind_group.relation {
+                relation_files
+                    .entry(relation)
+                    .or_default()
+                    .extend(kind_group.by_file.iter().map(|file| file.file));
+            }
+        }
+    }
+    if !relation_files.is_empty() {
+        let values = relation_files
+            .iter()
+            .map(|(relation, files)| FacetValueView {
+                value: relation.key().to_string(),
+                name: relation.name().to_string(),
+                title: relation.title().to_string(),
+                count: files.len() as u32,
+                ..Default::default()
+            })
+            .collect();
+        let mut view = FacetView::new("relation", "Relation".to_string(), values);
+        view.toggles = true;
+        view.default_excluded = results
+            .relation_excluded
+            .iter()
+            .map(|relation| relation.key().to_string())
+            .collect();
+        facets.insert(0, view);
+    }
+    let mut lenses = vec![];
+    if recency {
+        lenses.push(json!({
             "key": "changes",
             "name": "changes",
             "title": "Show how much each result's history changed when, newest first (its history digest)",
-        }])
-    } else {
-        Value::Null
+            "default": false,
+        }));
+    }
+    if results.overview.is_some() {
+        lenses.push(json!({
+            "key": "overview",
+            "name": "overview",
+            "title": "Show the override hierarchy of the queried methods, with what the results leave out at first",
+            "default": true,
+        }));
+    }
+    let lenses = match lenses.is_empty() {
+        true => Value::Null,
+        false => Value::Array(lenses),
     };
-    json!({ "facets": facets, "files": data, "lenses": lenses })
+    let overview = serde_json::to_value(&results.overview).unwrap_or(Value::Null);
+    json!({ "facets": facets, "files": data, "lenses": lenses, "overview": overview })
 }
 
 /// The facets of a history grep's rows' files (see

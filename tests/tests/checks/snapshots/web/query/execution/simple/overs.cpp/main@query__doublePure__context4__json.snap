@@ -12,31 +12,8 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
         {
           "kind": "Definitions",
           "pretty": "DoubleBase::doublePure",
-          "facets": [
-            {
-              "label": "Relation",
-              "kind": "SymbolByRelation",
-              "groups": [
-                {
-                  "label": "Overriden By",
-                  "values": [
-                    "_ZN12DoubleSubOne10doublePureEv",
-                    "_ZN12DoubleSubTwo10doublePureEv"
-                  ],
-                  "nested_groups": [],
-                  "count": 2
-                },
-                {
-                  "label": "Self",
-                  "values": [
-                    "_ZN10DoubleBase10doublePureEv"
-                  ],
-                  "nested_groups": [],
-                  "count": 1
-                }
-              ]
-            }
-          ],
+          "relation": "self",
+          "facets": [],
           "by_file": [
             {
               "file": "overs.cpp",
@@ -56,14 +33,72 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
                       23
                     ]
                   ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "DoubleBase::doublePure",
+          "relation": "self",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 57,
+                  "line_range": [
+                    53,
+                    57
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_type\" data-symbols=\"T_DoubleBase\" data-confidences=\"[&quot;concrete&quot;]\">DoubleBase</span>* <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subTwo</span> = <span class=\"syn_reserved\" >new</span> <span class=\"syn_type\" data-symbols=\"_ZN12DoubleSubTwoC1Ev,T_DoubleSubTwo\" data-confidences=\"[&quot;concrete&quot;,&quot;concrete&quot;]\">DoubleSubTwo</span>();\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_type\" data-symbols=\"T_DoubleSubOne\" data-confidences=\"[&quot;concrete&quot;]\">DoubleSubOne</span> <span data-symbols=\"_ZN12DoubleSubOneC1Ev,V_e1f52eb0fb5c5192_94a37619f041780c\" data-confidences=\"[&quot;concrete&quot;,&quot;concrete&quot;]\">explicitOne</span>;\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_type\" data-symbols=\"T_DoubleSubTwo\" data-confidences=\"[&quot;concrete&quot;]\">DoubleSubTwo</span> <span data-symbols=\"_ZN12DoubleSubTwoC1Ev,V_f7be2eb0fb5c5192_1c057619f041780c\" data-confidences=\"[&quot;concrete&quot;,&quot;concrete&quot;]\">explicitTwo</span>;\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_b5641eb0fb5c5192_1d39c9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subOne</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n",
+                  "context": "generateDoubleUses",
+                  "contextsym": "_Z18generateDoubleUsesv",
+                  "hits": [
+                    [
+                      8,
+                      18
+                    ]
+                  ]
                 },
+                {
+                  "key_line": 58,
+                  "line_range": [
+                    58,
+                    62
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subTwo</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_e1f52eb0fb5c5192_94a37619f041780c\" data-confidences=\"[&quot;concrete&quot;]\">explicitOne</span>.<span data-symbols=\"_ZN12DoubleSubOne10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\">doublePure</span>();\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_f7be2eb0fb5c5192_1c057619f041780c\" data-confidences=\"[&quot;concrete&quot;]\">explicitTwo</span>.<span data-symbols=\"_ZN12DoubleSubTwo10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\">doublePure</span>();\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">}\n</code>\n</div>\n",
+                  "context": "generateDoubleUses",
+                  "contextsym": "_Z18generateDoubleUsesv",
+                  "hits": [
+                    [
+                      8,
+                      18
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Definitions",
+          "pretty": "DoubleBase::doublePure",
+          "relation": "overrides",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
                 {
                   "key_line": 13,
                   "line_range": [
-                    13,
+                    9,
                     17
                   ],
-                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN12DoubleSubOne10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>() override {\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">    <span class=\"syn_comment\" >// Sub one.</span>\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  }\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">};\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n",
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">};\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"syn_reserved\" >class</span> <span class=\"syn_def syn_type\" data-symbols=\"T_DoubleSubOne\" data-confidences=\"[&quot;concrete&quot;]\">DoubleSubOne</span> : <span class=\"syn_reserved\" >public</span> <span class=\"syn_type\" data-symbols=\"T_DoubleBase\" data-confidences=\"[&quot;concrete&quot;]\">DoubleBase</span> {\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"> <span class=\"syn_reserved\" >public</span>:\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN12DoubleSubOne10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>() override {\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">    <span class=\"syn_comment\" >// Sub one.</span>\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  }\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">};\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n",
                   "context": "DoubleSubOne",
                   "contextsym": "T_DoubleSubOne",
                   "hits": [
@@ -96,74 +131,19 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
         {
           "kind": "Uses",
           "pretty": "DoubleBase::doublePure",
-          "facets": [
-            {
-              "label": "Relation",
-              "kind": "SymbolByRelation",
-              "groups": [
-                {
-                  "label": "Overriden By",
-                  "values": [
-                    "_ZN12DoubleSubOne10doublePureEv",
-                    "_ZN12DoubleSubTwo10doublePureEv"
-                  ],
-                  "nested_groups": [],
-                  "count": 2
-                },
-                {
-                  "label": "Self",
-                  "values": [
-                    "_ZN10DoubleBase10doublePureEv"
-                  ],
-                  "nested_groups": [],
-                  "count": 1
-                }
-              ]
-            }
-          ],
+          "relation": "overrides",
+          "facets": [],
           "by_file": [
             {
               "file": "overs.cpp",
               "line_spans": [
                 {
-                  "key_line": 57,
-                  "line_range": [
-                    53,
-                    57
-                  ],
-                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_type\" data-symbols=\"T_DoubleBase\" data-confidences=\"[&quot;concrete&quot;]\">DoubleBase</span>* <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subTwo</span> = <span class=\"syn_reserved\" >new</span> <span class=\"syn_type\" data-symbols=\"_ZN12DoubleSubTwoC1Ev,T_DoubleSubTwo\" data-confidences=\"[&quot;concrete&quot;,&quot;concrete&quot;]\">DoubleSubTwo</span>();\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_type\" data-symbols=\"T_DoubleSubOne\" data-confidences=\"[&quot;concrete&quot;]\">DoubleSubOne</span> <span data-symbols=\"_ZN12DoubleSubOneC1Ev,V_e1f52eb0fb5c5192_94a37619f041780c\" data-confidences=\"[&quot;concrete&quot;,&quot;concrete&quot;]\">explicitOne</span>;\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_type\" data-symbols=\"T_DoubleSubTwo\" data-confidences=\"[&quot;concrete&quot;]\">DoubleSubTwo</span> <span data-symbols=\"_ZN12DoubleSubTwoC1Ev,V_f7be2eb0fb5c5192_1c057619f041780c\" data-confidences=\"[&quot;concrete&quot;,&quot;concrete&quot;]\">explicitTwo</span>;\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_b5641eb0fb5c5192_1d39c9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subOne</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n",
-                  "context": "generateDoubleUses",
-                  "contextsym": "_Z18generateDoubleUsesv",
-                  "hits": [
-                    [
-                      8,
-                      18
-                    ]
-                  ]
-                },
-                {
-                  "key_line": 58,
-                  "line_range": [
-                    58,
-                    59
-                  ],
-                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subTwo</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n",
-                  "context": "generateDoubleUses",
-                  "contextsym": "_Z18generateDoubleUsesv",
-                  "hits": [
-                    [
-                      8,
-                      18
-                    ]
-                  ]
-                },
-                {
                   "key_line": 60,
                   "line_range": [
-                    60,
+                    56,
                     60
                   ],
-                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_e1f52eb0fb5c5192_94a37619f041780c\" data-confidences=\"[&quot;concrete&quot;]\">explicitOne</span>.<span data-symbols=\"_ZN12DoubleSubOne10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n",
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_b5641eb0fb5c5192_1d39c9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subOne</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\">doublePure</span>();\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\" data-confidences=\"[&quot;concrete&quot;]\">subTwo</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\">doublePure</span>();\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">\n</code>\n</div>\n\n<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_e1f52eb0fb5c5192_94a37619f041780c\" data-confidences=\"[&quot;concrete&quot;]\">explicitOne</span>.<span data-symbols=\"_ZN12DoubleSubOne10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>();\n</code>\n</div>\n",
                   "context": "generateDoubleUses",
                   "contextsym": "_Z18generateDoubleUsesv",
                   "hits": [
@@ -200,5 +180,46 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
   "text_pattern": {
     "re": "DoubleBase::doublePure",
     "case_sensitive": false
+  },
+  "relation_excluded": [
+    "overrides"
+  ],
+  "overview": {
+    "nodes": [
+      {
+        "sym": "_ZN10DoubleBase10doublePureEv",
+        "pretty": "DoubleBase::doublePure",
+        "relation": "self",
+        "overrides": [],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 2,
+        "super_calls": 0
+      },
+      {
+        "sym": "_ZN12DoubleSubOne10doublePureEv",
+        "pretty": "DoubleSubOne::doublePure",
+        "relation": "overrides",
+        "overrides": [
+          "_ZN10DoubleBase10doublePureEv"
+        ],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 1,
+        "super_calls": 0
+      },
+      {
+        "sym": "_ZN12DoubleSubTwo10doublePureEv",
+        "pretty": "DoubleSubTwo::doublePure",
+        "relation": "overrides",
+        "overrides": [
+          "_ZN10DoubleBase10doublePureEv"
+        ],
+        "definitions": 1,
+        "declarations": 0,
+        "uses": 1,
+        "super_calls": 0
+      }
+    ]
   }
 }

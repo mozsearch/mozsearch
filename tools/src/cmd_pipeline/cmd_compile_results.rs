@@ -3,13 +3,14 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use async_trait::async_trait;
 use clap::Args;
 use regex::Regex;
-use ustr::{Ustr, UstrMap, ustr};
+use ustr::{Ustr, UstrMap, UstrSet, ustr};
 
 use super::facets::MaybeFacetRoot;
 use super::interface::{
     FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
-    FlattenedResultsBundle, FlattenedResultsByFile, PipelineJunctionCommand, PipelineValues,
-    PresentationKind, ResultFacetKind, SymbolCrossrefInfo, SymbolQuality, SymbolRelation, file_key,
+    FlattenedResultsBundle, FlattenedResultsByFile, OverloadKind, OverviewNode,
+    PipelineJunctionCommand, PipelineValues, PresentationKind, ResultFacetKind, ResultRelation,
+    ResultsOverview, SymbolCrossrefInfo, SymbolQuality, SymbolRelation, file_key,
 };
 
 use crate::file_format::recency::Recency;
@@ -116,6 +117,14 @@ pub struct SearchResults {
     /// The text matches' paths, lines, whole texts and captures, for a tally
     /// (see `Tally`).
     pub captured: Vec<(Ustr, u32, String, Vec<Option<String>>)>,
+    /// The methods of the queried ones' override hierarchy, as they were
+    /// ingested, for the results' overview (see `ResultsOverview`).
+    pub overview_nodes: Vec<OverviewNode>,
+    /// The uses of the methods the queried ones override (with their groups'
+    /// descriptors, and the methods' symbols), which are possible virtual
+    /// calls of the queried ones but those in the hierarchy's methods (see
+    /// `compile`), which the rest of it tells.
+    pub pending_virtual_uses: Vec<(QualKindDescriptor, Ustr, PathSearchResult)>,
 }
 
 /// How many distinct values a tally lists.
@@ -230,17 +239,55 @@ pub struct PathKindGroup {
 }
 
 /// Results for a specific kind (definition/use/etc.) for a specific pretty
-/// identifier and potentially a set of
-#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
+/// identifier, of symbols of a relation to the queried ones (see
+/// `ResultRelation`; or none, ex: textual occurrences), in the order of
+/// their relations (see `order`), then of their kinds.
+#[derive(Clone, PartialEq, Eq)]
 pub struct QualKindDescriptor {
+    pub relation: Option<ResultRelation>,
     pub kind: PresentationKind,
     pub quality: SymbolQuality,
     pub pretty: Ustr,
 }
 
+impl QualKindDescriptor {
+    /// Its relation's place among the results: the queried symbols' first,
+    /// then the possible virtual calls of them, their overrides' (their
+    /// implementations, if they have no definitions of their own), and the
+    /// methods they override, then the results without relations (ex:
+    /// textual occurrences), and the cousins' last, as there can be hundreds
+    /// of them, whose results shouldn't take others' places under the limits.
+    fn order(&self) -> u8 {
+        match self.relation {
+            Some(ResultRelation::Queried) => 0,
+            Some(ResultRelation::VirtualUses) => 1,
+            Some(ResultRelation::Overrides) => 2,
+            Some(ResultRelation::Overridden) => 3,
+            None => 4,
+            Some(ResultRelation::Cousins) => 5,
+        }
+    }
+}
+
+impl Ord for QualKindDescriptor {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.order(), &self.kind, &self.quality, &self.pretty).cmp(&(
+            other.order(),
+            &other.kind,
+            &other.quality,
+            &other.pretty,
+        ))
+    }
+}
+
+impl PartialOrd for QualKindDescriptor {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 pub struct QualKindGroup {
     pub path_facet: MaybeFacetRoot,
-    pub relation_facet: MaybeFacetRoot,
     pub path_hits: BTreeMap<Ustr, FlattenedResultsByFile>,
 }
 
@@ -248,10 +295,17 @@ impl QualKindGroup {
     pub fn new() -> Self {
         QualKindGroup {
             path_facet: MaybeFacetRoot::new(ResultFacetKind::PathByPath),
-            relation_facet: MaybeFacetRoot::new(ResultFacetKind::SymbolByRelation),
             path_hits: BTreeMap::new(),
         }
     }
+}
+
+/// How many lines a kind of a symbol's crossref has.
+fn line_count(hits: &Option<Vec<PathSearchResult>>) -> u32 {
+    hits.iter()
+        .flatten()
+        .map(|path_hits| path_hits.lines.len() as u32)
+        .sum()
 }
 
 impl SearchResults {
@@ -272,29 +326,22 @@ impl SearchResults {
     ///   processing here
     ///
     pub fn ingest_symbol(&mut self, info: SymbolCrossrefInfo) -> Result<()> {
-        lazy_static! {
-            static ref SELF: Ustr = ustr("Self");
-            static ref OVERRIDDEN_BY: Ustr = ustr("Overriden By");
-            static ref OVERRIDES: Ustr = ustr("Overrides");
-            static ref COUSIN_OVERRIDES: Ustr = ustr("Cousin Overrides");
-        }
-
         // There are other ways we could get this mapping like always baking the
         // "pretty" into the SymbolRelation or having our crossref infos be in a
         // map, but that complicates ownership issues massively.
         self.sym_to_pretty.insert(info.symbol, info.get_pretty());
 
         // Skip symbols that are only here for class relationship purposes.
-        let (root_sym, relation_facet): (Ustr, &'static Ustr) = match &info.relation {
+        let (root_sym, relation) = match &info.relation {
             SymbolRelation::SubclassOf(_, _)
             | SymbolRelation::SuperclassOf(_, _)
             | SymbolRelation::CousinClassOf(_, _) => {
                 return Ok(());
             }
-            SymbolRelation::Queried => (info.symbol, &SELF),
-            SymbolRelation::OverrideOf(sym, _) => (*sym, &OVERRIDDEN_BY),
-            SymbolRelation::OverriddenBy(sym, _) => (*sym, &OVERRIDES),
-            SymbolRelation::CousinOverrideOf(sym, _) => (*sym, &COUSIN_OVERRIDES),
+            SymbolRelation::Queried => (info.symbol, ResultRelation::Queried),
+            SymbolRelation::OverrideOf(sym, _) => (*sym, ResultRelation::Overrides),
+            SymbolRelation::OverriddenBy(sym, _) => (*sym, ResultRelation::Overridden),
+            SymbolRelation::CousinOverrideOf(sym, _) => (*sym, ResultRelation::Cousins),
         };
 
         let root_pretty = *self.sym_to_pretty.get(&root_sym).ok_or_else(|| {
@@ -303,6 +350,34 @@ impl SearchResults {
                 message: format!("no pretty available for root_sym {}", root_sym),
             })
         })?;
+
+        // (How many override it, if too many for `crossref-expand` to follow,
+        // ex: `nsISupports::AddRef`, whose uses could be calls of any of them,
+        // so they aren't possible virtual calls of a queried method in any
+        // useful sense.)
+        let too_many_overrides = info
+            .overloads_hit
+            .iter()
+            .find(|overload| {
+                matches!(overload.kind, OverloadKind::Overrides) && overload.local_limit > 0
+            })
+            .map(|overload| overload.exist);
+        let crossref = &info.crossref_info;
+        self.overview_nodes.push(OverviewNode {
+            sym: info.symbol,
+            pretty: info.get_pretty(),
+            relation,
+            overrides: crossref
+                .meta
+                .iter()
+                .flat_map(|meta| meta.overrides.iter().map(|o| o.sym))
+                .collect(),
+            definitions: line_count(&crossref.definitions),
+            declarations: line_count(&crossref.declarations),
+            uses: line_count(&crossref.uses),
+            super_calls: 0,
+            too_many_overrides,
+        });
 
         // The symbol's digest is its definitions' (and the like), but its uses
         // and assignments (and documentation's records, which are elsewhere) get
@@ -314,7 +389,7 @@ impl SearchResults {
             .recency_from
             .as_ref()
             .map(|from| from.describe(&pretty));
-        let mut ingest = |kind, path_containers| {
+        let mut ingest = |kind, path_containers: Option<Vec<PathSearchResult>>| {
             let (own_recency, own_label) = match kind {
                 PresentationKind::Uses
                 | PresentationKind::Assignments
@@ -322,18 +397,43 @@ impl SearchResults {
                 | PresentationKind::DocUses => (None, None),
                 _ => (recency, recency_label.clone()),
             };
+            // (The queried symbols', their overrides' and their cousins'
+            // results are under the queried one's name, and the methods they
+            // override under their own, as their uses could be calls of the
+            // queried ones; but not those of a method overridden by too many.)
+            let (relation, pretty) = match relation {
+                ResultRelation::Overridden if kind == PresentationKind::Uses => {
+                    if too_many_overrides.is_some() {
+                        return;
+                    }
+                    (ResultRelation::VirtualUses, pretty)
+                }
+                ResultRelation::Overridden => (ResultRelation::Overridden, pretty),
+                relation => (relation, root_pretty),
+            };
             let descriptor = QualKindDescriptor {
+                relation: Some(relation),
                 kind: kind,
                 quality: info.quality.clone(),
-                pretty: root_pretty,
+                pretty,
             };
 
+            // (The possible virtual calls once the hierarchy's methods are
+            // known; see `compile`.)
+            if relation == ResultRelation::VirtualUses {
+                for path_container in path_containers.into_iter().flatten() {
+                    self.pending_virtual_uses.push((
+                        descriptor.clone(),
+                        info.symbol,
+                        path_container,
+                    ));
+                }
+                return;
+            }
             if let Some(path_containers) = path_containers {
                 for path_container in path_containers {
                     self.ingest_path_hits(
-                        &info.symbol,
                         descriptor.clone(),
-                        relation_facet,
                         path_container,
                         own_recency,
                         own_label.clone(),
@@ -380,9 +480,7 @@ impl SearchResults {
     /// is.
     fn ingest_path_hits(
         &mut self,
-        sym: &Ustr,
         descriptor: QualKindDescriptor,
-        relation_facet: &Ustr,
         path_container: PathSearchResult,
         recency: Option<Recency>,
         recency_label: Option<String>,
@@ -410,11 +508,6 @@ impl SearchResults {
         qual_kind_group
             .path_facet
             .place_item(path_pieces, path_sans_filename);
-
-        // ### symbol relation faceting
-        qual_kind_group
-            .relation_facet
-            .place_item(vec![*relation_facet], *sym);
 
         // ### line results
         // (By the file's key, since a linked tree's file can have the path of
@@ -490,6 +583,7 @@ impl SearchResults {
         pattern: Option<&Regex>,
     ) {
         let descriptor = QualKindDescriptor {
+            relation: None,
             kind: PresentationKind::TextualOccurrences,
             // The quality doesn't matter; there's only one class of text matches.
             quality: SymbolQuality::ExplicitSymbol,
@@ -698,11 +792,59 @@ impl SearchResults {
     /// lines in all, keeping those of the path kinds in `path_kind_order`
     /// first (and then any others by name), then by kind, then by path.
     pub fn compile(
-        self,
+        mut self,
         file_limit: usize,
         line_limit: usize,
         path_kind_order: &[Ustr],
     ) -> FlattenedResultsBundle {
+        // The uses of the methods the queried ones override: possible virtual
+        // calls of them, but those in the hierarchy's methods (the queried
+        // ones, their overrides, the methods between, and their cousins),
+        // which are calls of the methods they override from their overrides,
+        // ex: `DOMEventTargetHelper::DisconnectFromOwner();` in an override
+        // of it (super calls, non-virtual; an unqualified call there would be
+        // a recursion), which are of what they override.  (Not other
+        // qualified calls, ex: `Base::Method();` in another of a subclass's
+        // methods, which the analysis doesn't tell from virtual ones.)
+        let hierarchy: UstrSet = self.overview_nodes.iter().map(|node| node.sym).collect();
+        let mut super_calls: UstrMap<u32> = UstrMap::default();
+        for (descriptor, base, path_hits) in std::mem::take(&mut self.pending_virtual_uses) {
+            let PathSearchResult {
+                path,
+                path_kind,
+                lines,
+                tree,
+            } = path_hits;
+            let (inside, outside): (Vec<_>, Vec<_>) = lines
+                .into_iter()
+                .partition(|line| hierarchy.contains(&line.contextsym));
+            *super_calls.entry(base).or_default() += inside.len() as u32;
+            for (relation, lines) in [
+                (ResultRelation::Overridden, inside),
+                (ResultRelation::VirtualUses, outside),
+            ] {
+                if !lines.is_empty() {
+                    self.ingest_path_hits(
+                        QualKindDescriptor {
+                            relation: Some(relation),
+                            ..descriptor.clone()
+                        },
+                        PathSearchResult {
+                            path,
+                            path_kind,
+                            lines,
+                            tree,
+                        },
+                        None,
+                        None,
+                    );
+                }
+            }
+        }
+        for node in &mut self.overview_nodes {
+            node.super_calls = super_calls.get(&node.sym).copied().unwrap_or(0);
+        }
+
         let mut path_kind_groups: Vec<(Ustr, PathKindGroup)> =
             self.path_kind_groups.into_iter().collect();
         path_kind_groups.sort_by_key(|(path_kind, _)| {
@@ -714,6 +856,46 @@ impl SearchResults {
         });
         let mut limits_hit = self.limits_hit;
         let (mut files, mut lines) = (0, 0);
+
+        // The groups' relations, if they have several (ex: a method's own
+        // results and those of the methods it overrides); which are left out
+        // at first: the methods it overrides' definitions, its overrides'
+        // and its cousins' (and an interface's method's overrides too, its
+        // implementations, as the analysis has pure virtual methods'
+        // declarations as definitions, without saying they're pure); but
+        // none, if that would leave none.
+        let relations: BTreeSet<ResultRelation> = path_kind_groups
+            .iter()
+            .flat_map(|(_, group)| group.qual_kind_groups.keys())
+            .filter_map(|descriptor| descriptor.relation)
+            .collect();
+        let several = relations.len() > 1;
+        let mut relation_excluded: Vec<ResultRelation> = relations
+            .iter()
+            .copied()
+            .filter(|relation| {
+                !matches!(
+                    relation,
+                    ResultRelation::Queried | ResultRelation::VirtualUses
+                )
+            })
+            .collect();
+        if !several || relation_excluded.len() == relations.len() {
+            relation_excluded.clear();
+        }
+        // (The methods' hierarchy, and which of each other they override.)
+        let overview = several.then(|| {
+            let mut seen = UstrSet::default();
+            let mut nodes: Vec<OverviewNode> = self
+                .overview_nodes
+                .into_iter()
+                .filter(|node| seen.insert(node.sym))
+                .collect();
+            for node in &mut nodes {
+                node.overrides.retain(|sym| seen.contains(sym));
+            }
+            ResultsOverview { nodes }
+        });
 
         let mut path_kind_results = vec![];
         for (path_kind, pk_group) in path_kind_groups {
@@ -736,9 +918,6 @@ impl SearchResults {
             for (descriptor, qk_group) in pk_group.qual_kind_groups {
                 let mut facets = vec![];
 
-                if let Some(facet) = qk_group.relation_facet.compile() {
-                    facets.push(facet);
-                }
                 if let Some(facet) = qk_group.path_facet.compile() {
                     facets.push(facet);
                 }
@@ -783,6 +962,7 @@ impl SearchResults {
                     kind_groups.push(FlattenedKindGroupResults {
                         kind: descriptor.kind,
                         pretty: descriptor.pretty,
+                        relation: descriptor.relation.filter(|_| several),
                         facets,
                         by_file,
                     });
@@ -806,6 +986,8 @@ impl SearchResults {
             file_recency: BTreeMap::new(),
             token_history: None,
             tally: None,
+            relation_excluded,
+            overview,
         }
     }
 }
@@ -1023,13 +1205,12 @@ mod tests {
         // A declaration's several records on line 7 (ex: one with a peek
         // range, one without), and another result on line 9.
         results.ingest_path_hits(
-            &ustr("#C"),
             QualKindDescriptor {
+                relation: Some(ResultRelation::Queried),
                 kind: PresentationKind::Declarations,
                 quality: SymbolQuality::ExplicitSymbol,
                 pretty: ustr("C"),
             },
-            &ustr("Self"),
             PathSearchResult {
                 path: ustr("a.h"),
                 path_kind: ustr("normal"),
@@ -1072,7 +1253,7 @@ mod tests {
             pp: Ustr::default(),
             ctxtra: Ustr::default(),
         };
-        for (sym, pretty, kind, lines) in [
+        for (_sym, pretty, kind, lines) in [
             (
                 "_Z4Food",
                 "Food",
@@ -1087,13 +1268,12 @@ mod tests {
             ),
         ] {
             results.ingest_path_hits(
-                &ustr(sym),
                 QualKindDescriptor {
+                    relation: Some(ResultRelation::Queried),
                     kind,
                     quality: SymbolQuality::ExplicitSymbol,
                     pretty: ustr(pretty),
                 },
-                &ustr("Self"),
                 PathSearchResult {
                     path: ustr("a.cpp"),
                     path_kind: ustr("normal"),
