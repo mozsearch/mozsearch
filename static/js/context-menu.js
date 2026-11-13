@@ -376,8 +376,6 @@ class GotoMenuItem extends MenuItem {
         if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
           return;
         }
-        // See the popstate event handler in search.js
-        Dxr.suppressNextPopState = Date.now();
 
         // The #lineno anchor doesn't exist by default.
         // Ensure the anchor exists at the point of navigation,
