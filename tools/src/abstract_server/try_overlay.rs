@@ -213,6 +213,12 @@ impl AbstractServer for TryOverlay {
         self.base.crash_sets()
     }
 
+    fn dataflow_mapping(
+        &self,
+    ) -> Option<std::sync::Arc<crate::dataflow::mapping::DataflowMapping>> {
+        self.base.dataflow_mapping()
+    }
+
     fn lock_regions(
         &self,
         path: &str,

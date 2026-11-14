@@ -1,0 +1,28 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/forward-black-box-internals
+---
+BoxedUser (dataflow/dataflow.cpp)
+  #0     328 seed       aSeed                              
+        -> #1 call BoxedWrap [local: aSeed]
+  #1     329 call       call BoxedWrap                     int wrapped = BoxedWrap(aSeed);
+        -> #2 param aValue in BoxedWrap [call: aValue]
+        -> #7 wrapped = [local: BoxedWrap(…)]
+  #7     329 assign     wrapped =                          int wrapped = BoxedWrap(aSeed);
+        -> #8 call BoxedHelper [local: wrapped]
+  #8     330 call       call BoxedHelper                   int again = BoxedHelper(wrapped);
+        -> #4 param aValue in BoxedHelper [call: aValue]
+BoxedWrap (dataflow/dataflow.cpp)
+  #2     326 param      param aValue                       static int BoxedWrap(int aValue) { return BoxedHelper(aValue) + 1; }
+        -> #3 call BoxedHelper [local: aValue]
+  #3     326 call       call BoxedHelper                   static int BoxedWrap(int aValue) { return BoxedHelper(aValue) + 1; }
+        -> #4 param aValue in BoxedHelper [call: aValue]
+        -> #6 return [local: BoxedHelper(…)]
+  #6     326 return     return                             static int BoxedWrap(int aValue) { return BoxedHelper(aValue) + 1; }
+        -> #1 call BoxedWrap in BoxedUser [return: result]
+BoxedHelper (dataflow/dataflow.cpp)
+  #4     325 param      param aValue                       static int BoxedHelper(int aValue) { return aValue * 2; }
+        -> #5 return [local: aValue]
+  #5     325 return     return                             static int BoxedHelper(int aValue) { return aValue * 2; }
+        -> #3 call BoxedHelper in BoxedWrap [return: result]

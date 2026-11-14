@@ -1,0 +1,28 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/black-box-forward-subway
+---
+{
+  "cards": [
+    {
+      "func": "BoxedUser",
+      "black_boxes": [
+        {
+          "group": "boxed",
+          "name": "Boxed helpers",
+          "why": "Helpers whose internals don't matter to the tests' traces.",
+          "calls": [
+            "BoxedWrap",
+            "BoxedHelper"
+          ],
+          "lines": [
+            329,
+            330
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": []
+}

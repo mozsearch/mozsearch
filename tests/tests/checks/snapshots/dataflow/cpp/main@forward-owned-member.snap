@@ -1,0 +1,29 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/forward-owned-member
+---
+PassThroughResult (dataflow/dataflow.cpp)
+  #0     296 seed       aSeed                              
+        -> #1 call WrapValue [local: aSeed]
+  #1     297 call       call WrapValue                     DfResult<int> result = WrapValue(aSeed);
+        -> #2 param aValue in WrapValue [call: aValue]
+        -> #6 result = [local: WrapValue(…)]
+  #6     297 assign     result =                           DfResult<int> result = WrapValue(aSeed);
+        -> #7 call DfResult::unwrap [local: result]
+  #7     298 call       call DfResult::unwrap              return result.unwrap();
+        -> #8 DfResult::unwrap (getter) in DfResult::unwrap [call: this.mValue → return]
+  #9     298 return     return                             return result.unwrap();
+WrapValue (dataflow/dataflow.cpp)
+  #2     294 param      param aValue                       static DfResult<int> WrapValue(int aValue) { return DfResult<int>(aValue); }
+        -> #3 call DfResult::DfResult<V> [local: aValue]
+  #3     294 call       call DfResult::DfResult<V>         static DfResult<int> WrapValue(int aValue) { return DfResult<int>(aValue); }
+        -> #4 DfResult::DfResult<V> (setter) in DfResult::DfResult<V> [call: arg 0 → this.mValue]
+  #5     294 return     return                             static DfResult<int> WrapValue(int aValue) { return DfResult<int>(aValue); }
+        -> #1 call WrapValue in PassThroughResult [return: result]
+DfResult::DfResult<V> (dataflow/dataflow.cpp)
+  #4     286 summary    DfResult::DfResult<V> (setter)     
+        -> #5 return in WrapValue [return: DfResult::DfResult<V>(…)]
+DfResult::unwrap (dataflow/dataflow.cpp)
+  #8     288 summary    DfResult::unwrap (getter)          
+        -> #9 return in PassThroughResult [return: DfResult::unwrap(…)]

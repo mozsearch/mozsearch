@@ -517,6 +517,30 @@ var SubwayMap = new (class SubwayMap {
     where.href = this.sourceURL(card.path, firstLine);
     where.textContent = `${card.path.split("/").pop()}:${firstLine}`;
     head.append(name, " ", where);
+    // (Its calls of black boxes' functions, collapsed, which the trace didn't
+    // step into: a chip naming them, whose menu shows their internals; see
+    // follow-internals.js.)
+    const blackBoxes = card.black_boxes ?? [];
+    if (blackBoxes.length) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "sw-black-box";
+      chip.textContent = `\u25A3 ${blackBoxes.map(bb => bb.name).join(", ")}`;
+      chip.title = blackBoxes.map(bb =>
+        `${bb.name}: ${bb.calls.join(", ")} (line${bb.lines.length == 1 ? "" : "s"} ${bb.lines.join(", ")}): ${bb.why}`)
+        .join("\n");
+      chip.addEventListener("click", event => {
+        event.stopPropagation();
+        this.showBlackBoxMenu(blackBoxes, event);
+      });
+      head.append(" ", chip);
+    }
+    const blackBoxLines = new Map();
+    for (const bb of blackBoxes) {
+      for (const line of bb.lines) {
+        blackBoxLines.set(line, [...(blackBoxLines.get(line) ?? []), bb.name]);
+      }
+    }
     element.append(head);
 
     let position = 0;
@@ -550,7 +574,11 @@ var SubwayMap = new (class SubwayMap {
         }
         const div = document.createElement("div");
         div.className = "sw-row" + (row.changed ? " sw-changed" : "") +
-          (row.traced ? " sw-traced" : "");
+          (row.traced ? " sw-traced" : "") +
+          (blackBoxLines.has(row.line) ? " sw-black-box-row" : "");
+        if (blackBoxLines.has(row.line)) {
+          div.title = `Calls into ${blackBoxLines.get(row.line).join(", ")}, collapsed`;
+        }
         div.append(this.gutter(tracks, position), this.dots(tracks, position));
         const number = document.createElement("a");
         number.className = "sw-lno";
@@ -572,6 +600,35 @@ var SubwayMap = new (class SubwayMap {
 
   rerender() {
     this.graph?.setInput(this.input());
+  }
+
+  /**
+   * The menu of a card's collapsed black boxes: showing their internals,
+   * each's (in a submenu, if there are several) or all of them.
+   */
+  showBlackBoxMenu(blackBoxes, event) {
+    const show = bb => new MenuItem({
+      html: ContextMenu.fmt("Show internals of <strong>_</strong>", bb.name),
+      href: FollowInternals.url([bb.group]),
+      icon: "search",
+      section: "black-boxes",
+    });
+    const items = blackBoxes.length == 1 ? [show(blackBoxes[0])] : [new MenuItemWithSubMenu({
+      html: "Show internals",
+      section: "black-boxes",
+      menu: ContextMenu,
+      searches: [],
+      items: [
+        ...blackBoxes.map(show),
+        new MenuItem({
+          html: "Of all of them",
+          href: FollowInternals.url(blackBoxes.map(bb => bb.group)),
+          icon: "search",
+          section: "black-boxes-all",
+        }),
+      ],
+    })];
+    ContextMenu.showItems(items, event);
   }
 
   /** The legend: clusters, their families and lines; and the cards. */
@@ -682,6 +739,45 @@ var SubwayMap = new (class SubwayMap {
       const list = document.createElement("ul");
       list.className = "sw-legend-families";
       list.append(...families.map(familyItem));
+      section.append(summary, list);
+      legend.append(section);
+    }
+
+    // (The black boxes the trace didn't step into, with links showing their
+    // internals.)
+    const blackBoxes = new Map();
+    for (const card of this.model.cards) {
+      for (const bb of card.black_boxes ?? []) {
+        const entry = blackBoxes.get(bb.group) ?? { bb, cards: 0 };
+        entry.cards++;
+        blackBoxes.set(bb.group, entry);
+      }
+    }
+    if (blackBoxes.size) {
+      const section = document.createElement("details");
+      section.open = true;
+      section.className = "sw-legend-black-boxes";
+      const summary = document.createElement("summary");
+      summary.textContent = "Collapsed";
+      const list = document.createElement("ul");
+      const link = (text, groups) => {
+        const a = document.createElement("a");
+        a.href = FollowInternals.url(groups);
+        a.textContent = text;
+        return a;
+      };
+      for (const { bb, cards } of blackBoxes.values()) {
+        const item = document.createElement("li");
+        item.title = bb.why;
+        item.append(`\u25A3 ${bb.name} (${cards} function${cards == 1 ? "" : "s"}): `,
+                    link("show internals", [bb.group]));
+        list.append(item);
+      }
+      if (blackBoxes.size > 1) {
+        const item = document.createElement("li");
+        item.append(link("Show all of their internals", [...blackBoxes.keys()]));
+        list.append(item);
+      }
       section.append(summary, list);
       legend.append(section);
     }

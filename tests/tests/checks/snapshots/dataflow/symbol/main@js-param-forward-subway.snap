@@ -161,28 +161,16 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
             {
               "line": 7,
               "text": "  const choice = flag ? \"on\" : fallback;",
-              "writes": [
+              "stops": [
                 3
               ],
-              "traced": true,
-              "stops": [
-                3
-              ]
-            },
-            {
-              "line": 8,
-              "text": "  return choice;",
-              "stops": [
-                3
-              ]
+              "traced": true
             }
           ],
           "stops": [
             3
           ],
-          "writes": [
-            3
-          ]
+          "writes": []
         }
       ]
     }
@@ -238,13 +226,11 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
     },
     {
       "id": 3,
-      "label": "settings",
+      "label": "label",
       "names": [
-        "settings",
         "label",
-        "flag",
-        "fallback",
-        "choice"
+        "settings",
+        "flag"
       ],
       "type": "any",
       "semantic": "any",
@@ -254,9 +240,7 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
       ],
       "syms": [
         "S_js_test-ts/ts/src/dataflow.js/describe().(settings)",
-        "S_js_test-ts/ts/src/dataflow.js/pick().(fallback)",
         "S_js_test-ts/ts/src/dataflow.js/pick().(flag)",
-        "S_js_ts/src/dataflow.js/#0",
         "S_js_ts/src/dataflow.js/#1"
       ]
     }
@@ -294,15 +278,6 @@ input_file: inputs/dataflow/symbol/js-param-forward-subway
       "from_station": 0,
       "to": 3,
       "kind": "call",
-      "lines": [
-        3
-      ]
-    },
-    {
-      "from": 3,
-      "to": 2,
-      "to_station": 0,
-      "kind": "return",
       "lines": [
         3
       ]

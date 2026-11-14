@@ -33,6 +33,7 @@ use ustr::{Ustr, UstrMap, ustr};
 
 use super::frontend::FileIr;
 use super::ir::*;
+use super::mapping::BlackBox;
 use super::slice::{Key, Slicing, Unit, cluster_commits, is_hub, place_keys_with_hubs};
 use super::summary::{Port, Summary};
 use super::taint::{Taint, TaintSpec, TaintedField, Validated};
@@ -140,6 +141,23 @@ pub struct Card {
     /// what reads the fields it writes).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tainted_out: Vec<usize>,
+    /// A trace's calls of black boxes' functions in it (see
+    /// `dataflow::mapping`), one for each black box, which it didn't step
+    /// into, for its collapsed nodes' "Show internals" (see
+    /// static/js/subway.js).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub black_boxes: Vec<CardBlackBox>,
+}
+
+/// A card's calls of a black box's functions (see `Card::black_boxes`).
+#[derive(Debug, Serialize)]
+pub struct CardBlackBox {
+    #[serde(flatten)]
+    pub black_box: BlackBox,
+    /// The functions called (their last components), and the lines of the
+    /// calls.
+    pub calls: Vec<String>,
+    pub lines: Vec<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -486,6 +504,9 @@ struct CallMove {
     args: Vec<(Key, Key, bool)>,
     /// (returned key, the result's key in the caller, derived)
     returns: Vec<(Key, Key, bool)>,
+    /// Those of `args` whose parameters are out-parameters, which can move
+    /// values out of the callee too.
+    outs: Vec<(Key, Key, bool)>,
     kind: &'static str,
 }
 
@@ -598,6 +619,50 @@ pub async fn trace_subway_map(tracer: &mut Tracer<'_>, taint: &TaintSpec) -> Sub
         for row in card.stations.iter_mut().flat_map(|s| s.rows.iter_mut()) {
             row.traced = std::mem::take(&mut row.changed);
         }
+    }
+    // (Its calls of black boxes' functions, by the cards they're in.)
+    for node in tracer
+        .graph
+        .nodes
+        .iter()
+        .filter(|node| node.kind == NodeKind::BlackBox)
+    {
+        let Some(bb) = &node.black_box else {
+            continue;
+        };
+        let Some(card) = map
+            .cards
+            .iter_mut()
+            .find(|card| card.path == node.path && card.sym == Some(node.func_sym))
+        else {
+            continue;
+        };
+        // (The calls' lines: their events', which the trace's edges into
+        // the black box's node (or, backwards, out of it) come from.)
+        let mut lines: Vec<u32> = tracer
+            .graph
+            .edges
+            .iter()
+            .filter_map(|edge| match (edge.from == node.id, edge.to == node.id) {
+                (_, true) => Some(&tracer.graph.nodes[edge.from]),
+                (true, _) => Some(&tracer.graph.nodes[edge.to]),
+                _ => None,
+            })
+            .filter(|other| other.path == node.path && other.func_sym == node.func_sym)
+            .map(|other| other.line)
+            .collect();
+        lines.sort();
+        lines.dedup();
+        let calls = node
+            .label
+            .split_once(": ")
+            .map(|(_, calls)| calls.split(", ").map(|c| c.to_string()).collect())
+            .unwrap_or_default();
+        card.black_boxes.push(CardBlackBox {
+            black_box: bb.clone(),
+            calls,
+            lines,
+        });
     }
     map.trace = Some(TraceInfo {
         title: super::render::title(&tracer.graph),
@@ -751,6 +816,7 @@ async fn subway_map_inner(
                 cluster: n,
                 stations: vec![],
                 tainted_out: vec![],
+                black_boxes: vec![],
             });
             let mut sums = CallSummaries::new();
             for (c, call) in f.calls.iter().enumerate() {
@@ -806,6 +872,7 @@ async fn subway_map_inner(
                 };
                 let tsums = &funcs[ti].sums;
                 let mut args = vec![];
+                let mut outs = vec![];
                 for (ai, arg) in call.args.iter().enumerate() {
                     let Some(Some(pi)) = params.get(ai) else {
                         continue;
@@ -813,6 +880,7 @@ async fn subway_map_inner(
                     let Some(param) = tf.params.get(*pi) else {
                         continue;
                     };
+                    let first = args.len();
                     for to in keys_of(tf, &param.place) {
                         let froms = val_keys(f, &arg.vals, &sums);
                         // (A trace's constant argument is where its
@@ -827,6 +895,9 @@ async fn subway_map_inner(
                         for (from, derived) in froms {
                             args.push((from, to.clone(), derived));
                         }
+                    }
+                    if param.is_out() {
+                        outs.extend(args[first..].iter().cloned());
                     }
                 }
                 // (Its returns' values, to where the caller puts its result.)
@@ -858,10 +929,42 @@ async fn subway_map_inner(
                     to: ti,
                     args,
                     returns,
+                    outs,
                     kind,
                 });
             }
         }
+    }
+
+    // (A trace's: only the calls it went through, each way; not, ex: every
+    // `MOZ_TRY` of a card calling `ToResult` returning the trace's value,
+    // when the trace came there from another call on the line.)
+    if trace {
+        let stepped = tracer.stepped_calls();
+        let key = |func: &Func, event: usize, callee: &Func, returned: bool| {
+            (
+                func.file.path.clone(),
+                func.file.funcs[func.fi].sym,
+                event,
+                callee.file.funcs[callee.fi].sym,
+                returned,
+            )
+        };
+        for call in &mut call_moves {
+            let (func, callee) = (&funcs[call.from], &funcs[call.to]);
+            let returned = stepped.contains(&key(func, call.event, callee, true));
+            if !stepped.contains(&key(func, call.event, callee, false)) {
+                // (But out-parameters, if it came back out of the callee.)
+                call.args = match returned {
+                    true => std::mem::take(&mut call.outs),
+                    false => vec![],
+                };
+            }
+            if !returned {
+                call.returns.clear();
+            }
+        }
+        call_moves.retain(|call| !call.args.is_empty() || !call.returns.is_empty());
     }
 
     // (Tainted parameters' tainted fields, if the parameters are values, are
@@ -1427,6 +1530,7 @@ async fn subway_map_inner(
             cluster: n,
             stations,
             tainted_out: vec![],
+            black_boxes: vec![],
         });
     }
     // (Families' clusters: their roots' first cards'.)

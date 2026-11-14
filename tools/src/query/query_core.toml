@@ -591,6 +591,15 @@ args.at = "$0"
 command = "dataflow"
 args.max-hops = "$0"
 
+# The black boxes (dataflow-mapping.toml's groups, comma-separated, or "all")
+# a trace steps into anyway, rather than taking their calls' results as
+# coming from their arguments, as the diagrams' collapsed nodes' "Show
+# internals" asks (see tools/src/dataflow/mapping.rs).
+[term.follow-internals]
+[[term.follow-internals.group.dataflow]]
+command = "dataflow"
+args.internals = "$0"
+
 # Slicing a revision's changes (a commit's, or `<a>..<b>`'s) into the clusters
 # of dataflow they touch (see tools/src/dataflow/slice.rs), in the coordinates
 # of the query's revision (the indexed one, or, with `rev`, a try push's

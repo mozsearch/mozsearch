@@ -1,0 +1,20 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-black-box
+---
+BoxedUser (dataflow/dataflow.cpp)
+  #0     328 seed       again                              
+  #6     328 param      param aSeed                        
+        -> #3 Boxed helpers: BoxedHelper, BoxedWrap [local: aSeed]
+  #4     329 assign     wrapped =                          int wrapped = BoxedWrap(aSeed);
+        -> #3 Boxed helpers: BoxedHelper, BoxedWrap [local: wrapped]
+  #5     329 call       call BoxedWrap                     int wrapped = BoxedWrap(aSeed);
+        -> #4 wrapped = [local: BoxedWrap(…)]
+  #1     330 assign     again =                            int again = BoxedHelper(wrapped);
+        -> #0 again [local: again]
+  #2     330 call       call BoxedHelper                   int again = BoxedHelper(wrapped);
+        -> #1 again = [local: BoxedHelper(…)]
+  #3     330 blackbox   Boxed helpers: BoxedHelper, BoxedWrap int again = BoxedHelper(wrapped);
+        -> #2 call BoxedHelper [blackbox: Boxed helpers]
+        -> #5 call BoxedWrap [blackbox: Boxed helpers]

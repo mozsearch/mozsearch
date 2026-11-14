@@ -547,6 +547,17 @@ impl AbstractServer for LocalIndex {
         crate::crash_threads::ThreadRules::cached(&text)
     }
 
+    fn dataflow_mapping(
+        &self,
+    ) -> Option<std::sync::Arc<crate::dataflow::mapping::DataflowMapping>> {
+        // (Read each time, and parsed when it changed.)
+        let text = self
+            .tree_config_loaded()
+            .read_tree_config_file_with_default("dataflow-mapping.toml")
+            .ok()?;
+        crate::dataflow::mapping::DataflowMapping::cached(&text)
+    }
+
     async fn bugzilla_json(&self, path: &str) -> Result<std::sync::Arc<Value>> {
         // (Not holding the config, which isn't Send, while fetching.)
         let base = self

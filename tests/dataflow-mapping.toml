@@ -1,0 +1,8 @@
+# The test trees' black boxes (see config_defaults/dataflow-mapping.toml):
+# tests/tests/files/dataflow/dataflow.cpp's "boxed" helpers.
+
+[[black-box]]
+group = "boxed"
+name = "Boxed helpers"
+why = "Helpers whose internals don't matter to the tests' traces."
+functions = ["BoxedWrap", "BoxedHelper"]

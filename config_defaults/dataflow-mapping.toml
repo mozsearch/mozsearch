@@ -1,0 +1,77 @@
+# What dataflow traces (tools/src/dataflow/; see mapping.rs) treat as black
+# boxes: functions that are machinery the code's logic goes through rather
+# than logic of its own (ex: mfbt's Result and its helpers).  A trace doesn't
+# step into a call of one: the call's result (and for a constructor, the
+# object it makes) comes from its arguments and object, as for calls the
+# analysis can't see into, without a note saying so.  The diagrams show each
+# group's calls as one collapsed node, whose context menu can show their
+# internals (the trace again, stepping into them; see the query language's
+# `follow-internals:`).
+#
+# Read when a trace runs (the config repo's own dataflow-mapping.toml, else
+# this one), so changing it doesn't need a reindex.
+#
+# Each `[[black-box]]` has:
+# - `group`: its key, for `follow-internals:` (ex: "follow-internals:result",
+#   or "all");
+# - `name`: what the diagrams call it;
+# - `why`: why its internals aren't worth following, for people;
+# - `functions`: pretty names without template arguments (as in
+#   ontology-mapping.toml's dataflow hints), matched whole, or prefixes
+#   ending in "::" for all of a class's (or namespace's) functions.
+
+[[black-box]]
+group = "result"
+name = "Result machinery"
+why = "mfbt's Result wraps a value or an error: its methods, its implementations' packing strategies and its conversions (ToResult, Err) move the value in and out, as their callers' code says, so their internals don't say more about where it goes."
+functions = [
+  "mozilla::Result::",
+  "mozilla::detail::ResultImplementation::",
+  "mozilla::detail::ResultImplementationNullIsOkBase::",
+  "mozilla::detail::ResultImplementationNullIsOk::",
+  "mozilla::detail::UnusedZero::",
+  "mozilla::detail::UnusedZeroEnum::",
+  "mozilla::GenericErrorResult::",
+  "mozilla::ResultTypeTraits::",
+  "mozilla::Err",
+  "mozilla::ToResult",
+  "NS_FAILED_impl",
+  "NS_SUCCEEDED_impl",
+]
+
+[[black-box]]
+group = "quota-errors"
+name = "QM_TRY's error handling"
+why = "dom/quota's QM_TRY macros report and convert errors (HandleError, LogError, QMResult): their callers' QM_TRY says what happens to the value and its errors."
+functions = [
+  "mozilla::dom::quota::HandleError",
+  "mozilla::dom::quota::LogError",
+  "mozilla::dom::quota::MakeSourceFileRelativePath",
+  "mozilla::dom::quota::ErrToOk",
+  "mozilla::dom::quota::ErrToDefaultOk",
+  "mozilla::dom::quota::detail::",
+  "mozilla::QMResult::",
+  "mozilla::ToQMResult",
+]
+
+[[black-box]]
+group = "xpcom-factory"
+name = "XPCOM's component factories"
+why = "Creating or getting an XPCOM component goes through the component manager and the generated StaticComponents.cpp's switch over every component: the code's logic is the component it asked for, not those internals."
+functions = [
+  "mozilla::xpcom::CreateInstanceImpl",
+  "mozilla::xpcom::ConstructESModuleComponent",
+  "mozilla::xpcom::CallInitFunc",
+  "nsComponentManagerImpl::",
+  "nsCreateInstanceByCID::",
+  "nsCreateInstanceByContractID::",
+  "nsCreateInstanceFromFactory::",
+  "nsGetServiceByCID::",
+  "nsGetServiceByCIDWithError::",
+  "nsGetServiceByContractID::",
+  "nsGetServiceByContractIDWithError::",
+  "do_CreateInstance",
+  "do_GetService",
+  "CallCreateInstance",
+  "CallGetService",
+]

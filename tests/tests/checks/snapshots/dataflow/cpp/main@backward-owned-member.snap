@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-owned-member
+---
+UnrelatedResult (dataflow/dataflow.cpp)
+  #0     301 seed       value                              
+  #4     302 assign     other =                            DfResult<int> other(7);
+        -> #3 DfResult::unwrap (getter) in DfResult::unwrap [call: other.mValue]
+  #5     302 call       call DfResult::DfResult<V>         DfResult<int> other(7);
+        -> #4 other = [local: DfResult::DfResult<V>(…)]
+  #7     302 const      7                                  DfResult<int> other(7);
+        -> #6 DfResult::DfResult<V> (setter) in DfResult::DfResult<V> [local: 7]
+  #1     306 assign     value =                            int value = other.unwrap();
+        -> #0 value [local: value]
+  #2     306 call       call DfResult::unwrap              int value = other.unwrap();
+        -> #1 value = [local: DfResult::unwrap(…)]
+DfResult::unwrap (dataflow/dataflow.cpp)
+  #3     288 summary    DfResult::unwrap (getter)          
+        -> #2 call DfResult::unwrap in UnrelatedResult [return: result]
+DfResult::DfResult<V> (dataflow/dataflow.cpp)
+  #6     286 summary    DfResult::DfResult<V> (setter)     
+        -> #5 call DfResult::DfResult<V> in UnrelatedResult [return: result]

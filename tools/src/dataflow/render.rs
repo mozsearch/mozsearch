@@ -164,6 +164,7 @@ pub fn render_dot(graph: &TraceGraph, options: &DotOptions) -> String {
                 NodeKind::Param => ("cds", "gray30"),
                 NodeKind::Const => ("plaintext", "gray30"),
                 NodeKind::Opaque => ("box", "orange"),
+                NodeKind::BlackBox => ("box3d", "slateblue"),
                 NodeKind::Summary => ("box", "steelblue"),
                 NodeKind::Test => ("diamond", "gray30"),
                 NodeKind::Return => ("box", "gray30"),
@@ -174,11 +175,19 @@ pub fn render_dot(graph: &TraceGraph, options: &DotOptions) -> String {
                 | NodeKind::Seed
                 | NodeKind::Const
                 | NodeKind::Opaque
-                | NodeKind::Summary => node.label.clone(),
+                | NodeKind::Summary
+                | NodeKind::BlackBox => node.label.clone(),
                 _ => text,
             };
-            let link = match &options.link_tree {
-                Some(tree) if node.line > 0 => format!(
+            let link = match (&options.link_tree, &node.black_box) {
+                // (A black box's calls: showing its internals, the page's
+                // query again with `follow-internals:`; see query-results.js.)
+                (Some(_), Some(bb)) => format!(
+                    ", URL=\"#follow-internals:{}\", tooltip=\"{} (click to show its internals)\"",
+                    escape(&bb.group),
+                    escape(&bb.why)
+                ),
+                (Some(tree), None) if node.line > 0 => format!(
                     ", URL=\"/{}/{}/{}#{}\", tooltip=\"{}:{}\"",
                     escape(tree),
                     match &options.link_rev {
@@ -213,6 +222,7 @@ pub fn render_dot(graph: &TraceGraph, options: &DotOptions) -> String {
             EdgeKind::Binding => ("red", "bold"),
             EdgeKind::Assumed => ("orange", "dashed"),
             EdgeKind::Oracle => ("darkorange3", "bold"),
+            EdgeKind::BlackBox => ("slateblue", "dashed"),
         };
         let _ = writeln!(
             out,

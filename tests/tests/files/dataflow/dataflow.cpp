@@ -274,3 +274,59 @@ int TaintEntryInit(const TicketsInit& aInit) {
   UseTicket(aInit.second());
   return 0;
 }
+
+// A wrapper of a value, like mfbt's Result, which many functions make and
+// read: a value put in one (`WrapValue`'s, which `PassThroughResult`
+// unwraps) is in that object's member, not in every other one's (ex:
+// `UnrelatedResult`'s own), which `DfResult`'s methods read for all of their
+// callers.
+template <typename V>
+class DfResult {
+ public:
+  explicit DfResult(V aValue) : mValue(aValue) {}
+  bool isOk() const { return mValue != 0; }
+  V unwrap() const { return mValue; }
+
+ private:
+  V mValue;
+};
+
+static DfResult<int> WrapValue(int aValue) { return DfResult<int>(aValue); }
+
+int PassThroughResult(int aSeed) {
+  DfResult<int> result = WrapValue(aSeed);
+  return result.unwrap();
+}
+
+int UnrelatedResult() {
+  DfResult<int> other(7);
+  if (!other.isOk()) {
+    return 0;
+  }
+  int value = other.unwrap();
+  return value;
+}
+
+// A function calling another twice, of which a trace goes through only one
+// call: its subway map connects that call's line (`a`), not the other's
+// (`b`), whose result is another value.
+static int Twice(int aValue) { return aValue + 1; }
+
+int TwiceCaller(int aSeed, int aOther) {
+  int a = Twice(aSeed);
+  int b = Twice(aOther);
+  return a + b;
+}
+
+// A black box's functions (tests/dataflow-mapping.toml's "boxed" group),
+// which traces don't step into unless asked to (`--internals boxed`): their
+// calls' results come from their arguments, and `BoxedUser`'s calls of both
+// are one collapsed node.
+static int BoxedHelper(int aValue) { return aValue * 2; }
+static int BoxedWrap(int aValue) { return BoxedHelper(aValue) + 1; }
+
+int BoxedUser(int aSeed) {
+  int wrapped = BoxedWrap(aSeed);
+  int again = BoxedHelper(wrapped);
+  return again;
+}

@@ -19,6 +19,7 @@ use ustr::{Ustr, ustr};
 
 use super::frontend::{FileIr, build_file_ir, lang_for_path};
 use super::ir::*;
+use super::mapping::{BlackBox, DataflowMapping};
 use super::oracle::{Oracle, OracleQuestion, SITE_ASK, SUMMARY_ASK, Slot, parse_slot};
 use super::records::{FileRecords, short_name};
 use super::summary::{Category, Port, Summary};
@@ -54,6 +55,9 @@ pub struct TraceOpts {
     /// (see `Tracer::accessor_summary`) rather than building their files'
     /// IR.
     pub summaries: bool,
+    /// The black boxes (see `mapping`) whose internals to step into anyway,
+    /// by their groups (or "all").
+    pub internals: Vec<String>,
 }
 
 impl Default for TraceOpts {
@@ -65,6 +69,7 @@ impl Default for TraceOpts {
             ordered: true,
             include_tests: false,
             summaries: true,
+            internals: vec![],
         }
     }
 }
@@ -85,6 +90,10 @@ pub enum NodeKind {
     /// An accessor stepped over by its precomputed summary (see
     /// `Tracer::accessor_summary`), at its definition.
     Summary,
+    /// A function's calls of a black box's functions (see `mapping`), which
+    /// we don't step into: their results come from their arguments (and
+    /// objects), as for `Opaque`'s.
+    BlackBox,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -103,6 +112,9 @@ pub struct TraceNode {
     /// For calls, the call's text (several can share a line).
     #[serde(skip_serializing_if = "String::is_empty")]
     pub detail: String,
+    /// For `BlackBox` nodes, the black box (see `mapping`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub black_box: Option<BlackBox>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
@@ -122,6 +134,8 @@ pub enum EdgeKind {
     Assumed,
     /// Through a call an oracle told us about (see `oracle`).
     Oracle,
+    /// Through a black box's call (see `mapping`).
+    BlackBox,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -232,6 +246,8 @@ enum NodeKey {
     Const(String, u32),
     Seed(String),
     Opaque(usize),
+    /// A function's calls of a black box's functions, by its group.
+    BlackBox(String),
 }
 
 /// How many lookups or files `Tracer::prefetch` asks a server for at once.
@@ -256,6 +272,8 @@ pub struct Tracer<'s> {
     ipdl_slots: HashMap<Ustr, Option<IpdlSlot>>,
     type_syms: HashMap<String, Vec<(Ustr, Ustr)>>,
     pub oracle: Option<Arc<Oracle>>,
+    /// What it treats as black boxes (see `mapping`).
+    mapping: Option<Arc<DataflowMapping>>,
     pub graph: TraceGraph,
     /// The places followed, and those of its steps (assignments' and
     /// parameters'), in their functions (by their files' paths), in the order
@@ -296,6 +314,7 @@ impl<'s> Tracer<'s> {
             ipdl_slots: HashMap::new(),
             type_syms: HashMap::new(),
             oracle: None,
+            mapping: server.dataflow_mapping(),
             graph: TraceGraph::default(),
             traced: vec![],
             node_ids: HashMap::new(),
@@ -573,6 +592,11 @@ impl<'s> Tracer<'s> {
                 })
                 .collect(),
         };
+        // (Not black boxes', which the trace doesn't step into.)
+        let calls: Vec<&Call> = calls
+            .into_iter()
+            .filter(|call| self.black_box(&call.callee_pretty).is_none())
+            .collect();
         calls
             .iter()
             .flat_map(|call| call.callee.iter().take(self.opts.fanout).copied())
@@ -1287,8 +1311,58 @@ impl<'s> Tracer<'s> {
             label,
             text,
             detail: String::new(),
+            black_box: None,
         });
         self.node_ids.insert(map_key, id);
+        id
+    }
+
+    /// The black box (see `mapping`) a function is in, by its pretty name,
+    /// unless the trace steps into its internals (`TraceOpts::internals`).
+    pub fn black_box(&self, pretty: &str) -> Option<BlackBox> {
+        let bb = self.mapping.as_ref()?.black_box(pretty)?;
+        let shown = self
+            .opts
+            .internals
+            .iter()
+            .any(|group| group == "all" || *group == bb.group);
+        (!shown).then(|| bb.clone())
+    }
+
+    /// The mapping's text's hash, for caching what traces find (see
+    /// `step_cache`), as it changes where they go.
+    pub fn mapping_fingerprint(&self) -> String {
+        self.mapping
+            .as_ref()
+            .map(|m| m.fingerprint().to_string())
+            .unwrap_or_default()
+    }
+
+    /// The node of a function's calls of a black box's functions: one for
+    /// all of its calls of the group's functions, whose label names them.
+    fn black_box_node(&mut self, file: &FileIr, func: usize, call: usize, bb: &BlackBox) -> usize {
+        let f = &file.funcs[func];
+        let callee = short_pretty(&f.calls[call].callee_pretty);
+        let line = f.calls[call].line;
+        let id = self.node(
+            file,
+            func,
+            NodeKey::BlackBox(bb.group.clone()),
+            NodeKind::BlackBox,
+            line,
+            format!("{}: {}", bb.name, callee),
+        );
+        let node = &mut self.graph.nodes[id];
+        if node.black_box.is_none() {
+            node.black_box = Some(bb.clone());
+        } else if !node
+            .label
+            .split_once(": ")
+            .is_some_and(|(_, callees)| callees.split(", ").any(|c| c == callee))
+        {
+            node.label.push_str(", ");
+            node.label.push_str(&callee);
+        }
         id
     }
 
@@ -1321,6 +1395,44 @@ impl<'s> Tracer<'s> {
             self.graph.nodes[id].detail = detail;
         }
         id
+    }
+
+    /// The calls the trace went through, by their callers' events: the
+    /// caller's path and symbol, the call's event, the callee's symbol, and
+    /// whether it's the callee's return (or an out-parameter) to the call
+    /// rather than an argument into it; so that its subway map's connectors
+    /// are its steps, not every call between its cards (see
+    /// `subway::trace_subway_map`).
+    pub fn stepped_calls(&self) -> HashSet<(String, Ustr, usize, Ustr, bool)> {
+        let events: HashMap<usize, (&str, Ustr, usize)> = self
+            .node_ids
+            .iter()
+            .filter_map(|((path, sym, key), &id)| match key {
+                NodeKey::Event(ei) => Some((id, (path.as_str(), *sym, *ei))),
+                _ => None,
+            })
+            .collect();
+        let mut stepped = HashSet::new();
+        for edge in &self.graph.edges {
+            let (from, to) = (&self.graph.nodes[edge.from], &self.graph.nodes[edge.to]);
+            if from.path == to.path && from.func_sym == to.func_sym {
+                continue;
+            }
+            let (event, callee, returned) = match edge.kind {
+                EdgeKind::Call | EdgeKind::Binding => (edge.from, to.func_sym, false),
+                EdgeKind::Return => (edge.to, from.func_sym, true),
+                _ => continue,
+            };
+            if let Some(&(path, sym, ei)) = events.get(&event) {
+                stepped.insert((path.to_string(), sym, ei, callee, returned));
+                // (A call stepped over by its callee's summary: into it and
+                // back, as the summary is.)
+                if !returned && to.kind == NodeKind::Summary {
+                    stepped.insert((path.to_string(), sym, ei, callee, true));
+                }
+            }
+        }
+        stepped
     }
 
     /// An edge in the direction values flow.
@@ -1445,6 +1557,7 @@ impl<'s> Tracer<'s> {
                 label: name,
                 text,
                 detail: String::new(),
+                black_box: None,
             });
             match dir {
                 Dir::Forward => self.forward_ipdl_field(sym, id, 0).await,
@@ -1542,6 +1655,7 @@ impl<'s> Tracer<'s> {
             label: name,
             text,
             detail: String::new(),
+            black_box: None,
         });
         match dir {
             Dir::Forward => self.forward_field(&file, usize::MAX, sym, id, 0).await,
@@ -1718,6 +1832,7 @@ impl<'s> Tracer<'s> {
             text: String::new(),
             // (A hint's why.)
             detail: summary.hint.clone().unwrap_or_default(),
+            black_box: None,
         });
         self.node_ids.insert(map_key, id);
         id
@@ -1746,6 +1861,7 @@ impl<'s> Tracer<'s> {
             label: text.to_string(),
             text: String::new(),
             detail: String::new(),
+            black_box: None,
         });
         self.node_ids.insert(map_key, id);
         id
@@ -1784,12 +1900,18 @@ impl<'s> Tracer<'s> {
             if !hit {
                 continue;
             }
-            let to = match &flow.to {
-                Port::Return => Flow::Result(c),
+            let caller = &file.funcs[func];
+            let (to, owned) = match &flow.to {
+                Port::Return => (Flow::Result(c), false),
                 // (A constructor's object is its result.)
-                Port::This { .. } if call.kind == CallKind::Construct => Flow::Result(c),
+                Port::This { .. } if call.kind == CallKind::Construct => {
+                    (Flow::Result(c), constructs_owned(caller, c))
+                }
                 port => match port_place(call, port) {
-                    Some(place) => Flow::Place(place),
+                    Some(place) => {
+                        let owned = owned_value(caller, &place);
+                        (Flow::Place(place), owned)
+                    }
                     None => continue,
                 },
             };
@@ -1797,7 +1919,10 @@ impl<'s> Tracer<'s> {
                 to,
                 format!("{} → {}", port_text(&flow.from), port_text(&flow.to)),
             ));
+            // (The members' reads elsewhere, but not if the object is the
+            // caller's own; see `owned_value`.)
             if let Port::This { fields: f } = &flow.to
+                && !owned
                 && let Some(field) = f.last()
                 && !fields.contains(field)
             {
@@ -2372,6 +2497,11 @@ impl<'s> Tracer<'s> {
                     continue;
                 };
                 let cf = &caller_file.funcs[caller];
+                // (Not a black box's functions, whose calls of it the trace
+                // takes as theirs; see `mapping`.)
+                if self.black_box(&cf.pretty).is_some() {
+                    continue;
+                }
                 for (ci, call) in cf.calls.iter().enumerate() {
                     if call.line <= line && line <= call.end_line && call.callee.contains(&s) {
                         sites.push(Site {
@@ -2857,6 +2987,25 @@ impl<'s> Tracer<'s> {
                         }
                         None => {}
                     }
+                    // (A black box's call: its result from its arguments and
+                    // object, without stepping into it; see `mapping`.)
+                    if let Some(bb) = self.black_box(&call.callee_pretty) {
+                        let n = self.event_node(&file, func, ei);
+                        self.edge(node, n, kind, label.clone());
+                        let o = self.black_box_node(&file, func, c, &bb);
+                        self.edge(n, o, EdgeKind::BlackBox, bb.name.clone());
+                        self.push(
+                            &file,
+                            func,
+                            Flow::Result(c),
+                            epos,
+                            o,
+                            stack.clone(),
+                            hops,
+                            EdgeKind::Local,
+                        );
+                        continue;
+                    }
                     // (An accessor: by its summary.)
                     if let Some(summary) = self.accessor_summary(&call).await {
                         self.forward_summary(
@@ -3245,29 +3394,43 @@ impl<'s> Tracer<'s> {
         }
         match &p.root {
             Root::This if !p.path.is_empty() => {
-                // (Back to the receiver at the call we came from.)
-                if let Some(site) = stack.last() {
-                    let call = site.file.funcs[site.func].calls[site.call].clone();
-                    if let Some(receiver) = &call.receiver
-                        && let Some(rp) = &receiver.place
-                        && let Some(cn) = event_of_call(&site.file, site.func, site.call)
-                            .map(|ei| self.event_node(&site.file, site.func, ei))
-                    {
-                        let mut cp = rp.clone();
-                        cp.path.extend(p.path.iter().cloned());
-                        let cf = &site.file.funcs[site.func];
-                        self.edge(
-                            node,
-                            cn,
-                            EdgeKind::Return,
-                            format!("out {}", cf.place_name(&cp)),
-                        );
+                // (Back to the object at the call we came from: its receiver,
+                // or the object a constructor makes, its result.  If it's the
+                // caller's own, the member's reads in other functions are
+                // other objects'; see `owned_value`.)
+                let mut owned = false;
+                if let Some(site) = stack.last()
+                    && let Some(cn) = event_of_call(&site.file, site.func, site.call)
+                        .map(|ei| self.event_node(&site.file, site.func, ei))
+                {
+                    let cf = &site.file.funcs[site.func];
+                    let call = &cf.calls[site.call];
+                    let to = if call.kind == CallKind::Construct && call.receiver.is_none() {
+                        owned = constructs_owned(cf, site.call);
+                        result_read(cf, site.call).then(|| {
+                            let label = format!("out {}(…)", short_pretty(&call.callee_pretty));
+                            (Flow::Result(site.call), label)
+                        })
+                    } else {
+                        call.receiver
+                            .as_ref()
+                            .and_then(|r| r.place.clone())
+                            .map(|rp| {
+                                let mut cp = rp;
+                                cp.path.extend(p.path.iter().cloned());
+                                owned = owned_value(cf, &cp);
+                                let label = format!("out {}", cf.place_name(&cp));
+                                (Flow::Place(cp), label)
+                            })
+                    };
+                    if let Some((to, label)) = to {
+                        self.edge(node, cn, EdgeKind::Return, label);
                         let pos =
                             event_of_call(&site.file, site.func, site.call).map(|i| i as isize);
                         self.push(
                             &site.file,
                             site.func,
-                            Flow::Place(cp),
+                            to,
                             pos,
                             cn,
                             stack[..stack.len() - 1].to_vec(),
@@ -3277,7 +3440,8 @@ impl<'s> Tracer<'s> {
                     }
                 }
                 // (An IPDL struct's field: see `forward`'s, for fresh places.)
-                if let Some(field) = p.last_field()
+                if !owned
+                    && let Some(field) = p.last_field()
                     && !field.starts_with("IPDL_")
                 {
                     self.forward_field(file, func, field, node, hops).await;
@@ -3315,6 +3479,11 @@ impl<'s> Tracer<'s> {
                 continue;
             };
             if Arc::ptr_eq(&use_file, file) && uf == func {
+                continue;
+            }
+            // (Not in a black box's functions, whose calls stand for them;
+            // see `mapping`.)
+            if self.black_box(&use_file.funcs[uf].pretty).is_some() {
                 continue;
             }
             // (The places read at that line with the field.)
@@ -3474,6 +3643,18 @@ impl<'s> Tracer<'s> {
             }
             None => {}
         }
+        // (A black box's call: its result from its arguments and object; see
+        // `mapping`.)
+        if let Some(bb) = self.black_box(&call.callee_pretty) {
+            let o = self.black_box_node(file, func, c, &bb);
+            self.edge(o, n, EdgeKind::BlackBox, bb.name.clone());
+            let mut vals: Vec<Val> = call.args.iter().flat_map(|a| a.vals.clone()).collect();
+            if let Some(r) = &call.receiver {
+                vals.extend(r.vals.clone());
+            }
+            self.push_sources(file, func, &vals, epos, o, stack, hops, EdgeKind::Local);
+            return;
+        }
         // (An accessor: by its summary.)
         if let Some(summary) = self.accessor_summary(&call).await {
             let sn = self.summary_node(&summary, file.funcs[func].lang);
@@ -3483,9 +3664,12 @@ impl<'s> Tracer<'s> {
             for flow in summary.flows.iter().filter(|f| result(&f.to)) {
                 self.push_port_sources(file, func, &call, &flow.from, epos, sn, stack, hops + 1);
                 // (As from the accessor's read of its object's field: the
-                // field's writes elsewhere; see `backward_place`.)
+                // field's writes elsewhere, unless the object is the
+                // caller's own; see `backward_place` and `owned_value`.)
                 if let Port::This { fields } = &flow.from
                     && let Some(field) = fields.last()
+                    && !port_place(&call, &flow.from)
+                        .is_some_and(|place| owned_value(&file.funcs[func], &place))
                 {
                     self.backward_field(file, func, *field, sn, hops + 1).await;
                 }
@@ -4195,6 +4379,10 @@ impl<'s> Tracer<'s> {
         }
         match &p.root {
             Root::This if !p.path.is_empty() => {
+                // (If the receiver at the call we came from is the caller's
+                // own, the member's writes in other functions are other
+                // objects'; see `owned_value`.)
+                let mut owned = false;
                 if let Some(site) = stack.last() {
                     let call = site.file.funcs[site.func].calls[site.call].clone();
                     if let Some(receiver) = &call.receiver
@@ -4204,6 +4392,7 @@ impl<'s> Tracer<'s> {
                     {
                         let mut cp = rp.clone();
                         cp.path.extend(p.path.iter().cloned());
+                        owned = owned_value(&site.file.funcs[site.func], &cp);
                         self.edge(cn, node, EdgeKind::Call, "this".to_string());
                         let pos =
                             event_of_call(&site.file, site.func, site.call).map(|i| i as isize);
@@ -4224,8 +4413,10 @@ impl<'s> Tracer<'s> {
                     Some(field) if field.starts_with("IPDL_") => {
                         self.backward_ipdl_field(field, node, hops).await;
                     }
-                    Some(field) => self.backward_field(file, func, field, node, hops).await,
-                    None => {}
+                    Some(field) if !owned => {
+                        self.backward_field(file, func, field, node, hops).await
+                    }
+                    _ => {}
                 }
             }
             Root::Global(sym) => {
@@ -4279,6 +4470,10 @@ impl<'s> Tracer<'s> {
                 continue;
             };
             if Arc::ptr_eq(&use_file, file) && uf == func {
+                continue;
+            }
+            // (Not in a black box's functions; see `forward_field`.)
+            if self.black_box(&use_file.funcs[uf].pretty).is_some() {
                 continue;
             }
             let wf = &use_file.funcs[uf];
@@ -4678,6 +4873,57 @@ fn reads_place(f: &FuncIr, place: &Place) -> bool {
                 .any(|a| reads(&a.vals, &flow) || arg_place_hit(a, &flow))
         }
     })
+}
+
+/// Whether a place in a function is (a part of) a value of the function's
+/// own: a C++ local's or by-value parameter's, not through a pointer, and not
+/// a reference's (which may be another object's) or of a type we don't know.
+/// Its members' values are then read and written only through it, which the
+/// trace follows, so other functions' reads and writes of the members (see
+/// `forward_field` and `backward_field`) are other objects' (ex: every other
+/// `Result`'s `mImpl`, in `Result`'s methods, whose returns would go to all
+/// of their callers).
+fn owned_value(f: &FuncIr, place: &Place) -> bool {
+    // (JS's and Kotlin's objects are references, wherever they are.)
+    let Root::Local(sym) = &place.root else {
+        return false;
+    };
+    f.lang == Lang::Cpp
+        && !place.path.contains(&Step::Deref)
+        && f.types.get(sym).is_some_and(|ty| {
+            let ty = ty.trim_end();
+            !ty.ends_with('&') && !ty.ends_with('*')
+        })
+}
+
+/// Whether a function uses a call's result (ex: a constructor's object,
+/// rather than a base class's or a delegating constructor's, which construct
+/// part of `this`).
+fn result_read(f: &FuncIr, call: usize) -> bool {
+    let flow = Flow::Result(call);
+    f.events.iter().any(|e| match &e.kind {
+        EventKind::Assign { vals, .. } | EventKind::Return { vals } | EventKind::Test { vals } => {
+            reads(vals, &flow)
+        }
+        EventKind::Call(c) => {
+            let call = &f.calls[*c];
+            call.args
+                .iter()
+                .chain(call.receiver.iter())
+                .any(|a| reads(&a.vals, &flow))
+        }
+    })
+}
+
+/// Whether a construct call makes an object of the caller's own (see
+/// `owned_value`): a C++ local's or a temporary, which the caller uses,
+/// rather than one it allocates (`new T(...)`).
+fn constructs_owned(f: &FuncIr, call: usize) -> bool {
+    let c = &f.calls[call];
+    f.lang == Lang::Cpp
+        && c.kind == CallKind::Construct
+        && !c.text.trim_start().starts_with("new")
+        && result_read(f, call)
 }
 
 /// Whether a function writes a place (or a part of it, or what it's part of).

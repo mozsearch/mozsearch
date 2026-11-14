@@ -1,5 +1,7 @@
 {% if results.TextFile.mime_type == "image/svg+xml" %}
     {{ results.TextFile.contents }}
+{%- comment %}(A dataflow graph's black boxes' links show their internals.){% endcomment %}
+<script defer src="/{{tree}}/static/js/follow-internals.js"></script>
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.subway+json" %}
 {%- comment %}(A subway map's model, a JSON data block, whose global page-data.js sets before graph.js and subway.js run, deferred.){% endcomment %}
 <script type="application/json" data-global="SUBWAY">{{ results.TextFile.contents | escape_script_json }}</script>
@@ -12,6 +14,7 @@
 <div id="sw-legend" class="sw-legend"></div>
 </div>
 <script defer src="/{{tree}}/static/js/graph.js"></script>
+<script defer src="/{{tree}}/static/js/follow-internals.js"></script>
 <script defer src="/{{tree}}/static/js/subway.js"></script>
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.token-timeline+json" %}
 {%- comment %}(Tokens' timelines' model, a JSON data block; see token-timeline.js.){% endcomment %}

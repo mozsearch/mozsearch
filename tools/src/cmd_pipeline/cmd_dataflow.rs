@@ -118,6 +118,13 @@ pub struct Dataflow {
     #[clap(long)]
     no_summaries: bool,
 
+    /// Step into these (comma-separated) black boxes' functions (by their
+    /// groups in dataflow-mapping.toml, or "all"), rather than taking their
+    /// calls' results as coming from their arguments (see
+    /// `dataflow::mapping`).
+    #[clap(long)]
+    internals: Option<String>,
+
     /// Slice the changed lines in this (local) JSON file (see
     /// `dataflow::slice::ChangedLines`) into clusters, instead (`file` is
     /// ignored).
@@ -210,6 +217,15 @@ pub struct Dataflow {
     /// is ignored).
     #[clap(long)]
     field_edges: Option<String>,
+}
+
+/// The part of step cache arguments for dataflow-mapping.toml (see
+/// `dataflow::mapping`), which changes where traces go: its text's hash.
+fn mapping_cache_arg(server: &(dyn AbstractServer + Send + Sync)) -> String {
+    match server.dataflow_mapping() {
+        Some(mapping) => format!(" mapping {}", mapping.fingerprint()),
+        None => String::new(),
+    }
 }
 
 /// Tree paths given inline (comma-separated) or in a local file (one per
@@ -599,8 +615,8 @@ impl PipelineCommand for DataflowCommand {
         use crate::memory_budget::mib;
         let args = &self.args;
         let slicing = match (&args.slice_rev, &args.taint_audit) {
-            (Some(spec), _) => Some(("slice-rev", self.slice_rev_cache_args(spec))),
-            (None, Some(ty)) => Some(("taint-audit", self.audit_cache_args(ty))),
+            (Some(spec), _) => Some(("slice-rev", self.slice_rev_cache_args(server, spec))),
+            (None, Some(ty)) => Some(("taint-audit", self.audit_cache_args(server, ty))),
             _ => None,
         };
         if let Some((step, slicing_args)) = slicing {
@@ -677,7 +693,7 @@ impl PipelineCommand for DataflowCommand {
         }
         if let Some(spec) = &self.args.slice_rev {
             // (Cached, by everything slicing depends on; see `step_cache`.)
-            let args = self.slice_rev_cache_args(spec);
+            let args = self.slice_rev_cache_args(server, spec);
             let value =
                 crate::step_cache::cached(server.cache_identity(), "slice-rev", &args, || async {
                     let changes = server.rev_changed_lines(spec)?;
@@ -707,7 +723,7 @@ impl PipelineCommand for DataflowCommand {
         }
         if let Some(ty) = &self.args.taint_audit {
             // (Cached, as slicings are; see `step_cache`.)
-            let args = self.audit_cache_args(ty);
+            let args = self.audit_cache_args(server, ty);
             let value = crate::step_cache::cached(
                 server.cache_identity(),
                 "taint-audit",
@@ -901,23 +917,41 @@ impl DataflowCommand {
             ordered: !self.args.unordered,
             include_tests: self.args.include_tests,
             summaries: !self.args.no_summaries,
+            internals: self
+                .args
+                .internals
+                .iter()
+                .flat_map(|groups| groups.split(','))
+                .map(|group| group.trim().to_string())
+                .filter(|group| !group.is_empty())
+                .collect(),
         }
     }
 
     /// `slice-rev`'s step cache arguments (see `step_cache`).
-    fn slice_rev_cache_args(&self, spec: &str) -> String {
+    fn slice_rev_cache_args(
+        &self,
+        server: &(dyn AbstractServer + Send + Sync),
+        spec: &str,
+    ) -> String {
         format!(
-            "{} hops {} {:?} oracle {:?}",
+            "{} hops {} {:?} oracle {:?}{}",
             spec,
             self.args.slice_hops,
             self.trace_opts(),
-            self.args.oracle
+            self.args.oracle,
+            mapping_cache_arg(server)
         )
     }
 
     /// A taint audit's step cache arguments.
-    fn audit_cache_args(&self, ty: &str) -> String {
-        format!("taint-audit {} {:?}", ty, self.trace_opts())
+    fn audit_cache_args(&self, server: &(dyn AbstractServer + Send + Sync), ty: &str) -> String {
+        format!(
+            "taint-audit {} {:?}{}",
+            ty,
+            self.trace_opts(),
+            mapping_cache_arg(server)
+        )
     }
 
     fn taint_spec(&self) -> TaintSpec {

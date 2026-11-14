@@ -6170,6 +6170,22 @@ textarea.monospace {
   font-size: 0.85em;
   text-decoration: none;
 }
+/* A card's collapsed black boxes (calls a trace didn't step into; see
+   follow-internals.js): a chip whose menu shows their internals, and the
+   calls' rows, marked at their start. */
+.sw-black-box {
+  font: inherit;
+  font-size: 0.85em;
+  color: inherit;
+  background-color: var(--page-background);
+  padding: 0 6px;
+  border: 1px solid slateblue;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.sw-black-box-row {
+  box-shadow: inset 3px 0 0 slateblue;
+}
 .sw-row {
   position: relative;
   display: flex;

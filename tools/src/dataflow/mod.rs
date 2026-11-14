@@ -9,6 +9,7 @@ pub mod impact;
 pub mod ir;
 pub mod ir_cache;
 pub mod locks;
+pub mod mapping;
 pub mod oracle;
 pub mod records;
 pub mod render;

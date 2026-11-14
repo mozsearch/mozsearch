@@ -1,0 +1,2 @@
+# servers: local
+dataflow dataflow/dataflow.cpp --function BoxedUser --forward aSeed --format subway | jq ".contents | fromjson | {cards: [.cards[] | {func, black_boxes}], notes}"

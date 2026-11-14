@@ -220,3 +220,63 @@ add_task(async function test_DataflowFollowIpdlMessageParam() {
     ok(model.connectors.some(c => c.kind == "ipc"), "and the message's send to it");
   }
 });
+
+// A black box's calls (tests/dataflow-mapping.toml's "boxed" group; see
+// tools/src/dataflow/mapping.rs), which the trace doesn't step into: one
+// collapsed chip on the card calling them, whose menu shows their internals
+// (the query again with `follow-internals:`), as the legend's link does; and
+// in the dataflow graph (`follow-format:svg`), a node linking to them.
+add_task(async function test_DataflowFollowBlackBox() {
+  await TestUtils.resetFeatureGate("dataflow");
+  await TestUtils.loadPath("/tests/source/dataflow/dataflow.cpp");
+  const seed = [...frame.contentDocument.querySelectorAll(`#line-328 span[data-symbols]`)]
+    .find(span => span.textContent === "aSeed");
+  ok(seed, "BoxedUser's parameter's token is there");
+  TestUtils.click(seed);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the parameter");
+  let loaded = TestUtils.waitForLoad();
+  TestUtils.click(findFollowItem(menu, "Follow where aSeed goes"));
+  await loaded;
+
+  let { doc, model } = await tracedMap();
+  ok(!model.cards.some(card => card.func == "BoxedWrap" || card.func == "BoxedHelper"),
+     "The trace doesn't step into the black box's functions");
+  const chip = doc.querySelector(".sw-card .sw-black-box");
+  ok(chip?.textContent.includes("Boxed helpers"), `Their calls are a chip on the card: ${chip?.textContent}`);
+  ok(chip.title.includes("BoxedWrap, BoxedHelper"), `naming them: ${chip.title}`);
+  is(doc.querySelectorAll(".sw-black-box-row").length, 2, "whose rows are marked");
+  const chipMenu = doc.querySelector("#context-menu");
+  TestUtils.click(chip);
+  await waitForShown(chipMenu, "The chip's click shows its menu");
+  const show = [...chipMenu.querySelectorAll(".contextmenu-link")]
+    .find(link => link.textContent.includes("Show internals of Boxed helpers"));
+  ok(show, "which can show their internals");
+  ok(new URL(show.href).searchParams.get("q").endsWith(" follow-internals:boxed"),
+     `with the query again: ${show.href}`);
+  const legendLink = [...doc.querySelectorAll(".sw-legend-black-boxes a")]
+    .find(a => a.textContent == "show internals");
+  is(legendLink?.getAttribute("href"), show.getAttribute("href"), "as the legend's link does");
+
+  loaded = TestUtils.waitForLoad();
+  show.click();
+  await loaded;
+  ({ model } = await tracedMap());
+  ok(model.cards.some(card => card.func == "BoxedWrap") && model.cards.some(card => card.func == "BoxedHelper"),
+     "Showing their internals steps into them");
+  ok(!model.cards.some(card => card.black_boxes?.length), "and collapses nothing");
+
+  // (The dataflow graph's collapsed node links to the internals too.)
+  const query = frame.contentDocument.querySelector("#query").value
+    .replace(" follow-internals:boxed", "");
+  await TestUtils.loadQuery("tests", `${query} follow-format:svg`);
+  const node = [...frame.contentDocument.querySelectorAll("svg a")]
+    .find(a => (a.getAttribute("href") ?? a.getAttribute("xlink:href")) == "#follow-internals:boxed");
+  ok(node, "The graph's black box node links to its internals");
+  loaded = TestUtils.waitForLoad();
+  TestUtils.click(node, { bubbles: true, cancelable: true });
+  await loaded;
+  const q = new URL(frame.contentWindow.location.href).searchParams.get("q");
+  ok(q.includes("follow-format:svg") && q.endsWith(" follow-internals:boxed"),
+     `which loads the graph of the trace stepping into them: ${q}`);
+});

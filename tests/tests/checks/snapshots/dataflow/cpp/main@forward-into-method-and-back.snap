@@ -10,15 +10,10 @@ BumpedCount (dataflow/dataflow.cpp)
         -> #2 Widget::Bump (setter) in Widget::Bump [call: arg 0 → this.mCount]
   #3      63 call       call Widget::Count                 return widget.Count();
         -> #4 Widget::Count (getter) in Widget::Count [call: this.mCount → return]
-  #7      63 return     return                             return widget.Count();
+  #5      63 return     return                             return widget.Count();
 Widget::Bump (dataflow/dataflow.cpp)
   #2      47 summary    Widget::Bump (setter)              
         -> #3 call Widget::Count in BumpedCount [return: widget.mCount]
-        -> #5 this->mCount += [field: this->mCount]
-        -> #6 return in Widget::Count [field: this->mCount]
-  #5      47 assign     this->mCount +=                    void Bump(int aBy) { mCount += aBy; }
 Widget::Count (dataflow/dataflow.cpp)
   #4      48 summary    Widget::Count (getter)             
-        -> #7 return in BumpedCount [return: Widget::Count(…)]
-  #6      48 return     return                             int Count() const { return mCount; }
-        -> #3 call Widget::Count in BumpedCount [return: result]
+        -> #5 return in BumpedCount [return: Widget::Count(…)]

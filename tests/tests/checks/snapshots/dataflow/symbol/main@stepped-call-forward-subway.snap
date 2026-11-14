@@ -1,0 +1,155 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/stepped-call-forward-subway
+---
+{
+  "cards": [
+    {
+      "id": 0,
+      "func": "TwiceCaller",
+      "sym": "_Z11TwiceCallerii",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "seed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 316,
+              "text": "  int a = Twice(aSeed);",
+              "writes": [
+                1
+              ],
+              "traced": true,
+              "stops": [
+                0,
+                1
+              ]
+            },
+            {
+              "line": 317,
+              "text": "  int b = Twice(aOther);"
+            },
+            {
+              "line": 318,
+              "text": "  return a + b;",
+              "stops": [
+                1
+              ],
+              "traced": true
+            }
+          ],
+          "stops": [
+            0,
+            1
+          ],
+          "writes": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "func": "Twice",
+      "sym": "_ZL5Twicei",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 313,
+              "text": "static int Twice(int aValue) { return aValue + 1; }",
+              "stops": [
+                0
+              ],
+              "traced": true
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": []
+        }
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": 0,
+      "label": "aSeed",
+      "names": [
+        "aSeed",
+        "aValue"
+      ],
+      "type": "int",
+      "semantic": "int",
+      "family": 0,
+      "parents": [],
+      "syms": [
+        "V_427b3d5b9b83af50_0",
+        "V_a9271167f03595f3_0"
+      ]
+    },
+    {
+      "id": 1,
+      "label": "a",
+      "names": [
+        "a"
+      ],
+      "type": "int",
+      "semantic": "int",
+      "family": 0,
+      "parents": [
+        0
+      ],
+      "syms": [
+        "V_3316229e8cd670b8_606b2"
+      ]
+    }
+  ],
+  "families": [
+    {
+      "id": 0,
+      "root": 0,
+      "label": "aSeed",
+      "semantic": "int",
+      "cluster": 1
+    }
+  ],
+  "connectors": [
+    {
+      "from": 0,
+      "from_station": 0,
+      "to": 1,
+      "kind": "call",
+      "lines": [
+        0
+      ]
+    },
+    {
+      "from": 1,
+      "to": 0,
+      "to_station": 0,
+      "kind": "return",
+      "lines": [
+        0
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "n": 1,
+      "commits": ""
+    }
+  ],
+  "notes": [],
+  "trace": {
+    "title": "Where aSeed (dataflow.cpp:315) goes",
+    "dir": "forward"
+  }
+}
