@@ -195,6 +195,7 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         builder.macro_cx = Some(MacroCx {
             line: mac.line,
             col: mac.col,
+            end_line: mac.line,
             key: key.to_string(),
             platform: platform.to_string(),
             prefix: 0,
@@ -547,6 +548,11 @@ impl Ev {
 struct MacroCx {
     line: u32,
     col: u32,
+    /// The invocation's last line, which its expansion's nodes end at (so
+    /// that a call's range has the lines of its arguments, where its
+    /// callee's uses are, ex: `QueryCache(...)` on a `QM_TRY_INSPECT`'s
+    /// second line).
+    end_line: u32,
     key: String,
     platform: String,
     /// The length of what we wrapped the expansion in before it.
@@ -610,6 +616,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 questions: vec![],
                 guards: vec![],
                 locks: vec![],
+                macro_uses: vec![],
                 names: HashMap::new(),
                 types: HashMap::new(),
             },
@@ -693,7 +700,7 @@ impl<'c, 'a> Builder<'c, 'a> {
     /// The last line of a node (in the file).
     fn end_line(&self, node: Node) -> u32 {
         match &self.macro_cx {
-            Some(m) => m.line,
+            Some(m) => m.end_line,
             None => node.end_position().row as u32 + 1,
         }
     }
@@ -2145,6 +2152,37 @@ impl<'c, 'a> Builder<'c, 'a> {
     /// else treat it as an opaque call of its arguments.
     fn cpp_macro(&mut self, node: Node<'c>, name: Option<Node<'c>>, is_stmt: bool) -> Vec<Val> {
         let name_text = name.map(|n| self.t(n).to_string()).unwrap_or_default();
+        // (Its arguments' spans, for showing them; see `FuncIr::macro_uses`.)
+        if self.macro_cx.is_none()
+            && let Some(arguments) = node.child_by_field_name("arguments")
+        {
+            let span = |n: Node| {
+                let (start, end) = (n.start_position(), n.end_position());
+                Span {
+                    line: start.row as u32 + 1,
+                    col: start.column as u32,
+                    end_line: end.row as u32 + 1,
+                    end_col: end.column as u32,
+                }
+            };
+            let args: Vec<Span> = named(arguments)
+                .into_iter()
+                .flat_map(|a| match a.kind() {
+                    "macro_arguments" => named(a),
+                    _ => vec![a],
+                })
+                .filter(|a| a.kind() != "comment")
+                .map(span)
+                .collect();
+            if !args.is_empty() {
+                self.ir.macro_uses.push(MacroUse {
+                    name: name_text.clone(),
+                    line: node.start_position().row as u32 + 1,
+                    end_line: node.end_position().row as u32 + 1,
+                    args,
+                });
+            }
+        }
         if ASSERTION_MACROS.contains(&name_text.as_str()) {
             let args = node
                 .child_by_field_name("arguments")
@@ -2254,9 +2292,11 @@ impl<'c, 'a> Builder<'c, 'a> {
             return vec![];
         };
         let saved_text = std::mem::replace(&mut self.text, std::rc::Rc::from(parse.text.as_str()));
+        let end_line = node.end_position().row as u32 + 1;
         self.macro_cx = Some(MacroCx {
             line,
             col,
+            end_line,
             key,
             platform,
             prefix: prefix.len(),
@@ -3596,6 +3636,7 @@ fn empty_ir() -> FuncIr {
         questions: vec![],
         guards: vec![],
         locks: vec![],
+        macro_uses: vec![],
         names: HashMap::new(),
         types: HashMap::new(),
     }

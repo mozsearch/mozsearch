@@ -147,6 +147,43 @@ pub struct Card {
     /// static/js/subway.js).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub black_boxes: Vec<CardBlackBox>,
+    /// Its rows' invocations of macros with signatures (see
+    /// `dataflow::mapping`), which subway.js shows as blocks of their
+    /// labeled arguments.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub composites: Vec<Composite>,
+}
+
+/// An invocation of a macro with a signature, on a card's rows (all of its
+/// lines; see `Card::composites`).
+#[derive(Debug, Serialize)]
+pub struct Composite {
+    pub name: String,
+    pub signature: String,
+    pub line: u32,
+    pub end_line: u32,
+    pub args: Vec<CompositeArg>,
+}
+
+/// A macro invocation's argument: what it is (its signature's label for it),
+/// and where (its lines, from 1, and its UTF-16 columns in them, from 0, as
+/// the rows' text's).
+#[derive(Debug, Serialize)]
+pub struct CompositeArg {
+    pub label: String,
+    pub line: u32,
+    pub col: u32,
+    pub end_line: u32,
+    pub end_col: u32,
+}
+
+/// A byte column of a line as a UTF-16 one.
+fn utf16_col(line: &str, col: u32) -> u32 {
+    let col = (col as usize).min(line.len());
+    match line.get(..col) {
+        Some(prefix) => prefix.encode_utf16().count() as u32,
+        None => col as u32,
+    }
 }
 
 /// A card's calls of a black box's functions (see `Card::black_boxes`).
@@ -817,6 +854,7 @@ async fn subway_map_inner(
                 stations: vec![],
                 tainted_out: vec![],
                 black_boxes: vec![],
+                composites: vec![],
             });
             let mut sums = CallSummaries::new();
             for (c, call) in f.calls.iter().enumerate() {
@@ -1470,6 +1508,44 @@ async fn subway_map_inner(
                 validates: vec![],
             });
         }
+        // (Its invocations of macros with signatures, all of whose lines are
+        // a station's rows.)
+        for mu in &f.macro_uses {
+            let Some(signature) = tracer.macro_signature(&mu.name) else {
+                continue;
+            };
+            let card = &mut map.cards[func.card];
+            let whole = card.stations.iter().any(|station| {
+                (mu.line..=mu.end_line).all(|line| station.rows.iter().any(|row| row.line == line))
+            });
+            if !whole {
+                continue;
+            }
+            let col = |line: u32, col: u32| {
+                utf16_col(
+                    source_lines.get(line as usize - 1).copied().unwrap_or(""),
+                    col,
+                )
+            };
+            card.composites.push(Composite {
+                name: mu.name.clone(),
+                signature: signature.signature.clone(),
+                line: mu.line,
+                end_line: mu.end_line,
+                args: mu
+                    .args
+                    .iter()
+                    .enumerate()
+                    .map(|(i, span)| CompositeArg {
+                        label: signature.args.get(i).cloned().unwrap_or_default(),
+                        line: span.line,
+                        col: col(span.line, span.col),
+                        end_line: span.end_line,
+                        end_col: col(span.end_line, span.end_col),
+                    })
+                    .collect(),
+            });
+        }
     }
     // (Declarations: a file's changed lines outside functions, with their
     // fields.)
@@ -1531,6 +1607,7 @@ async fn subway_map_inner(
             stations,
             tainted_out: vec![],
             black_boxes: vec![],
+            composites: vec![],
         });
     }
     // (Families' clusters: their roots' first cards'.)

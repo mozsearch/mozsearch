@@ -1,0 +1,69 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/macro-composite-forward-subway
+---
+{
+  "cards": [
+    {
+      "func": "ConsumeResult",
+      "composites": [
+        {
+          "name": "DF_TRY_ASSIGN",
+          "signature": "DF_TRY_ASSIGN(target, expr)",
+          "line": 349,
+          "end_line": 350,
+          "args": [
+            {
+              "label": "into",
+              "line": 349,
+              "col": 16,
+              "end_line": 349,
+              "end_col": 21
+            },
+            {
+              "label": "tries",
+              "line": 350,
+              "col": 16,
+              "end_line": 350,
+              "end_col": 37
+            }
+          ]
+        }
+      ],
+      "rows": [
+        {
+          "line": 348,
+          "text": "  int value = 0;",
+          "traced": null
+        },
+        {
+          "line": 349,
+          "text": "  DF_TRY_ASSIGN(value,",
+          "traced": true
+        },
+        {
+          "line": 350,
+          "text": "                ProduceResult(aInput));",
+          "traced": null
+        },
+        {
+          "line": 351,
+          "text": "  return value;",
+          "traced": true
+        }
+      ]
+    },
+    {
+      "func": "ProduceResult",
+      "composites": null,
+      "rows": [
+        {
+          "line": 345,
+          "text": "static int ProduceResult(int aInput) { return aInput + 1; }",
+          "traced": true
+        }
+      ]
+    }
+  ]
+}

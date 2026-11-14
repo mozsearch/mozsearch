@@ -1,0 +1,2 @@
+# servers: local
+dataflow dataflow/dataflow.cpp --function ConsumeResult --forward aInput --format subway | jq ".contents | fromjson | {cards: [.cards[] | {func, composites, rows: [.stations[].rows[] | {line, text, traced}]}]}"

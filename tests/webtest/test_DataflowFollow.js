@@ -280,3 +280,36 @@ add_task(async function test_DataflowFollowBlackBox() {
   ok(q.includes("follow-format:svg") && q.endsWith(" follow-internals:boxed"),
      `which loads the graph of the trace stepping into them: ${q}`);
 });
+
+// A macro with a signature (tests/dataflow-mapping.toml's DF_TRY_ASSIGN; see
+// tools/src/dataflow/mapping.rs) is a block of its labeled arguments, all of
+// its lines (here, two), whose traced arguments are highlighted.
+add_task(async function test_DataflowFollowMacroComposite() {
+  await TestUtils.resetFeatureGate("dataflow");
+  await TestUtils.loadPath("/tests/source/dataflow/dataflow.cpp");
+  const input = [...frame.contentDocument.querySelectorAll(`#line-347 span[data-symbols]`)]
+    .find(span => span.textContent === "aInput");
+  ok(input, "ConsumeResult's parameter's token is there");
+  TestUtils.click(input);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the parameter");
+  const loaded = TestUtils.waitForLoad();
+  TestUtils.click(findFollowItem(menu, "Follow where aInput goes"));
+  await loaded;
+
+  const { doc } = await tracedMap();
+  const head = doc.querySelector(".sw-composite-head");
+  is(head?.querySelector(".sw-composite-name")?.textContent, "DF_TRY_ASSIGN",
+     "The macro's invocation is a block, named after it");
+  is(head.querySelector(".sw-composite-name").title, "DF_TRY_ASSIGN(target, expr)",
+     "whose signature is its name's tooltip");
+  const args = [...doc.querySelectorAll(".sw-composite-arg")].map(row => ({
+    label: row.querySelector(".sw-composite-label").textContent,
+    code: row.querySelector(".sw-code").textContent.replace(row.querySelector(".sw-composite-label").textContent, "").trim(),
+    traced: row.classList.contains("sw-traced"),
+  }));
+  is(JSON.stringify(args.map(arg => [arg.label, arg.code])),
+     JSON.stringify([["into", "value"], ["tries", "ProduceResult(aInput)"]]),
+     `with its arguments, labeled, from both of its lines: ${JSON.stringify(args)}`);
+  ok(args.every(arg => arg.traced), "both traced, as the value goes into the target");
+});

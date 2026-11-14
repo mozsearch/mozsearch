@@ -6,3 +6,9 @@ group = "boxed"
 name = "Boxed helpers"
 why = "Helpers whose internals don't matter to the tests' traces."
 functions = ["BoxedWrap", "BoxedHelper"]
+
+# tests/tests/files/dataflow/dataflow.cpp's QM_TRY_INSPECT-like macro.
+[[macro]]
+names = ["DF_TRY_ASSIGN"]
+signature = "DF_TRY_ASSIGN(target, expr)"
+args = ["into", "tries"]

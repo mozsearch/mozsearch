@@ -63,6 +63,11 @@ var SubwayMap = new (class SubwayMap {
     this.rev = new URLSearchParams(document.location.search).get("rev");
     this.hiddenLines = new Set();
     this.hiddenCards = new Set();
+    // (The values' symbols, which a macro's argument has if it's traced.)
+    this.valueSyms = new Set(this.model.lines.flatMap(line => line.syms ?? []));
+    for (const card of this.model.cards) {
+      this.expandComposites(card);
+    }
     this.colors = this.allocateColors();
     this.addStyles();
     this.buildLegend();
@@ -544,6 +549,7 @@ var SubwayMap = new (class SubwayMap {
     element.append(head);
 
     let position = 0;
+    let shownLine = null;
     card.stations.forEach((station, si) => {
       // (Its rows, which hovering highlights, with its lines.)
       const box = document.createElement("div");
@@ -575,7 +581,10 @@ var SubwayMap = new (class SubwayMap {
         const div = document.createElement("div");
         div.className = "sw-row" + (row.changed ? " sw-changed" : "") +
           (row.traced ? " sw-traced" : "") +
-          (blackBoxLines.has(row.line) ? " sw-black-box-row" : "");
+          (blackBoxLines.has(row.line) && !row.node ? " sw-black-box-row" : "") +
+          (row.composite ? " sw-composite-head" : "") +
+          (row.node ? " sw-composite-arg" : "") +
+          (row.argEnd ? " sw-composite-end" : "");
         if (blackBoxLines.has(row.line)) {
           div.title = `Calls into ${blackBoxLines.get(row.line).join(", ")}, collapsed`;
         }
@@ -583,10 +592,26 @@ var SubwayMap = new (class SubwayMap {
         const number = document.createElement("a");
         number.className = "sw-lno";
         number.href = this.sourceURL(card.path, row.line);
-        number.textContent = row.line;
+        // (Once for a line's rows, as a macro's arguments can share one.)
+        number.textContent = row.line == shownLine ? "" : row.line;
+        shownLine = row.line;
         const code = document.createElement("code");
         code.className = "sw-code";
-        if (row.html) {
+        if (row.composite) {
+          // (A macro's invocation's block's head: its name, and its
+          // signature as its tooltip.)
+          const name = document.createElement("span");
+          name.className = "sw-composite-name";
+          name.textContent = row.composite.name;
+          name.title = row.composite.signature;
+          code.append(name);
+        } else if (row.node) {
+          // (An argument's lines: the first labeled with what it is.)
+          const label = document.createElement("span");
+          label.className = "sw-composite-label";
+          label.textContent = row.label;
+          code.append(label, row.node.cloneNode(true));
+        } else if (row.html) {
           TrustedHTML.set(code, row.html);
         } else {
           code.textContent = row.text;
@@ -600,6 +625,117 @@ var SubwayMap = new (class SubwayMap {
 
   rerender() {
     this.graph?.setInput(this.input());
+  }
+
+  /**
+   * A card's invocations of macros with signatures (see the tools'
+   * `subway::Composite`, from dataflow-mapping.toml) as blocks of their
+   * arguments: a row naming the macro, then each argument's lines, the first
+   * labeled with what it is (ex: "tries"), their code the rows' split at its
+   * columns; in place of the invocation's rows in their station, so that the
+   * tracks' positions are the shown rows'.  An argument with a token of the
+   * values stopping there is traced, and the lines stopping at the
+   * invocation stop at its first traced argument (or else its name).
+   */
+  expandComposites(card) {
+    for (const composite of card.composites ?? []) {
+      const station = card.stations.find(s =>
+        s.rows.some(row => row.line == composite.line) &&
+        s.rows.some(row => row.line == composite.end_line));
+      if (!station) {
+        continue;
+      }
+      const first = station.rows.findIndex(row => row.line == composite.line);
+      const last = station.rows.findIndex(row => row.line == composite.end_line);
+      if (last < first) {
+        continue;
+      }
+      const source = station.rows.slice(first, last + 1);
+      const byLine = new Map(source.map(row => [row.line, row]));
+      const head = {
+        line: composite.line,
+        composite,
+        changed: source.some(row => row.changed),
+        traced: source.some(row => row.traced),
+        skipped: source[0].skipped,
+      };
+      const rows = [head];
+      let stopsAt = head;
+      // (And the lines connected at the station, as an argument passed to a
+      // call isn't a stop of its own.)
+      const si = card.stations.indexOf(station);
+      const connected = this.model.connectors
+        .filter(c => (c.from == card.id && c.from_station == si) || (c.to == card.id && c.to_station == si))
+        .flatMap(c => c.lines);
+      const stoppingNames = new Set([...source.flatMap(row => row.stops ?? []), ...connected]
+        .flatMap(line => this.model.lines[line]?.names ?? []));
+      composite.args.forEach((arg, ai) => {
+        const argRows = [];
+        for (let line = arg.line; line <= arg.end_line; line++) {
+          const row = byLine.get(line);
+          if (!row) {
+            continue;
+          }
+          // (Its later lines without their indentation up to its first's
+          // column, as it's no longer after the macro's name.)
+          const indent = (row.text ?? "").match(/^\s*/)[0].length;
+          argRows.push({
+            line,
+            label: line == arg.line ? arg.label || "\u2026" : "",
+            node: this.rowSlice(row, line == arg.line ? arg.col : Math.min(arg.col, indent),
+                                line == arg.end_line ? arg.end_col : Infinity),
+            changed: row.changed,
+            argEnd: ai == composite.args.length - 1 && line == arg.end_line,
+          });
+        }
+        // (By its tokens' symbols, or their names, of the values stopping at
+        // the invocation, as a token's symbol can be another than its
+        // value's line has.)
+        const traced = argRows.some(row => [...row.node.querySelectorAll("[data-symbols]")]
+          .some(token => token.dataset.symbols.split(",").some(sym => this.valueSyms.has(sym)) ||
+                stoppingNames.has(token.textContent)));
+        for (const row of argRows) {
+          row.traced = traced;
+        }
+        if (traced && stopsAt == head && argRows.length) {
+          stopsAt = argRows[0];
+        }
+        rows.push(...argRows);
+      });
+      stopsAt.stops = [...new Set(source.flatMap(row => row.stops ?? []))];
+      stopsAt.writes = [...new Set(source.flatMap(row => row.writes ?? []))];
+      station.rows.splice(first, last - first + 1, ...rows);
+    }
+  }
+
+  /** A row's code (its HTML's nodes) from one UTF-16 column to another. */
+  rowSlice(row, start, end) {
+    const code = document.createElement("code");
+    if (row.html) {
+      TrustedHTML.set(code, row.html);
+    } else {
+      code.textContent = row.text;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(code);
+    const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
+    let offset = 0;
+    let started = false;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const length = node.data.length;
+      if (!started && start <= offset + length) {
+        range.setStart(node, Math.max(0, start - offset));
+        started = true;
+      }
+      if (end <= offset + length) {
+        range.setEnd(node, Math.max(0, end - offset));
+        break;
+      }
+      offset += length;
+    }
+    const slice = document.createElement("span");
+    slice.append(range.cloneContents());
+    return slice;
   }
 
   /**

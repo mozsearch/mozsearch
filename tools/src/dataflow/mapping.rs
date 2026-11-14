@@ -11,6 +11,11 @@
 //! diagrams show a group's calls as one collapsed node, whose context menu
 //! can show their internals (the trace again, stepping into them; see
 //! `TraceOpts::internals`).
+//!
+//! And function-like macros' signatures (ex: dom/quota's `QM_TRY(expr[,
+//! customRetVal, cleanup, predicate])`), whose invocations the diagrams with
+//! source listings show as labeled blocks of their arguments (see
+//! `subway::Composite` and static/js/subway.js).
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -24,6 +29,25 @@ use super::summary::untemplated_pretty;
 struct MappingToml {
     #[serde(default, rename = "black-box")]
     black_boxes: Vec<BlackBoxToml>,
+    #[serde(default, rename = "macro")]
+    macros: Vec<MacroToml>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MacroToml {
+    names: Vec<String>,
+    signature: String,
+    args: Vec<String>,
+}
+
+/// A function-like macro's signature: its documented form (ex: `QM_TRY(expr[,
+/// customRetVal, cleanup, predicate])`), and what each of its arguments is,
+/// in order (ex: "tries", "on error, returns"), for its invocations' blocks.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct MacroSignature {
+    pub signature: String,
+    pub args: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -56,6 +80,8 @@ pub struct DataflowMapping {
     /// The black boxes' prefixes (ending in "::", a class's or namespace's
     /// functions), longest first.
     prefixes: Vec<(String, usize)>,
+    /// The macros' signatures, by their names.
+    macros: HashMap<String, MacroSignature>,
 }
 
 impl DataflowMapping {
@@ -71,6 +97,7 @@ impl DataflowMapping {
             },
             functions: HashMap::new(),
             prefixes: vec![],
+            macros: HashMap::new(),
         };
         for (i, bb) in toml.black_boxes.into_iter().enumerate() {
             if mapping
@@ -97,6 +124,21 @@ impl DataflowMapping {
         mapping
             .prefixes
             .sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
+        for m in toml.macros {
+            let signature = MacroSignature {
+                signature: m.signature,
+                args: m.args,
+            };
+            for name in m.names {
+                if mapping
+                    .macros
+                    .insert(name.clone(), signature.clone())
+                    .is_some()
+                {
+                    return Err(format!("macro {:?} is defined twice", name));
+                }
+            }
+        }
         Ok(mapping)
     }
 
@@ -126,6 +168,11 @@ impl DataflowMapping {
     /// A hash of its text, for caching what traces find (see `step_cache`).
     pub fn fingerprint(&self) -> &str {
         &self.fingerprint
+    }
+
+    /// A macro's signature, by its name.
+    pub fn macro_signature(&self, name: &str) -> Option<&MacroSignature> {
+        self.macros.get(name)
     }
 
     /// The black box a function is in, by its pretty name (with or without
@@ -191,5 +238,26 @@ functions = ["mozilla::Result::", "mozilla::ToResult", "mozilla::detail::ResultI
         };
         let mapping = DataflowMapping::parse(&text).unwrap();
         assert!(mapping.black_box("mozilla::Result::unwrap").is_some());
+        assert_eq!(
+            mapping
+                .macro_signature("QM_TRY_INSPECT")
+                .map(|m| m.args[1].as_str()),
+            Some("tries")
+        );
+    }
+
+    #[test]
+    fn test_macro_signatures() {
+        let mapping = DataflowMapping::parse(
+            r#"
+[[macro]]
+names = ["DF_TRY", "DF_TRY_TOO"]
+signature = "DF_TRY(expr[, ret])"
+args = ["tries", "on error, returns"]
+"#,
+        )
+        .unwrap();
+        assert_eq!(mapping.macro_signature("DF_TRY_TOO").unwrap().args.len(), 2);
+        assert!(mapping.macro_signature("DF_OTHER").is_none());
     }
 }

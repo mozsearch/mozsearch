@@ -470,11 +470,35 @@ pub struct FuncIr {
     /// Where it holds or releases mutexes (see `LockRegion`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub locks: Vec<LockRegion>,
+    /// Its function-like macros' invocations (in its own source, not in
+    /// other macros' expansions), with their arguments' spans, for showing
+    /// them (see `mapping::MacroSignature`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub macro_uses: Vec<MacroUse>,
     /// Display names of the symbols in its places (locals, fields, globals).
     pub names: HashMap<Ustr, String>,
     /// The types of its locals and parameters, where the records have them
     /// (C++'s and scip-typescript's).
     pub types: HashMap<Ustr, String>,
+}
+
+/// A function-like macro's invocation (see `FuncIr::macro_uses`).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MacroUse {
+    pub name: String,
+    pub line: u32,
+    pub end_line: u32,
+    pub args: Vec<Span>,
+}
+
+/// A span of source: its first and last lines (from 1), and the byte columns
+/// (from 0) where it starts and ends (exclusive).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Span {
+    pub line: u32,
+    pub col: u32,
+    pub end_line: u32,
+    pub end_col: u32,
 }
 
 impl FuncIr {
@@ -727,6 +751,7 @@ mod tests {
             questions: vec![],
             guards: vec![],
             locks: vec![],
+            macro_uses: vec![],
             names,
             types: HashMap::new(),
         }

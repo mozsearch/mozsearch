@@ -75,3 +75,71 @@ functions = [
   "CallCreateInstance",
   "CallGetService",
 ]
+
+# ## Macros
+#
+# Function-like macros whose invocations the diagrams with source listings
+# (ex: traces' subway maps) show as one block of their arguments, each
+# labeled, in order, by `args` (an invocation passing fewer, as variadic
+# macros' do, has fewer).  `signature` is its documented form, for people.
+# (Their dataflow is their expansions'.)
+
+[[macro]]
+names = ["QM_TRY"]
+signature = "QM_TRY(expr[, customRetVal, cleanup, predicate])"
+args = ["tries", "on error, returns", "on error, also runs", "reports the error if"]
+
+[[macro]]
+names = ["QM_TRY_UNWRAP", "QM_TRY_INSPECT"]
+signature = "QM_TRY_UNWRAP(target, expr[, customRetVal, cleanup])"
+args = ["into", "tries", "on error, returns", "on error, also runs"]
+
+[[macro]]
+names = ["QM_TRY_RETURN"]
+signature = "QM_TRY_RETURN(expr[, customRetVal, cleanup])"
+args = ["returns", "on error, returns", "on error, also runs"]
+
+[[macro]]
+names = ["QM_FAIL"]
+signature = "QM_FAIL(retVal[, cleanup])"
+args = ["returns", "also runs"]
+
+[[macro]]
+names = ["QM_WARNONLY_TRY", "QM_INFOONLY_TRY", "QM_VERBOSEONLY_TRY"]
+signature = "QM_WARNONLY_TRY(expr[, cleanup])"
+args = ["tries, reporting errors", "on error, also runs"]
+
+[[macro]]
+names = ["QM_WARNONLY_TRY_UNWRAP", "QM_INFOONLY_TRY_UNWRAP", "QM_VERBOSEONLY_TRY_UNWRAP"]
+signature = "QM_WARNONLY_TRY_UNWRAP(target, expr[, cleanup])"
+args = ["into, if it succeeds", "tries, reporting errors", "on error, also runs"]
+
+[[macro]]
+names = ["QM_OR_ELSE_WARN", "QM_OR_ELSE_INFO", "QM_OR_ELSE_LOG_VERBOSE"]
+signature = "QM_OR_ELSE_WARN(expr, fallback)"
+args = ["tries", "on error, falls back to"]
+
+[[macro]]
+names = ["QM_OR_ELSE_WARN_IF", "QM_OR_ELSE_INFO_IF", "QM_OR_ELSE_LOG_VERBOSE_IF"]
+signature = "QM_OR_ELSE_WARN_IF(expr, predicate, fallback)"
+args = ["tries", "on errors for which", "falls back to"]
+
+[[macro]]
+names = ["MOZ_TRY"]
+signature = "MOZ_TRY(expr)"
+args = ["tries (its value, if it succeeds)"]
+
+[[macro]]
+names = ["NS_ENSURE_SUCCESS"]
+signature = "NS_ENSURE_SUCCESS(res, ret)"
+args = ["checks", "on failure, returns"]
+
+[[macro]]
+names = ["NS_ENSURE_TRUE"]
+signature = "NS_ENSURE_TRUE(x, ret)"
+args = ["checks", "if false, returns"]
+
+[[macro]]
+names = ["NS_ENSURE_FALSE"]
+signature = "NS_ENSURE_FALSE(x, ret)"
+args = ["checks", "if true, returns"]

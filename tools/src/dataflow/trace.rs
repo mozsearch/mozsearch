@@ -1329,6 +1329,11 @@ impl<'s> Tracer<'s> {
         (!shown).then(|| bb.clone())
     }
 
+    /// A macro's signature (see `mapping`), by its name.
+    pub fn macro_signature(&self, name: &str) -> Option<super::mapping::MacroSignature> {
+        self.mapping.as_ref()?.macro_signature(name).cloned()
+    }
+
     /// The mapping's text's hash, for caching what traces find (see
     /// `step_cache`), as it changes where they go.
     pub fn mapping_fingerprint(&self) -> String {

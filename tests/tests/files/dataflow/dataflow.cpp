@@ -330,3 +330,23 @@ int BoxedUser(int aSeed) {
   int again = BoxedHelper(wrapped);
   return again;
 }
+
+// A macro like QM_TRY_INSPECT, whose invocation calls a function on its
+// second line, where the function's use is: a trace from the function's
+// parameter returns to the call in the macro's expansion (which has the
+// invocation's lines).
+#define DF_TRY_ASSIGN(aTarget, aExpr) \
+  auto dfTryResult = (aExpr);         \
+  if (dfTryResult < 0) {              \
+    return dfTryResult;               \
+  }                                   \
+  aTarget = dfTryResult
+
+static int ProduceResult(int aInput) { return aInput + 1; }
+
+int ConsumeResult(int aInput) {
+  int value = 0;
+  DF_TRY_ASSIGN(value,
+                ProduceResult(aInput));
+  return value;
+}

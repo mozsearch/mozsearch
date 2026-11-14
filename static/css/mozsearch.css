@@ -6186,6 +6186,29 @@ textarea.monospace {
 .sw-black-box-row {
   box-shadow: inset 3px 0 0 slateblue;
 }
+/* A macro invocation's block (see subway.js's `expandComposites`): its name,
+   then its arguments' lines inside a border, each argument's first labeled
+   with what it is, in a column of their own. */
+.sw-composite-head .sw-code,
+.sw-composite-arg .sw-code {
+  border-left: 2px solid var(--blame-light-gray);
+  padding-left: 6px;
+}
+.sw-composite-end .sw-code {
+  border-bottom: 1px solid var(--blame-light-gray);
+}
+.sw-composite-name {
+  font-weight: bold;
+}
+.sw-composite-label {
+  display: inline-block;
+  min-width: 10em;
+  margin-right: 0.5em;
+  font-family: sans-serif;
+  font-size: 0.85em;
+  font-style: italic;
+  opacity: 0.75;
+}
 .sw-row {
   position: relative;
   display: flex;

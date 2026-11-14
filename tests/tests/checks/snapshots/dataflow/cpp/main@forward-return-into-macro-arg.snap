@@ -1,0 +1,22 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/forward-return-into-macro-arg
+---
+ProduceResult (dataflow/dataflow.cpp)
+  #0     345 seed       aInput                             static int ProduceResult(int aInput) { return aInput + 1; }
+        -> #1 return [local: aInput]
+  #1     345 return     return                             static int ProduceResult(int aInput) { return aInput + 1; }
+        -> #2 call ProduceResult in ConsumeResult [return: result]
+ConsumeResult (dataflow/dataflow.cpp)
+  #2     349 call       call ProduceResult                 DF_TRY_ASSIGN(value,
+        -> #3 dfTryResult = [local: ProduceResult(…)]
+  #3     349 assign     dfTryResult =                      DF_TRY_ASSIGN(value,
+        -> #4 test [local: dfTryResult]
+        -> #5 return [local: dfTryResult]
+        -> #6 value = [local: dfTryResult]
+  #4     349 test       test                               DF_TRY_ASSIGN(value,
+  #5     349 return     return                             DF_TRY_ASSIGN(value,
+  #6     349 assign     value =                            DF_TRY_ASSIGN(value,
+        -> #7 return [local: value]
+  #7     351 return     return                             return value;
