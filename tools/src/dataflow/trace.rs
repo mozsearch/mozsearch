@@ -2514,7 +2514,11 @@ impl<'s> Tracer<'s> {
                 for (ci, call) in cf.calls.iter().enumerate() {
                     let calls_it = call.callee.contains(&s)
                         || (s == sym && call.callee.iter().any(|c| alt_syms.contains(c)));
-                    if call.line <= line && line <= call.end_line && calls_it {
+                    // (Or at its macro's invocation, where the records of the
+                    // symbols its definition spells are; see `Call::macro_line`.)
+                    let at = (call.line <= line && line <= call.end_line)
+                        || call.macro_line == Some(line);
+                    if at && calls_it {
                         sites.push(Site {
                             file: caller_file.clone(),
                             func: caller,

@@ -675,9 +675,15 @@ var SubwayMap = new (class SubwayMap {
           (blackBoxLines.has(row.line) && !row.node ? " sw-black-box-row" : "") +
           (row.composite ? " sw-composite-head" : "") +
           (row.node ? " sw-composite-arg" : "") +
-          (row.argEnd ? " sw-composite-end" : "");
+          (row.argEnd ? " sw-composite-end" : "") +
+          (row.context ? " sw-context-row" : "");
         if (blackBoxLines.has(row.line)) {
           div.title = `Calls into ${blackBoxLines.get(row.line).join(", ")}, collapsed`;
+        }
+        // (The macro's invocation the station's other rows are in; see the
+        // tools' `Row::context`.)
+        if (row.context) {
+          div.title = "The macro's invocation the lines below are in (its expansion's)";
         }
         div.append(this.gutter(tracks, position), this.dots(tracks, position));
         const number = document.createElement("a");

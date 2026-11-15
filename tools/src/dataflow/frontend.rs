@@ -202,6 +202,8 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
             platform: platform.to_string(),
             prefix: 0,
             name: mac.short_name().to_string(),
+            // (Its invocation's line is all of its lines.)
+            anchors: vec![],
         });
         builder.ir.line = mac.line;
         builder.ir.end_line = mac.line;
@@ -560,16 +562,41 @@ impl Ev {
 struct MacroCx {
     line: u32,
     col: u32,
-    /// The invocation's last line, which its expansion's nodes end at (so
-    /// that a call's range has the lines of its arguments, where its
-    /// callee's uses are, ex: `QueryCache(...)` on a `QM_TRY_INSPECT`'s
-    /// second line).
+    /// The invocation's last line, which its expansion's nodes without
+    /// anchors end at (so that a call's range has the lines of its
+    /// arguments, where its callee's uses are, ex: `QueryCache(...)` on a
+    /// `QM_TRY_INSPECT`'s second line).
     end_line: u32,
     key: String,
     platform: String,
     /// The length of what we wrapped the expansion in before it.
     prefix: usize,
     name: String,
+    /// Where the expansion's tokens are spelled in the invocation, by their
+    /// offsets in the expansion, in order (see `expansion_anchors`).
+    anchors: Vec<(usize, u32, u32)>,
+}
+
+impl MacroCx {
+    /// Where a node of the expansion is in the invocation, by the tokens in
+    /// it spelled there (its anchors): the first one's line and column, and
+    /// the last line, ex: a call in a lambda in `QM_TRY(CollectWhile(...))`,
+    /// on the lambda's line, rather than the macro's.  None if it has none
+    /// (ex: the macro's own code).
+    fn span(&self, node: Node) -> Option<(u32, u32, u32)> {
+        let start = node.start_byte().checked_sub(self.prefix)?;
+        let end = node.end_byte().checked_sub(self.prefix)?;
+        let i = self.anchors.partition_point(|a| a.0 < start);
+        let mut first: Option<(u32, u32)> = None;
+        let mut last = 0;
+        for &(_, line, col) in self.anchors[i..].iter().take_while(|a| a.0 < end) {
+            if first.is_none_or(|f| (line, col) < f) {
+                first = Some((line, col));
+            }
+            last = last.max(line);
+        }
+        first.map(|(line, col)| (line, col, last))
+    }
 }
 
 struct Builder<'c, 'a> {
@@ -674,7 +701,10 @@ impl<'c, 'a> Builder<'c, 'a> {
 
     fn pos(&self, node: Node) -> (u32, u32) {
         match &self.macro_cx {
-            Some(m) => (m.line, m.col),
+            Some(m) => m
+                .span(node)
+                .map(|(line, col, _)| (line, col))
+                .unwrap_or((m.line, m.col)),
             None => {
                 let p = node.start_position();
                 (p.row as u32 + 1, p.column as u32)
@@ -713,7 +743,7 @@ impl<'c, 'a> Builder<'c, 'a> {
     /// The last line of a node (in the file).
     fn end_line(&self, node: Node) -> u32 {
         match &self.macro_cx {
-            Some(m) => m.end_line,
+            Some(m) => m.span(node).map(|(_, _, last)| last).unwrap_or(m.end_line),
             None => node.end_position().row as u32 + 1,
         }
     }
@@ -728,6 +758,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             kind,
             in_lambda: self.lambda_depth > 0,
             macro_name: self.macro_cx.as_ref().map(|m| m.name.clone()),
+            macro_line: self.macro_cx.as_ref().map(|m| m.line),
             text: self.cx.line_text(line),
         });
     }
@@ -1172,6 +1203,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             text: self.trunc(self.t(node), 80),
             in_macro: self.macro_cx.is_some()
                 || (!callee_recs.is_empty() && callee_recs.iter().all(|rec| rec.in_expansion)),
+            macro_line: self.macro_cx.as_ref().map(|m| m.line),
         });
         self.event(node, EventKind::Call(id));
         id
@@ -2228,6 +2260,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                     kind: EventKind::Test { vals },
                     in_lambda: self.lambda_depth > 0,
                     macro_name: Some(name_text),
+                    macro_line: Some(line),
                     text: self.cx.line_text(line),
                 });
             }
@@ -2306,6 +2339,7 @@ impl<'c, 'a> Builder<'c, 'a> {
         };
         let saved_text = std::mem::replace(&mut self.text, std::rc::Rc::from(parse.text.as_str()));
         let end_line = node.end_position().row as u32 + 1;
+        let anchors = self.expansion_anchors(node, line, col, &key, &platform);
         self.macro_cx = Some(MacroCx {
             line,
             col,
@@ -2314,6 +2348,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             platform,
             prefix: prefix.len(),
             name: name_text,
+            anchors,
         });
         let mut vals = vec![];
         // SAFETY of lifetimes: the expansion's nodes don't outlive this
@@ -2327,6 +2362,66 @@ impl<'c, 'a> Builder<'c, 'a> {
         self.macro_cx = None;
         self.text = saved_text;
         vals
+    }
+
+    /// Where a macro's expansion's tokens are spelled in its invocation (see
+    /// `MacroCx::anchors`): the offsets of the symbols of the expansion's
+    /// records (at the macro, at `line` and `col`), each with the position of
+    /// its symbol's record in the invocation's text, if its symbol is spelled
+    /// there as many times as the expansion has it, so that they pair in
+    /// order (ex: an argument's tokens, substituted once, but not those the
+    /// macro's definition spells, nor an argument the macro uses twice).
+    fn expansion_anchors(
+        &self,
+        node: Node,
+        line: u32,
+        col: u32,
+        key: &str,
+        platform: &str,
+    ) -> Vec<(usize, u32, u32)> {
+        let mut offsets: HashMap<Ustr, Vec<usize>> = HashMap::new();
+        for rec in self.cx.recs.all_sources_at(line, col) {
+            for (k, p, offs) in &rec.expansion_offsets {
+                if k == key && p == platform {
+                    offsets
+                        .entry(rec.sym())
+                        .or_default()
+                        .extend(offs.iter().copied());
+                }
+            }
+        }
+        let (start, end) = (node.start_position(), node.end_position());
+        let mut spelled: HashMap<Ustr, Vec<(u32, u32)>> = HashMap::new();
+        for rec in self.cx.recs.sources_between(
+            (start.row as u32 + 1, start.column as u32),
+            (end.row as u32 + 1, end.column as u32),
+        ) {
+            if offsets.contains_key(&rec.sym()) {
+                spelled
+                    .entry(rec.sym())
+                    .or_default()
+                    .push((rec.line, rec.col));
+            }
+        }
+        let mut anchors = vec![];
+        for (sym, mut offs) in offsets {
+            let Some(spots) = spelled.get_mut(&sym) else {
+                continue;
+            };
+            offs.sort();
+            offs.dedup();
+            spots.sort();
+            spots.dedup();
+            if offs.len() == spots.len() {
+                anchors.extend(
+                    offs.into_iter()
+                        .zip(spots.iter())
+                        .map(|(o, &(l, c))| (o, l, c)),
+                );
+            }
+        }
+        anchors.sort();
+        anchors
     }
 
     fn walk_expansion(&mut self, body: Node, is_stmt: bool) -> Vec<Val> {

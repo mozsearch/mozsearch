@@ -45,7 +45,7 @@ input_file: inputs/dataflow/symbol/macro-composite-forward-subway
         {
           "line": 350,
           "text": "                ProduceResult(aInput));",
-          "traced": null
+          "traced": true
         },
         {
           "line": 351,

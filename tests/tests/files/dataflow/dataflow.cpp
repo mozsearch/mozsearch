@@ -394,3 +394,23 @@ int UsesContext(int aConn, int aInput) {
   int result = Combine(aConn, aInput);
   return result;
 }
+
+// A macro's invocation over several lines, as QueryCache's
+// `QM_TRY(CollectWhile(..., [&]() { ... }))` is: its expansion's events are
+// on the lines their tokens are spelled on (by their records' symbols), not
+// all on its first, so that a trace's card shows those lines, with the
+// invocation's first line before them, for context.
+static int Visit(int aValue) { return aValue; }
+
+int MultiLineMacro(int aInput) {
+  DF_TRY_CALL(Visit(0) +
+              ([&]() {
+                // (Lines apart from the invocation's first, so that the
+                // call's station is under it.)
+                int unused = 0;
+                (void)unused;
+                ForwardTarget(aInput);
+                return 0;
+              })());
+  return 0;
+}

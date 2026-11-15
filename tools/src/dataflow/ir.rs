@@ -183,6 +183,13 @@ pub struct Call {
     /// frontend walked the expansion or took its callee's record there.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub in_macro: bool,
+    /// In a macro's expansion, the macro's invocation's (first) line, where
+    /// the records of the symbols its definition spells are (ex: a callee's,
+    /// `ToResultInvokeMember` in a `MOZ_TO_RESULT_INVOKE_MEMBER`), as its
+    /// `line` is where its arguments are spelled (see the frontend's
+    /// `MacroCx::span`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub macro_line: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -219,6 +226,9 @@ pub struct Event {
     /// The macro it's from, if it's in a macro's expansion.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub macro_name: Option<String>,
+    /// And the macro's invocation's (first) line (see `Call::macro_line`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub macro_line: Option<u32>,
     pub text: String,
 }
 

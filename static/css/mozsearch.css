@@ -6196,6 +6196,11 @@ textarea.monospace {
   font-style: italic;
   opacity: 0.75;
 }
+/* A station's context row: the first line of the macro's invocation its
+   other rows are in (see the tools' `Row::context`). */
+.sw-context-row .sw-code {
+  opacity: 0.6;
+}
 /* (A chevron where an edge going up comes into its card; see subway.js's
    `afterLayout`.) */
 .interactive-graph-edge.sw-up {

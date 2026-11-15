@@ -1,0 +1,2 @@
+# servers: local
+dataflow dataflow/dataflow.cpp --function MultiLineMacro --forward aInput --format subway | jq '.contents | fromjson | {cards: [.cards[] | {func, rows: [.stations[].rows[] | {line, text, traced, context}]}]}'

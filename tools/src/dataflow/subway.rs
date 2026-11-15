@@ -228,6 +228,11 @@ pub struct Row {
     /// The lines of the file not shown before it (in its station).
     #[serde(skip_serializing_if = "is_zero")]
     pub skipped: u32,
+    /// Whether it's only context: the first line of the macro's invocation
+    /// whose expansion's events the station's other rows are of (ex:
+    /// `QM_TRY(CollectWhile(`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub context: bool,
     /// The lines stopping at its events (its station's stops on its line),
     /// and those of them written there, where subway.js puts their dots.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -1523,13 +1528,29 @@ async fn subway_map_inner(
         }
         let card = &mut map.cards[func.card];
         card.changed = !func.changed.is_empty();
+        // (The lines the card's stations show so far.)
+        let mut shown_lines: BTreeSet<u32> = BTreeSet::new();
         for (first, last, events) in groups {
             let event_lines: BTreeSet<u32> = events.iter().map(|&ei| f.events[ei].line).collect();
             let all: Vec<u32> = (first..=last).collect();
-            let shown: Vec<u32> = match all.len() > MAX_STATION_ROWS {
+            let mut shown: Vec<u32> = match all.len() > MAX_STATION_ROWS {
                 true => event_lines.iter().copied().collect(),
                 false => all,
             };
+            // (A macro's invocation's first line, for context, before a
+            // station of its expansion's events on its later lines, if no
+            // station before shows it: ex: `QM_TRY(CollectWhile(` before a
+            // lambda's lines it's passed.)
+            let invocation = events
+                .iter()
+                .filter_map(|&ei| f.events[ei].macro_line)
+                .filter(|&line| line < first)
+                .min()
+                .filter(|line| !shown_lines.contains(line));
+            if let Some(line) = invocation {
+                shown.insert(0, line);
+            }
+            shown_lines.extend(shown.iter().copied());
             let mut rows = vec![];
             let mut prev: Option<u32> = None;
             for line in shown {
@@ -1542,7 +1563,7 @@ async fn subway_map_inner(
                     changed: func.changed.contains(&line),
                     traced: false,
                     skipped: prev.map_or(0, |p| line - p - 1),
-
+                    context: invocation == Some(line),
                     html: None,
                     stops: vec![],
                     writes: vec![],
@@ -1667,6 +1688,7 @@ async fn subway_map_inner(
                     changed: true,
                     traced: false,
                     skipped: 0,
+                    context: false,
 
                     html: None,
                     stops: vec![],

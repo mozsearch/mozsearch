@@ -124,6 +124,9 @@ pub struct FileRecords {
     structured: HashMap<Ustr, Value>,
     /// Function definitions' source records, in order.
     function_defs: Vec<(u32, u32)>,
+    /// The columns of each line's source records, in order (see
+    /// `sources_between`).
+    cols_by_line: HashMap<u32, Vec<u32>>,
 }
 
 fn str_field(obj: &Value, key: &str) -> String {
@@ -265,6 +268,12 @@ impl FileRecords {
         }
         recs.function_defs.sort();
         recs.function_defs.dedup();
+        for &(line, col) in recs.sources.keys() {
+            recs.cols_by_line.entry(line).or_default().push(col);
+        }
+        for cols in recs.cols_by_line.values_mut() {
+            cols.sort();
+        }
         recs
     }
 
@@ -276,6 +285,20 @@ impl FileRecords {
             .into_iter()
             .flatten()
             .filter(|r| !r.in_expansion)
+    }
+
+    /// The source records whose symbols are spelled in a range of the file,
+    /// from a position (1-based line, byte column) up to another, in order.
+    pub fn sources_between(&self, start: (u32, u32), end: (u32, u32)) -> Vec<&SourceRec> {
+        let mut out = vec![];
+        for line in start.0..=end.0 {
+            for &col in self.cols_by_line.get(&line).into_iter().flatten() {
+                if (line, col) >= start && (line, col) < end {
+                    out.extend(self.sources_at(line, col));
+                }
+            }
+        }
+        out
     }
 
     /// All the source records starting at a position, including macro

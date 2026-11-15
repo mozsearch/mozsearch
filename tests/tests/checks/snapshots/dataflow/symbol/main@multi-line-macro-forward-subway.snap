@@ -1,0 +1,37 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/multi-line-macro-forward-subway
+---
+{
+  "cards": [
+    {
+      "func": "MultiLineMacro",
+      "rows": [
+        {
+          "line": 406,
+          "text": "  DF_TRY_CALL(Visit(0) +",
+          "traced": null,
+          "context": true
+        },
+        {
+          "line": 412,
+          "text": "                ForwardTarget(aInput);",
+          "traced": true,
+          "context": null
+        }
+      ]
+    },
+    {
+      "func": "ForwardTarget",
+      "rows": [
+        {
+          "line": 361,
+          "text": "static int ForwardTarget(int aValue) { return aValue * 3; }",
+          "traced": true,
+          "context": null
+        }
+      ]
+    }
+  ]
+}
