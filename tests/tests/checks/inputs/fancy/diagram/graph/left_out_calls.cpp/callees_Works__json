@@ -1,0 +1,1 @@
+search-identifiers left_out_calls::Works | crossref-lookup | traverse --edge=callees --max-depth=2 | graph --format=json | jq '.graphs[0] | [.nodes, (.edges | map(.from + " -> " + .to + " (" + .kind + ")"))]'

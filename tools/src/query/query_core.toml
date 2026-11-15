@@ -325,6 +325,16 @@ args.rollup-guide = true
 command = "traverse"
 args.ignore-nodes = "$0"
 
+# The groups of calls that calls diagrams leave out (diagram-mapping.toml's,
+# ex: "assertions", "strings") to show, comma separated, or "all" (see
+# `traverse --show-calls`); the diagrams' legends link to them.  (Amending,
+# so it doesn't start a traversal of its own.)
+[term.show-calls]
+[[term.show-calls.group.graph-traverse]]
+command = "traverse"
+amend = true
+args.show-calls = "$0"
+
 # The linked trees a diagram's traversal may reach (comma separated, or
 # repeated), ex: `tree:wubspecs` on a spec algorithm's diagram for only the
 # specs, and those it leaves out, `-tree:firefox-disco` (which chew_query

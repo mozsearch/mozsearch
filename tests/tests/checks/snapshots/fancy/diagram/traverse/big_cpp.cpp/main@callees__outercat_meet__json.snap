@@ -5,62 +5,6 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
 ---
 {
   "jumprefs": {
-    "F_<T_outerNS::OuterCat>_mIsFriendly": {
-      "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
-      "pretty": "outerNS::OuterCat::mIsFriendly",
-      "meta": {
-        "structured": 1,
-        "pretty": "outerNS::OuterCat::mIsFriendly",
-        "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
-        "type_pretty": "_Bool",
-        "kind": "field",
-        "subsystem": "Core/Big",
-        "parentsym": "T_outerNS::OuterCat",
-        "implKind": "",
-        "sizeBytes": null,
-        "alignmentBytes": null,
-        "ownVFPtrBytes": null,
-        "bindingSlots": [],
-        "ontologySlots": [],
-        "supers": [],
-        "methods": [],
-        "fields": [],
-        "overrides": [],
-        "props": [],
-        "variants": []
-      },
-      "jumps": {
-        "def": "big_cpp.cpp#224"
-      }
-    },
-    "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly": {
-      "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
-      "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
-      "meta": {
-        "structured": 1,
-        "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
-        "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
-        "type_pretty": "_Bool",
-        "kind": "field",
-        "subsystem": "Core/Big",
-        "parentsym": "T_outerNS::OuterCat",
-        "implKind": "",
-        "sizeBytes": null,
-        "alignmentBytes": null,
-        "ownVFPtrBytes": null,
-        "bindingSlots": [],
-        "ontologySlots": [],
-        "supers": [],
-        "methods": [],
-        "fields": [],
-        "overrides": [],
-        "props": [],
-        "variants": []
-      },
-      "jumps": {
-        "def": "big_cpp.cpp#225"
-      }
-    },
     "F_<T_outerNS::Thing>_mDefunct": {
       "sym": "F_<T_outerNS::Thing>_mDefunct",
       "pretty": "outerNS::Thing::mDefunct",
@@ -789,8 +733,6 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
       "nodes": [
         "_ZN7outerNS5Thing10takeDamageEi",
         "_ZN7outerNS5Thing6ignoreEv",
-        "_ZN7outerNS8OuterCat13isFriendlyCatEv",
-        "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
         "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
         "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
         "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
@@ -804,33 +746,6 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
           "to": "_ZN7outerNS9Superhero10takeDamageEi",
           "kind": "inheritance",
           "jumps": [],
-          "hovers": []
-        },
-        {
-          "from": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
-          "to": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
-          "kind": "default",
-          "jumps": [
-            "big_cpp.cpp#325"
-          ],
-          "hovers": []
-        },
-        {
-          "from": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
-          "to": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
-          "kind": "default",
-          "jumps": [
-            "big_cpp.cpp#321"
-          ],
-          "hovers": []
-        },
-        {
-          "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
-          "to": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
-          "kind": "default",
-          "jumps": [
-            "big_cpp.cpp#351"
-          ],
           "hovers": []
         },
         {

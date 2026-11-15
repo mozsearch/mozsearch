@@ -1,0 +1,320 @@
+# What calls diagrams (calls-from:, and the traversals of callees of
+# calls-between:; see tools/src/cmd_pipeline/diagram_mapping.rs) leave out:
+# calls of infrastructure and generic data manipulation (ex: assertions,
+# Result's methods, nsCOMPtr's operators, strings' and arrays' methods), which
+# most functions make, so that their nodes and edges don't crowd out how the
+# code's logic calls itself.  A diagram's legend says which groups of calls it
+# left out, and links to it with them (the query language's `show-calls:`,
+# ex: "show-calls:strings", or "show-calls:all").  A diagram of a group's
+# function (ex: calls-from:'nsTSubstring::Append') shows that group's calls.
+#
+# Read when a diagram is made (the config repo's own diagram-mapping.toml,
+# else this one), so changing it doesn't need a reindex.
+#
+# Each `[[left-out]]` group has:
+# - `group`: its key, for `show-calls:`;
+# - `name`: what the legend calls it;
+# - `why`: why its calls aren't worth showing, for people;
+# - `functions`: pretty names without template arguments (as in
+#   dataflow-mapping.toml), matched whole, or prefixes ending in "::" for all
+#   of a class's (or namespace's) functions;
+# - `paths`: prefixes of the paths of functions' definitions (ex:
+#   "xpcom/string/" for a directory, or "xpcom/ds/nsTArray" for nsTArray.h
+#   and nsTArray-inl.h), for the functions all of whose definitions are
+#   there;
+# - `getters`: whether it's the group of getters, the methods whose dataflow
+#   summaries say they only return a field and which call nothing (a
+#   heuristic, for the functions the other groups don't name).
+# A function's group is its name's, else its longest prefix's, else its
+# definitions' longest path prefix's, else the getters' if it's one.  The
+# groups are in the legend in this order.
+
+[[left-out]]
+group = "assertions"
+name = "Assertions and crashes"
+why = "What the expansions of MOZ_ASSERT, MOZ_RELEASE_ASSERT, MOZ_DIAGNOSTIC_ASSERT, MOZ_CRASH, NS_ASSERTION, NS_WARNING and NS_ENSURE_* call (in debug builds, for the assertions), and the NS_IsMainThread() they mostly check: they check the code's logic rather than being part of it."
+functions = [
+  "AnnotateMozCrashReason",
+  "MOZ_AssertAssignmentTest",
+  "MOZ_Crash",
+  "MOZ_CrashPrintf",
+  "MOZ_CrashSequence",
+  "MOZ_NoReturn",
+  "MOZ_ReportAssertionFailure",
+  "MOZ_ReportCrash",
+  "MOZ_StripRelativeComponents",
+  "NS_DebugBreak",
+  "NS_IsMainThread",
+  "NS_warn_if_impl",
+  "abort",
+  "mozalloc_abort",
+  "mozilla::detail::InvalidArrayIndex_CRASH",
+]
+paths = [
+  "mfbt/Assertions.",
+  "mfbt/StaticAnalysisFunctions.h",
+  "xpcom/base/nsDebug.h",
+  "xpcom/base/nsDebugImpl.",
+]
+
+[[left-out]]
+group = "result"
+name = "Result and QM_TRY machinery"
+why = "mfbt's Result, its conversions (ToResult, ToResultInvoke, Err) and dom/quota's QM_TRY error handling (HandleError, QMResult): how a function passes on a value or an error, which its own code says."
+functions = [
+  "mozilla::Result::",
+  "mozilla::detail::ResultImplementation::",
+  "mozilla::detail::ResultImplementationNullIsOkBase::",
+  "mozilla::detail::ResultImplementationNullIsOk::",
+  "mozilla::detail::UnusedZero::",
+  "mozilla::detail::UnusedZeroEnum::",
+  "mozilla::GenericErrorResult::",
+  "mozilla::Err",
+  "mozilla::ToResult",
+  "mozilla::ToResultInvoke",
+  "mozilla::ToResultInvokeMember",
+  "mozilla::ToResultGet",
+  "mozilla::dom::quota::HandleError",
+  "mozilla::dom::quota::LogError",
+  "mozilla::dom::quota::MakeSourceFileRelativePath",
+  "mozilla::dom::quota::ErrToOk",
+  "mozilla::dom::quota::ErrToDefaultOk",
+  "mozilla::dom::quota::OkIf",
+  "mozilla::dom::quota::OkToOk",
+  "mozilla::dom::quota::detail::",
+  "mozilla::QMResult::",
+  "mozilla::ToQMResult",
+  "NS_FAILED_impl",
+  "NS_SUCCEEDED_impl",
+]
+paths = [
+  "mfbt/Result.h",
+  "mfbt/ResultExtensions.h",
+  "mfbt/ResultVariant.h",
+  "mfbt/Try.h",
+  "dom/quota/ResultExtensions.h",
+  "dom/quota/QMResult.",
+]
+
+[[left-out]]
+group = "pointers"
+name = "Smart pointers and reference counting"
+why = "nsCOMPtr, RefPtr, UniquePtr and their kin (making, assigning and dereferencing them, do_QueryInterface, reference counting): how the code holds its objects, which every function with a pointer calls."
+functions = [
+  "nsCOMPtr::",
+  "nsCOMPtr_base::",
+  "nsCOMPtr_helper::",
+  "RefPtr::",
+  "already_AddRefed::",
+  "mozilla::UniquePtr::",
+  "mozilla::DefaultDelete::",
+  "mozilla::MakeUnique",
+  "mozilla::MakeRefPtr",
+  "mozilla::MakeAndAddRef",
+  "mozilla::WrapNotNull",
+  "mozilla::NotNull::",
+  "mozilla::WeakPtr::",
+  "mozilla::StaticRefPtr::",
+  "mozilla::StaticAutoPtr::",
+  "do_QueryInterface",
+  "do_QueryObject",
+  "nsQueryInterface::",
+  "nsQueryInterfaceISupports::",
+  "nsQueryInterfaceWithError::",
+  "nsQueryInterfaceISupportsWithError::",
+  "nsAutoRefCnt::",
+  "nsThreadSafeAutoRefCnt::",
+  "mozilla::ThreadSafeAutoRefCnt::",
+]
+paths = [
+  "mfbt/AlreadyAddRefed.h",
+  "mfbt/NotNull.h",
+  "mfbt/RefCounted.h",
+  "mfbt/RefPtr.h",
+  "mfbt/UniquePtr",
+  "mfbt/WeakPtr.h",
+  "mfbt/ThreadSafeWeakPtr.h",
+  "xpcom/base/nsCOMPtr.",
+  "xpcom/base/nsISupportsImpl.",
+  "xpcom/base/nsISupportsUtils.h",
+  "xpcom/base/nsQueryObject.h",
+  "xpcom/base/StaticPtr.h",
+]
+
+[[left-out]]
+group = "strings"
+name = "Strings"
+why = "XPCOM's strings and their utilities (literals' _ns, appending, assigning, converting and comparing them): generic data manipulation, whose calls say how the code builds its strings rather than what it does."
+functions = [
+  "operator\"\"_ns",
+  "nsTSubstring::",
+  "nsTString::",
+  "nsTAutoStringN::",
+  "nsTLiteralString::",
+  "nsTDependentString::",
+  "nsTDependentSubstring::",
+  "nsTPromiseFlatString::",
+  "nsTSubstringTuple::",
+  "mozilla::detail::nsTStringRepr::",
+  "NS_ConvertASCIItoUTF16::",
+  "NS_ConvertUTF16toUTF8::",
+  "NS_ConvertUTF8toUTF16::",
+  "NS_LossyConvertUTF16toASCII::",
+  "nsPrintfCString::",
+  "nsFmtCString::",
+  "nsFmtString::",
+]
+paths = [
+  "xpcom/string/",
+  "mfbt/Latin1.h",
+  "mfbt/StringBuffer.h",
+  "mfbt/TextUtils.h",
+  "mfbt/Utf8.",
+  "mfbt/Utf16.h",
+]
+
+[[left-out]]
+group = "containers"
+name = "Arrays, hashtables and other containers"
+why = "XPCOM's and mfbt's containers (nsTArray and AutoTArray, the hashtables, Maybe, Span, Vector, Variant, linked lists): generic data manipulation, whose calls say how the code keeps its data rather than what it does."
+functions = [
+  "nsTArray::",
+  "nsTArray_Impl::",
+  "nsTArray_base::",
+  "AutoTArray::",
+  "CopyableTArray::",
+  "CopyableAutoTArray::",
+  "FallibleTArray::",
+  "nsTHashtable::",
+  "nsBaseHashtable::",
+  "nsClassHashtable::",
+  "nsRefPtrHashtable::",
+  "nsRefCountedHashtable::",
+  "nsInterfaceHashtable::",
+  "PLDHashTable::",
+  "nsCOMArray::",
+  "nsCOMArray_base::",
+  "nsTObserverArray::",
+  "nsAutoTObserverArray::",
+  "mozilla::Maybe::",
+  "mozilla::Some",
+  "mozilla::ToMaybe",
+  "mozilla::detail::MaybeStorage::",
+  "mozilla::Span::",
+  "mozilla::Vector::",
+  "mozilla::Variant::",
+  "mozilla::AsVariant",
+  "mozilla::HashMap::",
+  "mozilla::HashSet::",
+  "mozilla::detail::HashTable::",
+  "mozilla::LinkedList::",
+  "mozilla::LinkedListElement::",
+  "mozilla::Array::",
+  "mozilla::EnumSet::",
+  "mozilla::SegmentedVector::",
+]
+paths = [
+  "xpcom/ds/ArrayAlgorithm.h",
+  "xpcom/ds/ArrayIterator.h",
+  "xpcom/ds/PLDHashTable.",
+  "xpcom/ds/nsBaseHashtable.h",
+  "xpcom/ds/nsCOMArray.",
+  "xpcom/ds/nsClassHashtable.h",
+  "xpcom/ds/nsDeque.",
+  "xpcom/ds/nsHashKeys.h",
+  "xpcom/ds/nsInterfaceHashtable.h",
+  "xpcom/ds/nsPointerHashKeys.h",
+  "xpcom/ds/nsRefCountedHashtable.h",
+  "xpcom/ds/nsRefPtrHashtable.h",
+  "xpcom/ds/nsTArray",
+  "xpcom/ds/nsTHashMap.h",
+  "xpcom/ds/nsTHashSet.h",
+  "xpcom/ds/nsTHashtable.h",
+  "xpcom/ds/nsTObserverArray.",
+  "xpcom/ds/nsTPriorityQueue.h",
+  "mfbt/Array.h",
+  "mfbt/BitSet.h",
+  "mfbt/Buffer.h",
+  "mfbt/BufferList.h",
+  "mfbt/CompactPair.h",
+  "mfbt/DoublyLinkedList.h",
+  "mfbt/EnumSet.h",
+  "mfbt/EnumeratedArray.h",
+  "mfbt/EnumeratedRange.h",
+  "mfbt/HashTable.h",
+  "mfbt/IntegerRange.h",
+  "mfbt/LinkedList.h",
+  "mfbt/Maybe",
+  "mfbt/Range.h",
+  "mfbt/RangedPtr.h",
+  "mfbt/ReverseIterator.h",
+  "mfbt/SegmentedVector.h",
+  "mfbt/SmallPointerArray.h",
+  "mfbt/Span.h",
+  "mfbt/Variant.h",
+  "mfbt/Vector.h",
+]
+
+[[left-out]]
+group = "logging"
+name = "Logging and profiler labels"
+why = "What MOZ_LOG and the profiler's labels and markers (AUTO_PROFILER_LABEL, PROFILER_MARKER) call: instrumentation beside the code's logic."
+functions = [
+  "mozilla::LogModule::",
+  "mozilla::LazyLogModule::",
+  "mozilla::detail::log_print",
+  "mozilla::detail::log_test",
+  "mozilla::AutoProfilerLabel::",
+  "mozilla::AutoProfilerTracing::",
+  "mozilla::MarkerStack::",
+  "mozilla::MarkerOptions::",
+  "mozilla::MarkerTiming::",
+  "profiler_add_marker",
+  "profiler_is_active",
+  "profiler_thread_is_being_profiled_for_markers",
+  "printf_stderr",
+]
+paths = [
+  "xpcom/base/Logging.",
+]
+
+[[left-out]]
+group = "memory"
+name = "Memory allocation"
+why = "Allocating and freeing memory (moz_xmalloc, free, operator new and delete): how the code gets its memory rather than what it does."
+functions = [
+  "moz_xmalloc",
+  "moz_xcalloc",
+  "moz_xrealloc",
+  "moz_xstrdup",
+  "malloc",
+  "calloc",
+  "realloc",
+  "free",
+  "operator new",
+  "operator new[]",
+  "operator delete",
+  "operator delete[]",
+]
+paths = [
+  "memory/mozalloc/",
+]
+
+[[left-out]]
+group = "utilities"
+name = "mfbt's and the standard libraries' utilities"
+why = "mfbt's other templates and helpers (ScopeExit, Atomic, CheckedInt, casts, hashing and math functions) and the C++ and Rust standard libraries': building blocks most code uses."
+functions = [
+  "std::",
+  "core::",
+  "alloc::",
+]
+paths = [
+  "mfbt/",
+]
+
+[[left-out]]
+group = "getters"
+name = "Getters"
+why = "Methods that only return a field (of their object, or of an argument) and call nothing, by their dataflow summaries (ex: an IPDL struct's accessors): reading data, not doing something.  (A heuristic.)"
+getters = true

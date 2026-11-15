@@ -5409,6 +5409,39 @@ g.true-diag g.node polygon {
   row-gap: 2px;
 }
 
+/* The calls a diagram left out (see search.js's `addLeftOutCalls`), whose
+   groups' names have why in their tooltips. */
+.diagram-left-out-note {
+  margin: 0.25em 0 0.25em 1rem;
+}
+
+#diagram-legend-pane .diagram-left-out {
+  list-style: none;
+  margin: 0 0 0 1rem;
+  padding: 0;
+}
+
+/* (Its buttons, when they wrap, under its name.) */
+#diagram-legend-pane .diagram-left-out > li {
+  margin: 2px 0;
+  padding-inline-start: 1em;
+  text-indent: -1em;
+}
+
+.diagram-left-out-name {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.diagram-left-out-count {
+  color: var(--page-subtle-foreground);
+  cursor: help;
+}
+
+.diagram-show-calls {
+  font-size: 0.85em;
+}
+
 .diagram-badge-tooltip {
   position: absolute;
 }

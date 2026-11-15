@@ -1,0 +1,1 @@
+search-identifiers mozilla::UniquePtr::reset | crossref-lookup | traverse --edge=callees --max-depth=2 | graph --format=json | jq '.graphs[0] | [.nodes, (.edges | map(.from + " -> " + .to + " (" + .kind + ")"))]'

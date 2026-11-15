@@ -330,6 +330,8 @@ labels = ["uses-diagram:stop"]
 labels = ["uses-diagram:stop"]
 
 # stay out of debug spam stuff
+# (Calls diagrams leave out the assertions' calls altogether, by
+# diagram-mapping.toml, unless they're asked to show them, `show-calls:`.)
 [pretty."NS_warn_if_impl"]
 labels = ["calls-diagram:stop"]
 [pretty."NS_DebugBreak"]

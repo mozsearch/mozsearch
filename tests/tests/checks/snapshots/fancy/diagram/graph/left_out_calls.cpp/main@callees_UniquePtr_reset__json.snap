@@ -1,0 +1,14 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/left_out_calls.cpp/callees_UniquePtr_reset__json
+---
+[
+  [
+    "_ZN7mozilla9UniquePtr5resetEv",
+    "_ZNK7mozilla9UniquePtr3getEv"
+  ],
+  [
+    "_ZN7mozilla9UniquePtr5resetEv -> _ZNK7mozilla9UniquePtr3getEv (default)"
+  ]
+]

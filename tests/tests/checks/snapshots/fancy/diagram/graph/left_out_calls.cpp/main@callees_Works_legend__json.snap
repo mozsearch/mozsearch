@@ -1,0 +1,86 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/left_out_calls.cpp/callees_Works_legend__json
+---
+[
+  {
+    "name": "show-calls",
+    "label": "Left-out calls shown",
+    "value": "",
+    "default": "",
+    "type": "string",
+    "placeholder": "Groups (ex: strings), comma-separated, or all"
+  },
+  {
+    "name": "*left-out*",
+    "groups": [
+      {
+        "group": "assertions",
+        "name": "Assertions and crashes",
+        "why": "What the expansions of MOZ_ASSERT, MOZ_RELEASE_ASSERT, MOZ_DIAGNOSTIC_ASSERT, MOZ_CRASH, NS_ASSERTION, NS_WARNING and NS_ENSURE_* call (in debug builds, for the assertions), and the NS_IsMainThread() they mostly check: they check the code's logic rather than being part of it.",
+        "shown": false,
+        "count": 2,
+        "callees": [
+          "AnnotateMozCrashReason",
+          "MOZ_ReportAssertionFailure"
+        ],
+        "callers": [
+          "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE"
+        ]
+      },
+      {
+        "group": "pointers",
+        "name": "Smart pointers and reference counting",
+        "why": "nsCOMPtr, RefPtr, UniquePtr and their kin (making, assigning and dereferencing them, do_QueryInterface, reference counting): how the code holds its objects, which every function with a pointer calls.",
+        "shown": false,
+        "count": 1,
+        "callees": [
+          "mozilla::UniquePtr::operator->"
+        ],
+        "callers": [
+          "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE"
+        ]
+      },
+      {
+        "group": "strings",
+        "name": "Strings",
+        "why": "XPCOM's strings and their utilities (literals' _ns, appending, assigning, converting and comparing them): generic data manipulation, whose calls say how the code builds its strings rather than what it does.",
+        "shown": false,
+        "count": 1,
+        "callees": [
+          "operator\"\"_ns"
+        ],
+        "callers": [
+          "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE"
+        ]
+      },
+      {
+        "group": "containers",
+        "name": "Arrays, hashtables and other containers",
+        "why": "XPCOM's and mfbt's containers (nsTArray and AutoTArray, the hashtables, Maybe, Span, Vector, Variant, linked lists): generic data manipulation, whose calls say how the code keeps its data rather than what it does.",
+        "shown": false,
+        "count": 1,
+        "callees": [
+          "mozilla::Maybe::isSome"
+        ],
+        "callers": [
+          "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE"
+        ]
+      },
+      {
+        "group": "getters",
+        "name": "Getters",
+        "why": "Methods that only return a field (of their object, or of an argument) and call nothing, by their dataflow summaries (ex: an IPDL struct's accessors): reading data, not doing something.  (A heuristic.)",
+        "shown": false,
+        "count": 1,
+        "callees": [
+          "left_out_calls::Thing::Value"
+        ],
+        "callers": [
+          "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE"
+        ]
+      }
+    ]
+  }
+]

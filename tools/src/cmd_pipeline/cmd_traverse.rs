@@ -1,13 +1,14 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 use async_trait::async_trait;
 use bitflags::bitflags;
 use clap::Args;
-use serde_json::json;
+use serde_json::{Value, json};
 use tracing::trace;
 use ustr::{Ustr, ustr};
 
 use super::{
+    diagram_mapping::DiagramMapping,
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolMetaFlags},
     symbol_graph::{
         DerivedSymbolInfo, NamedSymbolGraph, SymbolBadge, SymbolGraphCollection,
@@ -17,7 +18,8 @@ use super::{
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
-    cmd_pipeline::symbol_graph::{EdgeDetail, EdgeKind},
+    cmd_pipeline::symbol_graph::{EdgeDetail, EdgeKind, semantic_kind_is_callable},
+    dataflow::summary::Category,
     file_format::{
         analysis::{BindingOwnerLang, BindingSlotKind, OntologySlotKind, PathSearchResult},
         ontology_mapping::{label_to_badge_info, pointer_kind_to_badge_info},
@@ -143,6 +145,151 @@ async fn fold_lambdas(
     Ok(Some((out, rep_map)))
 }
 
+/// The calls a calls diagram leaves out, by diagram-mapping.toml's groups
+/// (see `diagram_mapping`): infrastructure and generic data manipulation (ex:
+/// assertions, `Result`'s methods, nsCOMPtr's operators, strings' methods),
+/// unless `show-calls:` shows their group, or the diagram is of one (a root
+/// is in it, ex: calls-from `nsTSubstring::Append` shows strings' methods).
+/// It records which nodes call each group's functions, for the diagram's
+/// legend (see `to_json`) and its nodes (ex: badges, which it doesn't have
+/// yet).
+struct LeftOutCalls {
+    mapping: std::sync::Arc<DiagramMapping>,
+    /// Whether each group's calls are shown.
+    shown: Vec<bool>,
+    /// The symbols' groups, once they're known (so that a symbol's group is
+    /// the same once the traversal's dropped its data).
+    groups_of: HashMap<Ustr, Option<usize>>,
+    /// For each group, the functions of it that are called (and their
+    /// pretty names), and the nodes calling them.
+    calls: Vec<(BTreeMap<Ustr, Ustr>, HashSet<SymbolGraphNodeId>)>,
+}
+
+impl LeftOutCalls {
+    fn new(mapping: std::sync::Arc<DiagramMapping>, show_calls: Option<&str>) -> Self {
+        let shown = mapping.shown_groups(show_calls);
+        let calls = vec![Default::default(); mapping.groups.len()];
+        LeftOutCalls {
+            mapping,
+            shown,
+            groups_of: HashMap::new(),
+            calls,
+        }
+    }
+
+    /// A symbol's group, by its pretty name alone (see
+    /// `DiagramMapping::group_of_name`), if it has one, before its crossref
+    /// data's looked up.
+    fn group_of_name(&mut self, sym: Ustr, pretty: Ustr) -> Option<usize> {
+        if let Some(group) = self.groups_of.get(&sym) {
+            return *group;
+        }
+        let group = self.mapping.group_of_name(&pretty)?;
+        self.groups_of.insert(sym, Some(group));
+        Some(group)
+    }
+
+    /// A symbol's group, by its crossref data (see
+    /// `DiagramMapping::group_of_symbol`): its definitions' paths, and
+    /// whether it's a getter by its dataflow summary and calls nothing (its
+    /// callees are the fields it reads, if any).
+    fn group_of(&mut self, info: &DerivedSymbolInfo) -> Option<usize> {
+        if let Some(group) = self.groups_of.get(&info.symbol) {
+            return *group;
+        }
+        let paths: Vec<&str> = info
+            .get_definitions()
+            .into_iter()
+            .flatten()
+            .map(|def| def.path.as_str())
+            .collect();
+        let getter = info.crossref_info.as_ref().is_some_and(|ci| {
+            ci.dataflow
+                .as_ref()
+                .is_some_and(|summary| summary.category == Category::Getter)
+                && ci.callees.as_ref().is_none_or(|callees| {
+                    callees
+                        .iter()
+                        .all(|callee| !semantic_kind_is_callable(&callee.kind))
+                })
+        });
+        let group = self
+            .mapping
+            .group_of_symbol(&info.get_pretty(), &paths, getter);
+        self.groups_of.insert(info.symbol, group);
+        group
+    }
+
+    /// Shows the groups the roots are in (the diagram's of them).
+    fn show_roots_groups(&mut self, roots: &[&DerivedSymbolInfo]) {
+        for info in roots {
+            if let Some(group) = self.group_of(info) {
+                self.shown[group] = true;
+            }
+        }
+    }
+
+    /// Records the call of a group's function, and whether it's left out.
+    fn leaves_out(
+        &mut self,
+        group: usize,
+        caller: &SymbolGraphNodeId,
+        callee: Ustr,
+        pretty: Ustr,
+    ) -> bool {
+        let (callees, callers) = &mut self.calls[group];
+        callees.insert(callee, pretty);
+        callers.insert(caller.clone());
+        !self.shown[group]
+    }
+
+    /// The groups whose functions are called, for the diagram's legend (see
+    /// static/js/search.js's `addLegend`): each's key, name, why, whether
+    /// it's shown, how many of its functions are called, the first of their
+    /// pretty names, and the nodes calling them (by their symbols, and those
+    /// of folded lambdas by their creators'; see `fold_lambdas`).
+    fn to_json(
+        &self,
+        node_set: &SymbolGraphNodeSet,
+        rep: Option<&HashMap<SymbolGraphNodeId, SymbolGraphNodeId>>,
+    ) -> Value {
+        const MAX_PRETTIES: usize = 16;
+        let mut groups = vec![];
+        for (i, (callees, callers)) in self.calls.iter().enumerate() {
+            if callees.is_empty() {
+                continue;
+            }
+            let group = &self.mapping.groups[i];
+            let mut pretties: Vec<Ustr> = callees.values().copied().collect();
+            pretties.sort();
+            pretties.dedup();
+            let mut caller_syms: Vec<Ustr> = callers
+                .iter()
+                .map(|id| {
+                    let id = rep.and_then(|rep| rep.get(id)).unwrap_or(id);
+                    node_set.get(id).symbol
+                })
+                .collect();
+            caller_syms.sort();
+            caller_syms.dedup();
+            groups.push(json!({
+                "group": group.group,
+                "name": group.name,
+                "why": group.why,
+                "shown": self.shown[i],
+                "count": pretties.len(),
+                "callees": pretties.iter().take(MAX_PRETTIES).collect::<Vec<_>>(),
+                "callers": caller_syms,
+            }));
+        }
+        json!({
+            // (No "label", so that the control panel leaves it out.)
+            "name": "*left-out*",
+            "groups": groups,
+        })
+    }
+}
+
 /// Processes piped-in crossref symbol data, recursively traversing the given
 /// edges, building up a graph that also holds onto the crossref data for all
 /// traversed symbols.
@@ -226,6 +373,12 @@ pub struct Traverse {
     /// `split_ignore_nodes`).
     #[clap(long, value_parser)]
     pub ignore_nodes: Option<String>,
+
+    /// The groups of calls that calls diagrams leave out (diagram-mapping.toml's;
+    /// see `LeftOutCalls`) to show, separated by commas, or "all"
+    /// (`show-calls:` terms).
+    #[clap(long, value_parser)]
+    pub show_calls: Option<String>,
 
     /// For `--paths-between` over uses: only follow callers that are
     /// methods of classes on a path between the sources' and targets'
@@ -599,6 +752,22 @@ impl PipelineCommand for TraverseCommand {
         let ignore_node_set: HashSet<String> = match &self.args.ignore_nodes {
             Some(s) => split_ignore_nodes(s).into_iter().collect(),
             _ => HashSet::new(),
+        };
+
+        // The calls a calls diagram leaves out, but those of the groups its
+        // roots are in (see `LeftOutCalls`).
+        let mut left_out = match traverse_callees {
+            true => server.diagram_mapping().map(|mapping| {
+                let mut left_out = LeftOutCalls::new(mapping, self.args.show_calls.as_deref());
+                let roots: Vec<&DerivedSymbolInfo> = source_set
+                    .iter()
+                    .chain(target_set.iter())
+                    .map(|id| sym_node_set.get(id))
+                    .collect();
+                left_out.show_roots_groups(&roots);
+                left_out
+            }),
+            false => None,
         };
 
         // General operation:
@@ -1551,6 +1720,12 @@ impl PipelineCommand for TraverseCommand {
             }
 
             if traverse_callees {
+                // (Its group, while it has its callees, which it won't once
+                // they're taken, if it's first called after: ex: an override
+                // the traversal reached through the method it overrides.)
+                if let Some(left_out) = &mut left_out {
+                    left_out.group_of(sym_node_set.get(&sym_id));
+                }
                 let sym_info = sym_node_set.get_mut(&sym_id);
                 let callees = match (
                     self.args.retain_all_symbol_data,
@@ -1568,6 +1743,19 @@ impl PipelineCommand for TraverseCommand {
                 // flat list of { kind, pretty, sym }.  This differs from
                 // most other edges which are path hit-lists.
                 for target in callees {
+                    // (Infrastructure, left out by its name before its crossref
+                    // data's looked up; see `LeftOutCalls`.)
+                    let mut grouped = false;
+                    if let Some(left_out) = &mut left_out
+                        && let Some(pretty) = target.pretty
+                        && semantic_kind_is_callable(&target.kind)
+                        && let Some(group) = left_out.group_of_name(target.sym, pretty)
+                    {
+                        grouped = true;
+                        if left_out.leaves_out(group, &sym_id, target.sym, pretty) {
+                            continue;
+                        }
+                    }
                     let mut edge_info = vec![];
                     // The jump is precomputed by the crossref process when
                     // deriving the "callees" kindmap entry.
@@ -1605,6 +1793,14 @@ impl PipelineCommand for TraverseCommand {
                     {
                         continue;
                     }
+                    // (Or by its definitions' paths, or as a getter.)
+                    if !grouped
+                        && let Some(left_out) = &mut left_out
+                        && let Some(group) = left_out.group_of(target_info)
+                        && left_out.leaves_out(group, &sym_id, target_info.symbol, target_pretty)
+                    {
+                        continue;
+                    }
                     // (A citation of a callable symbol, ex: a Gecko function's
                     // citation of the web spec algorithm it implements, is an
                     // implementation of it; see `Callee::implements`.)
@@ -1623,7 +1819,20 @@ impl PipelineCommand for TraverseCommand {
                     if !considered.insert(target_info.symbol) {
                         continue;
                     }
-                    if next_depth >= max_depth {
+                    // (A lambda that what it's passed to calls right away,
+                    // which the diagram folds into the function making it
+                    // (see `fold_lambdas`), is part of what that function
+                    // does: its calls are at the function's depth, ex:
+                    // QueryCache's calls in the lambdas it passes to
+                    // CollectWhile, at depth 1.)
+                    let folded_lambda = target_info.has_label("lambda:sync")
+                        && target_info
+                            .get_structured()
+                            .and_then(|meta| meta.extra.get("lambdaCreator"))
+                            .and_then(|creator| creator.as_str())
+                            == Some(sym.as_str());
+                    let target_depth = if folded_lambda { depth } else { next_depth };
+                    if target_depth >= max_depth {
                         overloads_hit.push(OverloadInfo {
                             kind: OverloadKind::DepthLimitOnCallees,
                             sym: Some(target_info.symbol.to_string()),
@@ -1639,7 +1848,7 @@ impl PipelineCommand for TraverseCommand {
                     to_traverse.push_back((
                         target_info.symbol,
                         target_pretty,
-                        next_depth,
+                        target_depth,
                         all_traversals_valid,
                     ));
                 }
@@ -1962,15 +2171,19 @@ impl PipelineCommand for TraverseCommand {
             "type": "string",
             "placeholder": "Comma-separated pretty names (\\, for a comma in one)",
         }));
-        let options = json!([
-            {
-                "section": "Traverse",
-                "items": traverse_options,
-            }
-        ]);
+        if left_out.is_some() {
+            traverse_options.push(json!({
+                "name": "show-calls",
+                "label": "Left-out calls shown",
+                "value": self.args.show_calls.clone().unwrap_or_default(),
+                "default": "",
+                "type": "string",
+                "placeholder": "Groups (ex: strings), comma-separated, or all",
+            }));
+        }
 
         // ## Lambdas, by how they're called (see `fold_lambdas`).
-        let (mut graph, source_set, target_set) =
+        let (mut graph, source_set, target_set, rep) =
             match fold_lambdas(&graph, &mut sym_node_set, &mut sym_edge_set, server).await? {
                 Some((folded, rep)) => {
                     let map = |set: &Vec<SymbolGraphNodeId>| -> Vec<SymbolGraphNodeId> {
@@ -1983,10 +2196,21 @@ impl PipelineCommand for TraverseCommand {
                         }
                         mapped
                     };
-                    (folded, map(&source_set), map(&target_set))
+                    (folded, map(&source_set), map(&target_set), Some(rep))
                 }
-                None => (graph, source_set, target_set),
+                None => (graph, source_set, target_set, None),
             };
+
+        // (What the diagram left out, for its legend.)
+        if let Some(left_out) = &left_out {
+            traverse_options.push(left_out.to_json(&sym_node_set, rep.as_ref()));
+        }
+        let options = json!([
+            {
+                "section": "Traverse",
+                "items": traverse_options,
+            }
+        ]);
 
         // ## Paths Between
         let graph_coll = if self.args.paths_between {

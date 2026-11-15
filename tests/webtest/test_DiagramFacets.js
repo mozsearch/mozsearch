@@ -54,9 +54,12 @@ add_task(async function test_DiagramFacets_trees() {
 });
 
 // rollup::Engine::Run (in Core/Rollup Engine) calls rollup::Storage's Put and
-// Get (in Core/Rollup Storage).
+// Get (in Core/Rollup Storage).  (Get is a getter, which calls diagrams leave
+// out unless they're asked to show them; see
+// config_defaults/diagram-mapping.toml.)
 add_task(async function test_DiagramFacets_classes() {
-  await TestUtils.loadQuery("tests", "calls-from:'rollup::Engine::Run' depth:2 graph-format:mozsearch-interactive");
+  const QUERY = "calls-from:'rollup::Engine::Run' depth:2 show-calls:getters graph-format:mozsearch-interactive";
+  await TestUtils.loadQuery("tests", QUERY);
   is(blockTexts(), "Get, Put, Run", "The diagram has Run, Put and Get");
   ok(!frame.contentDocument.querySelector("a.facet-action"), "Without linked trees, there are no tree links");
   ok(facetValue("subsystem", "Core"), "Its subsystems' facet is hierarchical");
@@ -66,7 +69,7 @@ add_task(async function test_DiagramFacets_classes() {
   is(facetStatus(), "Showing 1 of 3 nodes.", "of the three nodes");
 
   // (And the nodes facets leave out stay out of the clustered layout.)
-  await TestUtils.loadQuery("tests", "calls-from:'rollup::Engine::Run' depth:2 graph-format:mozsearch-interactive",
+  await TestUtils.loadQuery("tests", QUERY,
                             { clusters: "1", "-facet-class": "rollup::Storage" });
   is(blockTexts(), "Run", "Its URL leaves them out of the clustered diagram too");
   TestUtils.click(frame.contentDocument.querySelector(".facet-clear"));

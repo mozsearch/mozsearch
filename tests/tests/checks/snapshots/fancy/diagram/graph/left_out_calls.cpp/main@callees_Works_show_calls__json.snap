@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/left_out_calls.cpp/callees_Works_show_calls__json
+---
+[
+  [
+    "_ZL22AnnotateMozCrashReasonPKc",
+    "_ZL26MOZ_ReportAssertionFailurePKcS0_i",
+    "_ZN14left_out_calls4StepEv",
+    "_ZN14left_out_calls5Thing4PokeEv",
+    "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE",
+    "_ZNK14left_out_calls5Thing5ValueEv"
+  ],
+  [
+    "_ZN14left_out_calls5Thing4PokeEv -> _ZN14left_out_calls4StepEv (default)",
+    "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE -> _ZL22AnnotateMozCrashReasonPKc (default)",
+    "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE -> _ZL26MOZ_ReportAssertionFailurePKcS0_i (default)",
+    "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE -> _ZN14left_out_calls4StepEv (default)",
+    "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE -> _ZN14left_out_calls5Thing4PokeEv (default)",
+    "_ZN14left_out_calls5WorksERN7mozilla9UniquePtrINS_5ThingEEERKNS0_5MaybeIiEE -> _ZNK14left_out_calls5Thing5ValueEv (default)"
+  ]
+]

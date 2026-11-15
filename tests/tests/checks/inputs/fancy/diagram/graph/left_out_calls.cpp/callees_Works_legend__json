@@ -1,0 +1,1 @@
+search-identifiers left_out_calls::Works | crossref-lookup | traverse --edge=callees --max-depth=2 | graph --format=mozsearch-interactive | jq '.options[0].items | map(select(.name == "*left-out*" or .name == "show-calls"))'

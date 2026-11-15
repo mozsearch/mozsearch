@@ -219,6 +219,12 @@ impl AbstractServer for TryOverlay {
         self.base.dataflow_mapping()
     }
 
+    fn diagram_mapping(
+        &self,
+    ) -> Option<std::sync::Arc<crate::cmd_pipeline::diagram_mapping::DiagramMapping>> {
+        self.base.diagram_mapping()
+    }
+
     fn lock_regions(
         &self,
         path: &str,

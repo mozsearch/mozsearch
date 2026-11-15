@@ -1,6 +1,7 @@
 extern crate clap;
 
 pub mod builder;
+pub mod diagram_mapping;
 pub mod facets;
 pub mod full_grep;
 pub mod highlight;

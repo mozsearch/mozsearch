@@ -7,9 +7,11 @@
 // with the Storage class's in that, around Put and Get; Run is alone of its
 // subsystem, so it's tagged with it instead; and its calls are one edge from
 // Run to Rollup Storage's box, whose ends in it are stubs on Put and Get.
+// (Get is a getter, which calls diagrams leave out unless they're asked to
+// show them; see config_defaults/diagram-mapping.toml.)
 add_task(async function test_DiagramClusters() {
   await TestUtils.resetFeatureGate("diagramming");
-  const QUERY = "calls-from:'rollup::Engine::Run' depth:2 graph-format:mozsearch-interactive";
+  const QUERY = "calls-from:'rollup::Engine::Run' depth:2 show-calls:getters graph-format:mozsearch-interactive";
 
   await TestUtils.loadQuery("tests", QUERY);
   ok(frame.contentDocument.querySelector(".interactive-graph-block"), "The diagram is there");

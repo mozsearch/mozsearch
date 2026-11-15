@@ -885,6 +885,22 @@ pub trait AbstractServer {
         crate::dataflow::mapping::DataflowMapping::cached(&text)
     }
 
+    /// What calls diagrams leave out (see `cmd_pipeline::diagram_mapping`):
+    /// the config repo's diagram-mapping.toml, else config_defaults'.  (For
+    /// remote servers, `$MOZSEARCH_PATH`'s config_defaults', if it says
+    /// where a checkout is.)
+    fn diagram_mapping(
+        &self,
+    ) -> Option<std::sync::Arc<crate::cmd_pipeline::diagram_mapping::DiagramMapping>> {
+        let mozsearch = std::env::var("MOZSEARCH_PATH").ok()?;
+        let text = std::fs::read_to_string(format!(
+            "{}/config_defaults/diagram-mapping.toml",
+            mozsearch
+        ))
+        .ok()?;
+        crate::cmd_pipeline::diagram_mapping::DiagramMapping::cached(&text)
+    }
+
     /// The crash sets' store (see `crash_sets`): a local index's, the
     /// config's `crash_sets_path`, else `crash-sets/` beside the trees'
     /// index directories.  (For remote servers, `$SEARCHFOX_CRASH_SETS`, if

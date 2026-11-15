@@ -558,6 +558,17 @@ impl AbstractServer for LocalIndex {
         crate::dataflow::mapping::DataflowMapping::cached(&text)
     }
 
+    fn diagram_mapping(
+        &self,
+    ) -> Option<std::sync::Arc<crate::cmd_pipeline::diagram_mapping::DiagramMapping>> {
+        // (Read each time, and parsed when it changed.)
+        let text = self
+            .tree_config_loaded()
+            .read_tree_config_file_with_default("diagram-mapping.toml")
+            .ok()?;
+        crate::cmd_pipeline::diagram_mapping::DiagramMapping::cached(&text)
+    }
+
     async fn bugzilla_json(&self, path: &str) -> Result<std::sync::Arc<Value>> {
         // (Not holding the config, which isn't Send, while fetching.)
         let base = self

@@ -1020,4 +1020,16 @@ mod tests {
         );
         assert!(!values("calls-from:Foo").contains("\"test\":"));
     }
+
+    #[test]
+    fn test_show_calls() {
+        // (The groups of calls a calls diagram leaves out to show; see
+        // `traverse --show-calls`.  Amending: it starts no traversal.)
+        let traversal = values("calls-from:Foo show-calls:strings,getters");
+        assert!(
+            traversal.contains("\"show-calls\":[\"strings,getters\""),
+            "{traversal}"
+        );
+        assert!(!values("show-calls:all").contains("graph-traverse"));
+    }
 }

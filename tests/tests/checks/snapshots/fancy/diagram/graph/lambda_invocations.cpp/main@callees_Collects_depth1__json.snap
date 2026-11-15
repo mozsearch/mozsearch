@@ -1,0 +1,18 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/callees_Collects_depth1__json
+---
+[
+  [
+    "_ZN18lambda_invocations4MoreEv",
+    "_ZN18lambda_invocations4StepEv",
+    "_ZN18lambda_invocations8CollectsEv",
+    "_ZN7mozilla12CollectWhileERKT_RKT0_"
+  ],
+  [
+    "_ZN18lambda_invocations8CollectsEv -> _ZN18lambda_invocations4MoreEv (default)",
+    "_ZN18lambda_invocations8CollectsEv -> _ZN18lambda_invocations4StepEv (default)",
+    "_ZN18lambda_invocations8CollectsEv -> _ZN7mozilla12CollectWhileERKT_RKT0_ (default)"
+  ]
+]

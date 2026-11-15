@@ -946,7 +946,8 @@ var Diagram = new (class Diagram {
   /**
    * The legend of the diagrams' badges (see `addBadgeTooltips`), in the
    * navigation panel: the sections of `LABELS` with badges the page shows,
-   * with only those, if any.
+   * with only those, if any; and the calls the diagram left out, if it did
+   * (see `addLeftOutCalls`).
    */
   addLegend() {
     const shown = new Set([...document.querySelectorAll(`svg text[text-decoration="underline"]`)]
@@ -955,8 +956,9 @@ var Diagram = new (class Diagram {
       .map(([sectionLabel, section]) =>
         [sectionLabel, Object.entries(section).filter(([label]) => shown.has(label))])
       .filter(([, labels]) => labels.length > 0);
+    const leftOut = this.leftOutGroups();
     const content = document.querySelector("#panel-content");
-    if (sections.length == 0 || !content) {
+    if ((sections.length == 0 && leftOut.length == 0) || !content) {
       return;
     }
 
@@ -989,7 +991,121 @@ var Diagram = new (class Diagram {
       legendPane.append(legend);
     }
 
+    this.addLeftOutCalls(legendPane, leftOut);
+
     content.append(legendPane);
+  }
+
+  /**
+   * The groups of calls a calls diagram left out, or shows (see
+   * `LeftOutCalls` in the tools' cmd_traverse.rs, and
+   * config_defaults/diagram-mapping.toml): `{group, name, why, shown, count,
+   * callees, callers}` for each group whose functions its nodes call.
+   */
+  leftOutGroups() {
+    if (typeof GRAPH_OPTIONS == "undefined") {
+      return [];
+    }
+    for (const { items } of GRAPH_OPTIONS) {
+      for (const item of items) {
+        if (item.name === "*left-out*") {
+          return item.groups;
+        }
+      }
+    }
+    return [];
+  }
+
+  /**
+   * The legend's section of the calls the diagram left out, by their
+   * groups (with why, and the functions called, in their tooltips), each
+   * with a button showing them (the query again with `show-calls:`), and of
+   * those it shows that it would leave out, with buttons leaving them out
+   * again (but those shown as the diagram's of them).
+   */
+  addLeftOutCalls(legendPane, groups) {
+    if (groups.length == 0) {
+      return;
+    }
+    const title = document.createElement("h5");
+    title.append("Left-out calls");
+    legendPane.append(title);
+
+    const note = document.createElement("p");
+    note.classList.add("diagram-left-out-note");
+    note.append("Calls of infrastructure and generic data manipulation, which most code makes:");
+    legendPane.append(note);
+
+    const showCalls = this.getOption("show-calls");
+    const listed = (showCalls?.value || "").split(",").map(name => name.trim()).filter(Boolean);
+    // (A list rather than the badges' grid, which the panel is too narrow
+    // for, with the groups' names.)
+    const legend = document.createElement("ul");
+    legend.classList.add("diagram-left-out");
+    for (const group of groups) {
+      const row = document.createElement("li");
+      row.dataset.group = group.group;
+
+      const name = document.createElement("span");
+      name.classList.add("diagram-left-out-name");
+      name.append(group.name);
+      const more = group.count > group.callees.length ? ", …" : "";
+      name.title = `${group.why}\n\nCalled: ${group.callees.join(", ")}${more}`;
+      row.append(name, " ");
+
+      const count = document.createElement("span");
+      count.classList.add("diagram-left-out-count");
+      count.title = group.count == 1 ? "1 function called" : `${group.count} functions called`;
+      row.append(count);
+      if (!group.shown) {
+        count.append(`(${group.count})`);
+        row.append(" ", this.showCallsButton("Show", [group.group], true));
+      } else if (listed.includes(group.group) || listed.includes("all")) {
+        count.append(`(${group.count}, shown)`);
+        row.append(" ", this.showCallsButton("Leave out", [group.group], false));
+      } else {
+        count.append(`(${group.count}, shown: the diagram's of them)`);
+      }
+      legend.append(row);
+    }
+    legendPane.append(legend);
+
+    const hidden = groups.filter(group => !group.shown).map(group => group.group);
+    if (hidden.length > 1) {
+      const all = document.createElement("p");
+      all.classList.add("diagram-left-out-note");
+      all.append(this.showCallsButton("Show them all", hidden, true));
+      legendPane.append(all);
+    }
+  }
+
+  /**
+   * A button applying the diagram's options with the groups of calls shown
+   * (`show-calls:`), or left out.
+   */
+  showCallsButton(label, groupNames, show) {
+    const button = document.createElement("button");
+    button.classList.add("diagram-show-calls");
+    button.append(label);
+    button.addEventListener("click", () => {
+      const item = this.getOption("show-calls");
+      if (!item) {
+        return;
+      }
+      let listed = item.value.split(",").map(name => name.trim()).filter(Boolean);
+      // ("all" without some: the others the diagram's nodes call.)
+      if (listed.includes("all") && !show) {
+        listed = this.leftOutGroups().map(group => group.group);
+      }
+      if (show) {
+        listed.push(...groupNames.filter(name => !listed.includes(name)));
+      } else {
+        listed = listed.filter(name => !groupNames.includes(name));
+      }
+      item.value = listed.join(",");
+      this.applyOptions();
+    });
+    return button;
   }
 
   liftLimitFor(sym) {
