@@ -2376,6 +2376,10 @@ impl<'s> Tracer<'s> {
     async fn callers(&mut self, file: &Arc<FileIr>, func: usize) -> Vec<Site> {
         let f = &file.funcs[func];
         let sym = f.sym;
+        // (A call in a macro expansion, which is a platform's, can have one
+        // of its definition's other symbols, ex: QM_TRY_INSPECT's of
+        // dom/cache's `QueryCache`, whose `int64_t` is `l` on Linux.)
+        let alt_syms = f.alt_syms.clone();
         let mut syms: Vec<(Ustr, ArgMap)> = vec![(sym, ArgMap::Direct)];
         if let Some(xref) = self.xref(&sym).await
             && let Some(meta) = &xref.meta
@@ -2508,7 +2512,9 @@ impl<'s> Tracer<'s> {
                     continue;
                 }
                 for (ci, call) in cf.calls.iter().enumerate() {
-                    if call.line <= line && line <= call.end_line && call.callee.contains(&s) {
+                    let calls_it = call.callee.contains(&s)
+                        || (s == sym && call.callee.iter().any(|c| alt_syms.contains(c)));
+                    if call.line <= line && line <= call.end_line && calls_it {
                         sites.push(Site {
                             file: caller_file.clone(),
                             func: caller,

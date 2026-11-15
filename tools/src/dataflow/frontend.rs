@@ -105,8 +105,9 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
     let mut funcs = vec![];
     let mut stack = vec![parse.tree.root_node()];
     while let Some(node) = stack.pop() {
-        if let Some((sym, pretty)) = cx.function_sym(node, &parse.text) {
+        if let Some((sym, alt_syms, pretty)) = cx.function_sym(node, &parse.text) {
             let mut builder = Builder::new(&cx, &file_text, node, sym, pretty);
+            builder.ir.alt_syms = alt_syms;
             builder.build(node);
             stack.append(&mut builder.nested);
             funcs.push(builder.ir);
@@ -192,6 +193,7 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
             def.sym(),
             def.pretty.clone(),
         );
+        builder.ir.alt_syms = def.syms.iter().skip(1).copied().collect();
         builder.macro_cx = Some(MacroCx {
             line: mac.line,
             col: mac.col,
@@ -210,6 +212,9 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
     let mut by_sym = HashMap::new();
     for (i, f) in funcs.iter().enumerate() {
         by_sym.entry(f.sym).or_insert(i);
+        for alt in &f.alt_syms {
+            by_sym.entry(*alt).or_insert(i);
+        }
     }
     Ok(FileIr {
         path: path.to_string(),
@@ -360,7 +365,9 @@ impl<'a> Cx<'a> {
 
     /// The symbol and pretty name of a function node, if it's a function
     /// with a definition record (or a name; see `fallback_sym`).
-    fn function_sym(&self, node: Node, text: &str) -> Option<(Ustr, String)> {
+    /// A function definition's symbol, its definition's other symbols (see
+    /// `FuncIr::alt_syms`), and its pretty name.
+    fn function_sym(&self, node: Node, text: &str) -> Option<(Ustr, Vec<Ustr>, String)> {
         let name = match (self.lang, node.kind()) {
             (Lang::Cpp, "function_definition") => cpp_function_name(node)?,
             (
@@ -391,7 +398,11 @@ impl<'a> Cx<'a> {
                     || r.has_syntax("field"))
         });
         match def {
-            Some(rec) => Some((rec.sym(), rec.pretty.clone())),
+            Some(rec) => Some((
+                rec.sym(),
+                rec.syms.iter().skip(1).copied().collect(),
+                rec.pretty.clone(),
+            )),
             None => {
                 // Named functions without records (ex: C++ templates never
                 // instantiated) still get IR, for the debugging view.
@@ -402,6 +413,7 @@ impl<'a> Cx<'a> {
                 let line = name.start_position().row + 1;
                 Some((
                     ustr(&format!("?{}:{}:{}", self.path, line, name_text)),
+                    vec![],
                     name_text.to_string(),
                 ))
             }
@@ -604,6 +616,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             text: text.clone(),
             ir: FuncIr {
                 sym,
+                alt_syms: vec![],
                 pretty,
                 path: cx.path.to_string(),
                 lang: cx.lang,
@@ -3624,6 +3637,7 @@ fn exits(node: Node, text: &dyn Fn(Node) -> String) -> bool {
 fn empty_ir() -> FuncIr {
     FuncIr {
         sym: Ustr::default(),
+        alt_syms: vec![],
         pretty: String::new(),
         path: String::new(),
         lang: Lang::Cpp,
@@ -3790,6 +3804,28 @@ mod tests {
              3:17  *aRetVal = {false}\n      \
              4:2   return {rv}\n"
         );
+    }
+
+    /// A definition with platforms' symbols (ex: an `int64_t` parameter's
+    /// manglings) is found by each, as a macro expansion's call has one.
+    #[test]
+    fn test_cpp_platform_syms() {
+        let source = "int Foo::Get(int64_t aId) {\n  return 0;\n}\n";
+        let values = vec![rec(
+            source,
+            1,
+            "Get",
+            "def,function",
+            "function Foo::Get",
+            "_ZN3Foo3GetEx,_ZN3Foo3GetEl",
+            None,
+        )];
+        let recs = FileRecords::from_values(values);
+        let file = build_file_ir("a.cpp", source, &recs).unwrap();
+        assert_eq!(file.funcs.len(), 1);
+        assert_eq!(file.funcs[0].sym, ustr("_ZN3Foo3GetEx"));
+        assert_eq!(file.funcs[0].alt_syms, vec![ustr("_ZN3Foo3GetEl")]);
+        assert_eq!(file.by_sym.get(&ustr("_ZN3Foo3GetEl")), Some(&0));
     }
 
     /// A lambda's init-capture is a variable of its own (by its record),

@@ -452,6 +452,12 @@ impl LockRegion {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FuncIr {
     pub sym: Ustr,
+    /// Its definition's other symbols (ex: the platforms' manglings of an
+    /// `int64_t` parameter, `l` on Linux and `x` elsewhere), which calls in
+    /// macro expansions, a platform's, can have instead of `sym` (see
+    /// `Tracer::callers`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub alt_syms: Vec<Ustr>,
     pub pretty: String,
     pub path: String,
     pub lang: Lang,
@@ -739,6 +745,7 @@ mod tests {
         names.insert(ustr("F_name"), "mName".to_string());
         FuncIr {
             sym: ustr("f"),
+            alt_syms: vec![],
             pretty: "f".to_string(),
             path: "a.cpp".to_string(),
             lang,
