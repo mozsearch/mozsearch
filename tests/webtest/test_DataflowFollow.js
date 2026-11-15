@@ -313,3 +313,67 @@ add_task(async function test_DataflowFollowMacroComposite() {
      `with its arguments, labeled, from both of its lines: ${JSON.stringify(args)}`);
   ok(args.every(arg => arg.traced), "both traced, as the value goes into the target");
 });
+
+// Each line is one through the cards and between them (see subway.js's
+// `afterLayout`): its edges end at its tracks, at their x, in the cards at
+// their ends: at a card's top, whose head has the track, or at its bottom,
+// whose last row's has it, down to the bottom.  ConsumeResult's call of
+// ProduceResult goes down to it, and its return back up.
+add_task(async function test_DataflowFollowContinuousLines() {
+  await TestUtils.resetFeatureGate("dataflow");
+  await TestUtils.loadPath("/tests/source/dataflow/dataflow.cpp");
+  const input = [...frame.contentDocument.querySelectorAll(`#line-347 span[data-symbols]`)]
+    .find(span => span.textContent === "aInput");
+  TestUtils.click(input);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the parameter");
+  const loaded = TestUtils.waitForLoad();
+  TestUtils.click(findFollowItem(menu, "Follow where aInput goes"));
+  await loaded;
+
+  const { doc } = await tracedMap();
+  const container = doc.querySelector("#interactive-graph-container");
+  const cards = [...container.querySelectorAll(".sw-card")].map(card => ({
+    card,
+    left: parseFloat(card.style.left),
+    top: parseFloat(card.style.top),
+    width: card.offsetWidth,
+    height: card.offsetHeight,
+  }));
+  const ends = [];
+  for (const path of container.querySelectorAll("path.interactive-graph-edge:not(.clicktarget)")) {
+    const line = /interactive-graph-edge-line-(\d+)/.exec(path.getAttribute("class"))?.[1];
+    if (line == null) {
+      continue;
+    }
+    for (const at of [0, path.getTotalLength()]) {
+      const { x, y } = path.getPointAtLength(at);
+      const end = { line, x: Math.round(x), y: Math.round(y) };
+      for (const c of cards) {
+        if (x < c.left || x > c.left + c.width) {
+          continue;
+        }
+        // (1px in, over its border.)
+        const side = Math.abs(y - (c.top + 1)) <= 1 ? "top"
+          : Math.abs(y - (c.top + c.height - 1)) <= 1 ? "bottom" : null;
+        if (!side) {
+          continue;
+        }
+        end.card = c.card.querySelector(".sw-name").textContent;
+        end.side = side;
+        const track = side == "top"
+          ? c.card.querySelector(`.sw-head-tracks line[data-line="${line}"]`)
+          : [...c.card.querySelectorAll(".sw-row")].at(-1)
+            .querySelector(`.sw-gutter line[data-line="${line}"][y2="10"]`);
+        end.track = !!track;
+        end.trackX = track ? c.left + c.card.clientLeft + Number(track.getAttribute("x1")) : null;
+      }
+      ends.push(end);
+    }
+  }
+  ok(ends.length >= 4, `The lines have edges: ${JSON.stringify(ends)}`);
+  ok(ends.every(end => end.track && Math.abs(end.trackX - end.x) <= 1),
+     `which end at their tracks: ${JSON.stringify(ends)}`);
+  ok(ends.some(end => end.side == "top") && ends.some(end => end.side == "bottom"),
+     "at cards' tops and bottoms");
+});

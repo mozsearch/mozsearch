@@ -6145,10 +6145,23 @@ textarea.monospace {
   overflow: hidden;
   cursor: default;
   background-color: var(--page-background);
-  border-width: 1px 1px 1px 5px;
+  border-width: 0 0 0 5px;
   border-radius: 6px;
   border-left-color: var(--page-border-color);
   font-family: sans-serif;
+}
+/* (Its other borders, over its rows: as a border, they were under them,
+   whose highlighting, zoomed out, covered the right one, as the rows' clip
+   and the border shared device pixels.  The lines' edges go over the top and
+   bottom ones to its tracks; see subway.js's `portInset`.) */
+.interactive-graph-block.sw-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--page-border-color);
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+  pointer-events: none;
 }
 .sw-card.sw-card-changed {
   border-left-color: #e8a33d;
@@ -6161,12 +6174,22 @@ textarea.monospace {
   background-color: var(--line-highlight-background);
 }
 .sw-head {
+  position: relative;
   display: flex;
   align-items: baseline;
   gap: 0.4em;
-  padding: 0.25em 0.4em;
+  /* (Beside its gutter, whose tracks, see subway.js's `headTracks`, are those
+     of the lines coming in at its card's top.) */
+  padding: 0.25em 0.4em 0.25em calc(var(--sw-gutter) + 0.3em);
   white-space: nowrap;
   border-bottom: 1px solid var(--page-border-color);
+}
+.sw-head > .sw-head-tracks {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: calc(100% + 1px);
+  margin: 0;
 }
 .sw-name {
   font-family: monospace;

@@ -76,11 +76,19 @@ var SubwayMap = new (class SubwayMap {
         "No functions to map (see the dataflow graph).";
       return;
     }
+    // (In rows, whose edges end at their lines' tracks in the cards, so that
+    // each line is one through them and between them; see `afterLayout`.
+    // With `?layout=grid`, in graph.js's grid, whose edges end where its
+    // ports are.)
     this.graph = new Graph(
       document.querySelector("#interactive-graph-viewport"),
       document.querySelector("#interactive-graph-container"),
       this.input(), [], [], GRAPH_EXTRA,
-      { renderBlock: (block, element) => this.renderCard(block, element) });
+      {
+        renderBlock: (block, element) => this.renderCard(block, element),
+        layout: new URLSearchParams(document.location.search).get("layout") || "rows",
+        afterLayout: graph => this.afterLayout(graph),
+      });
     this.addHovering(document.querySelector("#interactive-graph-container"));
     document.documentElement.dataset.subwayReady = "true";
   }
@@ -334,8 +342,15 @@ var SubwayMap = new (class SubwayMap {
       firstStop.push(start + (stopping >= 0 ? stopping : Math.floor((station.rows.length - 1) / 2)));
     });
     const spans = new Map();
+    // (Its lines, whether or not they have tracks: the gutter's as wide
+    // before the layout as after it, when the sides they go on to are known.)
+    const present = new Set();
     const extend = (line, position) => {
       if (this.hiddenLines.has(line)) {
+        return;
+      }
+      present.add(line);
+      if (position == null) {
         return;
       }
       const span = spans.get(line) ?? { first: position, last: position };
@@ -356,17 +371,29 @@ var SubwayMap = new (class SubwayMap {
       const at = rows.findIndex(({ si: s, row }) => s == si && row.stops?.includes(line));
       return at >= 0 ? at : firstStop[si];
     };
+    // (Where its lines come in and go on: once the graph's laid out, at the
+    // sides their edges are at (see `afterLayout`), else at the top, or a
+    // return's call's row, and at the bottom.)
+    const sides = this.sides?.get(card.id);
     for (const c of this.model.connectors) {
       for (const line of c.lines) {
         if (c.to == card.id) {
-          extend(line, c.to_station != null ? stopIn(c.to_station, line) : -1);
+          extend(line, c.to_station != null ? stopIn(c.to_station, line) : this.sides ? null : -1);
         }
         if (c.from == card.id) {
-          extend(line, rows.length);
+          extend(line, this.sides ? null : rows.length);
         }
       }
     }
-    const order = [...spans.keys()].sort((a, b) =>
+    for (const [line, at] of sides ?? []) {
+      if (at.has("top")) {
+        extend(line, -1);
+      }
+      if (at.has("bottom")) {
+        extend(line, rows.length);
+      }
+    }
+    const order = [...present].sort((a, b) =>
       this.model.lines[a].family - this.model.lines[b].family || a - b);
     return { card, order, spans, rows, firstStop, stopIn };
   }
@@ -403,7 +430,7 @@ var SubwayMap = new (class SubwayMap {
     const split = tracks.firstStop[si];
     tracks.order.forEach((line, i) => {
       const span = tracks.spans.get(line);
-      if (position < span.first || position > span.last) {
+      if (!span || position < span.first || position > span.last) {
         return;
       }
       let top = 0;
@@ -450,6 +477,39 @@ var SubwayMap = new (class SubwayMap {
         segment.dataset.line = line;
         svg.append(segment);
       }
+    });
+    return svg;
+  }
+
+  /**
+   * The tracks of the lines coming in at a card's top (see `afterLayout`)
+   * through its head, over its border, to its first row's, arriving at its
+   * first station.
+   */
+  headTracks(tracks) {
+    const NS = "http://www.w3.org/2000/svg";
+    const width = Math.max(1, tracks.order.length) * SubwayMap.TRACK;
+    const svg = document.createElementNS(NS, "svg");
+    svg.classList.add("sw-gutter", "sw-head-tracks");
+    svg.dataset.order = tracks.order.join(",");
+    svg.setAttribute("width", width);
+    svg.setAttribute("viewBox", `0 0 ${width} 10`);
+    svg.setAttribute("preserveAspectRatio", "none");
+    tracks.order.forEach((line, i) => {
+      if (tracks.spans.get(line)?.first != -1) {
+        return;
+      }
+      const x = i * SubwayMap.TRACK + SubwayMap.TRACK / 2;
+      const segment = document.createElementNS(NS, "line");
+      segment.setAttribute("x1", x);
+      segment.setAttribute("x2", x);
+      segment.setAttribute("y1", 0);
+      segment.setAttribute("y2", 10);
+      segment.setAttribute("stroke", this.colors.get(line));
+      segment.classList.add("sw-track");
+      segment.classList.toggle("sw-tainted", this.taintedBefore(tracks.card, line, 0));
+      segment.dataset.line = line;
+      svg.append(segment);
     });
     return svg;
   }
@@ -506,13 +566,31 @@ var SubwayMap = new (class SubwayMap {
   renderCard(block, element) {
     const card = block.data.card;
     const tracks = this.cardTracks(card);
+    block.swTracksKey = this.tracksKey(tracks);
     element.classList.add("sw-card");
     element.classList.toggle("sw-card-changed", card.changed);
     element.classList.toggle("sw-card-seed", card.seed ?? false);
     element.style.setProperty("--sw-gutter", `${Math.max(1, tracks.order.length) * SubwayMap.TRACK}px`);
+    // (Its lines' edges end at their tracks, from its border's left edge:
+    // its left border's width and the track's x in its rows' gutters, which
+    // start its rows; and they go over its top and bottom borders, 1px, to
+    // its tracks' ends; see RowLayout's `portInset`.)
+    block.portInset = 1;
+    block.portX = edge => {
+      const line = Number(/^line-(\d+)/.exec(edge.kind)?.[1]);
+      const i = tracks.order.indexOf(line);
+      if (i < 0) {
+        return element.offsetWidth / 2;
+      }
+      const row = element.querySelector(".sw-row");
+      return element.clientLeft + (row?.offsetLeft ?? 0) + i * SubwayMap.TRACK + SubwayMap.TRACK / 2;
+    };
 
     const head = document.createElement("div");
     head.className = "sw-head";
+    if (tracks.order.some(line => tracks.spans.get(line)?.first == -1)) {
+      head.append(this.headTracks(tracks));
+    }
     const name = document.createElement("span");
     name.className = "sw-name";
     name.textContent = card.func;
@@ -625,6 +703,57 @@ var SubwayMap = new (class SubwayMap {
 
   rerender() {
     this.graph?.setInput(this.input());
+  }
+
+  /**
+   * Once the graph's laid out in rows (whose edges end at their lines'
+   * tracks, see `renderCard`'s `portX`), each card's tracks go on to the
+   * sides its lines' edges are at (`sides`, by card and line): down to its
+   * bottom for an edge to a card below, up to its top for one to a card
+   * above (ex: a return to its caller, which is laid out above it), and for
+   * an edge to a card in its row, which goes down and back up, its bottom.
+   */
+  afterLayout(graph) {
+    if (!graph.rowLayout) {
+      this.sides = null;
+      return;
+    }
+    const sides = new Map();
+    const add = (block, line, side) => {
+      const id = block.data?.card?.id;
+      if (id == null) {
+        return;
+      }
+      const lines = sides.get(id) ?? new Map();
+      sides.set(id, lines);
+      lines.set(line, (lines.get(line) ?? new Set()).add(side));
+    };
+    for (const edge of graph.edges) {
+      const match = /^line-(\d+)/.exec(edge.kind);
+      if (!match || edge.loopback || !edge.rowSegments) {
+        continue;
+      }
+      const line = Number(match[1]);
+      const sameRow = edge.rowSegments.some(segment => segment.sameRow);
+      add(edge.pred, line, sameRow || !edge.upward ? "bottom" : "top");
+      add(edge.succ, line, sameRow || edge.upward ? "bottom" : "top");
+    }
+    this.sides = sides;
+    // (Those whose tracks are others now, rendered again, as they were
+    // rendered for the layout before it was known where their edges are:
+    // their sizes are the same.)
+    for (const block of graph.blocks) {
+      if (block.node && block.data?.card &&
+          this.tracksKey(this.cardTracks(block.data.card)) != block.swTracksKey) {
+        block.node.replaceChildren();
+        this.renderCard(block, block.node);
+      }
+    }
+  }
+
+  /** A card's tracks' spans, to tell whether they've changed. */
+  tracksKey(tracks) {
+    return JSON.stringify(tracks.order.map(line => [line, tracks.spans.get(line)]));
   }
 
   /**

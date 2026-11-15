@@ -913,8 +913,13 @@ class RowLayout {
       node.item.layoutLeft = node.x - node.width / 2;
       node.item.layoutTop = tops[node.depth];
     }
-    // A node's bottom (a dummy's, its row's), and its top.
-    const bottomOf = node => (node.dummy ? tops[node.depth] + heights[node.depth] : tops[node.depth] + node.height);
+    // A node's bottom (a dummy's, its row's), and its top, where its edges
+    // end: an item's edges go `portInset` into it (ex: a subway map's card's,
+    // over its border to its tracks; see subway.js), as they're drawn over
+    // the blocks.
+    const inset = node => (node.dummy ? 0 : node.item.portInset ?? 0);
+    const bottomOf = node => (node.dummy ? tops[node.depth] + heights[node.depth] : tops[node.depth] + node.height - inset(node));
+    const topOf = node => tops[node.depth] + inset(node);
     for (const edge of this.edges) {
       const points = [];
       const add = (x, y) => {
@@ -942,7 +947,7 @@ class RowLayout {
           add(x, across);
           add(segment.toX, across);
         }
-        add(segment.track >= 0 ? segment.toX : x, tops[segment.bottom.depth]);
+        add(segment.track >= 0 ? segment.toX : x, topOf(segment.bottom));
       }
       // (Without the corners which aren't, ex: through dummies.)
       edge.layoutPoints = points.filter((point, i) => {
@@ -1079,6 +1084,10 @@ class Graph {
     this.createEdgeNodes();
 
     this.createLoopEdgeNodes();
+
+    // (Ex: a subway map's cards' tracks, which go on to the sides their
+    // edges are at; see subway.js.)
+    this.options.afterLayout?.(this);
 
     // Re-populate interaction data
     this.extraList.length = 0;
