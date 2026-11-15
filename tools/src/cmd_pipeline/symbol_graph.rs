@@ -164,7 +164,7 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
 // Returns true if given pretty string is for lambda.
 // This checks if the string matches the following regexp:
 //   \(lambda\d+\)$
-fn is_lambda_pretty(pretty: &str) -> bool {
+pub fn is_lambda_pretty(pretty: &str) -> bool {
     let mut bytes = pretty.bytes().rev();
     match bytes.next() {
         Some(b')') => {}
@@ -2115,6 +2115,7 @@ impl HierarchicalNode {
                     EdgeKind::Aggregation => ("solid", "arrowtail", "odiamond"),
                     EdgeKind::IPC => ("dotted", "arrowhead", "vee"),
                     EdgeKind::CrossLanguage => ("solid", "arrowhead", "lnormal"),
+                    EdgeKind::Later => ("dashed", "arrowhead", "empty"),
                 };
 
                 let mut maybe_edge =
@@ -2821,6 +2822,19 @@ impl SymbolGraphEdgeSet {
 
     pub fn get_mut(&mut self, edge_id: &SymbolGraphEdgeId) -> &mut EdgeInfo {
         &mut self.edge_infos[edge_id.0 as usize]
+    }
+
+    /// Make the edge between two nodes, if there's one, of another kind (ex:
+    /// `EdgeKind::Later`; see `cmd_traverse::fold_lambdas`).
+    pub fn set_edge_kind(
+        &mut self,
+        source: &SymbolGraphNodeId,
+        target: &SymbolGraphNodeId,
+        kind: EdgeKind,
+    ) {
+        if let Some(idx) = self.edge_lookup.get(&(source.0, target.0)) {
+            self.edge_infos[*idx as usize].kind = kind;
+        }
     }
 
     /// Merge the provided edge metadata for any existing edge between the

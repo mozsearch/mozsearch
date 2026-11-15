@@ -23,7 +23,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use serde_json::Map;
 extern crate tools;
-use tools::cmd_pipeline::symbol_graph::is_implementable;
+use tools::cmd_pipeline::symbol_graph::{is_implementable, is_lambda_pretty};
 use tools::dataflow::summary::{
     Category, FieldEdge, Summary, field_class, hint_summary, is_field_sym, is_value_type_class,
     parse_hint_flow, untemplated_pretty,
@@ -1786,6 +1786,89 @@ fn process_class_fields(
     }
 
     field_member_use_table
+}
+
+/// Whether lambdas are called synchronously or later by the functions
+/// they're passed to, for call diagrams (which fold those called
+/// synchronously into the functions making them; see `fold_lambdas` in
+/// cmd_traverse.rs): by who calls them, their uses other than where they're
+/// made (the clang plugin's implicit use, at the lambda's `[`, whose context
+/// is the function making it, its meta's `lambdaCreator`).  One only its creator
+/// calls (ex: a `QM_TRY`'s cleanup, which its expansion calls), or only
+/// functions labeled "callable:sync" call (and its creator, ex:
+/// dom/quota's `CollectWhile`), is labeled "lambda:sync"; one a function
+/// labeled "callable:async" calls (ex: `RunnableFunction::Run`) is
+/// "lambda:async"; others (ex: one nothing indexed calls, as when it's passed
+/// on in a `std::function`) aren't labeled: it's unknown when they're called.
+/// (After `process_ontology_rules`, which labels the callers.)
+fn classify_lambdas(search_result_table: &SearchResultTable, meta_table: &mut MetaTable) {
+    let lambdas: Vec<Ustr> = meta_table
+        .iter()
+        .filter(|(_, meta)| meta.kind == "method" && is_lambda_pretty(&meta.pretty))
+        .map(|(sym, _)| *sym)
+        .collect();
+    let (sync_label, async_label) = (ustr("callable:sync"), ustr("callable:async"));
+    let mut counts = (0, 0, 0);
+    for sym in lambdas {
+        let Some(kinds) = search_result_table.get(&sym) else {
+            continue;
+        };
+        // (Its implicit use is the one at its introducer, its `[`.)
+        let mut creator = None;
+        let mut callers = UstrSet::default();
+        for hits in kinds
+            .get(&AnalysisKind::Use)
+            .into_iter()
+            .flat_map(|paths| paths.values())
+        {
+            for hit in hits {
+                if hit.contextsym.is_empty() {
+                    continue;
+                }
+                let at = hit.line.get(hit.bounds.0 as usize..hit.bounds.1 as usize);
+                if creator.is_none() && at == Some("[") {
+                    creator = Some(hit.contextsym);
+                } else {
+                    callers.insert(hit.contextsym);
+                }
+            }
+        }
+        let Some(creator) = creator else {
+            continue;
+        };
+        let called_by_creator = callers.remove(&creator);
+        let labeled = |caller: &Ustr, label: &Ustr| {
+            meta_table
+                .get(caller)
+                .is_some_and(|meta| meta.labels.contains(label))
+        };
+        let class = if callers.iter().any(|caller| labeled(caller, &async_label)) {
+            counts.1 += 1;
+            Some("lambda:async")
+        } else if (called_by_creator || !callers.is_empty())
+            && callers.iter().all(|caller| labeled(caller, &sync_label))
+        {
+            counts.0 += 1;
+            Some("lambda:sync")
+        } else {
+            counts.2 += 1;
+            None
+        };
+        let Some(meta) = meta_table.get_mut(&sym) else {
+            continue;
+        };
+        meta.extra.insert(
+            "lambdaCreator".to_string(),
+            serde_json::Value::String(creator.to_string()),
+        );
+        if let Some(class) = class {
+            meta.labels.insert(ustr(class));
+        }
+    }
+    info!(
+        "Lambdas: {} called synchronously, {} later, {} unknown",
+        counts.0, counts.1, counts.2
+    );
 }
 
 fn process_ontology_rules(
@@ -3681,6 +3764,7 @@ async fn crossref_subset(
     );
     add_lock_regions(&tree_config.paths.index_path, &mut meta_table);
     process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
+    classify_lambdas(&search_result_table, &mut meta_table);
     let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
     let tree_metas = tree_rollup_metas(base_index, &callees_table, &pretty_table);
     let mut rollups = add_rollups(
@@ -3911,6 +3995,7 @@ async fn main() {
     add_lock_regions(&tree_config.paths.index_path, &mut meta_table);
 
     process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
+    classify_lambdas(&search_result_table, &mut meta_table);
 
     // Consume the ontology logged span, pass it through our ontology-ingestion
     // explainer template, and write it to disk.

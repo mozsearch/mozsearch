@@ -1,0 +1,14 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/callees_SelfCalled__json
+---
+[
+  [
+    "_ZN18lambda_invocations10SelfCalledEv",
+    "_ZN18lambda_invocations6FinishEv"
+  ],
+  [
+    "_ZN18lambda_invocations10SelfCalledEv -> _ZN18lambda_invocations6FinishEv (default)"
+  ]
+]

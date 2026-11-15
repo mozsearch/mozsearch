@@ -1,0 +1,21 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/callees_Unknown_raw_dot
+---
+digraph g {
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+  subgraph "NS_lambda_invocations" {
+    cluster=true
+    label="lambda_invocations"
+    "SYN_0"[shape=point style=invis]
+    "_ZN18lambda_invocations4KeepERKT_"[id=Gidn1 label=<Keep> class="diagram-depth-1"]
+    "_ZN18lambda_invocations4StepEv"[id=Gidn3 label=<Step> class="diagram-depth-2"]
+    "_ZN18lambda_invocations7UnknownEv"[id=Gidn0 label=<Unknown> class="diagram-depth-0"]
+    "_ZZN18lambda_invocations7UnknownEvENK3$_0clEv"[id=Gidn2 label=<Unknown::(lambda1) <U>called when?</U>> class="diagram-depth-1"]
+  }
+  "_ZN18lambda_invocations7UnknownEv" -> "_ZN18lambda_invocations4KeepERKT_" [style=solid arrowhead=normal id=Gide0]
+  "_ZN18lambda_invocations7UnknownEv" -> "_ZZN18lambda_invocations7UnknownEvENK3$_0clEv" [style=solid arrowhead=normal id=Gide1]
+  "_ZZN18lambda_invocations7UnknownEvENK3$_0clEv" -> "_ZN18lambda_invocations4StepEv" [style=solid arrowhead=normal id=Gide2]
+}

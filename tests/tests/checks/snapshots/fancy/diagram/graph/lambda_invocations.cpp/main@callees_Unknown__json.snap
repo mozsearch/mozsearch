@@ -1,0 +1,18 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/callees_Unknown__json
+---
+[
+  [
+    "_ZN18lambda_invocations4KeepERKT_",
+    "_ZN18lambda_invocations4StepEv",
+    "_ZN18lambda_invocations7UnknownEv",
+    "_ZZN18lambda_invocations7UnknownEvENK3$_0clEv"
+  ],
+  [
+    "_ZN18lambda_invocations7UnknownEv -> _ZN18lambda_invocations4KeepERKT_ (default)",
+    "_ZN18lambda_invocations7UnknownEv -> _ZZN18lambda_invocations7UnknownEvENK3$_0clEv (default)",
+    "_ZZN18lambda_invocations7UnknownEvENK3$_0clEv -> _ZN18lambda_invocations4StepEv (default)"
+  ]
+]

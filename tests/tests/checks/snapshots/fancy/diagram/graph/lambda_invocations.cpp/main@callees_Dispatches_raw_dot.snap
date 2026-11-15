@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/callees_Dispatches_raw_dot
+---
+digraph g {
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+  subgraph "NS_lambda_invocations" {
+    cluster=true
+    label="lambda_invocations"
+    "SYN_0"[shape=point style=invis]
+    "_ZN18lambda_invocations10DispatchesEv"[id=Gidn0 label=<Dispatches> class="diagram-depth-0"]
+    "_ZZN18lambda_invocations10DispatchesEvENK3$_0clEv"[id=Gidn3 label=<Dispatches::(lambda1) <U>later</U>> class="diagram-depth-1"]
+    "_ZN18lambda_invocations5LaterEv"[id=Gidn4 label=<Later> class="diagram-depth-2"]
+    "_ZN18lambda_invocations11NewRunnableERKT_"[id=Gidn1 label=<NewRunnable> class="diagram-depth-1"]
+  }
+  "_ZN18lambda_invocations10DispatchesEv" -> "_ZN18lambda_invocations11NewRunnableERKT_" [style=solid arrowhead=normal id=Gide0]
+  "_ZN18lambda_invocations10DispatchesEv" -> "_ZZN18lambda_invocations10DispatchesEvENK3$_0clEv" [style=dashed arrowhead=empty id=Gide2]
+  "_ZZN18lambda_invocations10DispatchesEvENK3$_0clEv" -> "_ZN18lambda_invocations5LaterEv" [style=solid arrowhead=normal id=Gide3]
+  "_ZN7mozilla6detail16RunnableFunctionC1ERKT_"[id=Gidn2 label=<mozilla::detail::RunnableFunction::RunnableFunction&lt;StoredFunction&gt;> class="diagram-depth-1"]
+  "_ZN18lambda_invocations10DispatchesEv" -> "_ZN7mozilla6detail16RunnableFunctionC1ERKT_" [style=solid arrowhead=normal id=Gide1]
+}

@@ -206,6 +206,11 @@ pub fn label_to_badge_info(label: &str) -> Option<(i32, &str)> {
     if label.starts_with("taint:") || label.starts_with("detaint") {
         return None;
     }
+    // (When lambdas are called, which call diagrams draw otherwise; see
+    // `fold_lambdas` in cmd_traverse.rs.)
+    if label.starts_with("lambda:") || label.starts_with("callable:") {
+        return None;
+    }
 
     match label {
         // "atom symbol" for atomic refcount.  We also will have an "rc"

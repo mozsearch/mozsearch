@@ -5605,6 +5605,11 @@ html.for-interactive-graph .query-result {
 .interactive-graph-edge-implementation {
   stroke-dasharray: 5px, 2px;
 }
+/* (To a lambda called later, by what its creator passed it to; see the
+   tools' `fold_lambdas`.) */
+.interactive-graph-edge-later {
+  stroke-dasharray: 6 4;
+}
 .interactive-graph-edge-ipc {
   stroke-dasharray: 2px, 3px;
 }
@@ -5616,6 +5621,7 @@ html.for-interactive-graph .query-result {
 
 .interactive-graph-edge-head-inheritance,
 .interactive-graph-edge-head-implementation,
+.interactive-graph-edge-head-later,
 .interactive-graph-edge-head-aggregation {
   fill: var(--page-background);
   stroke: var(--page-foreground);

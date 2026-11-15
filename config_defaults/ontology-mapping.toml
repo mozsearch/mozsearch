@@ -154,7 +154,65 @@ labels = ["uses-diagram:stop"]
 # lambda's edge from where it's made (ex: `NS_NewRunnableFunction`'s caller)
 # is its control flow.
 [pretty."mozilla::detail::RunnableFunction::Run"]
-labels = ["uses-diagram:skip"]
+labels = ["uses-diagram:skip", "callable:async"]
+
+# When lambdas are called: functions calling the lambdas (or other
+# callables) passed to them before they return are labeled "callable:sync"
+# (ex: dom/quota's CollectWhile), and those calling them later
+# "callable:async" (ex: a runnable's Run, above, or a MozPromise's
+# callbacks).  crossref labels each lambda by its callers (see
+# `classify_lambdas` in tools/src/bin/crossref.rs): "lambda:sync" if only
+# functions labeled "callable:sync" (or the function making it) call it,
+# "lambda:async" if one labeled "callable:async" does, else neither.  Call
+# diagrams fold the lambdas called synchronously into the functions making
+# them, draw the edges to those called later as "later", and badge the others
+# "called when?" (see `fold_lambdas` in tools/src/cmd_pipeline/cmd_traverse.rs).
+[pretty."mozilla::MozPromise::ThenValue::DoResolveOrRejectInternal"]
+labels = ["callable:async"]
+[pretty."mozilla::ScopeExit::~ScopeExit"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CollectWhile"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CollectEach"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CollectEachInRange"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CollectWhileHasResult"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CollectElementsWhileHasResult"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CollectElementsWhileHasResultTyped"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CollectEachFile"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CollectEachFileAtomicCancelable"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::ReduceEach"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::Reduce"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::ReduceEachFileAtomicCancelable"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::CallWithDelayedRetriesIfAccessDenied"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::ExecuteInitialization"]
+labels = ["callable:sync"]
+[pretty."mozilla::dom::quota::OrElseIf"]
+labels = ["callable:sync"]
+[pretty."mozilla::Result::map"]
+labels = ["callable:sync"]
+[pretty."mozilla::Result::mapErr"]
+labels = ["callable:sync"]
+[pretty."mozilla::Result::andThen"]
+labels = ["callable:sync"]
+[pretty."mozilla::Result::orElse"]
+labels = ["callable:sync"]
+[pretty."mozilla::Maybe::map"]
+labels = ["callable:sync"]
+[pretty."mozilla::Maybe::andThen"]
+labels = ["callable:sync"]
+[pretty."mozilla::Maybe::orElse"]
+labels = ["callable:sync"]
 
 # Taint (see tools/src/dataflow/taint.rs): values of types labeled
 # "taint:content" that parent actors receive from content processes (in

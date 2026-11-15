@@ -12,4 +12,8 @@ pub enum EdgeKind {
     // These are more specific searchfox concepts
     IPC,           // dotted line, weird vee arrow ("vee")
     CrossLanguage, // JNI-like; solid line, left-half-closed arrow ("lnormal")
+    /// From a function to a lambda it makes, which what it's passed to calls
+    /// later (crossref's "lambda:async"; see `cmd_traverse::fold_lambdas`):
+    /// dashed line, empty arrow ("empty").
+    Later,
 }

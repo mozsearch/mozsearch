@@ -2061,6 +2061,9 @@ class Graph {
         case "inheritance":
         case "implementation":
         case "cross-language":
+        // (To a lambda what its creator passes it to calls later; see the
+        // tools' `fold_lambdas`.)
+        case "later":
           // normal
           headPath += `M ${headPos.x} ${headPos.y}`;
           headPath += `L ${headPos.x - 3} ${headPos.y + 8 * dy}`;

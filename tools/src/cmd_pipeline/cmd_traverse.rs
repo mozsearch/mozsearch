@@ -24,6 +24,125 @@ use crate::{
     },
 };
 
+/// A call diagram with its lambdas drawn by how they're called (crossref's
+/// `classify_lambdas`, by ontology-mapping.toml's "callable:sync" and
+/// "callable:async" labels on what calls them): one called synchronously
+/// ("lambda:sync", ex: a `QM_TRY`'s cleanup, or what dom/quota's
+/// `CollectWhile` is passed) is folded into the function making it (its
+/// meta's `lambdaCreator`, added to the diagram if it isn't there), which
+/// takes its edges, as it's part of what that function does; one called
+/// later ("lambda:async", ex: a runnable's) keeps its node, with a "later"
+/// badge and a `Later` edge from its creator, and none from what calls it
+/// (ex: `RunnableFunction::Run`); and one it's unknown when it's called keeps
+/// its node and edges, with a "called when?" badge.  None if the diagram has
+/// no classified lambdas; else the graph, and what each folded lambda is
+/// folded into.
+async fn fold_lambdas(
+    graph: &NamedSymbolGraph,
+    node_set: &mut SymbolGraphNodeSet,
+    edge_set: &mut SymbolGraphEdgeSet,
+    server: &(dyn AbstractServer + Send + Sync),
+) -> Result<
+    Option<(
+        NamedSymbolGraph,
+        HashMap<SymbolGraphNodeId, SymbolGraphNodeId>,
+    )>,
+> {
+    let nodes = graph.list_nodes();
+    let mut folded: HashMap<SymbolGraphNodeId, SymbolGraphNodeId> = HashMap::new();
+    let mut later: HashMap<SymbolGraphNodeId, SymbolGraphNodeId> = HashMap::new();
+    for id in &nodes {
+        let info = node_set.get(id);
+        if !info.is_lambda() {
+            continue;
+        }
+        let (sync, called_later) = (
+            info.has_label("lambda:sync"),
+            info.has_label("lambda:async"),
+        );
+        let creator = info
+            .get_structured()
+            .and_then(|meta| meta.extra.get("lambdaCreator"))
+            .and_then(|creator| creator.as_str())
+            .map(ustr);
+        let depth = info.depth;
+        let (Some(creator), true) = (creator, sync || called_later) else {
+            node_set.get_mut(id).badges.push(SymbolBadge {
+                pri: 0,
+                label: ustr("called when?"),
+                source_jump: None,
+            });
+            continue;
+        };
+        let (creator_id, _) = node_set.ensure_symbol(&creator, server, depth).await?;
+        if sync {
+            folded.insert(id.clone(), creator_id);
+        } else {
+            node_set.get_mut(id).badges.push(SymbolBadge {
+                pri: 0,
+                label: ustr("later"),
+                source_jump: None,
+            });
+            later.insert(id.clone(), creator_id);
+        }
+    }
+    if folded.is_empty() && later.is_empty() {
+        return Ok(None);
+    }
+    // (A lambda's node: its own, or its creator's, if it's folded, or
+    // theirs, for a lambda in a lambda.)
+    let rep = |id: &SymbolGraphNodeId| {
+        let mut id = id.clone();
+        for _ in 0..16 {
+            match folded.get(&id) {
+                Some(creator) => id = creator.clone(),
+                None => break,
+            }
+        }
+        id
+    };
+    let mut out = NamedSymbolGraph::new(graph.name.clone());
+    out.graph_attrs = graph.graph_attrs.clone();
+    for id in &nodes {
+        if !folded.contains_key(id) {
+            out.ensure_node(id.clone());
+        }
+    }
+    for (from, to, edge_id) in graph.list_edges() {
+        // (Not into a folded lambda: its creator's making it, or its
+        // callers' calls of it; nor into a lambda called later but from its
+        // creator.)
+        if folded.contains_key(&to) {
+            continue;
+        }
+        if let Some(creator) = later.get(&to)
+            && rep(&from) != rep(creator)
+        {
+            continue;
+        }
+        let (from, to) = (rep(&from), rep(&to));
+        if from == to {
+            continue;
+        }
+        let info = edge_set.get(&edge_id);
+        let (kind, data) = (info.kind.clone(), info.data.clone());
+        edge_set.ensure_edge_in_graph(from, to, kind, data, &mut out);
+    }
+    for (lambda, creator) in &later {
+        let creator = rep(creator);
+        edge_set.ensure_edge_in_graph(
+            creator.clone(),
+            lambda.clone(),
+            EdgeKind::Later,
+            vec![],
+            &mut out,
+        );
+        edge_set.set_edge_kind(&creator, lambda, EdgeKind::Later);
+    }
+    let rep_map = folded.keys().map(|id| (id.clone(), rep(id))).collect();
+    Ok(Some((out, rep_map)))
+}
+
 /// Processes piped-in crossref symbol data, recursively traversing the given
 /// edges, building up a graph that also holds onto the crossref data for all
 /// traversed symbols.
@@ -1849,6 +1968,25 @@ impl PipelineCommand for TraverseCommand {
                 "items": traverse_options,
             }
         ]);
+
+        // ## Lambdas, by how they're called (see `fold_lambdas`).
+        let (mut graph, source_set, target_set) =
+            match fold_lambdas(&graph, &mut sym_node_set, &mut sym_edge_set, server).await? {
+                Some((folded, rep)) => {
+                    let map = |set: &Vec<SymbolGraphNodeId>| -> Vec<SymbolGraphNodeId> {
+                        let mut mapped: Vec<SymbolGraphNodeId> = vec![];
+                        for id in set {
+                            let id = rep.get(id).cloned().unwrap_or_else(|| id.clone());
+                            if !mapped.contains(&id) {
+                                mapped.push(id);
+                            }
+                        }
+                        mapped
+                    };
+                    (folded, map(&source_set), map(&target_set))
+                }
+                None => (graph, source_set, target_set),
+            };
 
         // ## Paths Between
         let graph_coll = if self.args.paths_between {

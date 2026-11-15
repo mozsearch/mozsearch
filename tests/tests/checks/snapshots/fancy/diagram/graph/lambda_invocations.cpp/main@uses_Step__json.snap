@@ -1,0 +1,20 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/uses_Step__json
+---
+[
+  [
+    "_ZN18lambda_invocations4StepEv",
+    "_ZN18lambda_invocations7UnknownEv",
+    "_ZN18lambda_invocations8CollectsEv",
+    "_ZN7mozilla3dom5quota12CollectWhileERKT_RKT0_",
+    "_ZZN18lambda_invocations7UnknownEvENK3$_0clEv"
+  ],
+  [
+    "_ZN18lambda_invocations7UnknownEv -> _ZZN18lambda_invocations7UnknownEvENK3$_0clEv (default)",
+    "_ZN18lambda_invocations8CollectsEv -> _ZN18lambda_invocations4StepEv (default)",
+    "_ZN18lambda_invocations8CollectsEv -> _ZN7mozilla3dom5quota12CollectWhileERKT_RKT0_ (default)",
+    "_ZZN18lambda_invocations7UnknownEvENK3$_0clEv -> _ZN18lambda_invocations4StepEv (default)"
+  ]
+]

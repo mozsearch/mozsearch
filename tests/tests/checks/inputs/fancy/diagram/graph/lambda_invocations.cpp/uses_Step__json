@@ -1,0 +1,1 @@
+search-identifiers lambda_invocations::Step | crossref-lookup | traverse --edge=uses --max-depth=3 | graph --format=json | jq '.graphs[0] | [.nodes, (.edges | map(.from + " -> " + .to + " (" + .kind + ")"))]'
