@@ -1,4 +1,7 @@
 "use strict";
+// webtest-timeout: 120 (its tasks import pull requests 1 and 2, and 1 again,
+// which took longer than the 30 seconds a test has by default with the other
+// browsers' tests running, on 2026-10-26 and 2026-11-15)
 
 // The specpr tree, a tree of specs (see tests/specpr/setup), imports its spec
 // repository's pull requests as try pushes (see tools/src/spec_forest.rs and
