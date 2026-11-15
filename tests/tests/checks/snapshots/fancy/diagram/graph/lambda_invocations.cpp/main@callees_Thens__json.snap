@@ -1,0 +1,18 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/callees_Thens__json
+---
+[
+  [
+    "_ZN18lambda_invocations5LaterEv",
+    "_ZN18lambda_invocations5ThensEv",
+    "_ZN7mozilla10MozPromise9ThenValueIJTL0__EEC1ERKS2_",
+    "_ZZN18lambda_invocations5ThensEvENK3$_0clEv"
+  ],
+  [
+    "_ZN18lambda_invocations5ThensEv -> _ZN7mozilla10MozPromise9ThenValueIJTL0__EEC1ERKS2_ (default)",
+    "_ZN18lambda_invocations5ThensEv -> _ZZN18lambda_invocations5ThensEvENK3$_0clEv (later)",
+    "_ZZN18lambda_invocations5ThensEvENK3$_0clEv -> _ZN18lambda_invocations5LaterEv (default)"
+  ]
+]

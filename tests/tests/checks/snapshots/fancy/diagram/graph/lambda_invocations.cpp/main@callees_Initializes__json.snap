@@ -1,0 +1,16 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/callees_Initializes__json
+---
+[
+  [
+    "_ZN18lambda_invocations11InitializesEv",
+    "_ZN18lambda_invocations4MoreEv",
+    "_ZN7mozilla3dom5quota21ExecuteInitializationERKT_"
+  ],
+  [
+    "_ZN18lambda_invocations11InitializesEv -> _ZN18lambda_invocations4MoreEv (default)",
+    "_ZN18lambda_invocations11InitializesEv -> _ZN7mozilla3dom5quota21ExecuteInitializationERKT_ (default)"
+  ]
+]

@@ -1800,22 +1800,26 @@ fn process_class_fields(
 /// labeled "callable:async" calls (ex: `RunnableFunction::Run`) is
 /// "lambda:async"; others (ex: one nothing indexed calls, as when it's passed
 /// on in a `std::function`) aren't labeled: it's unknown when they're called.
-/// (After `process_ontology_rules`, which labels the callers.)
+/// A caller that's a lambda a labeled function makes (ex: dom/quota's
+/// `ExecuteInitialization`'s, which calls the one it's given) counts as that
+/// function (by its pretty name, "F::(lambdaN)"), as its label says how it
+/// calls what it's given, through its own lambdas too.  (After
+/// `process_ontology_rules`, which labels the callers.)
 fn classify_lambdas(search_result_table: &SearchResultTable, meta_table: &mut MetaTable) {
-    let lambdas: Vec<Ustr> = meta_table
-        .iter()
-        .filter(|(_, meta)| meta.kind == "method" && is_lambda_pretty(&meta.pretty))
-        .map(|(sym, _)| *sym)
-        .collect();
     let (sync_label, async_label) = (ustr("callable:sync"), ustr("callable:async"));
-    let mut counts = (0, 0, 0);
-    for sym in lambdas {
-        let Some(kinds) = search_result_table.get(&sym) else {
+    // (Each lambda, its creator, whether it calls it, and its other callers,
+    // with their pretty names.)
+    let mut lambdas: Vec<(Ustr, Ustr, bool, UstrMap<Ustr>)> = vec![];
+    for (sym, meta) in meta_table.iter() {
+        if meta.kind != "method" || !is_lambda_pretty(&meta.pretty) {
+            continue;
+        }
+        let Some(kinds) = search_result_table.get(sym) else {
             continue;
         };
         // (Its implicit use is the one at its introducer, its `[`.)
         let mut creator = None;
-        let mut callers = UstrSet::default();
+        let mut callers = UstrMap::default();
         for hits in kinds
             .get(&AnalysisKind::Use)
             .into_iter()
@@ -1829,31 +1833,70 @@ fn classify_lambdas(search_result_table: &SearchResultTable, meta_table: &mut Me
                 if creator.is_none() && at == Some("[") {
                     creator = Some(hit.contextsym);
                 } else {
-                    callers.insert(hit.contextsym);
+                    callers.insert(hit.contextsym, hit.context);
                 }
             }
         }
         let Some(creator) = creator else {
             continue;
         };
-        let called_by_creator = callers.remove(&creator);
-        let labeled = |caller: &Ustr, label: &Ustr| {
-            meta_table
-                .get(caller)
-                .is_some_and(|meta| meta.labels.contains(label))
-        };
-        let class = if callers.iter().any(|caller| labeled(caller, &async_label)) {
-            counts.1 += 1;
-            Some("lambda:async")
-        } else if (called_by_creator || !callers.is_empty())
-            && callers.iter().all(|caller| labeled(caller, &sync_label))
+        let called_by_creator = callers.remove(&creator).is_some();
+        lambdas.push((*sym, creator, called_by_creator, callers));
+    }
+    // (The labeled functions, by their pretty names without template
+    // arguments, for the callers that are their lambdas: those in templates
+    // are each instantiation's own symbols, without metas of their own.)
+    let mut labeled_prettys: HashMap<String, UstrSet> = HashMap::new();
+    for meta in meta_table.values() {
+        for label in [sync_label, async_label] {
+            if meta.labels.contains(&label) {
+                labeled_prettys
+                    .entry(untemplated_pretty(&meta.pretty))
+                    .or_default()
+                    .insert(label);
+            }
+        }
+    }
+    let labeled = |(caller, context): (&Ustr, &Ustr), label: &Ustr| {
+        if meta_table
+            .get(caller)
+            .is_some_and(|meta| meta.labels.contains(label))
         {
-            counts.0 += 1;
-            Some("lambda:sync")
-        } else {
-            counts.2 += 1;
-            None
-        };
+            return true;
+        }
+        // (A lambda's pretty name is its function's and "::(lambdaN)".)
+        let mut owner = context.as_str();
+        while let Some((rest, last)) = owner.rsplit_once("::") {
+            if !is_lambda_pretty(last) {
+                break;
+            }
+            owner = rest;
+        }
+        owner.len() < context.len()
+            && labeled_prettys
+                .get(&untemplated_pretty(owner))
+                .is_some_and(|labels| labels.contains(label))
+    };
+    let mut counts = (0, 0, 0);
+    let classes: Vec<(Ustr, Ustr, Option<&str>)> = lambdas
+        .iter()
+        .map(|(sym, creator, called_by_creator, callers)| {
+            let class = if callers.iter().any(|caller| labeled(caller, &async_label)) {
+                counts.1 += 1;
+                Some("lambda:async")
+            } else if (*called_by_creator || !callers.is_empty())
+                && callers.iter().all(|caller| labeled(caller, &sync_label))
+            {
+                counts.0 += 1;
+                Some("lambda:sync")
+            } else {
+                counts.2 += 1;
+                None
+            };
+            (*sym, *creator, class)
+        })
+        .collect();
+    for (sym, creator, class) in classes {
         let Some(meta) = meta_table.get_mut(&sym) else {
             continue;
         };
@@ -1878,13 +1921,38 @@ fn process_ontology_rules(
     // read-write
     meta_table: &mut MetaTable,
 ) {
+    // (Labels also go on the symbols whose pretty names are a rule's but for
+    // their template arguments: ex: `mozilla::MozPromise::ThenValue`'s partial
+    // specializations' `ThenValue<type-parameter-1-0>::DoResolveOrRejectInternal`,
+    // or `mozilla::ScopeExit::~ScopeExit<ExitFunction>`.)
+    let label_prettys: HashSet<&str> = ontology
+        .config
+        .pretty
+        .iter()
+        .filter(|(_, rule)| !rule.labels.is_empty())
+        .map(|(pretty, _)| pretty.as_str())
+        .collect();
+    let mut untemplated_syms: HashMap<String, Vec<Ustr>> = HashMap::new();
+    for (sym, meta) in meta_table.iter() {
+        if !meta.pretty.contains('<') {
+            continue;
+        }
+        let plain = untemplated_pretty(&meta.pretty);
+        if label_prettys.contains(plain.as_str()) {
+            untemplated_syms.entry(plain).or_default().push(*sym);
+        }
+    }
+
     // ### Process Ontology Rules
     for (pretty_id, rule) in ontology.config.pretty.iter() {
         // #### Labels we just slap on
-        if !rule.labels.is_empty()
-            && let Some(root_syms) = id_table.get(pretty_id)
-        {
-            for sym in root_syms {
+        if !rule.labels.is_empty() {
+            let root_syms = id_table.get(pretty_id).into_iter().flatten();
+            let untemplated = untemplated_syms
+                .get(pretty_id.as_str())
+                .into_iter()
+                .flatten();
+            for sym in root_syms.chain(untemplated) {
                 let Some(sym_meta) = meta_table.get_mut(sym) else {
                     continue;
                 };

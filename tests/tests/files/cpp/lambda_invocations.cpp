@@ -7,10 +7,9 @@
 // tools/src/cmd_pipeline/cmd_traverse.rs).
 
 namespace mozilla {
-namespace dom {
-namespace quota {
 
-// Like dom/quota's: calls its callables before it returns.
+// Like dom/quota's (which is in `mozilla`): calls its callables before it
+// returns.
 template <typename Cond, typename Body>
 int CollectWhile(const Cond& aCond, const Body& aBody) {
   int n = 0;
@@ -21,8 +20,42 @@ int CollectWhile(const Cond& aCond, const Body& aBody) {
   return n;
 }
 
+namespace dom {
+namespace quota {
+
+// Like dom/quota's: calls its callable through a lambda of its own, whose
+// pretty name is its ("ExecuteInitialization::(lambda1)"), before it
+// returns.
+template <typename Func>
+bool ExecuteInitialization(const Func& aFunc) {
+  auto initialize = [&aFunc]() { return aFunc(); };
+  return initialize();
+}
+
 }  // namespace quota
 }  // namespace dom
+
+// Like xpcom's: a promise whose callbacks' holders, partial specializations
+// (whose pretty names have their template arguments:
+// "MozPromise::ThenValue<type-parameter-1-0>::DoResolveOrRejectInternal"),
+// call them later.
+template <typename ResolveValueT>
+class MozPromise {
+ public:
+  template <typename... Functions>
+  class ThenValue;
+
+  template <typename ResolveRejectFunction>
+  class ThenValue<ResolveRejectFunction> {
+   public:
+    explicit ThenValue(const ResolveRejectFunction& aFunction)
+        : mFunction(aFunction) {}
+    virtual void DoResolveOrRejectInternal() { mFunction(); }
+
+   private:
+    ResolveRejectFunction mFunction;
+  };
+};
 
 namespace detail {
 
@@ -69,14 +102,27 @@ void SelfCalled() {
 
 // Passes its lambdas to a function calling them right away.
 void Collects() {
-  mozilla::dom::quota::CollectWhile([]() { return More(); },
-                                    []() { Step(); });
+  mozilla::CollectWhile([]() { return More(); }, []() { Step(); });
+}
+
+// Passes its lambda to a function calling it right away, through a lambda of
+// its own.
+void Initializes() {
+  mozilla::dom::quota::ExecuteInitialization([]() { return More(); });
 }
 
 // Passes its lambda to a runnable, which calls it later.
 void Dispatches() {
   auto* runnable = NewRunnable([]() { Later(); });
   (void)runnable;
+}
+
+// Passes its lambda to a promise's callback holder, which calls it later.
+void Thens() {
+  auto later = []() { Later(); };
+  auto* thenValue =
+      new mozilla::MozPromise<int>::ThenValue<decltype(later)>(later);
+  (void)thenValue;
 }
 
 // Passes its lambda on to a function nothing indexed says calls it.
