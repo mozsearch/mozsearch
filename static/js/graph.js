@@ -561,10 +561,12 @@ function median(values) {
  * are `margin` from the layout's edges.
  */
 class RowLayout {
-  constructor(items, edges, { margin = CROSS_MARGIN } = {}) {
+  constructor(items, edges, { margin = CROSS_MARGIN, isRoot = null } = {}) {
     this.items = items;
     this.edges = edges.filter(edge => edge.pred !== edge.succ);
     this.margin = margin;
+    // (Items in the first row, whatever their preds; see `calculateDepth`.)
+    this.isRoot = isRoot;
   }
 
   // Lay out the items and edges; returns the layout's size.
@@ -591,7 +593,7 @@ class RowLayout {
       pred.succs.push(succ);
       succ.preds.push(pred);
     }
-    const context = { blocks: this.nodes };
+    const context = { blocks: this.nodes, options: { isRoot: this.isRoot } };
     Graph.prototype.calculateDepth.call(context);
     Graph.prototype.compressDepth.call(context);
     const rows = 1 + Math.max(0, ...this.nodes.map(node => node.depth));
@@ -1035,7 +1037,8 @@ class Graph {
         for (const block of this.blocks) {
           this.createBlockNode(block);
         }
-        this.rowLayout = new RowLayout(this.blocks, this.edges.filter(edge => !edge.loopback));
+        this.rowLayout = new RowLayout(this.blocks, this.edges.filter(edge => !edge.loopback),
+                                       { isRoot: this.options.isRoot });
         gridSize = this.rowLayout.run();
         for (const block of this.blocks) {
           block.left = block.layoutLeft;
@@ -1405,7 +1408,17 @@ class Graph {
       }
     };
 
-    const roots = this.blocks.filter(b => b.preds.length === 0);
+    // (The blocks `options.isRoot` says are roots first, ex: a forward trace's
+    // seed's card, from which its values go, so that what it reaches is
+    // under it, though it has preds, ex: its callees' returns; see
+    // subway.js.  Then those with no preds.)
+    const isRoot = this.options?.isRoot;
+    const preferred = isRoot ? this.blocks.filter(b => isRoot(b.item ?? b)) : [];
+    for (const block of preferred) {
+      block.depth = 0;
+    }
+    propagate(preferred);
+    const roots = this.blocks.filter(b => b.preds.length === 0 && !preferred.includes(b));
     for (const block of roots) {
       block.depth = 0;
     }

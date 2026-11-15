@@ -6184,6 +6184,12 @@ textarea.monospace {
   white-space: nowrap;
   border-bottom: 1px solid var(--page-border-color);
 }
+/* (A chevron where an edge going up comes into its card; see subway.js's
+   `afterLayout`.) */
+.interactive-graph-edge.sw-up {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .sw-head > .sw-head-tracks {
   position: absolute;
   left: 0;

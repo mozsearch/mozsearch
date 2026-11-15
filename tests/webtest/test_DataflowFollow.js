@@ -341,7 +341,8 @@ add_task(async function test_DataflowFollowContinuousLines() {
     height: card.offsetHeight,
   }));
   const ends = [];
-  for (const path of container.querySelectorAll("path.interactive-graph-edge:not(.clicktarget)")) {
+  // (Not the chevrons of the edges going up; see below.)
+  for (const path of container.querySelectorAll("path.interactive-graph-edge:not(.clicktarget):not(.sw-up)")) {
     const line = /interactive-graph-edge-line-(\d+)/.exec(path.getAttribute("class"))?.[1];
     if (line == null) {
       continue;
@@ -376,4 +377,14 @@ add_task(async function test_DataflowFollowContinuousLines() {
      `which end at their tracks: ${JSON.stringify(ends)}`);
   ok(ends.some(end => end.side == "top") && ends.some(end => end.side == "bottom"),
      "at cards' tops and bottoms");
+
+  // (A forward trace's seed's card is in the first row, as its values go
+  // from it, and an edge going up, ProduceResult's return to it, has a
+  // chevron where it comes into it.)
+  const seed = cards.find(c => c.card.classList.contains("sw-card-seed"));
+  is(seed?.card.querySelector(".sw-name").textContent, "ConsumeResult", "The seed's card is ConsumeResult's");
+  ok(cards.every(c => c.top >= seed.top), "in the first row");
+  const up = container.querySelector("path.sw-up");
+  ok(up, "The return going up to it has a chevron");
+  ok(/interactive-graph-edge-line-\d+/.test(up?.getAttribute("class")), "in its line's color");
 });

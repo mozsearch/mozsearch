@@ -76,6 +76,33 @@ functions = [
   "CallGetService",
 ]
 
+# (Its callers' calls are of its interfaces' methods, ex: a statement's
+# `BindUTF8StringAsBlobByName`, declared by mozIStorageBindingParams, which
+# its statements and their parameters' bindings all implement.  Not its
+# callback interfaces, which its callers implement.)
+[[black-box]]
+group = "storage"
+name = "mozStorage"
+why = "mozStorage runs SQL in SQLite: binding a value hands it to SQLite, and a statement's results come out of the database, which a trace can't follow through the SQL, so its statements', bindings' and connections' internals (their proxies, copies and variants) aren't where the code's logic is."
+functions = [
+  "mozilla::storage::",
+  "mozIStorageAsyncConnection::",
+  "mozIStorageAsyncStatement::",
+  "mozIStorageBaseStatement::",
+  "mozIStorageBindingParams::",
+  "mozIStorageBindingParamsArray::",
+  "mozIStorageConnection::",
+  "mozIStorageError::",
+  "mozIStoragePendingStatement::",
+  "mozIStorageResultSet::",
+  "mozIStorageRow::",
+  "mozIStorageService::",
+  "mozIStorageStatement::",
+  "mozIStorageValueArray::",
+  "mozStorageStatementScoper::",
+  "mozStorageTransaction::",
+]
+
 # ## Macros
 #
 # Function-like macros whose invocations the diagrams with source listings

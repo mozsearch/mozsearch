@@ -88,6 +88,10 @@ var SubwayMap = new (class SubwayMap {
         renderBlock: (block, element) => this.renderCard(block, element),
         layout: new URLSearchParams(document.location.search).get("layout") || "rows",
         afterLayout: graph => this.afterLayout(graph),
+        // (A forward trace's seed's card first, as its values go from it,
+        // so that the edges go down from it, but for those back up, ex: its
+        // callees' returns.)
+        isRoot: block => this.model.trace?.dir == "forward" && (block.data?.card?.seed ?? false),
       });
     this.addHovering(document.querySelector("#interactive-graph-container"));
     document.documentElement.dataset.subwayReady = "true";
@@ -381,6 +385,12 @@ var SubwayMap = new (class SubwayMap {
           extend(line, c.to_station != null ? stopIn(c.to_station, line) : this.sides ? null : -1);
         }
         if (c.from == card.id) {
+          // (From a call's station's row, where its argument goes out, as
+          // the callee's parameter's line (ex: `aValue`), which has no stops
+          // in the caller.)
+          if (c.from_station != null) {
+            extend(line, stopIn(c.from_station, line));
+          }
           extend(line, this.sides ? null : rows.length);
         }
       }
@@ -739,6 +749,23 @@ var SubwayMap = new (class SubwayMap {
       add(edge.succ, line, sameRow || edge.upward ? "bottom" : "top");
     }
     this.sides = sides;
+    // (An edge going up, ex: a return to its caller laid out above its
+    // callee, or one to a card in its row, which goes down and back up: a
+    // chevron where it comes into its card, as edges otherwise go down.)
+    const NS = "http://www.w3.org/2000/svg";
+    for (const edge of graph.edges) {
+      const sameRow = edge.rowSegments?.some(segment => segment.sameRow);
+      const points = edge.layoutPoints;
+      if (!edge.node || !points?.length || !/^line-/.test(edge.kind) || !(edge.upward || sameRow)) {
+        continue;
+      }
+      // (Its succ's end: the upper one, going up, or the last, back up.)
+      const { x, y } = sameRow ? points[points.length - 1] : points[0];
+      const head = document.createElementNS(NS, "path");
+      head.setAttribute("d", `M ${x - 4} ${y + 7} L ${x} ${y + 1} L ${x + 4} ${y + 7}`);
+      head.setAttribute("class", `interactive-graph-edge interactive-graph-edge-${edge.kind} sw-up`);
+      edge.node.append(head);
+    }
     // (Those whose tracks are others now, rendered again, as they were
     // rendered for the layout before it was known where their edges are:
     // their sizes are the same.)
