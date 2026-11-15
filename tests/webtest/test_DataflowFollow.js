@@ -388,3 +388,32 @@ add_task(async function test_DataflowFollowContinuousLines() {
   ok(up, "The return going up to it has a chevron");
   ok(/interactive-graph-edge-line-\d+/.test(up?.getAttribute("class")), "in its line's color");
 });
+
+// A trace's context lines (see the tools' `Line::context`): forwards, what a
+// traced value is derived from, a step away (UsesContext's call
+// `Combine(aConn, aInput)`'s result's `aConn`), are lighter, italic in the
+// legend, and no edges carry them between the cards.
+add_task(async function test_DataflowFollowContextLines() {
+  await TestUtils.resetFeatureGate("dataflow");
+  await TestUtils.loadPath("/tests/source/dataflow/dataflow.cpp");
+  const input = [...frame.contentDocument.querySelectorAll(`#line-393 span[data-symbols]`)]
+    .find(span => span.textContent === "aInput");
+  ok(input, "UsesContext's parameter's token is there");
+  TestUtils.click(input);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the parameter");
+  const loaded = TestUtils.waitForLoad();
+  TestUtils.click(findFollowItem(menu, "Follow where aInput goes"));
+  await loaded;
+
+  const { doc, model } = await tracedMap();
+  const conn = model.lines.find(line => line.label == "aConn");
+  ok(conn?.context, `aConn's line is context: ${JSON.stringify(conn)}`);
+  ok(!model.lines.find(line => line.label == "aInput")?.context, "aInput's isn't");
+  ok(!model.connectors.some(c => c.lines.includes(conn.id)), "No connectors carry it");
+  ok(!doc.querySelector(`.interactive-graph-edge-line-${conn.id}`), "so no edges");
+  const item = doc.querySelector(`.sw-legend-line[data-line="${conn.id}"]`);
+  ok(item?.classList.contains("sw-legend-context"), "The legend marks it");
+  ok(item.querySelector("label").title.includes("context"), `and says why: ${item.querySelector("label").title}`);
+  ok(doc.querySelector(`.sw-gutter line.sw-context[data-line="${conn.id}"]`), "Its tracks are lighter");
+});

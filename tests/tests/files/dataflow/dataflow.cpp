@@ -350,3 +350,47 @@ int ConsumeResult(int aInput) {
                 ProduceResult(aInput));
   return value;
 }
+
+// A macro defining a function that passes its parameter on (as mozStorage's
+// BOILERPLATE_BIND_PROXIES's methods do): its parameter is the code's, though
+// its events are all the macro's expansion's, so a trace's map connects its
+// caller to it, and it to its callee, by that parameter's line.
+#define DF_FORWARDER(aName, aTarget) \
+  int aName(int aValue) { return aTarget(aValue); }
+
+static int ForwardTarget(int aValue) { return aValue * 3; }
+DF_FORWARDER(ForwardedCall, ForwardTarget)
+
+// A variable a macro's invocation declares (as QM_TRY_INSPECT's do), which
+// the code passes on only in another macro's invocation (as QueryCache does
+// in QM_TRY's): it's the code's, as its name is spelled in the function, not
+// a macro's temporary (`dfTryDeclared`), so its line, and the call passing
+// it on to the forwarder (whose parameter is its macro's too), are shown.
+#define DF_TRY_DECLARE(aName, aExpr) \
+  auto dfTryDeclared = (aExpr);       \
+  if (dfTryDeclared < 0) {            \
+    return dfTryDeclared;             \
+  }                                   \
+  auto aName = dfTryDeclared
+#define DF_TRY_CALL(aExpr) \
+  do {                     \
+    if ((aExpr) < 0) {     \
+      return -1;           \
+    }                      \
+  } while (0)
+
+int DeclaresInMacro(int aInput) {
+  DF_TRY_DECLARE(declared, ProduceResult(aInput));
+  DF_TRY_CALL(ForwardedCall(declared));
+  return 0;
+}
+
+// A traced value's result, derived from a value the trace didn't follow
+// (`aConn`, a step behind it): that's context, whose line no connectors
+// carry between the cards.
+static int Combine(int aConn, int aValue) { return aConn + aValue; }
+
+int UsesContext(int aConn, int aInput) {
+  int result = Combine(aConn, aInput);
+  return result;
+}

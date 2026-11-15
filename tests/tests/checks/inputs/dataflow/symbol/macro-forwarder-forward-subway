@@ -1,0 +1,2 @@
+# servers: local
+dataflow dataflow/dataflow.cpp --function DeclaresInMacro --forward aInput --format subway | jq '.contents | fromjson | . as $m | {cards: [.cards[] | .func], connectors: [.connectors[] | {from: $m.cards[.from].func, to: $m.cards[.to].func, kind, lines: [.lines[] as $l | $m.lines[$l].label]}]}'

@@ -1,0 +1,47 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/macro-forwarder-forward-subway
+---
+{
+  "cards": [
+    "DeclaresInMacro",
+    "ProduceResult",
+    "ForwardedCall",
+    "ForwardTarget"
+  ],
+  "connectors": [
+    {
+      "from": "DeclaresInMacro",
+      "to": "ProduceResult",
+      "kind": "call",
+      "lines": [
+        "aInput"
+      ]
+    },
+    {
+      "from": "DeclaresInMacro",
+      "to": "ForwardedCall",
+      "kind": "call",
+      "lines": [
+        "declared"
+      ]
+    },
+    {
+      "from": "ProduceResult",
+      "to": "DeclaresInMacro",
+      "kind": "return",
+      "lines": [
+        "aInput"
+      ]
+    },
+    {
+      "from": "ForwardedCall",
+      "to": "ForwardTarget",
+      "kind": "call",
+      "lines": [
+        "declared"
+      ]
+    }
+  ]
+}

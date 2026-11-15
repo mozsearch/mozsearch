@@ -261,6 +261,12 @@ pub struct Line {
     /// Whether it's tainted anywhere (see `taint`).
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub tainted: bool,
+    /// Whether it's a trace's context: values only a step behind it, which
+    /// what it followed is derived from (forwards), or which are derived
+    /// from it (backwards), shown at their stations, but which no connectors
+    /// carry between the cards (they didn't go there).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub context: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -592,6 +598,26 @@ pub async fn subway_map(
     taint: &TaintSpec,
 ) -> SubwayMap {
     map_of(tracer, slicing, first_cluster, taint, false).await
+}
+
+/// Whether a name is spelled in a function's own lines, as an identifier
+/// (ex: a variable a macro's invocation declares, `QM_TRY_INSPECT(const auto&
+/// x, ...)`'s `x`), rather than only in a macro's definition.
+async fn spelled_in(tracer: &mut Tracer<'_>, path: &str, f: &FuncIr, name: &str) -> bool {
+    let Some(source) = tracer.source(path).await else {
+        return false;
+    };
+    let is_ident = |c: char| c.is_alphanumeric() || c == '_';
+    source
+        .lines()
+        .skip((f.line as usize).saturating_sub(1))
+        .take(f.end_line.saturating_sub(f.line) as usize + 1)
+        .any(|line| {
+            line.match_indices(name).any(|(i, _)| {
+                !line[..i].chars().next_back().is_some_and(is_ident)
+                    && !line[i + name.len()..].chars().next().is_some_and(is_ident)
+            })
+        })
 }
 
 /// The map of a slicing, or of a trace's (see `trace_slicing`).
@@ -1117,7 +1143,14 @@ async fn subway_map_inner(
         .cloned()
         .collect();
     // (Not the locals only macros' expansions have, ex: MOZ_TRY's
-    // temporaries, which aren't the code's values.)
+    // temporaries, which aren't the code's values: those whose names aren't
+    // spelled in their functions' own lines, as the macros' definitions spell
+    // them (ex: MOZ_TRY's, googletest's `gtest_ar`) or make them up
+    // (QM_TRY's `tryResult<N>`).  The code's names in macros' invocations are
+    // its values, though: ex: QM_TRY_INSPECT's `urlWithoutQueryHash`, which
+    // QueryCache passes on only in a QM_TRY; and so are the parameters of
+    // functions a macro defines (ex: mozStorage's BOILERPLATE_BIND_PROXIES's
+    // methods'), all of whose events are its expansion's.)
     let mut in_code: BTreeSet<Key> = BTreeSet::new();
     let mut in_macros: BTreeSet<Key> = BTreeSet::new();
     for func in &funcs {
@@ -1134,8 +1167,30 @@ async fn subway_map_inner(
                 None => in_code.extend(keys),
             }
         }
+        for param in &f.params {
+            in_code.extend(keys_of(f, &param.place));
+        }
     }
-    let macro_only: BTreeSet<Key> = in_macros.difference(&in_code).cloned().collect();
+    let mut macro_only: BTreeSet<Key> = BTreeSet::new();
+    for key in in_macros.difference(&in_code) {
+        let spelled = match key {
+            Key::Local(func_sym, sym) => match func_index.get(func_sym) {
+                Some(&i) => {
+                    let func = &funcs[i];
+                    let f = &func.file.funcs[func.fi];
+                    match f.names.get(sym) {
+                        Some(name) => spelled_in(tracer, &func.file.path, f, name).await,
+                        None => false,
+                    }
+                }
+                None => false,
+            },
+            _ => false,
+        };
+        if !spelled {
+            macro_only.insert(key.clone());
+        }
+    }
     let present: BTreeSet<Key> = present.difference(&macro_only).cloned().collect();
     let mut values: BTreeSet<Key> = seeds.intersection(&present).cloned().collect();
     loop {
@@ -1151,12 +1206,34 @@ async fn subway_map_inner(
         }
     }
     let copied = values.clone();
+    // (A trace's values a step behind it, which what it followed is derived
+    // from (forwards) or which are derived from it (backwards), are context,
+    // not where its values go or come from (ex: forwards, `aConn` in a
+    // caller's `ReadResponse(aConn, ...)`, whose result a traced value is):
+    // their lines don't go between the cards; see `Line::context`.)
+    let dir = if trace { tracer.graph.dir } else { None };
+    let (mut ahead, mut behind) = (BTreeSet::new(), BTreeSet::new());
     for (a, b) in &derivations {
         if copied.contains(a) || copied.contains(b) {
             values.insert(a.clone());
             values.insert(b.clone());
+            let (from, to) = match dir {
+                Some(Dir::Forward) => (a, b),
+                Some(Dir::Backward) => (b, a),
+                None => continue,
+            };
+            if copied.contains(from) {
+                ahead.insert(to.clone());
+            }
+            if copied.contains(to) {
+                behind.insert(from.clone());
+            }
         }
     }
+    let context: BTreeSet<Key> = behind
+        .into_iter()
+        .filter(|key| !copied.contains(key) && !ahead.contains(key))
+        .collect();
     values.retain(|value| !macro_only.contains(value));
 
     // ## The lines: the values joined by copies in their functions, and a
@@ -1239,15 +1316,25 @@ async fn subway_map_inner(
             }
         }
     }
-    // (The most stopping lines, if there are too many; in their order.)
+    // (The most stopping lines, if there are too many, a trace's own before
+    // its context (see `Line::context`); in their order.)
+    let line_is_context: Vec<bool> = line_keys
+        .iter()
+        .map(|keys| keys.iter().all(|key| context.contains(key)))
+        .collect();
     let mut kept: Vec<usize> = (0..line_keys.len()).collect();
     if kept.len() > MAX_LINES {
-        kept.sort_by_key(|&l| std::cmp::Reverse(stops_count[l]));
+        kept.sort_by_key(|&l| (line_is_context[l], std::cmp::Reverse(stops_count[l])));
         kept.truncate(MAX_LINES);
         kept.sort();
+        let own_first = match line_is_context.iter().any(|&context| context) {
+            true => " (the trace's own first, then its context)",
+            false => "",
+        };
         map.notes.push(format!(
-            "The map shows the {} values stopping most, of {}.",
+            "The map shows the {} values stopping most{}, of {}.",
             MAX_LINES,
+            own_first,
             line_keys.len()
         ));
     }
@@ -1323,6 +1410,7 @@ async fn subway_map_inner(
             })
             .filter(|sym| !sym.starts_with("name:"))
             .collect();
+        let is_context = line_is_context[old];
         map.lines.push(Line {
             id: new,
             label: line_names
@@ -1336,6 +1424,7 @@ async fn subway_map_inner(
             parents: vec![],
             syms: syms.into_iter().collect(),
             tainted: false,
+            context: is_context,
         });
     }
     // (Derivations between lines.)
@@ -1631,14 +1720,21 @@ async fn subway_map_inner(
         (usize, Option<usize>, usize, Option<usize>, &'static str),
         BTreeSet<usize>,
     > = BTreeMap::new();
+    // (A move's line: its source's, else its destination's, but not a trace's
+    // context lines, which don't go between the cards.)
+    let move_line = |a: &Key, b: &Key| -> Option<usize> {
+        [a, b]
+            .into_iter()
+            .filter_map(|key| key_line.get(key).copied())
+            .find(|&line| !map.lines[line].context)
+    };
     for call in &call_moves {
         let (from_card, to_card) = (funcs[call.from].card, funcs[call.to].card);
         let station = event_station.get(&(from_card, call.event)).copied();
         let args: BTreeSet<usize> = call
             .args
             .iter()
-            .filter_map(|(a, b, _)| Some(key_line.get(a).or_else(|| key_line.get(b))?))
-            .copied()
+            .filter_map(|(a, b, _)| move_line(a, b))
             .collect();
         if !args.is_empty() {
             connectors
@@ -1649,8 +1745,7 @@ async fn subway_map_inner(
         let returns: BTreeSet<usize> = call
             .returns
             .iter()
-            .filter_map(|(a, b, _)| Some(key_line.get(a).or_else(|| key_line.get(b))?))
-            .copied()
+            .filter_map(|(a, b, _)| move_line(a, b))
             .collect();
         if !returns.is_empty() {
             connectors
@@ -1666,7 +1761,7 @@ async fn subway_map_inner(
                 .iter()
                 .any(|key| matches!(key, Key::Field(_)))
         });
-        if !is_field {
+        if !is_field || map.lines[line].context {
             continue;
         }
         let mut writers = vec![];

@@ -95,6 +95,24 @@ input_file: inputs/dataflow/slice/taint-ipc
                 0
               ],
               "changed": true
+            },
+            {
+              "line": 653,
+              "text": ""
+            },
+            {
+              "line": 654,
+              "text": "    EXPECT_EQ(o.i(), 1);",
+              "stops": [
+                0
+              ]
+            },
+            {
+              "line": 655,
+              "text": "    EXPECT_EQ(o.d(), 2.0);",
+              "stops": [
+                0
+              ]
             }
           ],
           "stops": [
@@ -120,6 +138,7 @@ input_file: inputs/dataflow/slice/taint-ipc
       "syms": [
         "V_45628f3a3f0fa613_0",
         "V_45628f3a3f0fa613_1",
+        "V_716196e18eacebc4_416b2",
         "V_ffceb5e18eacebc4_e06b2"
       ],
       "tainted": true

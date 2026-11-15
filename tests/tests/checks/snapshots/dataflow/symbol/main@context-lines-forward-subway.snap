@@ -1,0 +1,40 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/context-lines-forward-subway
+---
+{
+  "lines": [
+    {
+      "label": "aConn",
+      "context": true
+    },
+    {
+      "label": "aInput",
+      "context": null
+    },
+    {
+      "label": "result",
+      "context": null
+    }
+  ],
+  "connectors": [
+    {
+      "from": "UsesContext",
+      "to": "Combine",
+      "kind": "call",
+      "lines": [
+        "aInput"
+      ]
+    },
+    {
+      "from": "Combine",
+      "to": "UsesContext",
+      "kind": "return",
+      "lines": [
+        "aInput",
+        "result"
+      ]
+    }
+  ]
+}

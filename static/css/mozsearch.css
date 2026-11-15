@@ -6184,6 +6184,18 @@ textarea.monospace {
   white-space: nowrap;
   border-bottom: 1px solid var(--page-border-color);
 }
+/* A trace's context lines (what its values are derived from, a step away;
+   see subway.js), lighter, as no edges carry them between the cards. */
+.sw-gutter line.sw-context {
+  stroke-opacity: 0.45;
+}
+.sw-dot.sw-context {
+  opacity: 0.55;
+}
+.sw-legend-context label > span:not(.sw-swatch) {
+  font-style: italic;
+  opacity: 0.75;
+}
 /* (A chevron where an edge going up comes into its card; see subway.js's
    `afterLayout`.) */
 .interactive-graph-edge.sw-up {

@@ -8,15 +8,44 @@ ProduceResult (dataflow/dataflow.cpp)
         -> #1 return [local: aInput]
   #1     345 return     return                             static int ProduceResult(int aInput) { return aInput + 1; }
         -> #2 call ProduceResult in ConsumeResult [return: result]
+        -> #3 call ProduceResult in DeclaresInMacro [return: result]
 ConsumeResult (dataflow/dataflow.cpp)
   #2     349 call       call ProduceResult                 DF_TRY_ASSIGN(value,
-        -> #3 dfTryResult = [local: ProduceResult(…)]
-  #3     349 assign     dfTryResult =                      DF_TRY_ASSIGN(value,
-        -> #4 test [local: dfTryResult]
-        -> #5 return [local: dfTryResult]
-        -> #6 value = [local: dfTryResult]
-  #4     349 test       test                               DF_TRY_ASSIGN(value,
-  #5     349 return     return                             DF_TRY_ASSIGN(value,
-  #6     349 assign     value =                            DF_TRY_ASSIGN(value,
-        -> #7 return [local: value]
-  #7     351 return     return                             return value;
+        -> #4 dfTryResult = [local: ProduceResult(…)]
+  #4     349 assign     dfTryResult =                      DF_TRY_ASSIGN(value,
+        -> #6 test [local: dfTryResult]
+        -> #7 return [local: dfTryResult]
+        -> #8 value = [local: dfTryResult]
+  #6     349 test       test                               DF_TRY_ASSIGN(value,
+  #7     349 return     return                             DF_TRY_ASSIGN(value,
+  #8     349 assign     value =                            DF_TRY_ASSIGN(value,
+        -> #12 return [local: value]
+  #12    351 return     return                             return value;
+DeclaresInMacro (dataflow/dataflow.cpp)
+  #3     383 call       call ProduceResult                 DF_TRY_DECLARE(declared, ProduceResult(aInput));
+        -> #5 dfTryDeclared = [local: ProduceResult(…)]
+  #5     383 assign     dfTryDeclared =                    DF_TRY_DECLARE(declared, ProduceResult(aInput));
+        -> #9 test [local: dfTryDeclared]
+        -> #10 return [local: dfTryDeclared]
+        -> #11 declared = [local: dfTryDeclared]
+  #9     383 test       test                               DF_TRY_DECLARE(declared, ProduceResult(aInput));
+  #10    383 return     return                             DF_TRY_DECLARE(declared, ProduceResult(aInput));
+  #11    383 assign     declared =                         DF_TRY_DECLARE(declared, ProduceResult(aInput));
+        -> #13 call ForwardedCall [local: declared]
+  #13    384 call       call ForwardedCall                 DF_TRY_CALL(ForwardedCall(declared));
+        -> #14 param aValue in ForwardedCall [call: aValue]
+        -> #19 test [local: ForwardedCall(…)]
+  #19    384 test       test                               DF_TRY_CALL(ForwardedCall(declared));
+ForwardedCall (dataflow/dataflow.cpp)
+  #14    362 param      param aValue                       DF_FORWARDER(ForwardedCall, ForwardTarget)
+        -> #15 call ForwardTarget [local: aValue]
+  #15    362 call       call ForwardTarget                 DF_FORWARDER(ForwardedCall, ForwardTarget)
+        -> #16 param aValue in ForwardTarget [call: aValue]
+        -> #18 return [local: ForwardTarget(…)]
+  #18    362 return     return                             DF_FORWARDER(ForwardedCall, ForwardTarget)
+        -> #13 call ForwardedCall in DeclaresInMacro [return: result]
+ForwardTarget (dataflow/dataflow.cpp)
+  #16    361 param      param aValue                       static int ForwardTarget(int aValue) { return aValue * 3; }
+        -> #17 return [local: aValue]
+  #17    361 return     return                             static int ForwardTarget(int aValue) { return aValue * 3; }
+        -> #15 call ForwardTarget in ForwardedCall [return: result]

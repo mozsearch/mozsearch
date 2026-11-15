@@ -484,6 +484,7 @@ var SubwayMap = new (class SubwayMap {
         segment.setAttribute("stroke", this.colors.get(line));
         segment.classList.add("sw-track");
         segment.classList.toggle("sw-tainted", tainted);
+        segment.classList.toggle("sw-context", this.model.lines[line].context ?? false);
         segment.dataset.line = line;
         svg.append(segment);
       }
@@ -518,6 +519,7 @@ var SubwayMap = new (class SubwayMap {
       segment.setAttribute("stroke", this.colors.get(line));
       segment.classList.add("sw-track");
       segment.classList.toggle("sw-tainted", this.taintedBefore(tracks.card, line, 0));
+      segment.classList.toggle("sw-context", this.model.lines[line].context ?? false);
       segment.dataset.line = line;
       svg.append(segment);
     });
@@ -545,7 +547,8 @@ var SubwayMap = new (class SubwayMap {
         return;
       }
       const dot = document.createElement("span");
-      dot.className = "sw-dot sw-track" + (writes.includes(line) ? " sw-dot-write" : "");
+      dot.className = "sw-dot sw-track" + (writes.includes(line) ? " sw-dot-write" : "") +
+        (this.model.lines[line].context ? " sw-context" : "");
       dot.dataset.line = line;
       // (In its line's color, but validations' rings.)
       if (!checks.length) {
@@ -983,6 +986,15 @@ var SubwayMap = new (class SubwayMap {
         label.append(" ", type);
       }
       label.title = line.names.join(", ");
+      // (A trace's context: what its values are derived from (forwards), or
+      // what's derived from them (backwards), a step away; see the tools'
+      // `Line::context`.)
+      if (line.context) {
+        item.classList.add("sw-legend-context");
+        label.title += this.model.trace?.dir == "backward"
+          ? " (context: derived from the traced values, which the trace didn't follow)"
+          : " (context: what a traced value is derived from, which the trace didn't follow)";
+      }
       item.append(label);
       item.addEventListener("mouseenter", () => this.focus(line.id));
       item.addEventListener("mouseleave", () => this.focus(null));
