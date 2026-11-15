@@ -1,0 +1,1 @@
+search-identifiers ClassNodesCaller | crossref-lookup | traverse --edge=callees | graph --format=json --hier=pretty | jq '.hierarchicalGraphs[0] | [.. | objects | select(has("segment")) | {segment, symbols}]'

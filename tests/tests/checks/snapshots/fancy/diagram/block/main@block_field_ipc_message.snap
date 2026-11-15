@@ -10,7 +10,7 @@ digraph g {
     cluster=true
     label="mozilla::_ipdltest"
     "SYN_0"[shape=point style=invis]
-    "T_mozilla::_ipdltest::TestDataStructuresChild"[shape=none label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn8" href="T_mozilla%3A%3A_ipdltest%3A%3ATestDataStructuresChild" port="T_mozilla___ipdltest__TestDataStructuresChild" align="left"><b>TestDataStructuresChild</b>  <U>🧮</U></td></tr><tr><td id="Gidn5" href="_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" port="_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" align="left">&nbsp;TestUnion</td></tr></table>> class="diagram-depth-1"]
+    "T_mozilla::_ipdltest::TestDataStructuresChild"[shape=none label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn6" href="T_mozilla%3A%3A_ipdltest%3A%3ATestDataStructuresChild" port="T_mozilla___ipdltest__TestDataStructuresChild" align="left"><b>TestDataStructuresChild</b>  <U>🧮</U></td></tr><tr><td id="Gidn5" href="_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" port="_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" align="left">&nbsp;TestUnion</td></tr></table>> class="diagram-depth-1"]
   }
   subgraph "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion" {
     cluster=true

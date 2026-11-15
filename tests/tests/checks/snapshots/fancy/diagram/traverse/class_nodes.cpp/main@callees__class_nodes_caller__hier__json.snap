@@ -1,0 +1,29 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/traverse/class_nodes.cpp/callees__class_nodes_caller__hier__json
+---
+[
+  {
+    "segment": "",
+    "symbols": []
+  },
+  {
+    "segment": "ClassNodesCaller",
+    "symbols": [
+      "_Z16ClassNodesCallerv"
+    ]
+  },
+  {
+    "segment": "SharedClassName",
+    "symbols": [
+      "T_SharedClassName"
+    ]
+  },
+  {
+    "segment": "Method",
+    "symbols": [
+      "_ZN15SharedClassName6MethodEv"
+    ]
+  }
+]

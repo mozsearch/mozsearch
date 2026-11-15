@@ -694,9 +694,55 @@ impl SymbolGraphCollection {
         // visually at 10 right now.
         const SYNTHETIC_DEPTH: u32 = 13;
 
-        // (The pieces' lookups below, at once: every prefix of the nodes'
-        // pretty names but the whole, and then the symbols found's entries;
-        // see `AbstractServer::prefetch_crossref`.)
+        // The pieces that are the nodes' ancestors (the classes they're in,
+        // and theirs, by their structured records' `parent_sym`), by their
+        // pretty names: the symbols those pieces are, rather than the first
+        // symbol named like them, which can be another language's (ex: the
+        // TypeScript typings' interface of mozIStorageConnection, for its C++
+        // methods, or the Rust bindings' struct of nsTArray, whose jumps are
+        // to their files).  A node's class's pretty name is its own but its
+        // last piece; its class's class's is in its class's record (which
+        // can be too big for a remote server's API, ex: nsTArray's, 9 MB).
+        let mut ancestors: HashMap<String, Ustr> = HashMap::new();
+        let mut frontier: Vec<Ustr> = vec![];
+        for id in graph.list_nodes() {
+            let info = self.node_set.get(&id);
+            let Some(parent) = info.get_structured().and_then(|meta| meta.parent_sym) else {
+                continue;
+            };
+            let (pieces, delim) = split_pretty(&info.get_pretty(), &info.symbol);
+            if let Some((_, init)) = pieces.split_last()
+                && !init.is_empty()
+            {
+                ancestors.entry(init.join(delim)).or_insert(parent);
+            }
+            frontier.push(parent);
+        }
+        let mut seen_ancestors: HashSet<Ustr> = HashSet::new();
+        for _ in 0..8 {
+            frontier.retain(|sym| seen_ancestors.insert(*sym));
+            if frontier.is_empty() {
+                break;
+            }
+            server.prefetch_crossref(&frontier).await;
+            let mut next = vec![];
+            for sym in frontier {
+                let (_, info) = self
+                    .node_set
+                    .ensure_symbol(&sym, server, SYNTHETIC_DEPTH)
+                    .await?;
+                let Some(meta) = info.get_structured() else {
+                    continue;
+                };
+                ancestors.entry(meta.pretty.to_string()).or_insert(sym);
+                next.extend(meta.parent_sym);
+            }
+            frontier = next;
+        }
+
+        // (The other pieces' lookups below, at once: every prefix of the
+        // nodes' pretty names but the whole, and then the symbols found's
+        // entries; see `AbstractServer::prefetch_crossref`.)
         let mut prefixes: BTreeSet<String> = BTreeSet::new();
         for sym_id in graph.list_nodes() {
             let node_info = self.node_set.get(&sym_id);
@@ -714,7 +760,7 @@ impl SymbolGraphCollection {
                 } else {
                     format!("{}{}{}", so_far, delim, piece)
                 };
-                if so_far != sym_pretty {
+                if so_far != sym_pretty && !ancestors.contains_key(&so_far) {
                     prefixes.insert(so_far.clone());
                 }
             }
@@ -813,9 +859,13 @@ impl SymbolGraphCollection {
                         // general, since we are taking a fast path on the full pretty
                         // match, we shouldn't be dealing with overloads here, so there
                         // really should only be a single ancestor symbol per pretty.
-                        let first_match = match prefix_matches.get(&pretty_so_far) {
-                            Some(found) => *found,
-                            None => server
+                        let first_match = match (
+                            ancestors.get(&pretty_so_far),
+                            prefix_matches.get(&pretty_so_far),
+                        ) {
+                            (Some(sym), _) => Some((*sym, ustr_so_far)),
+                            (None, Some(found)) => *found,
+                            (None, None) => server
                                 .search_identifiers(&pretty_so_far, true, false, 1)
                                 .await?
                                 .first()
