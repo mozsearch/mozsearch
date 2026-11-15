@@ -15,6 +15,12 @@ input_file: inputs/dataflow/symbol/multi-line-macro-forward-subway
           "context": true
         },
         {
+          "line": 407,
+          "text": "              ([&]() {",
+          "traced": null,
+          "context": true
+        },
+        {
           "line": 412,
           "text": "                ForwardTarget(aInput);",
           "traced": true,

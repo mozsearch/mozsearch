@@ -8,8 +8,8 @@ MultiLineMacro (dataflow/dataflow.cpp:405-416)
     406:14  [DF_TRY_CALL] call#0 Call Visit({0}) -> _ZL5Visiti
     410:20  λ [DF_TRY_CALL] unused init {0}
     412:16  λ [DF_TRY_CALL] call#1 Call ForwardTarget({aInput}@aInput) -> _ZL13ForwardTargeti
-    406:2   λ [DF_TRY_CALL] return {0}
-    410:20  [DF_TRY_CALL] call#2 Call {lambda@410}.([&]() {
+    413:16  λ [DF_TRY_CALL] return {0}
+    407:14  [DF_TRY_CALL] call#2 Call {lambda@407}.([&]() {
          int unused = 0;
          (void)unused;
          ForwardTarget(aInput);
@@ -24,4 +24,4 @@ MultiLineMacro (dataflow/dataflow.cpp:405-416)
     406:2   [DF_TRY_CALL] return {-1}
     406:2   [DF_TRY_CALL] test {0}
     415:2   return {0}
-  ?   410 UnresolvedCall: call of ([&]() { int unused = 0; (void)unused; ForwardTarget(aInput)…
+  ?   407 UnresolvedCall: call of ([&]() { int unused = 0; (void)unused; ForwardTarget(aInput)…

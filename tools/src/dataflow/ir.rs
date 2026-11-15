@@ -229,6 +229,9 @@ pub struct Event {
     /// And the macro's invocation's (first) line (see `Call::macro_line`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub macro_line: Option<u32>,
+    /// The first line of the (innermost) lambda it's in, if it's in one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lambda_line: Option<u32>,
     pub text: String,
 }
 

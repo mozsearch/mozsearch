@@ -230,7 +230,7 @@ pub struct Row {
     pub skipped: u32,
     /// Whether it's only context: the first line of the macro's invocation
     /// whose expansion's events the station's other rows are of (ex:
-    /// `QM_TRY(CollectWhile(`).
+    /// `QM_TRY(CollectWhile(`), or of the lambda they're in.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub context: bool,
     /// The lines stopping at its events (its station's stops on its line),
@@ -1537,17 +1537,27 @@ async fn subway_map_inner(
                 true => event_lines.iter().copied().collect(),
                 false => all,
             };
-            // (A macro's invocation's first line, for context, before a
-            // station of its expansion's events on its later lines, if no
-            // station before shows it: ex: `QM_TRY(CollectWhile(` before a
-            // lambda's lines it's passed.)
-            let invocation = events
+            // (Context, before a station, if no station before shows it: the
+            // first line of the macro's invocation whose expansion's events it
+            // has on its later lines (ex: `QM_TRY(CollectWhile(`), and that of
+            // the (innermost) lambda its events are in (ex: the lambda
+            // `CollectWhile` is passed, `[&state, ...]() -> ... {`).)
+            let macro_line = events
                 .iter()
                 .filter_map(|&ei| f.events[ei].macro_line)
                 .filter(|&line| line < first)
-                .min()
-                .filter(|line| !shown_lines.contains(line));
-            if let Some(line) = invocation {
+                .min();
+            let lambda_line = events
+                .iter()
+                .filter_map(|&ei| f.events[ei].lambda_line)
+                .filter(|&line| line < first)
+                .max();
+            let context: BTreeSet<u32> = [macro_line, lambda_line]
+                .into_iter()
+                .flatten()
+                .filter(|line| !shown_lines.contains(line))
+                .collect();
+            for &line in context.iter().rev() {
                 shown.insert(0, line);
             }
             shown_lines.extend(shown.iter().copied());
@@ -1563,7 +1573,7 @@ async fn subway_map_inner(
                     changed: func.changed.contains(&line),
                     traced: false,
                     skipped: prev.map_or(0, |p| line - p - 1),
-                    context: invocation == Some(line),
+                    context: context.contains(&line),
                     html: None,
                     stops: vec![],
                     writes: vec![],

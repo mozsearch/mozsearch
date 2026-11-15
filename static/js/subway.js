@@ -680,10 +680,10 @@ var SubwayMap = new (class SubwayMap {
         if (blackBoxLines.has(row.line)) {
           div.title = `Calls into ${blackBoxLines.get(row.line).join(", ")}, collapsed`;
         }
-        // (The macro's invocation the station's other rows are in; see the
-        // tools' `Row::context`.)
+        // (The macro's invocation, or lambda, the station's other rows are
+        // in; see the tools' `Row::context`.)
         if (row.context) {
-          div.title = "The macro's invocation the lines below are in (its expansion's)";
+          div.title = "Context: the macro invocation or lambda the lines below are in";
         }
         div.append(this.gutter(tracks, position), this.dots(tracks, position));
         const number = document.createElement("a");

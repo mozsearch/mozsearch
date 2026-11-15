@@ -420,8 +420,8 @@ add_task(async function test_DataflowFollowContextLines() {
 
 // A macro's invocation over several lines (as QueryCache's
 // `QM_TRY(CollectWhile(...))` is): its expansion's events are on their own
-// lines, under the invocation's first line, a context row (see the tools'
-// `Row::context`).
+// lines, under context rows (see the tools' `Row::context`): the
+// invocation's first line, and the lambda's they're in.
 add_task(async function test_DataflowFollowMultiLineMacro() {
   await TestUtils.resetFeatureGate("dataflow");
   await TestUtils.loadPath("/tests/source/dataflow/dataflow.cpp");
@@ -438,7 +438,9 @@ add_task(async function test_DataflowFollowMultiLineMacro() {
   const { doc, rows } = await tracedMap();
   const call = rows.find(r => r.text.includes("ForwardTarget(aInput);"));
   ok(call?.row.classList.contains("sw-traced"), "The call in the lambda in the macro's argument is a row of its own, traced");
-  const context = doc.querySelector(".sw-card .sw-context-row");
-  ok(context?.querySelector(".sw-code").textContent.includes("DF_TRY_CALL(Visit(0) +"),
-     `with the invocation's first line before it, for context: ${context?.textContent}`);
+  const context = [...doc.querySelectorAll(".sw-card .sw-context-row")];
+  ok(context[0]?.querySelector(".sw-code").textContent.includes("DF_TRY_CALL(Visit(0) +"),
+     `with the invocation's first line before it, for context: ${context[0]?.textContent}`);
+  ok(context[1]?.querySelector(".sw-code").textContent.includes("([&]() {"),
+     `and the lambda's: ${context[1]?.textContent}`);
 });

@@ -6196,8 +6196,8 @@ textarea.monospace {
   font-style: italic;
   opacity: 0.75;
 }
-/* A station's context row: the first line of the macro's invocation its
-   other rows are in (see the tools' `Row::context`). */
+/* A station's context rows: the first lines of the macro's invocation and
+   the lambda its other rows are in (see the tools' `Row::context`). */
 .sw-context-row .sw-code {
   opacity: 0.6;
 }

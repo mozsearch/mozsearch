@@ -607,6 +607,9 @@ struct Builder<'c, 'a> {
     text: std::rc::Rc<str>,
     ir: FuncIr,
     lambda_depth: u32,
+    /// The first lines of the lambdas the current node is in, innermost
+    /// last (see `Event::lambda_line`).
+    lambda_lines: Vec<u32>,
     macro_cx: Option<MacroCx>,
     /// Names of locals and parameters seen so far, for resolving names
     /// without records.
@@ -661,6 +664,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 types: HashMap::new(),
             },
             lambda_depth: 0,
+            lambda_lines: vec![],
             macro_cx: None,
             scope: HashMap::new(),
             class_prefix,
@@ -759,6 +763,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             in_lambda: self.lambda_depth > 0,
             macro_name: self.macro_cx.as_ref().map(|m| m.name.clone()),
             macro_line: self.macro_cx.as_ref().map(|m| m.line),
+            lambda_line: self.lambda_lines.last().copied(),
             text: self.cx.line_text(line),
         });
     }
@@ -1053,8 +1058,10 @@ impl<'c, 'a> Builder<'c, 'a> {
         out
     }
 
-    fn lambda_body(&mut self, body: Node<'c>, params: Option<Node<'c>>) {
+    fn lambda_body(&mut self, lambda: Node<'c>, body: Node<'c>, params: Option<Node<'c>>) {
         self.lambda_depth += 1;
+        let (line, _) = self.pos(lambda);
+        self.lambda_lines.push(line);
         let start = self.ir.events.len();
         if let Some(params) = params {
             for param in named(params) {
@@ -1086,6 +1093,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 self.lambda_ranges.push((start, end));
             }
         }
+        self.lambda_lines.pop();
         self.lambda_depth -= 1;
     }
 
@@ -1983,7 +1991,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                     .and_then(|d| d.child_by_field_name("parameters"));
                 let shadowed = self.cpp_init_captures(node);
                 if let Some(body) = node.child_by_field_name("body") {
-                    self.lambda_body(body, params);
+                    self.lambda_body(node, body, params);
                 }
                 for (name, place) in shadowed {
                     match place {
@@ -2261,6 +2269,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                     in_lambda: self.lambda_depth > 0,
                     macro_name: Some(name_text),
                     macro_line: Some(line),
+                    lambda_line: self.lambda_lines.last().copied(),
                     text: self.cx.line_text(line),
                 });
             }
@@ -2337,9 +2346,11 @@ impl<'c, 'a> Builder<'c, 'a> {
         else {
             return vec![];
         };
+        // (Before the text is the expansion's: its runs of alike tokens are
+        // the invocation's text's.)
+        let anchors = self.expansion_anchors(node, line, col, &key, &platform, &expansion);
         let saved_text = std::mem::replace(&mut self.text, std::rc::Rc::from(parse.text.as_str()));
         let end_line = node.end_position().row as u32 + 1;
-        let anchors = self.expansion_anchors(node, line, col, &key, &platform);
         self.macro_cx = Some(MacroCx {
             line,
             col,
@@ -2371,6 +2382,11 @@ impl<'c, 'a> Builder<'c, 'a> {
     /// there as many times as the expansion has it, so that they pair in
     /// order (ex: an argument's tokens, substituted once, but not those the
     /// macro's definition spells, nor an argument the macro uses twice).
+    /// From each, the tokens on either side are anchored too, as long as the
+    /// expansion's and the invocation's are alike (ex: an argument's
+    /// keywords, literals and punctuation, `return 0;`, which have no
+    /// records), up to the next anchor or the first that differ (the macro's
+    /// own).
     fn expansion_anchors(
         &self,
         node: Node,
@@ -2378,6 +2394,7 @@ impl<'c, 'a> Builder<'c, 'a> {
         col: u32,
         key: &str,
         platform: &str,
+        expansion: &str,
     ) -> Vec<(usize, u32, u32)> {
         let mut offsets: HashMap<Ustr, Vec<usize>> = HashMap::new();
         for rec in self.cx.recs.all_sources_at(line, col) {
@@ -2421,6 +2438,65 @@ impl<'c, 'a> Builder<'c, 'a> {
             }
         }
         anchors.sort();
+        // (Their runs of alike tokens, in its arguments: not its name and
+        // parentheses, which a macro's own tokens around an argument can be
+        // alike, ex: `(aExpr)`'s.)
+        let range = match node.child_by_field_name("arguments") {
+            Some(args) if args.end_byte() >= args.start_byte() + 2 => {
+                args.start_byte() + 1..args.end_byte() - 1
+            }
+            _ => node.byte_range(),
+        };
+        let Some(source) = self.text.get(range.clone()) else {
+            return anchors;
+        };
+        let exp_tokens = cpp_tokens(expansion);
+        let src_tokens: Vec<(usize, usize)> = cpp_tokens(source)
+            .into_iter()
+            .map(|(s, e)| (s + range.start, e + range.start))
+            .collect();
+        let newlines = &self.cx.newlines;
+        let src_pos = |offset: usize| -> (u32, u32) {
+            let row = newlines.partition_point(|&n| n < offset);
+            let line_start = if row == 0 { 0 } else { newlines[row - 1] + 1 };
+            (row as u32 + 1, (offset - line_start) as u32)
+        };
+        let exp_index: HashMap<usize, usize> = exp_tokens
+            .iter()
+            .enumerate()
+            .map(|(i, &(s, _))| (s, i))
+            .collect();
+        let src_index: HashMap<(u32, u32), usize> = src_tokens
+            .iter()
+            .enumerate()
+            .map(|(i, &(s, _))| (src_pos(s), i))
+            .collect();
+        let anchored: std::collections::HashSet<usize> = anchors.iter().map(|a| a.0).collect();
+        let exp_text = |i: usize| &expansion[exp_tokens[i].0..exp_tokens[i].1];
+        let src_text = |i: usize| &self.text[src_tokens[i].0..src_tokens[i].1];
+        let mut more: std::collections::BTreeMap<usize, (u32, u32)> = Default::default();
+        for &(offset, l, c) in &anchors {
+            let (Some(&ei), Some(&si)) = (exp_index.get(&offset), src_index.get(&(l, c))) else {
+                continue;
+            };
+            for step in [1isize, -1] {
+                let (mut e, mut s) = (ei as isize + step, si as isize + step);
+                while e >= 0
+                    && s >= 0
+                    && (e as usize) < exp_tokens.len()
+                    && (s as usize) < src_tokens.len()
+                    && !anchored.contains(&exp_tokens[e as usize].0)
+                    && exp_text(e as usize) == src_text(s as usize)
+                {
+                    more.entry(exp_tokens[e as usize].0)
+                        .or_insert_with(|| src_pos(src_tokens[s as usize].0));
+                    e += step;
+                    s += step;
+                }
+            }
+        }
+        anchors.extend(more.into_iter().map(|(o, (l, c))| (o, l, c)));
+        anchors.sort();
         anchors
     }
 
@@ -2432,6 +2508,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             text: self.text.clone(),
             ir: std::mem::replace(&mut self.ir, empty_ir()),
             lambda_depth: self.lambda_depth,
+            lambda_lines: std::mem::take(&mut self.lambda_lines),
             macro_cx: self.macro_cx.take(),
             scope: std::mem::take(&mut self.scope),
             class_prefix: self.class_prefix.clone(),
@@ -2459,6 +2536,7 @@ impl<'c, 'a> Builder<'c, 'a> {
         };
         self.text = sub.text;
         self.ir = sub.ir;
+        self.lambda_lines = sub.lambda_lines;
         self.macro_cx = sub.macro_cx;
         self.scope = sub.scope;
         self.open_guards = sub.open_guards;
@@ -3010,7 +3088,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                     self.lambda_depth -= 1;
                 }
                 if let Some(body) = node.child_by_field_name("body") {
-                    self.lambda_body(body, params);
+                    self.lambda_body(node, body, params);
                 }
                 Ev::konst(&format!("function@{}", self.pos(node).0))
             }
@@ -3751,6 +3829,57 @@ fn empty_ir() -> FuncIr {
     }
 }
 
+/// A C++ text's tokens' byte ranges (identifiers and numbers, string and
+/// character literals, and punctuators, the longest of them), without its
+/// whitespace and comments: for aligning a macro's expansion with its
+/// invocation's text (see `Builder::expansion_anchors`), which tokenize alike.
+fn cpp_tokens(text: &str) -> Vec<(usize, usize)> {
+    const PUNCTUATORS: [&str; 26] = [
+        "<<=", ">>=", "...", "->*", "::", "->", "++", "--", "<<", ">>", "<=", ">=", "==", "!=",
+        "&&", "||", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", ".*", "##",
+    ];
+    let bytes = text.as_bytes();
+    let word = |b: u8| b == b'_' || b.is_ascii_alphanumeric() || b >= 0x80;
+    let mut out = vec![];
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if c.is_ascii_whitespace() {
+            i += 1;
+            continue;
+        }
+        if text[i..].starts_with("//") {
+            i = text[i..].find('\n').map_or(bytes.len(), |n| i + n);
+            continue;
+        }
+        if text[i..].starts_with("/*") {
+            i = text[i + 2..]
+                .find("*/")
+                .map_or(bytes.len(), |n| i + 2 + n + 2);
+            continue;
+        }
+        let start = i;
+        if word(c) {
+            while i < bytes.len() && (word(bytes[i]) || (bytes[i] == b'.' && c.is_ascii_digit())) {
+                i += 1;
+            }
+        } else if c == b'"' || c == b'\'' {
+            i += 1;
+            while i < bytes.len() && bytes[i] != c {
+                i += if bytes[i] == b'\\' { 2 } else { 1 };
+            }
+            i = (i + 1).min(bytes.len());
+        } else {
+            i += PUNCTUATORS
+                .iter()
+                .find(|p| text[i..].starts_with(**p))
+                .map_or(1, |p| p.len());
+        }
+        out.push((start, i));
+    }
+    out
+}
+
 /// The first node of a kind, depth-first.
 fn find_kind<'t>(node: Node<'t>, kind: &str) -> Option<Node<'t>> {
     if node.kind() == kind {
@@ -3898,6 +4027,35 @@ mod tests {
              3:6   test {~rv, ~0}\n      \
              3:17  *aRetVal = {false}\n      \
              4:2   return {rv}\n"
+        );
+    }
+
+    /// The tokens a macro's expansion and its invocation are aligned by.
+    #[test]
+    fn test_cpp_tokens() {
+        let text = "a->b(1.5, \"x\\\"y\", 'c') // d\n  ::e /* f */ += g";
+        let tokens: Vec<&str> = cpp_tokens(text)
+            .into_iter()
+            .map(|(s, e)| &text[s..e])
+            .collect();
+        assert_eq!(
+            tokens,
+            vec![
+                "a",
+                "->",
+                "b",
+                "(",
+                "1.5",
+                ",",
+                "\"x\\\"y\"",
+                ",",
+                "'c'",
+                ")",
+                "::",
+                "e",
+                "+=",
+                "g"
+            ]
         );
     }
 
