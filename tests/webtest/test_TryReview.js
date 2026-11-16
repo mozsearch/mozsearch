@@ -197,6 +197,41 @@ add_task(async function test_TryReviewJumps() {
   isnot(menu.style.display, "flex", "and closes the picker");
 });
 
+// (Its patch's changes' dataflow, by the push's slicing: Widget::Wobble,
+// which it adds, and wobbler.cpp's call of it.)
+add_task(async function test_TryReviewSlicing() {
+  await removeReview();
+  await importPush();
+  await loadReview();
+  const figure = doc().querySelector(".tr-slicing");
+  ok(figure, "The patch's group has a diagram of its changes' dataflow");
+  await waitForCondition(() => figure.querySelector(".tr-slice-node"), "of its changes' units");
+  const nodes = [...figure.querySelectorAll(".tr-slice-node")];
+  const wobble = nodes.find(node => node.textContent.includes("Wobble"));
+  ok(wobble, "such as the method it adds");
+  ok(figure.querySelector(".crash-graph-edge"), "linked by what they share");
+  ok(wobble.querySelector(".tr-slice-mark")?.textContent.includes("❓"),
+     "each with its part's mark");
+
+  // (The marks are the review's.)
+  const patch = doc().querySelector(".tr-patch").dataset.part;
+  TestUtils.click(markButton(patch, "good"));
+  await waitForCondition(() => wobble.querySelector(".tr-slice-mark").textContent.includes("✅"),
+                         "which change with the review's");
+  // (A cancelable click, which the node's handler keeps from following its
+  // link to its source; TestUtils.click's isn't.)
+  const page = doc();
+  wobble.click();
+  await waitForCondition(() => doc().querySelector(".tr-def.tr-flash, .tr-file.tr-flash"),
+                         "Clicking one goes to its part");
+  is(doc(), page, "on the page, rather than to its source");
+
+  ok(!figure.querySelector(".tr-slice-code"), "The diagram leaves out the code at first");
+  TestUtils.click(figure.querySelector(".tr-slicing-code"));
+  await waitForCondition(() => figure.querySelector(".tr-slice-code .tr-added"),
+                         "and shows it when asked to");
+});
+
 // (1a2b3c4d5e6f's two patches, "Let widgets shrink" and "Shrink widgets
 // twice", don't share a file, a class or a bug, so they're two groups.)
 add_task(async function test_TryReviewPatches() {

@@ -530,6 +530,10 @@ pub struct ReviewView {
     pub semantic_trunk: Option<crate::try_import::SemanticTrunk>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub landed: Vec<crate::try_import::LandedCommit>,
+    /// Its groups' parts of the push's slicing, for their diagrams (see
+    /// `add_slicing`; not kept in the view's cache).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slicing: Option<ReviewSlicing>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1028,6 +1032,7 @@ pub async fn review_view(
         semantic_failure: try_push.semantic_failure,
         semantic_trunk: try_push.semantic_trunk,
         landed: try_push.landed,
+        slicing: None,
     })
 }
 
@@ -1449,6 +1454,465 @@ pub fn view_facets(view: &ReviewView) -> Value {
     json!({ "facets": facets, "noun": "file", "nouns": "files" })
 }
 
+// ## Dataflow slicing
+
+/// The most units of a group's slicing its diagram has (the rest are left
+/// out, and it says so).
+const MAX_GROUP_UNITS: usize = 60;
+
+/// The push's slicing (`slice-rev:`'s; see `dataflow::slice`) by the view's
+/// patch groups (see `group_slicings`), or why it isn't there.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ReviewSlicing {
+    /// Its query (ex: `slice-rev:<base>..<head>`) and revision (the head),
+    /// for the link to its page.
+    pub query: String,
+    pub rev: String,
+    /// By group (the view's `groups`, or each patch's own).
+    pub groups: Vec<GroupSlicing>,
+    /// Why there are no diagrams, if there aren't.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+/// A patch group's part of the push's slicing, for its diagram
+/// (try-review.js's): the units of its patches' commits (their changes'
+/// functions, or their other lines), their neighbors in other groups, and
+/// the links between them.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct GroupSlicing {
+    pub nodes: Vec<SliceNode>,
+    pub edges: Vec<SliceEdge>,
+    /// How many of its units its diagram leaves out (past
+    /// `MAX_GROUP_UNITS`).
+    #[serde(default)]
+    pub left_out: usize,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct SliceNode {
+    /// Its function's name (its pretty name), else its class's (its
+    /// declarations'), else its file's path.
+    pub label: String,
+    /// Its class's, for the diagram's records (see graph-records.js).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    pub path: String,
+    /// What its patch does to them: "added", "removed" or "changed" (both),
+    /// and its lines, the ones it adds (in the push's head's coordinates),
+    /// or else the ones it removes (in its base's).
+    pub change: String,
+    pub lines: Vec<u32>,
+    /// Its patch (the view's index), and the part of it its lines are in (a
+    /// definition's, else its file's), if known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part: Option<String>,
+    /// If it's another group's (a neighbor), that group.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub other: Option<usize>,
+    /// The text of the lines it adds, and of those it removes.
+    #[serde(default)]
+    pub text: Vec<String>,
+    #[serde(default)]
+    pub old_text: Vec<String>,
+    /// Its card's lines, in the push's head: the ones it adds, and the
+    /// others on their dataflow (see `card_lines`), if they're known.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub card: Vec<CardLine>,
+    /// Its units (their ids in the slicing).
+    #[serde(skip)]
+    pub units: Vec<usize>,
+}
+
+/// A line of a node's card (see `SliceNode::card`): its number and text, and
+/// whether its patch adds it, or else how much it's on its changes'
+/// dataflow, and why (see `dataflow::impact::LineImpact`).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CardLine {
+    pub line: u32,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub added: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub d: Option<f32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub why: Vec<String>,
+}
+
+/// The most lines of its own a card shows, and of its dataflow's (the
+/// likeliest).
+const CARD_ADDED_LINES: usize = 12;
+const CARD_FLOW_LINES: usize = 8;
+
+/// The nodes' cards' lines (see `SliceNode::card`), by the slicing's
+/// `slice-format:lines` (`lines`; see `dataflow::impact::slicing_lines`):
+/// each node's added lines, and the lines on their dataflow in its units'
+/// functions, the likeliest first, by `text` (a path's text in the push's
+/// head, if it's had).
+pub fn card_lines(
+    groups: &mut [GroupSlicing],
+    lines: &Value,
+    text: &BTreeMap<String, Vec<String>>,
+) {
+    for node in groups.iter_mut().flat_map(|group| group.nodes.iter_mut()) {
+        if node.change == "removed" {
+            continue;
+        }
+        let Some(file_text) = text.get(&node.path) else {
+            continue;
+        };
+        let impacts = &lines["files"][&node.path];
+        let mut flow: Vec<(u32, f32, Vec<String>)> = node
+            .units
+            .iter()
+            .flat_map(|id| {
+                lines["units"][id.to_string()]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default()
+            })
+            .filter_map(|line| {
+                let line = line.as_u64()? as u32;
+                let impact = &impacts[line.to_string()];
+                let why = impact["why"]
+                    .as_array()
+                    .map(|why| {
+                        why.iter()
+                            .filter_map(|w| w.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                Some((line, impact["d"].as_f64().unwrap_or(0.0) as f32, why))
+            })
+            .filter(|(line, _, _)| !node.lines.contains(line))
+            .collect();
+        flow.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        flow.dedup_by_key(|(line, _, _)| *line);
+        flow.truncate(CARD_FLOW_LINES);
+        let text_at = |line: u32| -> Option<String> {
+            file_text.get((line as usize).checked_sub(1)?).cloned()
+        };
+        let mut card: Vec<CardLine> = node
+            .lines
+            .iter()
+            .take(CARD_ADDED_LINES)
+            .filter_map(|line| {
+                Some(CardLine {
+                    line: *line,
+                    text: text_at(*line)?,
+                    added: true,
+                    ..Default::default()
+                })
+            })
+            .chain(flow.into_iter().filter_map(|(line, d, why)| {
+                Some(CardLine {
+                    line,
+                    text: text_at(line)?,
+                    added: false,
+                    d: Some(d),
+                    why,
+                })
+            }))
+            .collect();
+        card.sort_by_key(|line| line.line);
+        node.card = card;
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct SliceEdge {
+    /// Its nodes (their indices), the earlier one in the order to read them
+    /// first (see `read_rank`).
+    pub from: usize,
+    pub to: usize,
+    /// What they share (see `link_reason`), the first few.
+    pub why: Vec<String>,
+}
+
+/// A path's place in the order to read a patch's changes (see `Section`):
+/// interfaces, headers, the rest, tests.
+fn read_rank(path: &str) -> u8 {
+    if is_idl(path) {
+        0
+    } else if is_header(path) {
+        1
+    } else if looks_like_test(path) {
+        3
+    } else {
+        2
+    }
+}
+
+/// A symbol's readable name, by the slicing's units' functions (ex: a
+/// function's), or else by its kind's form (an IPDL message's,
+/// `IPC_mozilla_dom_PFoo_Bar` as `PFoo::Bar`).
+fn symbol_name(slicing: &crate::dataflow::slice::Slicing, sym: &str) -> String {
+    if let Some(func) = slicing
+        .units
+        .iter()
+        .find(|unit| unit.func_sym.is_some_and(|s| s.as_str() == sym))
+        .and_then(|unit| unit.func.as_deref())
+    {
+        return short_name(func);
+    }
+    match sym.strip_prefix("IPC_") {
+        Some(message) => {
+            let parts: Vec<&str> = message.split('_').collect();
+            parts[parts.len().saturating_sub(2)..].join("::")
+        }
+        None => sym.to_string(),
+    }
+}
+
+/// A pretty name's last two parts (ex: `Class::Method`).
+fn short_name(pretty: &str) -> String {
+    let parts: Vec<&str> = pretty.split("::").collect();
+    parts[parts.len().saturating_sub(2)..].join("::")
+}
+
+/// What a slicing's link's units share, readably (its `why`; see
+/// `dataflow::slice::Link`).
+fn link_reason(slicing: &crate::dataflow::slice::Slicing, why: &str) -> String {
+    match why.split_once(' ') {
+        Some(("function", sym)) => format!("calls or changes {}", symbol_name(slicing, sym)),
+        Some(("mention", sym)) => format!("mentions {}", symbol_name(slicing, sym)),
+        Some(("binding", sym)) => format!("the IPC message {}", symbol_name(slicing, sym)),
+        Some(("local", _)) => "a local value".to_string(),
+        Some(("field", name)) => format!("the field {}", name),
+        _ => why.to_string(),
+    }
+}
+
+/// A slicing's unit's class's pretty name, if it's in one.
+fn unit_class(unit: &crate::dataflow::slice::Unit) -> Option<&str> {
+    Some(unit.class.as_deref()?.trim_start_matches("T_"))
+}
+
+/// A slicing's unit's node's label (see `SliceNode`): its function's name,
+/// else its class's (its declarations'), else its file's path.
+fn unit_label(unit: &crate::dataflow::slice::Unit) -> String {
+    unit.func
+        .clone()
+        .or_else(|| unit_class(unit).map(str::to_string))
+        .unwrap_or_else(|| unit.path.clone())
+}
+
+/// The view's groups, or, a view's from before groups, each patch's own.
+fn view_groups(view: &ReviewView) -> Vec<PatchGroup> {
+    match view.groups.is_empty() {
+        false => view.groups.clone(),
+        true => (0..view.patches.len())
+            .map(|i| PatchGroup {
+                patches: vec![i],
+                honorary: vec![],
+                shared: vec![],
+            })
+            .collect(),
+    }
+}
+
+/// The push's slicing by the view's groups (see `GroupSlicing`): each unit is
+/// its commits' patches' (`rebased` maps the commits of the push's stack
+/// rebased onto the indexed revision, which its slicing's units name, to the
+/// push's own; see `explore::ExploreCommit::rebased`), its last one's for
+/// what it adds, its first's for what it removes, or, if its commits aren't
+/// known, the first patch changing its file's; a group's diagram has its
+/// units and their neighbors in other groups, in the order to read them.
+pub fn group_slicings(
+    view: &ReviewView,
+    slicing: &crate::dataflow::slice::Slicing,
+    rebased: &BTreeMap<String, String>,
+) -> Vec<GroupSlicing> {
+    let groups = view_groups(view);
+    let mut group_of: BTreeMap<usize, usize> = BTreeMap::new();
+    for (g, group) in groups.iter().enumerate() {
+        for &i in &group.patches {
+            group_of.insert(i, g);
+        }
+    }
+    let patch_of: BTreeMap<&str, usize> = view
+        .patches
+        .iter()
+        .enumerate()
+        .map(|(i, patch)| (patch.rev.as_str(), i))
+        .collect();
+    fn changes_file<'a>(patch: &'a ReviewPatch, path: &str) -> Option<&'a ReviewFile> {
+        patch
+            .files
+            .iter()
+            .find(|file| file.path == path || file.old_path.as_deref() == Some(path))
+    }
+    // (Each unit's patch, and part.)
+    let placed: Vec<(Option<usize>, Option<String>)> = slicing
+        .units
+        .iter()
+        .map(|unit| {
+            let patches: Vec<usize> = unit
+                .commits
+                .iter()
+                .filter_map(|commit| {
+                    let commit = rebased.get(commit).unwrap_or(commit);
+                    patch_of.get(commit.as_str()).copied()
+                })
+                .collect();
+            let patch = match unit.removed {
+                false => patches.last().copied(),
+                true => patches.first().copied(),
+            }
+            .or_else(|| {
+                view.patches
+                    .iter()
+                    .position(|patch| changes_file(patch, &unit.path).is_some())
+            });
+            // (Its function's definition, else its class's, else its file.)
+            let part = patch.and_then(|i| {
+                let file = changes_file(&view.patches[i], &unit.path)?;
+                let def = unit
+                    .func
+                    .as_deref()
+                    .and_then(|func| file.defs.iter().find(|def| def.pretty == func))
+                    .or_else(|| {
+                        let class = unit_class(unit)?;
+                        file.defs
+                            .iter()
+                            .find(|def| def.level == "class" && def.pretty == class)
+                    });
+                Some(def.map_or(file.id.clone(), |def| def.id.clone()))
+            });
+            (patch, part)
+        })
+        .collect();
+    let mut neighbors: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
+    for link in &slicing.links {
+        neighbors.entry(link.from).or_default().insert(link.to);
+        neighbors.entry(link.to).or_default().insert(link.from);
+    }
+    let order = |id: &usize| {
+        let unit = &slicing.units[*id];
+        (read_rank(&unit.path), placed[*id].0, unit.path.clone(), *id)
+    };
+    groups
+        .iter()
+        .enumerate()
+        .map(|(g, _)| {
+            let group = |id: &usize| placed[*id].0.and_then(|i| group_of.get(&i).copied());
+            let mut members: Vec<usize> = (0..slicing.units.len())
+                .filter(|id| group(id) == Some(g))
+                .collect();
+            members.sort_by_key(order);
+            let left_out = members.len().saturating_sub(MAX_GROUP_UNITS);
+            members.truncate(MAX_GROUP_UNITS);
+            let mut others: Vec<usize> = members
+                .iter()
+                .flat_map(|id| neighbors.get(id).into_iter().flatten())
+                .filter(|id| group(id) != Some(g))
+                .copied()
+                .collect::<BTreeSet<usize>>()
+                .into_iter()
+                .collect();
+            others.sort_by_key(order);
+            // (A patch's units of a function, what it removes and what it
+            // adds, are one node, as are those of a class's declarations, or
+            // a file's other lines; those of unknown patches are their own.)
+            let mut keys: Vec<(Option<usize>, String)> = vec![];
+            let mut node_units: Vec<Vec<usize>> = vec![];
+            let mut index: BTreeMap<usize, usize> = BTreeMap::new();
+            for id in members.iter().chain(&others) {
+                let unit = &slicing.units[*id];
+                let key = match (placed[*id].0, &placed[*id].1) {
+                    (Some(patch), Some(part)) => {
+                        (Some(patch), format!("{}\n{}", part, unit_label(unit)))
+                    }
+                    _ => (None, id.to_string()),
+                };
+                let n = match keys.iter().position(|k| *k == key) {
+                    Some(n) => n,
+                    None => {
+                        keys.push(key);
+                        node_units.push(vec![]);
+                        keys.len() - 1
+                    }
+                };
+                node_units[n].push(*id);
+                index.insert(*id, n);
+            }
+            let own = members
+                .iter()
+                .map(|id| index[id])
+                .collect::<BTreeSet<usize>>()
+                .len();
+            let nodes = node_units
+                .iter()
+                .map(|ids| {
+                    let unit = &slicing.units[ids[0]];
+                    let (removed, added): (Vec<&crate::dataflow::slice::Unit>, Vec<_>) = ids
+                        .iter()
+                        .map(|id| &slicing.units[*id])
+                        .partition(|unit| unit.removed);
+                    let lines_of = |units: &[&crate::dataflow::slice::Unit]| -> Vec<u32> {
+                        units
+                            .iter()
+                            .flat_map(|unit| unit.lines.iter().copied())
+                            .collect::<BTreeSet<u32>>()
+                            .into_iter()
+                            .collect()
+                    };
+                    let text_of = |units: &[&crate::dataflow::slice::Unit]| -> Vec<String> {
+                        units.iter().flat_map(|unit| unit.text.clone()).collect()
+                    };
+                    SliceNode {
+                        label: unit_label(unit),
+                        scope: unit_class(unit).map(str::to_string),
+                        path: added.first().unwrap_or(&unit).path.clone(),
+                        change: match (removed.is_empty(), added.is_empty()) {
+                            (true, _) => "added",
+                            (false, true) => "removed",
+                            (false, false) => "changed",
+                        }
+                        .to_string(),
+                        lines: match added.is_empty() {
+                            true => lines_of(&removed),
+                            false => lines_of(&added),
+                        },
+                        patch: placed[ids[0]].0,
+                        part: placed[ids[0]].1.clone(),
+                        other: group(&ids[0]).filter(|other| *other != g),
+                        text: text_of(&added),
+                        old_text: text_of(&removed),
+                        card: vec![],
+                        units: ids.clone(),
+                    }
+                })
+                .collect();
+            // (A pair's links are one edge, but between two neighbors.)
+            let mut edges: BTreeMap<(usize, usize), Vec<String>> = BTreeMap::new();
+            for link in &slicing.links {
+                let (Some(&a), Some(&b)) = (index.get(&link.from), index.get(&link.to)) else {
+                    continue;
+                };
+                if a == b || (a >= own && b >= own) {
+                    continue;
+                }
+                let why = edges.entry((a.min(b), a.max(b))).or_default();
+                let reason = link_reason(slicing, &link.why);
+                if why.len() < 4 && !why.contains(&reason) {
+                    why.push(reason);
+                }
+            }
+            GroupSlicing {
+                nodes,
+                edges: edges
+                    .into_iter()
+                    .map(|((from, to), why)| SliceEdge { from, to, why })
+                    .collect(),
+                left_out,
+            }
+        })
+        .collect()
+}
+
 // ## Rendering
 
 /// The view's parts, for review-state.js: `[id, parent id, level, label]`.
@@ -1839,6 +2303,62 @@ fn patch_html(tree: &str, view: &ReviewView, i: usize) -> String {
 
 /// A group of patches' heading (see `group_patches`): its patches, what they
 /// share, and its honorary members (links to them).
+/// The URL of the page of the push's slicing.
+fn slicing_url(tree: &str, slicing: &ReviewSlicing) -> String {
+    format!(
+        "/{}/query/default?q={}&rev={}",
+        tree,
+        urlencoding::encode(&slicing.query),
+        urlencoding::encode(&slicing.rev)
+    )
+}
+
+/// A group's dataflow diagram's figure, which try-review.js draws (see
+/// `GroupSlicing`), if its patches' changes have units.
+fn slicing_html(tree: &str, view: &ReviewView, g: usize) -> String {
+    let Some(slicing) = &view.slicing else {
+        return String::new();
+    };
+    let Some(group) = slicing
+        .groups
+        .get(g)
+        .filter(|group| !group.nodes.is_empty())
+    else {
+        return String::new();
+    };
+    let plural =
+        |n: usize, one: &str, many: &str| format!("{} {}", n, if n == 1 { one } else { many });
+    let own = group
+        .nodes
+        .iter()
+        .filter(|node| node.other.is_none())
+        .count();
+    let others = group.nodes.len() - own;
+    let about = [
+        Some(format!(
+            "{}, by what they share",
+            plural(own, "change", "changes")
+        )),
+        (others > 0).then(|| {
+            format!(
+                "with {} of other groups' patches",
+                plural(others, "change", "changes")
+            )
+        }),
+        (group.left_out > 0).then(|| format!("{} left out", group.left_out)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join("; ");
+    format!(
+        r#"<figure class="tr-slicing" data-group="{g}"><figcaption><span class="tr-slicing-title">Their dataflow</span> <span class="tr-slicing-about">{about} (<a href="{url}">the push's slicing</a>)</span> <button type="button" class="tr-slicing-code" aria-pressed="false">Show their code</button></figcaption><div class="tr-slicing-canvas crash-graph-canvas"></div></figure>"#,
+        g = g,
+        about = escape(&about),
+        url = escape(&slicing_url(tree, slicing)),
+    )
+}
+
 fn group_head_html(view: &ReviewView, g: usize) -> String {
     let group = &view.groups[g];
     let numbers = |patches: &[usize]| -> String {
@@ -1992,6 +2512,9 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
                 .map(|patch| json!({ "part": patch.id, "summary": patch.summary }))
                 .collect::<Vec<_>>(),
             "groups": view.groups,
+            "tree": tree,
+            // (The groups' diagrams' data; see `group_slicings`.)
+            "slicing": view.slicing,
         }),
     ));
     // (The breadcrumbs' trail, which try-review.js puts in the page's.)
@@ -2044,14 +2567,13 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
     // several; a view from before groups has each patch in a group of its
     // own.)
     let mut view = view.clone();
-    if view.groups.is_empty() {
-        view.groups = (0..view.patches.len())
-            .map(|i| PatchGroup {
-                patches: vec![i],
-                honorary: vec![],
-                shared: vec![],
-            })
-            .collect();
+    view.groups = view_groups(&view);
+    if let Some(note) = view.slicing.as_ref().and_then(|s| s.note.as_ref()) {
+        html.push_str(&format!(
+            r#"<p class="tr-note">Its changes' dataflow couldn't be sliced, for its diagrams ({}); <a href="{}">its slicing's page</a> says more.</p>"#,
+            escape(note),
+            escape(&slicing_url(tree, view.slicing.as_ref().unwrap())),
+        ));
     }
     for (g, group) in view.groups.iter().enumerate() {
         html.push_str(&format!(
@@ -2061,6 +2583,7 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         if view.groups.len() > 1 {
             html.push_str(&group_head_html(&view, g));
         }
+        html.push_str(&slicing_html(tree, &view, g));
         for i in &group.patches {
             html.push_str(&patch_html(tree, &view, *i));
         }
@@ -2072,6 +2595,8 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         "review-state.js",
         "then-now.js",
         "crash-view.js",
+        "graph.js",
+        "graph-records.js",
         "try-review.js",
     ] {
         html.push_str(&format!(
@@ -2183,6 +2708,144 @@ Binary files img.png and img.png differ
                 .collect(),
             files_left_out: 0,
         }
+    }
+
+    #[test]
+    fn test_group_slicings() {
+        // (Two patches in two groups: the first changes A::f in a.cpp, and
+        // the second b.cpp.)
+        let mut first = patch("aaaa", &["a.cpp"], 1, 10);
+        first.files[0].defs.push(ReviewDef {
+            id: "d:aaaa:a.cpp:A::f".to_string(),
+            pretty: "A::f".to_string(),
+            name: "f".to_string(),
+            kind: "method".to_string(),
+            level: "function".to_string(),
+            parent: None,
+            status: "changed".to_string(),
+            decl: false,
+        });
+        let view = ReviewView {
+            push: "bbbb".to_string(),
+            key: String::new(),
+            indices: vec![],
+            patches: vec![first, patch("bbbb", &["b.cpp"], 2, 10)],
+            groups: vec![],
+            task_selections: 0,
+            truncated: false,
+            semantic_head: None,
+            semantic_failure: None,
+            semantic_trunk: None,
+            landed: vec![],
+            slicing: None,
+        };
+        // (The first's commit rebased is "rrrr"; what the push removes from
+        // a.cpp has no commits.)
+        let slicing: crate::dataflow::slice::Slicing = serde_json::from_value(json!({
+            "units": [
+                {"id": 0, "path": "a.cpp", "lines": [3], "func": "A::f", "func_sym": "_ZN1A1fEv",
+                 "class": "T_A", "commits": ["rrrr"], "keys": [], "text": ["  x = 1;"]},
+                {"id": 1, "path": "b.cpp", "lines": [7], "func": "g", "commits": ["bbbb"],
+                 "keys": [], "text": ["  g();"]},
+                {"id": 2, "path": "a.cpp", "lines": [9], "removed": true, "keys": [], "text": ["old();"]},
+                {"id": 3, "path": "a.cpp", "lines": [3], "func": "A::f", "removed": true,
+                 "commits": ["rrrr"], "keys": [], "text": ["  x = 0;"]},
+            ],
+            "links": [
+                {"from": 0, "to": 1, "why": "field mX"},
+                {"from": 1, "to": 0, "why": "function _ZN1A1fEv"},
+                {"from": 0, "to": 2, "why": "local V_1"},
+                {"from": 3, "to": 1, "why": "field mY"},
+                {"from": 3, "to": 0, "why": "flows: x"},
+            ],
+            "clusters": [[0, 1, 2]],
+            "notes": [],
+        }))
+        .unwrap();
+        let rebased: BTreeMap<String, String> = [("rrrr".to_string(), "aaaa".to_string())]
+            .into_iter()
+            .collect();
+        let groups = group_slicings(&view, &slicing, &rebased);
+        assert_eq!(groups.len(), 2);
+        // The first's: its units (A::f's, by its rebased commit, under its
+        // definition, what it removes and adds of it one node; and what it
+        // removes from its file), then the second group's neighbor.
+        let first = &groups[0];
+        let labels: Vec<&str> = first.nodes.iter().map(|n| n.label.as_str()).collect();
+        assert_eq!(labels, vec!["A::f", "a.cpp", "g"]);
+        assert_eq!(first.nodes[0].part.as_deref(), Some("d:aaaa:a.cpp:A::f"));
+        assert_eq!(first.nodes[0].scope.as_deref(), Some("A"));
+        assert_eq!(first.nodes[0].change, "changed");
+        assert_eq!(first.nodes[0].text, vec!["  x = 1;"]);
+        assert_eq!(first.nodes[0].old_text, vec!["  x = 0;"]);
+        assert_eq!(first.nodes[1].part.as_deref(), Some("f:aaaa:a.cpp"));
+        assert_eq!(first.nodes[1].change, "removed");
+        assert_eq!(first.nodes[2].other, Some(1));
+        // (A pair's links are one edge, with their reasons.)
+        let edges: Vec<(usize, usize, Vec<String>)> = first
+            .edges
+            .iter()
+            .map(|e| (e.from, e.to, e.why.clone()))
+            .collect();
+        assert_eq!(
+            edges,
+            vec![
+                (0, 1, vec!["a local value".to_string()]),
+                (
+                    0,
+                    2,
+                    vec![
+                        "the field mX".to_string(),
+                        "calls or changes A::f".to_string(),
+                        "the field mY".to_string()
+                    ]
+                ),
+            ]
+        );
+        // The second's: its unit, and the first's neighbor.
+        let second: Vec<(&str, Option<usize>)> = groups[1]
+            .nodes
+            .iter()
+            .map(|n| (n.label.as_str(), n.other))
+            .collect();
+        assert_eq!(second, vec![("g", None), ("A::f", Some(0))]);
+
+        // Its cards' lines: A::f's added line, and the likeliest lines on its
+        // dataflow (of its unit's lines), from the head's file.
+        let mut groups = groups;
+        let lines = json!({
+            "files": {"a.cpp": {
+                "1": {"d": 0.5, "why": ["Carries x"]},
+                "2": {"d": 1.0, "why": ["Writes x, which line 3 reads"]},
+                "5": {"d": 0.7, "why": ["Not A::f's"]},
+            }},
+            "units": {"0": [1, 2], "1": [5]},
+        });
+        let text: BTreeMap<String, Vec<String>> = [(
+            "a.cpp".to_string(),
+            ["void A::f() {", "  int x;", "  x = 1;", "}", "g();"]
+                .iter()
+                .map(|line| line.to_string())
+                .collect(),
+        )]
+        .into_iter()
+        .collect();
+        card_lines(&mut groups, &lines, &text);
+        let card: Vec<(u32, &str, bool, Option<f32>)> = groups[0].nodes[0]
+            .card
+            .iter()
+            .map(|line| (line.line, line.text.as_str(), line.added, line.d))
+            .collect();
+        assert_eq!(
+            card,
+            vec![
+                (1, "void A::f() {", false, Some(0.5)),
+                (2, "  int x;", false, Some(1.0)),
+                (3, "  x = 1;", true, None),
+            ]
+        );
+        // (Not what's removed, which isn't in the head.)
+        assert!(groups[0].nodes[1].card.is_empty());
     }
 
     #[test]

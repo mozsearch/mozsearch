@@ -365,6 +365,7 @@ fn parse_changed(spec: &str) -> Result<ChangedLines> {
         notes: vec![],
         from: None,
         removed_lines: Default::default(),
+        removed_commits: Default::default(),
     })
 }
 

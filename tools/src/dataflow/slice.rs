@@ -46,6 +46,9 @@ pub struct ChangedLines {
     pub from: Option<String>,
     #[serde(default)]
     pub removed_lines: BTreeMap<String, Vec<u32>>,
+    /// The commits removing those lines, by line, if known.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub removed_commits: BTreeMap<String, BTreeMap<u32, String>>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -87,8 +90,9 @@ pub struct Unit {
     pub func_sym: Option<Ustr>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub class: Option<Ustr>,
-    /// The commits making its lines, if known (see `FileChange::commits`),
-    /// in the patch's order.
+    /// The commits making its lines (or, a removed unit's, removing them), if
+    /// known (see `FileChange::commits`, `ChangedLines::removed_commits`), in
+    /// the patch's order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commits: Vec<String>,
     /// Whether it's lines the patch removes, in the old side's coordinates.
@@ -572,7 +576,19 @@ pub async fn slice(
         Some(old) => {
             for (path, lines) in &changes.removed_lines {
                 let lines: BTreeSet<u32> = lines.iter().copied().collect();
-                for (unit, _) in file_units(old, path, &lines, &|_| vec![], true).await {
+                // (The commits removing them, in the patch's order.)
+                let removing = changes.removed_commits.get(path);
+                let commits = |lines: &BTreeSet<u32>| -> Vec<String> {
+                    let made: BTreeSet<&String> =
+                        lines.iter().filter_map(|l| removing?.get(l)).collect();
+                    changes
+                        .commits
+                        .iter()
+                        .filter(|c| made.contains(c))
+                        .cloned()
+                        .collect()
+                };
+                for (unit, _) in file_units(old, path, &lines, &commits, true).await {
                     units.push(unit);
                     // (Not traced: its values are gone.)
                     unit_funcs.push(None);

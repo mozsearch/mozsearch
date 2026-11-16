@@ -216,11 +216,13 @@ pub fn func_impact(
 }
 
 /// For each file of a slicing's changed functions, the lines on their
-/// changes' dataflow (see `func_impact`), as JSON: `{files: {path: {line:
-/// {d, why}}}}`, in the slicing's revision's lines (a try push's rebased
-/// head's).  (The `slice-format:lines` of `slice-rev:`.)
+/// changes' dataflow (see `func_impact`), and which of them are each unit's
+/// function's (by its id), as JSON: `{files: {path: {line: {d, why}}},
+/// units: {id: [line]}}`, in the slicing's revision's lines (a try push's
+/// rebased head's).  (The `slice-format:lines` of `slice-rev:`.)
 pub async fn slicing_lines(tracer: &mut Tracer<'_>, slicing: &Slicing) -> serde_json::Value {
     let mut files: BTreeMap<String, BTreeMap<u32, LineImpact>> = BTreeMap::new();
+    let mut units: BTreeMap<usize, BTreeSet<u32>> = BTreeMap::new();
     for cluster in &slicing.clusters {
         let mut keys: BTreeSet<Key> = BTreeSet::new();
         for &id in cluster {
@@ -250,6 +252,7 @@ pub async fn slicing_lines(tracer: &mut Tracer<'_>, slicing: &Slicing) -> serde_
             let changed: BTreeSet<u32> = unit.lines.iter().copied().collect();
             let lines = files.entry(unit.path.clone()).or_default();
             for (line, impact) in func_impact(func, &changed, &keys) {
+                units.entry(id).or_default().insert(line);
                 let entry = lines.entry(line).or_default();
                 for why in impact.why {
                     entry.add(impact.score, why);
@@ -257,7 +260,7 @@ pub async fn slicing_lines(tracer: &mut Tracer<'_>, slicing: &Slicing) -> serde_
             }
         }
     }
-    serde_json::json!({ "files": files })
+    serde_json::json!({ "files": files, "units": units })
 }
 
 #[cfg(test)]

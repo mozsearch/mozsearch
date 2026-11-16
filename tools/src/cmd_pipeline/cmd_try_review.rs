@@ -1,10 +1,17 @@
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 
+use std::collections::{BTreeMap, BTreeSet};
+
+use clap::Parser;
+
+use super::cmd_dataflow::DataflowCommand;
 use super::interface::{JsonValue, PipelineCommand, PipelineValues, TextFile};
+use super::parser::{Command, ToolOpts};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 use crate::try_review::{
-    ReviewView, TRY_REVIEW_MIME, add_line_html, render_review, review_view, view_facets,
+    ReviewSlicing, ReviewView, TRY_REVIEW_MIME, add_line_html, card_lines, group_slicings,
+    render_review, review_view, view_facets,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, ValueEnum)]
@@ -32,8 +39,122 @@ pub struct TryReviewCommand {
     pub args: TryReview,
 }
 
+/// The `dataflow` command slicing `spec` (`<base>..<head>`) in `format`
+/// (ex: "json"), as the query `slice-rev:<spec> slice-format:<format>` has
+/// it (so that they share the step cache's slicing).
+fn slicing_command(spec: &str, format: &str) -> Option<DataflowCommand> {
+    let opts = ToolOpts::try_parse_from([
+        "searchfox-tool",
+        "dataflow",
+        "--slice-rev",
+        spec,
+        "--format",
+        format,
+    ])
+    .ok()?;
+    match opts.cmd {
+        Command::Dataflow(args) => Some(DataflowCommand { args }),
+        _ => None,
+    }
+}
+
+/// The slicing `spec` of the push's semantic analysis (see `try_delta`), if
+/// it has one.
+fn slicing_spec(server: &(dyn AbstractServer + Send + Sync)) -> Option<String> {
+    let meta = server.try_delta_meta()?;
+    Some(format!("{}..{}", meta.base, meta.head))
+}
+
+/// The push's slicing, by the view's groups, for their diagrams (see
+/// `try_review::ReviewSlicing`): `slice-rev:<base>..<head>`'s, of its
+/// semantic analysis's revisions, as the try canvas's clusters are, which
+/// the step cache keeps (once imported, the try push's precomputing has it;
+/// see the web-server's `precompute_try_push`), with the push's commits
+/// rebased onto the indexed revision, which its units name, by the explore
+/// data's.  None if the push has no semantic analysis.
+async fn review_slicing(
+    server: &(dyn AbstractServer + Send + Sync),
+    view: &ReviewView,
+) -> Option<ReviewSlicing> {
+    let spec = slicing_spec(server)?;
+    let mut out = ReviewSlicing {
+        query: format!("slice-rev:{}", spec),
+        rev: server.try_delta_meta()?.head,
+        ..Default::default()
+    };
+    let value = match slicing_command(&spec, "json")?
+        .execute(server, PipelineValues::Void)
+        .await
+    {
+        Ok(PipelineValues::JsonValue(json)) => Ok(json.value),
+        Ok(_) => Err("its slicing isn't JSON".to_string()),
+        Err(ServerError::StickyProblem(details) | ServerError::TransientProblem(details)) => {
+            Err(details.message)
+        }
+        Err(err) => Err(format!("{:?}", err)),
+    };
+    let slicing = value.and_then(|value| {
+        serde_json::from_value::<crate::dataflow::slice::Slicing>(value)
+            .map_err(|err| err.to_string())
+    });
+    match slicing {
+        Ok(slicing) => {
+            let revs: Vec<String> = view.patches.iter().map(|p| p.rev.clone()).collect();
+            let stack_url = crate::try_import::push_url_path(&view.push);
+            let explore = server.explore(&revs, Some(&stack_url)).await.ok();
+            let rebased: BTreeMap<String, String> = explore
+                .iter()
+                .flat_map(|explore| explore["commits"].as_array().into_iter().flatten())
+                .filter_map(|commit| {
+                    Some((
+                        commit["rebased"].as_str()?.to_string(),
+                        commit["rev"].as_str()?.to_string(),
+                    ))
+                })
+                .collect();
+            out.groups = group_slicings(view, &slicing, &rebased);
+            // (Its cards' lines: those on the changes' dataflow, in the
+            // head's files.)
+            if let Some(PipelineValues::JsonValue(lines)) = slicing_command(&spec, "lines")?
+                .execute(server, PipelineValues::Void)
+                .await
+                .ok()
+            {
+                let paths: BTreeSet<String> = out
+                    .groups
+                    .iter()
+                    .flat_map(|group| &group.nodes)
+                    .filter(|node| node.change != "removed")
+                    .map(|node| node.path.clone())
+                    .collect();
+                let mut text = BTreeMap::new();
+                for path in paths {
+                    if let Ok(source) = server.fetch_raw_source(&path).await {
+                        text.insert(path, source.lines().map(str::to_string).collect());
+                    }
+                }
+                card_lines(&mut out.groups, &lines.value, &text);
+            }
+        }
+        Err(why) => out.note = Some(why),
+    }
+    Some(out)
+}
+
 #[async_trait]
 impl PipelineCommand for TryReviewCommand {
+    /// Its slicing's, if neither it nor the view's HTML is cached (see
+    /// `review_slicing`).
+    fn estimate(&self, server: &(dyn AbstractServer + Send + Sync)) -> u64 {
+        let push = self.args.push.trim().to_lowercase();
+        if crate::step_cache::is_cached(server.cache_identity(), "try-review-html", &push) {
+            return 0;
+        }
+        slicing_spec(server)
+            .and_then(|spec| slicing_command(&spec, "json"))
+            .map_or(0, |command| command.estimate(server))
+    }
+
     async fn execute(
         &self,
         server: &(dyn AbstractServer + Send + Sync),
@@ -59,21 +180,26 @@ impl PipelineCommand for TryReviewCommand {
         if self.args.format == TryReviewFormat::Json {
             return Ok(PipelineValues::JsonValue(JsonValue { value }));
         }
-        let view: ReviewView = serde_json::from_value(value)?;
+        let mut view: ReviewView = serde_json::from_value(value)?;
         let tree = server.tree_info()?.name;
         let facets = view_facets(&view);
-        // (Its HTML, with its lines highlighted, cached too.)
-        let contents = crate::step_cache::cached(
-            server.cache_identity(),
-            "try-review-html",
-            &push,
-            || async {
+        // (Its HTML, with its lines highlighted, cached too, by whether its
+        // slicing could be had, which it may be later.)
+        let identity = server.cache_identity();
+        let mut key = push.clone();
+        if !crate::step_cache::is_cached(identity, "try-review-html", &key) {
+            view.slicing = review_slicing(server, &view).await;
+            if view.slicing.as_ref().is_some_and(|s| s.note.is_some()) {
+                key = format!("{} unsliced", push);
+            }
+        }
+        let contents =
+            crate::step_cache::cached(server.cache_identity(), "try-review-html", &key, || async {
                 let mut view = view;
                 add_line_html(server, &mut view).await;
                 Ok::<_, ServerError>(serde_json::Value::String(render_review(&tree, &view)))
-            },
-        )
-        .await?;
+            })
+            .await?;
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: TRY_REVIEW_MIME.to_string(),
             contents: contents.as_str().unwrap_or_default().to_string(),

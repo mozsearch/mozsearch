@@ -8171,6 +8171,93 @@ textarea.monospace {
   font-style: italic;
 }
 
+/* A patch group's dataflow diagram (try-review.js's `drawSlicings`): its
+   changes' units, added ones green, removed ones red, other groups' dimmed. */
+.tr-slicing {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.5em 0 1em;
+  padding: 0.3em 0.5em 0.5em;
+  border: 1px solid var(--page-border-color);
+  border-radius: 4px;
+}
+
+.tr-slicing figcaption {
+  margin-bottom: 0.4em;
+}
+
+.tr-slicing-title {
+  font-weight: bold;
+}
+
+.tr-slicing-about {
+  margin-inline-start: 0.4em;
+  color: var(--page-subtle-foreground);
+  font-size: 0.9em;
+}
+
+.tr-slicing-code {
+  margin-inline-start: 0.6em;
+}
+
+.tr-slice-node {
+  border-color: color-mix(in srgb, #2b8a3e 60%, transparent);
+  background-color: color-mix(in srgb, #2b8a3e 10%, var(--page-background));
+  color: inherit;
+  text-decoration: none;
+}
+
+.tr-slice-node:hover {
+  outline: 1px solid currentColor;
+}
+
+.tr-slice-removed {
+  border-color: color-mix(in srgb, #c92a2a 60%, transparent);
+  background-color: color-mix(in srgb, #c92a2a 10%, var(--page-background));
+}
+
+/* (Both: what it removes, red, and what it adds, green.) */
+.tr-slice-changed {
+  border-color: color-mix(in srgb, #e67700 60%, transparent);
+  background-image: linear-gradient(to right,
+      color-mix(in srgb, #c92a2a 10%, var(--page-background)),
+      color-mix(in srgb, #2b8a3e 10%, var(--page-background)));
+}
+
+.tr-slice-other {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.tr-slice-sub {
+  opacity: 0.75;
+  font-family: sans-serif;
+  font-size: 10px;
+}
+
+.tr-slice-code {
+  max-width: 60em;
+  margin: 3px 0 1px;
+  padding-top: 2px;
+  border-top: 1px dotted var(--page-border-color);
+  overflow: hidden;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+}
+
+/* (A line on its changes' dataflow, which says why when hovered.) */
+.tr-slice-flow {
+  border-inline-start: 2px solid color-mix(in srgb, #1971c2 60%, transparent);
+}
+
+.tr-slice-gap {
+  color: var(--page-subtle-foreground);
+}
+
+.tr-slicing .crash-graph-node:has(.tr-slice-code) {
+  max-width: 60em;
+}
+
 /* The sections' jump picker (try-review.js's `addJumpPicker`): a button
    with the select arrow after the jumps, and its menu under the heading. */
 .tr-jump-picker {

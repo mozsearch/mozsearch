@@ -55,6 +55,7 @@ var TryReview = new (class TryReview {
       slot.replaceWith(ReviewState.strip(this.review, slot.dataset.part));
     }
     ReviewState.bind(this.review, this.root);
+    this.drawSlicings();
     this.summaryBox.append(ReviewState.summary(this.review, [
       ["patch", "Patches"],
       ["file", "Files"],
@@ -301,6 +302,143 @@ var TryReview = new (class TryReview {
     new IntersectionObserver(([entry]) => {
       crumb.hidden = entry.isIntersecting;
     }).observe(choice);
+  }
+
+  // The groups' dataflow diagrams (see the tools' `group_slicings`): each
+  // group's changes' units of the push's slicing, and their neighbors in
+  // other groups (dimmed), the ones sharing values or calls linked, laid out
+  // by graph-records.js's `drawRecordGraph` (a row's units of the same class
+  // in a record of them), each with its part's mark (kept up to date), going
+  // to its part when clicked (its source, if it's ctrl-clicked); and with
+  // their code, once asked to.
+  drawSlicings() {
+    const slicing = TRY_REVIEW.slicing;
+    this.sliceMarks = [];
+    if (!slicing?.groups || typeof drawRecordGraph == "undefined") {
+      return;
+    }
+    for (const figure of this.root.querySelectorAll(".tr-slicing[data-group]")) {
+      const data = slicing.groups[Number(figure.dataset.group)];
+      if (!data?.nodes.length) {
+        continue;
+      }
+      const canvas = figure.querySelector(".tr-slicing-canvas");
+      const draw = withCode => {
+        canvas.replaceChildren();
+        this.sliceMarks = this.sliceMarks.filter(({ element }) => element.isConnected);
+        drawRecordGraph(canvas, data.nodes, data.edges, {
+          makeNode: node => this.sliceNode(slicing, node, withCode),
+          // (Records' cells are too small for their code.)
+          scopeOf: node => (withCode ? null : node.scope || null),
+          edgeTitle: edge => edge.why.join("; "),
+        });
+      };
+      draw(false);
+      const button = figure.querySelector(".tr-slicing-code");
+      button?.addEventListener("click", () => {
+        const pressed = button.getAttribute("aria-pressed") != "true";
+        button.setAttribute("aria-pressed", String(pressed));
+        button.textContent = pressed ? "Hide their code" : "Show their code";
+        draw(pressed);
+      });
+    }
+    this.review.subscribe(() => {
+      for (const { node, mark } of this.sliceMarks) {
+        mark.textContent = this.icon(node.part);
+      }
+    });
+  }
+
+  sliceNode(slicing, node, withCode) {
+    const element = document.createElement("a");
+    element.className = `crash-graph-node tr-slice-node tr-slice-${node.change}` +
+      (node.other != null ? " tr-slice-other" : "");
+    // (Its source: the head's, or, all removed, the base's.)
+    const removed = node.change == "removed";
+    const [base, head] = slicing.query.replace(/^slice-rev:/, "").split("..");
+    element.href = `/${TRY_REVIEW.tree}/rev/${removed ? base : head}/` +
+      node.path.split("/").map(encodeURIComponent).join("/") +
+      (node.lines.length ? `#${node.lines[0]}` : "");
+    const file = node.path.split("/").pop();
+    const [scope, text] = node.label == node.path ? ["", file] : graphNameLines(node.label);
+    if (scope) {
+      const line = document.createElement("div");
+      line.className = "crash-graph-node-scope";
+      line.textContent = scope;
+      element.append(line);
+    }
+    const line = document.createElement("div");
+    line.className = "crash-graph-node-text";
+    if (node.part) {
+      const mark = document.createElement("span");
+      mark.className = "tr-slice-mark";
+      mark.textContent = this.icon(node.part);
+      line.append(mark, " ");
+      this.sliceMarks.push({ node, mark, element });
+    }
+    line.append(text);
+    element.append(line);
+    const lines = node.lines.length > 1
+      ? `lines ${node.lines[0]}\u2013${node.lines[node.lines.length - 1]}`
+      : node.lines.length ? `line ${node.lines[0]}` : "";
+    const where = [
+      node.label == node.path ? lines : `${file}${lines ? `, ${lines}` : ""}`,
+      node.patch != null ? `patch ${node.patch + 1}` : null,
+      node.change == "changed" ? null : node.change,
+      node.other != null ? `group ${node.other + 1}` : null,
+    ].filter(Boolean).join("; ");
+    const sub = document.createElement("div");
+    sub.className = "tr-slice-sub";
+    sub.textContent = where;
+    element.append(sub);
+    // (What it removes, up to 8 lines, then its card's lines, what it adds
+    // and the lines on their dataflow, by their numbers, with gaps; or, if
+    // it has none, what it adds.)
+    if (withCode && (node.text.length || node.old_text.length)) {
+      const code = document.createElement("pre");
+      code.className = "tr-slice-code";
+      const add = (text, className, title) => {
+        const line = document.createElement("div");
+        line.className = className;
+        line.textContent = text || " ";
+        if (title) {
+          line.title = title;
+        }
+        code.append(line);
+      };
+      const some = (text, className) => {
+        for (const each of text.slice(0, 8)) {
+          add(each, className);
+        }
+        if (text.length > 8) {
+          add("\u2026", className);
+        }
+      };
+      some(node.old_text, "tr-removed");
+      if (node.card?.length) {
+        let last = null;
+        for (const line of node.card) {
+          if (last !== null && line.line > last + 1) {
+            add("\u22ef", "tr-slice-gap");
+          }
+          last = line.line;
+          add(`${String(line.line).padStart(5)}  ${line.text}`,
+              line.added ? "tr-added" : "tr-slice-flow", line.why?.join("\n"));
+        }
+      } else {
+        some(node.text, "tr-added");
+      }
+      element.append(code);
+    }
+    element.title = `${node.label}\n${node.path}${lines ? `, ${lines}` : ""}` +
+      (removed ? " (removed)" : "");
+    element.addEventListener("click", event => {
+      if (node.part && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        event.preventDefault();
+        this.go(node.part);
+      }
+    });
+    return element;
   }
 
   // The navigation panel's section of the review: its status (how many

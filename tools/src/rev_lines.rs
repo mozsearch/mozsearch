@@ -157,6 +157,71 @@ fn history_line_commits(
     Some(lines)
 }
 
+/// What a range's commits did to a file, by their line diffs (each one's from
+/// its first parent, as `git blame` within the range would say): which of
+/// `commits` (oldest first, after `from`) removed each of the lines of
+/// `old_path` at `from` that they remove (by line), and which added each of
+/// the lines of `path` at the last of them (line `l` at `l - 1`; none for
+/// `from`'s lines), as indices into `commits`.  For the lines the
+/// token-centric history doesn't attribute (see `history_line_commits`; ex: a
+/// line a commit moved) and those the range removes, which it doesn't have.
+/// (A path missing at a commit is `path` there, if it has that, else the file
+/// is removed then.)
+fn walk_line_commits(
+    repo: &Repository,
+    from: Option<&Commit>,
+    commits: &[Commit],
+    old_path: Option<&str>,
+    path: &str,
+) -> (BTreeMap<u32, usize>, Vec<Option<usize>>) {
+    let mut removed: BTreeMap<u32, usize> = BTreeMap::new();
+    let mut current_path = old_path.unwrap_or(path);
+    let mut text: Option<Vec<u8>> = from.and_then(|from| blob_at(repo, from, current_path));
+    // (Each current line's line at `from`, and the commit adding it.)
+    let count = text.as_deref().map_or(0, line_count) as usize;
+    let mut base: Vec<Option<u32>> = (1..=count as u32).map(Some).collect();
+    let mut made: Vec<Option<usize>> = vec![None; count];
+    for (i, commit) in commits.iter().enumerate() {
+        let new = match blob_at(repo, commit, current_path) {
+            Some(new) => Some(new),
+            None => blob_at(repo, commit, path).inspect(|_| current_path = path),
+        };
+        let Some(new) = new else {
+            for line in base.drain(..).flatten() {
+                removed.insert(line, i);
+            }
+            made.clear();
+            text = None;
+            continue;
+        };
+        if text.as_deref() == Some(&new[..]) {
+            continue;
+        }
+        let new_count = line_count(&new) as usize;
+        let mut new_base = vec![None; new_count];
+        let mut new_made = vec![Some(i); new_count];
+        if let Some(old) = &text {
+            for (k, to) in line_map(old, &new).into_iter().enumerate() {
+                match to.and_then(|to| (to as usize).checked_sub(1)) {
+                    Some(j) if j < new_count => {
+                        new_base[j] = base.get(k).copied().flatten();
+                        new_made[j] = made.get(k).copied().flatten();
+                    }
+                    _ => {
+                        if let Some(Some(line)) = base.get(k) {
+                            removed.insert(*line, i);
+                        }
+                    }
+                }
+            }
+        }
+        base = new_base;
+        made = new_made;
+        text = Some(new);
+    }
+    (removed, made)
+}
+
 /// The lines a revision changes (`<rev>`: a commit's changes from its first
 /// parent; `<a>..<b>`: those from `a` to `b`), in the coordinates of
 /// `context`'s versions of the files, with the commits making them: a
@@ -198,6 +263,29 @@ pub fn rev_changed_lines(
         .filter_map(|oid| oid.ok())
         .map(|oid| oid.to_string())
         .collect();
+    // (For `walk_line_commits`, if there's more than one.)
+    let range: Vec<Commit> = match commits.len() {
+        0 | 1 => vec![],
+        _ => commits
+            .iter()
+            .filter_map(|rev| repo.find_commit(git2::Oid::from_str(rev).ok()?).ok())
+            .collect(),
+    };
+    let walked = |old_path: Option<&str>, path: &str| {
+        (range.len() == commits.len())
+            .then(|| walk_line_commits(repo, from.as_ref(), &range, old_path, path))
+    };
+    // (The commits removing a file's lines: the only one's, or by the walk.)
+    let removing = |lines: &BTreeSet<u32>, walk: Option<&BTreeMap<u32, usize>>| {
+        lines
+            .iter()
+            .filter_map(|line| match (commits.as_slice(), walk) {
+                ([only], _) => Some((*line, only.clone())),
+                (_, Some(walk)) => Some((*line, commits[*walk.get(line)?].clone())),
+                _ => None,
+            })
+            .collect::<BTreeMap<u32, String>>()
+    };
 
     let old_tree = match &from {
         Some(from) => Some(from.tree().map_err(git_error)?),
@@ -211,12 +299,19 @@ pub fn rev_changed_lines(
     let mut files = BTreeMap::new();
     let mut notes = vec![];
     let mut removed_by_file: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+    let mut removed_commits: BTreeMap<String, BTreeMap<u32, String>> = BTreeMap::new();
     for delta in diff.deltas() {
         if delta.status() == Delta::Deleted {
             if let Some(path) = delta.old_file().path().and_then(|p| p.to_str())
                 && let Ok(old) = repo.find_blob(delta.old_file().id())
             {
-                removed_by_file.insert(path.to_string(), (1..=line_count(old.content())).collect());
+                let lines: BTreeSet<u32> = (1..=line_count(old.content())).collect();
+                let walk = walked(Some(path), path);
+                removed_commits.insert(
+                    path.to_string(),
+                    removing(&lines, walk.as_ref().map(|(removed, _)| removed)),
+                );
+                removed_by_file.insert(path.to_string(), lines.into_iter().collect());
             }
             continue;
         }
@@ -231,14 +326,19 @@ pub fn rev_changed_lines(
             _ => repo.find_blob(delta.old_file().id()).ok(),
         };
         let (added, touched) = changed_lines(old.as_ref().map(|b| b.content()), new.content());
+        let old_path = match &old {
+            Some(_) => delta.old_file().path().and_then(|p| p.to_str()),
+            None => None,
+        };
+        let walk = walked(old_path, path);
         if let Some(old) = &old {
             let removed = removed_lines(old.content(), new.content());
             if !removed.is_empty() {
-                let old_path = delta
-                    .old_file()
-                    .path()
-                    .and_then(|p| p.to_str())
-                    .unwrap_or(path);
+                let old_path = old_path.unwrap_or(path);
+                removed_commits.insert(
+                    old_path.to_string(),
+                    removing(&removed, walk.as_ref().map(|(removed, _)| removed)),
+                );
                 removed_by_file.insert(old_path.to_string(), removed.into_iter().collect());
             }
         }
@@ -273,6 +373,16 @@ pub fn rev_changed_lines(
                 }
             }
         }
+        // (The lines the history doesn't attribute, by the walk.)
+        if let Some((_, made)) = &walk {
+            for line in &added {
+                if let Some(Some(index)) = made.get(*line as usize - 1) {
+                    line_commits
+                        .entry(*line)
+                        .or_insert_with(|| commits[*index].clone());
+                }
+            }
+        }
         let change = FileChange {
             added: added.iter().filter_map(|line| at(*line)).collect(),
             removed: touched
@@ -300,6 +410,7 @@ pub fn rev_changed_lines(
         notes,
         from: from.as_ref().map(|commit| commit.id().to_string()),
         removed_lines: removed_by_file,
+        removed_commits,
     })
 }
 
@@ -349,13 +460,22 @@ mod tests {
         let a = &changes.files["a"];
         assert_eq!(a.added.iter().copied().collect::<Vec<_>>(), vec![1]);
         assert_eq!(a.commits[&1], c2.to_string());
-        // A range's are by the history, which this tree doesn't have.
+        // A range's are by the history, which this tree doesn't have, else by
+        // its commits' line diffs.
         let range = format!("{}..{}", c0, c2);
         let changes = rev_changed_lines(&repo, None, &c2.to_string(), &range).unwrap();
         let a = &changes.files["a"];
         assert_eq!(a.added.iter().copied().collect::<Vec<_>>(), vec![1, 3]);
-        assert!(a.commits.is_empty());
+        assert_eq!(a.commits[&1], c2.to_string());
+        assert_eq!(a.commits[&3], c1.to_string());
         assert_eq!(changes.commits, vec![c1.to_string(), c2.to_string()]);
+        // And the lines it removes are the commits' removing them.
+        let c3 = commit("0\nX\n3\n", &[c2]);
+        let range = format!("{}..{}", c0, c3);
+        let changes = rev_changed_lines(&repo, None, &c3.to_string(), &range).unwrap();
+        assert_eq!(changes.removed_lines["a"], vec![1, 2]);
+        assert_eq!(changes.removed_commits["a"][&1], c3.to_string());
+        assert_eq!(changes.removed_commits["a"][&2], c1.to_string());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
