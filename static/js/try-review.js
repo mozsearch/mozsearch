@@ -22,6 +22,8 @@ var TryReview = new (class TryReview {
       this.review.addPart(id, parent, level, label);
     }
     this.moveCrumbs();
+    this.addPatchPicker();
+    this.addThenNowCrumb();
     this.addPanelSection();
     this.root.addEventListener("facetschange", () => this.hideEmpty());
     this.ready = this.start();
@@ -48,12 +50,158 @@ var TryReview = new (class TryReview {
 
   // (The view's trail, after the tree's, in the page's breadcrumbs.)
   moveCrumbs() {
-    const crumbs = this.root.querySelector(".tr-crumbs");
+    this.crumbs = this.root.querySelector(".tr-crumbs");
     const breadcrumbs = document.querySelector(".breadcrumbs");
-    if (crumbs && breadcrumbs) {
-      breadcrumbs.append(crumbs);
-      crumbs.hidden = false;
+    if (this.crumbs && breadcrumbs) {
+      breadcrumbs.append(this.crumbs);
+      this.crumbs.hidden = false;
     }
+  }
+
+  // The breadcrumbs' patch: the one scrolled to (see `updateCurrentPatch`),
+  // with a picker of the patches by their groups (see the tools'
+  // `group_patches`), each with its mark, a group's honorary members after
+  // its own (as crash-view.js's thread picker has threads by their kinds).
+  addPatchPicker() {
+    this.patchLink = this.crumbs?.querySelector(".tr-crumb-patch-link");
+    this.patchSections = [...this.root.querySelectorAll(".tr-patch")];
+    const picker = document.getElementById("tr-patch-picker");
+    if (!picker || typeof CrashMenu == "undefined") {
+      return;
+    }
+    this.patchMenu = new CrashMenu(picker, document.getElementById("tr-patch-menu"),
+                                   this.crumbs.querySelector(".tr-crumb-patch"),
+                                   menu => this.fillPatchMenu(menu));
+    let scheduled = false;
+    window.addEventListener("scroll", () => {
+      if (!scheduled) {
+        scheduled = true;
+        requestAnimationFrame(() => {
+          scheduled = false;
+          this.updateCurrentPatch();
+        });
+      }
+    }, { passive: true });
+    this.updateCurrentPatch();
+  }
+
+  fillPatchMenu(menu) {
+    const patches = TRY_REVIEW.patches;
+    const groups = TRY_REVIEW.groups?.length
+      ? TRY_REVIEW.groups
+      : patches.map((_, i) => ({ patches: [i], honorary: [] }));
+    const icon = part => ReviewState.MARKS.find(m => m.state == this.review.effective(part).state)?.icon ?? "";
+    const item = (i, honorary) => new MenuItem({
+      html: `<span class="tr-menu-mark">${icon(patches[i].part)}</span> ` +
+            `<span class="tr-menu-patch">Patch ${i + 1}: ${escapeHtml(patches[i].summary)}</span>` +
+            (honorary ? ` <span class="crash-menu-owner">(related)</span>` : ""),
+      classNames: ["indent"].concat(honorary ? ["tr-menu-honorary"] : []),
+      attrs: { "data-patch": String(i) },
+      action: () => {
+        menu.hide();
+        this.showPatch(i);
+      },
+    });
+    const sorted = groups.map((group, g) => ({
+      label: groups.length > 1 ? `Group ${g + 1}` : null,
+      detail: group.shared?.length ? group.shared.join(", ") : null,
+      items: group.patches.map(i => item(i, false))
+        .concat((group.honorary || []).map(i => item(i, true))),
+    }));
+    // (About as many rows in each column, at most 3 columns.)
+    const rows = sorted.reduce((n, group) => n + group.items.length + 1, 0);
+    const count = Math.min(3, Math.max(1, Math.ceil(rows / 16)));
+    const perColumn = Math.ceil(rows / count);
+    const columns = [[]];
+    let inColumn = 0;
+    for (const group of sorted) {
+      if (inColumn > 0 && inColumn + group.items.length + 1 > perColumn && columns.length < count) {
+        columns.push([]);
+        inColumn = 0;
+      }
+      columns[columns.length - 1].push(group);
+      inColumn += group.items.length + 1;
+    }
+    fillCrashMenu(menu, columns);
+    return menu.menu.querySelector(`a[data-patch="${this.currentPatch ?? 0}"]:not(.tr-menu-honorary)`);
+  }
+
+  showPatch(i) {
+    const section = this.patchSections[i];
+    if (!section) {
+      return;
+    }
+    section.hidden = false;
+    section.scrollIntoView();
+    history.replaceState(history.state, "", `#${section.id}`);
+    // (Picked, even if the page can't scroll it under the breadcrumbs.)
+    this.setCurrentPatch(i);
+  }
+
+  // (The patch whose section is under the breadcrumbs, or the first; or,
+  // scrolled to the end, where the last ones can't get under them, the last
+  // one whose top is in sight.)
+  updateCurrentPatch() {
+    if (!this.patchLink || this.patchSections.length == 0) {
+      return;
+    }
+    const top = (document.querySelector(".breadcrumbs")?.getBoundingClientRect().bottom ?? 0) + 4;
+    const scroller = document.scrollingElement;
+    const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2 &&
+      scroller.scrollTop > 0;
+    let current = 0;
+    this.patchSections.forEach((section, i) => {
+      const sectionTop = section.getBoundingClientRect().top;
+      if (!section.hidden && (sectionTop <= top || (atEnd && sectionTop < window.innerHeight))) {
+        current = i;
+      }
+    });
+    this.setCurrentPatch(current);
+  }
+
+  setCurrentPatch(current) {
+    if (current === this.currentPatch) {
+      return;
+    }
+    this.currentPatch = current;
+    const summary = TRY_REVIEW.patches[current]?.summary ?? "";
+    this.patchLink.textContent = `Patch ${current + 1} of ${this.patchSections.length}`;
+    this.patchLink.title = summary;
+    this.patchLink.href = `#${this.patchSections[current].id}`;
+  }
+
+  // A small copy of the view's Then / Now / Then & Now choice in the
+  // breadcrumbs, once the view's own scrolls out of sight.
+  addThenNowCrumb() {
+    const choice = this.root.querySelector(".tr-head .then-now-modes");
+    const crumb = this.crumbs?.querySelector(".tr-crumb-then-now");
+    if (!choice || !crumb || typeof IntersectionObserver != "function") {
+      return;
+    }
+    // (Not a "then-now-modes", whose buttons then-now.js handles in their
+    // view, which the breadcrumbs aren't in.)
+    const copy = choice.cloneNode(true);
+    copy.className = "tr-then-now-small";
+    crumb.append(copy);
+    copy.addEventListener("click", event => {
+      const button = event.target.closest("button[data-mode]");
+      if (!button) {
+        return;
+      }
+      this.root.dataset.thenNowChosen = "";
+      showThenNow(this.root, button.dataset.mode);
+    });
+    // (Its buttons pressed as the view's are.)
+    const sync = () => {
+      for (const button of copy.querySelectorAll("button[data-mode]")) {
+        button.setAttribute("aria-pressed", String(button.dataset.mode == this.root.dataset.thenNow));
+      }
+    };
+    new MutationObserver(sync).observe(this.root, { attributes: true, attributeFilter: ["data-then-now"] });
+    sync();
+    new IntersectionObserver(([entry]) => {
+      crumb.hidden = entry.isIntersecting;
+    }).observe(choice);
   }
 
   // The navigation panel's section of the review: its status (how many

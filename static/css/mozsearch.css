@@ -8133,3 +8133,75 @@ textarea.monospace {
     background-color: var(--tooltip-background);
   }
 }
+
+/* A try review's groups of patches (see try_review.rs's `group_patches`),
+   and its breadcrumbs' patch picker and small Then / Now choice (see
+   try-review.js). */
+.tr-group + .tr-group {
+  margin-top: 2em;
+}
+
+.tr-group-head {
+  margin: 1em 0 0;
+  padding: 0.3em 0.5em;
+  border-inline-start: 4px solid var(--page-border-color);
+  color: var(--page-subtle-foreground);
+}
+
+.tr-group-n {
+  font-weight: bold;
+  color: var(--page-color);
+}
+
+#tr-patch-menu {
+  display: flex;
+  flex-direction: row;
+  max-height: 70vh;
+}
+
+#tr-patch-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#tr-patch-menu > div + div {
+  border-inline-start: 1px solid var(--page-border-color);
+}
+
+#tr-patch-menu .indent {
+  padding-inline-start: 16px;
+  padding-inline-end: 16px;
+}
+
+.tr-menu-honorary {
+  font-style: italic;
+}
+
+.tr-crumb-then-now {
+  margin-inline-start: 1em;
+}
+
+.tr-then-now-small {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.tr-then-now-small button {
+  padding: 0 6px;
+  border: 1px solid var(--page-border-color);
+  background: var(--page-background);
+  color: var(--page-color);
+  font-size: 0.85em;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.tr-then-now-small button + button {
+  border-inline-start: none;
+}
+
+.tr-then-now-small button[aria-pressed="true"] {
+  background: var(--link-color);
+  color: white;
+}

@@ -165,6 +165,46 @@ add_task(async function test_TryReviewSummary() {
   ok(files > 0, "(The view has files.)");
 });
 
+// (1a2b3c4d5e6f's two patches, "Let widgets shrink" and "Shrink widgets
+// twice", don't share a file, a class or a bug, so they're two groups.)
+add_task(async function test_TryReviewPatches() {
+  await TestUtils.loadPath("/trydelta/try/hg/1a2b3c4d5e6f");
+  if (!doc().querySelector(".explore-page")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+                           "The push is imported", 500, 240);
+  }
+  await TestUtils.loadQuery("trydelta", "try-review:1a2b3c4d5e6f");
+  await waitForCondition(() => doc().querySelector("#try-review[data-review-ready]"),
+                         "The review is loaded");
+  is(doc().querySelectorAll(".tr-patch").length, 2, "It has both patches");
+  const heads = [...doc().querySelectorAll(".tr-group-head")].map(h => h.textContent);
+  is(heads.length, 2, "in two groups");
+  ok(heads[0].startsWith("Group 1 of 2: patch 1"), "each saying its patches");
+
+  const link = doc().querySelector(".breadcrumbs .tr-crumb-patch-link");
+  is(link?.textContent, "Patch 1 of 2", "The breadcrumbs have the patch scrolled to");
+  TestUtils.click(doc().querySelector("#tr-patch-picker"));
+  await waitForCondition(() => doc().querySelector("#tr-patch-menu a[data-patch]"),
+                         "Its picker lists the patches");
+  const labels = [...doc().querySelectorAll("#tr-patch-menu .context-menu-group-label")]
+    .map(label => label.textContent);
+  ok(labels[0]?.startsWith("Group 1") && labels[1]?.startsWith("Group 2"), "by their groups");
+  const second = doc().querySelector('#tr-patch-menu a[data-patch="1"]');
+  ok(second.textContent.includes("Patch 2: Bug 4567"), "with their summaries");
+  TestUtils.click(second);
+  await waitForCondition(() => link.textContent == "Patch 2 of 2",
+                         "Picking one goes to it, and the breadcrumbs say so");
+
+  // (The view's Then / Now choice, also in the breadcrumbs.)
+  const small = doc().querySelector('.breadcrumbs .tr-then-now-small button[data-mode="then"]');
+  ok(small, "The breadcrumbs have a copy of the Then / Now choice");
+  small.click();
+  is(doc().querySelector("#try-review").dataset.thenNow, "then", "which chooses for the view");
+  is(doc().querySelector('.tr-head .then-now-modes button[data-mode="then"]').getAttribute("aria-pressed"),
+     "true", "as the view's own does");
+});
+
 add_task(async function test_TryReviewFacets() {
   await importPush();
   await loadReview();

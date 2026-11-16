@@ -1430,6 +1430,149 @@ fn file_html(
     )
 }
 
+/// A patch's section: its heading, then its sections' files.
+fn patch_html(tree: &str, view: &ReviewView, i: usize) -> String {
+    let short = |rev: &str| rev.chars().take(12).collect::<String>();
+    let patch = &view.patches[i];
+    let mut html = String::new();
+    let bugs = patch
+        .bugs
+        .iter()
+        .map(|bug| {
+            format!(r#"<a href="https://bugzilla.mozilla.org/show_bug.cgi?id={bug}">bug {bug}</a>"#)
+        })
+        .collect::<Vec<_>>();
+    let refs = bugs
+        .into_iter()
+        .chain(patch.phab.map(|d| {
+            format!(r#"<a href="https://phabricator.services.mozilla.com/D{d}">D{d}</a>"#)
+        }))
+        .collect::<Vec<_>>()
+        .join(", ");
+    html.push_str(&format!(
+        r#"<section class="tr-patch{backout}" id="tr-patch-{n}" data-part="{id}"><h3 class="tr-patch-head">{strip} <span class="tr-patch-n">Patch {n} of {count}</span> <a class="tr-patch-rev" href="/{tree}/commit/{rev}">{short}</a> <span class="tr-patch-summary">{summary}</span><span class="tr-patch-meta">{author}{refs}</span></h3>"#,
+        backout = if patch.backout { " tr-backout" } else { "" },
+        n = i + 1,
+        count = view.patches.len(),
+        id = escape(&patch.id),
+        strip = strip_slot(&patch.id),
+        tree = escape(tree),
+        rev = escape(&patch.rev),
+        short = escape(&short(&patch.rev)),
+        summary = escape(&patch.summary),
+        author = escape(&patch.author),
+        refs = if refs.is_empty() { String::new() } else { format!("; {}", refs) },
+    ));
+    let present: Vec<Section> = Section::ALL
+        .into_iter()
+        .filter(|section| {
+            patch
+                .files
+                .iter()
+                .any(|f| f.hunks.iter().any(|h| h.section == *section))
+        })
+        .collect();
+    if present.is_empty() {
+        html.push_str(r#"<p class="tr-note">It changes no text.</p>"#);
+    }
+    for section in &present {
+        html.push_str(&format!(
+            r#"<div class="tr-section tr-section-{slug}" data-section="{slug}"><h4 class="tr-section-head"><span class="tr-section-label">{label}</span> <span class="tr-section-about">{about}</span><span class="tr-section-jumps">{jumps}</span></h4>"#,
+            slug = section.slug(),
+            label = section.label(),
+            about = section.about(),
+            jumps = present
+                .iter()
+                .filter(|other| *other != section)
+                .map(|other| format!(
+                    r##"<a class="tr-section-jump" href="#tr-patch-{}-{}">{}</a>"##,
+                    i + 1,
+                    other.slug(),
+                    other.label()
+                ))
+                .collect::<Vec<_>>()
+                .join(""),
+        ));
+        // (Its anchor, for the other sections' jumps.)
+        html.push_str(&format!(
+            r#"<span class="tr-anchor" id="tr-patch-{}-{}"></span>"#,
+            i + 1,
+            section.slug()
+        ));
+        let mut files: Vec<&ReviewFile> = patch
+            .files
+            .iter()
+            .filter(|f| f.hunks.iter().any(|h| h.section == *section))
+            .collect();
+        files.sort_by(|a, b| {
+            path_kind_rank(&a.path_kind)
+                .cmp(&path_kind_rank(&b.path_kind))
+                .then_with(|| is_idl(&b.path).cmp(&is_idl(&a.path)))
+                .then_with(|| is_header(&b.path).cmp(&is_header(&a.path)))
+                .then_with(|| a.path.cmp(&b.path))
+        });
+        for file in files {
+            html.push_str(&file_html(tree, i, patch, file, *section));
+        }
+        html.push_str("</div>");
+    }
+    if patch.files_left_out > 0 {
+        html.push_str(&format!(
+            r#"<p class="tr-note">{} more of its files are left out.</p>"#,
+            patch.files_left_out
+        ));
+    }
+    html.push_str("</section>");
+    html
+}
+
+/// A group of patches' heading (see `group_patches`): its patches, what they
+/// share, and its honorary members (links to them).
+fn group_head_html(view: &ReviewView, g: usize) -> String {
+    let group = &view.groups[g];
+    let numbers = |patches: &[usize]| -> String {
+        match (patches.first(), patches.last()) {
+            (Some(first), Some(last)) if first == last => format!("patch {}", first + 1),
+            (Some(first), Some(last)) => format!("patches {}\u{2013}{}", first + 1, last + 1),
+            _ => String::new(),
+        }
+    };
+    let shared = match group.shared.as_slice() {
+        [] => String::new(),
+        shared => format!(
+            ", which share {}",
+            shared
+                .iter()
+                .map(|s| format!("<code>{}</code>", escape(s)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
+    let honorary = match group.honorary.as_slice() {
+        [] => String::new(),
+        honorary => format!(
+            r#"<span class="tr-group-honorary">; related: {}</span>"#,
+            honorary
+                .iter()
+                .map(|i| format!(
+                    r##"<a href="#tr-patch-{n}" title="{summary}">patch {n}</a>"##,
+                    n = i + 1,
+                    summary = escape(&view.patches[*i].summary)
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
+    format!(
+        r#"<div class="tr-group-head"><span class="tr-group-n">Group {n} of {count}</span>: {patches}{shared}{honorary}</div>"#,
+        n = g + 1,
+        count = view.groups.len(),
+        patches = numbers(&group.patches),
+        shared = shared,
+        honorary = honorary,
+    )
+}
+
 /// The view's HTML, for the query page.
 pub fn render_review(tree: &str, view: &ReviewView) -> String {
     let mut html = String::new();
@@ -1445,11 +1588,23 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
     ));
     html.push_str(&crate::html_escape::json_data_block(
         "TRY_REVIEW",
-        &json!({ "key": view.key, "indices": view.indices, "parts": parts(view) }),
+        &json!({
+            "key": view.key,
+            "indices": view.indices,
+            "parts": parts(view),
+            // (For the patch picker: each patch's part and summary, and the
+            // groups, with what they share and their honorary members.)
+            "patches": view
+                .patches
+                .iter()
+                .map(|patch| json!({ "part": patch.id, "summary": patch.summary }))
+                .collect::<Vec<_>>(),
+            "groups": view.groups,
+        }),
     ));
     // (The breadcrumbs' trail, which try-review.js puts in the page's.)
     html.push_str(&format!(
-        r#"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/try/hg/{push}">try push {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span></span>"#,
+        r##"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/try/hg/{push}">try push {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span><span class="path-separator">/</span><span class="tr-crumb-patch"><a class="tr-crumb-patch-link" href="#tr-patch-1">Patch 1</a><button type="button" class="crash-crumb-button" id="tr-patch-picker" title="Pick a patch" aria-expanded="false" aria-haspopup="true" aria-controls="tr-patch-menu"></button><div id="tr-patch-menu" title="The patches" role="menu" class="context-menu initially-hidden"></div></span><span class="tr-crumb-then-now" hidden></span></span>"##,
         tree = escape(tree),
         push = escape(&view.push),
         short = escape(&short(&view.push)),
@@ -1492,100 +1647,40 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             .join(" ")
         ));
     }
-    for (i, patch) in view.patches.iter().enumerate() {
-        let bugs = patch
-            .bugs
-            .iter()
-            .map(|bug| {
-                format!(
-                    r#"<a href="https://bugzilla.mozilla.org/show_bug.cgi?id={bug}">bug {bug}</a>"#
-                )
-            })
-            .collect::<Vec<_>>();
-        let refs = bugs
-            .into_iter()
-            .chain(patch.phab.map(|d| {
-                format!(r#"<a href="https://phabricator.services.mozilla.com/D{d}">D{d}</a>"#)
-            }))
-            .collect::<Vec<_>>()
-            .join(", ");
-        html.push_str(&format!(
-            r#"<section class="tr-patch{backout}" id="tr-patch-{n}" data-part="{id}"><h3 class="tr-patch-head">{strip} <span class="tr-patch-n">Patch {n} of {count}</span> <a class="tr-patch-rev" href="/{tree}/commit/{rev}">{short}</a> <span class="tr-patch-summary">{summary}</span><span class="tr-patch-meta">{author}{refs}</span></h3>"#,
-            backout = if patch.backout { " tr-backout" } else { "" },
-            n = i + 1,
-            count = view.patches.len(),
-            id = escape(&patch.id),
-            strip = strip_slot(&patch.id),
-            tree = escape(tree),
-            rev = escape(&patch.rev),
-            short = escape(&short(&patch.rev)),
-            summary = escape(&patch.summary),
-            author = escape(&patch.author),
-            refs = if refs.is_empty() { String::new() } else { format!("; {}", refs) },
-        ));
-        let present: Vec<Section> = Section::ALL
-            .into_iter()
-            .filter(|section| {
-                patch
-                    .files
-                    .iter()
-                    .any(|f| f.hunks.iter().any(|h| h.section == *section))
+    // (The patches by their groups, each with a heading if there are
+    // several; a view from before groups has each patch in a group of its
+    // own.)
+    let mut view = view.clone();
+    if view.groups.is_empty() {
+        view.groups = (0..view.patches.len())
+            .map(|i| PatchGroup {
+                patches: vec![i],
+                honorary: vec![],
+                shared: vec![],
             })
             .collect();
-        if present.is_empty() {
-            html.push_str(r#"<p class="tr-note">It changes no text.</p>"#);
+    }
+    for (g, group) in view.groups.iter().enumerate() {
+        html.push_str(&format!(
+            r#"<section class="tr-group" id="tr-group-{}">"#,
+            g + 1
+        ));
+        if view.groups.len() > 1 {
+            html.push_str(&group_head_html(&view, g));
         }
-        for section in &present {
-            html.push_str(&format!(
-                r#"<div class="tr-section tr-section-{slug}" data-section="{slug}"><h4 class="tr-section-head"><span class="tr-section-label">{label}</span> <span class="tr-section-about">{about}</span><span class="tr-section-jumps">{jumps}</span></h4>"#,
-                slug = section.slug(),
-                label = section.label(),
-                about = section.about(),
-                jumps = present
-                    .iter()
-                    .filter(|other| *other != section)
-                    .map(|other| format!(
-                        r##"<a class="tr-section-jump" href="#tr-patch-{}-{}">{}</a>"##,
-                        i + 1,
-                        other.slug(),
-                        other.label()
-                    ))
-                    .collect::<Vec<_>>()
-                    .join(""),
-            ));
-            // (Its anchor, for the other sections' jumps.)
-            html.push_str(&format!(
-                r#"<span class="tr-anchor" id="tr-patch-{}-{}"></span>"#,
-                i + 1,
-                section.slug()
-            ));
-            let mut files: Vec<&ReviewFile> = patch
-                .files
-                .iter()
-                .filter(|f| f.hunks.iter().any(|h| h.section == *section))
-                .collect();
-            files.sort_by(|a, b| {
-                path_kind_rank(&a.path_kind)
-                    .cmp(&path_kind_rank(&b.path_kind))
-                    .then_with(|| is_idl(&b.path).cmp(&is_idl(&a.path)))
-                    .then_with(|| is_header(&b.path).cmp(&is_header(&a.path)))
-                    .then_with(|| a.path.cmp(&b.path))
-            });
-            for file in files {
-                html.push_str(&file_html(tree, i, patch, file, *section));
-            }
-            html.push_str("</div>");
-        }
-        if patch.files_left_out > 0 {
-            html.push_str(&format!(
-                r#"<p class="tr-note">{} more of its files are left out.</p>"#,
-                patch.files_left_out
-            ));
+        for i in &group.patches {
+            html.push_str(&patch_html(tree, &view, *i));
         }
         html.push_str("</section>");
     }
     html.push_str("</div>");
-    for script in ["review-state.js", "then-now.js", "try-review.js"] {
+    // (crash-view.js for its breadcrumbs' menus, `CrashMenu`.)
+    for script in [
+        "review-state.js",
+        "then-now.js",
+        "crash-view.js",
+        "try-review.js",
+    ] {
         html.push_str(&format!(
             r#"<script defer src="/{}/static/js/{}"></script>"#,
             escape(tree),
