@@ -31,7 +31,8 @@ function fitThenNow() {
     const probe = document.createElement("span");
     probe.style.cssText = "position: absolute; visibility: hidden; white-space: pre";
     probe.style.font = getComputedStyle(line).font;
-    probe.textContent = "0".repeat(100);
+    // (Or as many as the view says its lines need, ex: a try review's 80.)
+    probe.textContent = "0".repeat(Number(view.dataset.thenNowColumns) || 100);
     document.body.append(probe);
     const column = probe.getBoundingClientRect().width;
     probe.remove();

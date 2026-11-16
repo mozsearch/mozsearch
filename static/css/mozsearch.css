@@ -8198,3 +8198,21 @@ textarea.monospace {
   background: var(--link-color);
   color: white;
 }
+
+/* A try review's markers of the other side's lines (see try_review.rs's
+   `side_html`), only when one side shows. */
+.tr-other-side {
+  color: var(--page-subtle-foreground);
+  font-style: italic;
+}
+
+.then-now-view[data-then-now="both"] .tr-other-side {
+  display: none;
+}
+
+/* A review strip's marks at rest: its mark and those with counts, the others
+   on hover and focus (in their places, so nothing moves). */
+.review-strip:not(:hover):not(:focus-within) .review-mark[aria-pressed="false"]:has(.review-mark-count:empty),
+.review-strip:not(:hover):not(:focus-within) .review-note-button:not(.review-note-present) {
+  visibility: hidden;
+}

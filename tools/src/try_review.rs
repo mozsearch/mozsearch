@@ -349,6 +349,99 @@ pub fn commit_diff_data(
     })
 }
 
+/// A hunk of a diff with all of its file as context (ex: the data API's
+/// `rev-diff`'s, `git diff-tree -U100000`'s), as the hunks of its changes
+/// with `context` lines of context around them.
+fn with_context(hunk: &Hunk, context: usize) -> Vec<Hunk> {
+    let changed: Vec<usize> = (0..hunk.lines.len())
+        .filter(|i| hunk.lines[*i].kind != " ")
+        .collect();
+    let mut ranges: Vec<(usize, usize)> = vec![];
+    for i in changed {
+        let (start, end) = (
+            i.saturating_sub(context),
+            (i + context).min(hunk.lines.len() - 1),
+        );
+        match ranges.last_mut() {
+            Some((_, last)) if start <= *last + 1 => *last = (*last).max(end),
+            _ => ranges.push((start, end)),
+        }
+    }
+    ranges
+        .into_iter()
+        .map(|(start, end)| Hunk {
+            lines: hunk.lines[start..=end].to_vec(),
+        })
+        .collect()
+}
+
+/// A commit's diff from a server without `AbstractServer::commit_diff` of
+/// its own (ex: a remote server whose data API is older than its
+/// `commit-diff` route): its metadata from `commit_info_json` (its header,
+/// parent, date and Phabricator revision), its files from its explore data,
+/// and their diffs from `rev_diff`.
+pub async fn commit_diff_from_parts(
+    server: &(dyn AbstractServer + Send + Sync),
+    rev: &str,
+) -> Result<CommitDiff> {
+    lazy_static! {
+        static ref TAG: regex::Regex = regex::Regex::new(r"<[^>]*>").unwrap();
+    }
+    let text =
+        |html: &str| crate::html_escape::unescape_xml(&TAG.replace_all(html, "")).into_owned();
+    let info: Value = serde_json::from_str(&server.commit_info_json(rev).await?)?;
+    let info = info.get(0).cloned().unwrap_or_default();
+    let header = info["header"].as_str().unwrap_or("");
+    // (Its summary, then "<br><i>Author <email>, date</i>".)
+    let (summary, byline) = header.split_once("<br>").unwrap_or((header, ""));
+    let byline = text(byline);
+    let author = byline
+        .split_once(" <")
+        .or_else(|| byline.split_once(", "))
+        .map_or(byline.as_str(), |(name, _)| name)
+        .trim()
+        .to_string();
+    let mut message = text(summary).trim().to_string();
+    if let Some(phab) = info["phab"].as_str() {
+        message.push_str(&format!("\n\nDifferential Revision: {}\n", phab));
+    }
+    let date = info["date"]
+        .as_str()
+        .and_then(|date| chrono::DateTime::parse_from_rfc2822(date).ok())
+        .map(|date| date.to_rfc3339())
+        .unwrap_or_default();
+    let explore = server.explore(&[rev.to_string()], None).await?;
+    let paths: Vec<String> = explore["file_groups"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|group| group["files"].as_array().into_iter().flatten())
+        .filter_map(|file| file["path"].as_str().map(str::to_string))
+        .collect();
+    let mut files = vec![];
+    for path in paths {
+        let Some(diff) = server.rev_diff(rev, &path).await? else {
+            continue;
+        };
+        for mut file in parse_diff(&diff.diff) {
+            file.hunks = file
+                .hunks
+                .iter()
+                .flat_map(|hunk| with_context(hunk, CONTEXT_LINES))
+                .collect();
+            files.push(file);
+        }
+    }
+    Ok(CommitDiff {
+        rev: rev.to_string(),
+        parent: info["parent"].as_str().map(str::to_string),
+        author,
+        date,
+        message,
+        files,
+    })
+}
+
 // ## The view
 
 /// Where a hunk is presented: interfaces, then definitions, then uses, then
@@ -777,13 +870,34 @@ fn review_file(
         } else {
             Section::Uses
         };
+        // (Its context within its definition: not the end of the one before
+        // it, nor the start of the one after it.)
+        let lines = match inner.and_then(|entry| entry.lines.or(entry.from_lines)) {
+            Some((first, last)) => {
+                let within = |line: &HunkLine| {
+                    let number = match inner.is_some_and(|e| e.status == OutlineStatus::Removed) {
+                        true => line.old,
+                        false => line.new,
+                    };
+                    line.kind != " " || number.is_some_and(|n| first <= n && n <= last)
+                };
+                let start = hunk.lines.iter().position(within).unwrap_or(0);
+                let end = hunk
+                    .lines
+                    .iter()
+                    .rposition(within)
+                    .unwrap_or(hunk.lines.len() - 1);
+                hunk.lines[start..=end].to_vec()
+            }
+            None => hunk.lines.clone(),
+        };
         hunks.push(ReviewHunk {
             id: format!("h:{}:{}:{}", rev, file.path, hunk_hash(&file.path, hunk)),
             def: parent,
             section,
             added: hunk.count("+"),
             removed: hunk.count("-"),
-            lines: hunk.lines.clone(),
+            lines,
         });
     }
     let mut defs: Vec<(usize, ReviewDef)> = defs.into_values().collect();
@@ -939,42 +1053,87 @@ fn patch_lines(patch: &ReviewPatch) -> u32 {
 }
 
 /// What a patch changes that relates it to others: its files, the classes
-/// it changes, and its bugs.
+/// it changes, and its files' directories ("dir " and its path).
 fn patch_keys(patch: &ReviewPatch) -> BTreeSet<String> {
     let mut keys = BTreeSet::new();
     for file in &patch.files {
         keys.insert(file.path.clone());
+        if let Some((dir, _)) = file.path.rsplit_once('/') {
+            keys.insert(format!("dir {}", dir));
+        }
         for def in &file.defs {
             if def.level == "class" {
                 keys.insert(format!("class {}", def.pretty));
             }
         }
     }
-    for bug in &patch.bugs {
-        keys.insert(format!("bug {}", bug));
-    }
     keys
 }
 
-/// The patches' groups: consecutive patches sharing a file, a class or a
-/// bug, as long as the group's changes stay under `GROUP_LINES` (a patch
-/// past it alone is a group of its own); and as honorary members of a group,
-/// the other groups' patches sharing a file or a class with it.  (The patch
-/// is the unit of review, and a stack's patches are usually in the order to
-/// read them, so the groups are of consecutive patches; and better too small
-/// than too much to take in.)
+/// How much sharing a key relates patches: a file or a class, 3, a
+/// directory, 1, divided by how many of the push's patches have it (sharing
+/// what most of a stack's patches change, ex: ipc/glue, says little).
+fn key_weight(key: &str, patches_with: usize) -> f64 {
+    let weight = if key.starts_with("dir ") { 1.0 } else { 3.0 };
+    weight / patches_with.max(1) as f64
+}
+
+/// The relation strong enough to group patches, or to make one an honorary
+/// member of another's group (a file or a class only a few patches share),
+/// and the weak one that groups consecutive patches of the same bug (a
+/// directory few patches share).
+const STRONG_RELATION: f64 = 1.0;
+const WEAK_RELATION: f64 = 0.3;
+
+/// The patches' groups: a patch joins the group of the patches before it if
+/// it's related to one of them strongly, or weakly (and they're of the same
+/// bugs) and not more to the patch after it, as long as the group's changes
+/// stay under `GROUP_LINES` (a patch past it alone is a group of its own);
+/// and as honorary members of a group, the other groups' patches strongly
+/// related to its own.  (The patch is the unit of review, and a stack's
+/// patches are usually in the order to read them, so the groups are of
+/// consecutive patches; and better too small than too much to take in.  A
+/// stack's patches are usually all of one bug, which says nothing of how
+/// they're related.)
 pub fn group_patches(patches: &[ReviewPatch]) -> Vec<PatchGroup> {
     let keys: Vec<BTreeSet<String>> = patches.iter().map(patch_keys).collect();
     let lines: Vec<u32> = patches.iter().map(patch_lines).collect();
+    let mut patches_with: BTreeMap<&String, usize> = BTreeMap::new();
+    for patch_keys in &keys {
+        for key in patch_keys {
+            *patches_with.entry(key).or_default() += 1;
+        }
+    }
+    let relation = |a: usize, b: usize| -> f64 {
+        keys[a]
+            .intersection(&keys[b])
+            .map(|key| key_weight(key, patches_with[key]))
+            .sum()
+    };
+    let same_bugs = |a: usize, b: usize| {
+        let (a, b) = (&patches[a].bugs, &patches[b].bugs);
+        a.is_empty() && b.is_empty() || a.iter().any(|bug| b.contains(bug))
+    };
     let mut groups: Vec<PatchGroup> = vec![];
     let mut group_lines = 0;
     for i in 0..patches.len() {
         let joins = groups.last().is_some_and(|group| {
+            let (best, related) = group.patches.iter().map(|j| (*j, relation(*j, i))).fold(
+                (None, 0.0),
+                |(best, max), (j, r)| match r > max {
+                    true => (Some(j), r),
+                    false => (best, max),
+                },
+            );
+            let next = match i + 1 < patches.len() {
+                true => relation(i, i + 1),
+                false => 0.0,
+            };
             group_lines + lines[i] <= GROUP_LINES
-                && group
-                    .patches
-                    .iter()
-                    .any(|j| !keys[*j].is_disjoint(&keys[i]))
+                && (related >= STRONG_RELATION
+                    || (related >= WEAK_RELATION
+                        && best.is_some_and(|j| same_bugs(j, i))
+                        && related >= next))
         });
         if joins {
             groups.last_mut().unwrap().patches.push(i);
@@ -989,7 +1148,7 @@ pub fn group_patches(patches: &[ReviewPatch]) -> Vec<PatchGroup> {
         }
     }
     for group in &mut groups {
-        // (What its patches share, files and classes first.)
+        // (What its patches share, most telling first.)
         if group.patches.len() > 1 {
             let mut shared: BTreeMap<&String, usize> = BTreeMap::new();
             for i in &group.patches {
@@ -997,26 +1156,31 @@ pub fn group_patches(patches: &[ReviewPatch]) -> Vec<PatchGroup> {
                     *shared.entry(key).or_default() += 1;
                 }
             }
-            let mut shared: Vec<(&String, usize)> =
-                shared.into_iter().filter(|(_, n)| *n > 1).collect();
-            shared.sort_by_key(|(key, n)| (key.starts_with("bug "), std::cmp::Reverse(*n)));
+            let mut shared: Vec<(&String, f64)> = shared
+                .into_iter()
+                .filter(|(_, n)| *n > 1)
+                .map(|(key, n)| (key, n as f64 * key_weight(key, patches_with[key])))
+                .collect();
+            shared.sort_by(|(a, x), (b, y)| y.total_cmp(x).then_with(|| a.cmp(b)));
             group.shared = shared
                 .into_iter()
                 .take(4)
-                .map(|(key, _)| key.clone())
+                .map(|(key, _)| {
+                    key.strip_prefix("dir ")
+                        .map_or(key.clone(), |dir| format!("{}/", dir))
+                })
                 .collect();
         }
-        // (Honorary members: the others sharing a file or a class, not just
-        // a bug, the nearest first, a few.)
-        let members: BTreeSet<&String> = group
-            .patches
-            .iter()
-            .flat_map(|i| keys[*i].iter())
-            .filter(|key| !key.starts_with("bug "))
-            .collect();
+        // (Honorary members: the other groups' patches strongly related to
+        // one of its own, the nearest first, a few.)
         let mut honorary: Vec<usize> = (0..patches.len())
             .filter(|i| !group.patches.contains(i))
-            .filter(|i| keys[*i].iter().any(|key| members.contains(key)))
+            .filter(|i| {
+                group
+                    .patches
+                    .iter()
+                    .any(|j| relation(*i, *j) >= STRONG_RELATION)
+            })
             .collect();
         let first = group.patches[0];
         honorary.sort_by_key(|i| (*i as isize - first as isize).abs());
@@ -1250,9 +1414,28 @@ fn strip_slot(part: &str) -> String {
 /// (kept and added).
 fn side_html(hunk: &ReviewHunk, then: bool) -> String {
     let mut html = String::new();
+    // (Where the other side has lines this one doesn't, a marker saying how
+    // many, which shows when only one side does.)
+    let mut other = 0;
+    let marker = |n: usize| {
+        format!(
+            r#"<div class="tr-line tr-other-side"><span class="tr-lno"></span><code class="tr-text">{} {} line{} {}</code></div>"#,
+            if then { "+" } else { "\u{2212}" },
+            n,
+            if n == 1 { "" } else { "s" },
+            if then { "added" } else { "removed" }
+        )
+    };
     for line in &hunk.lines {
+        if (then && line.kind == "+") || (!then && line.kind == "-") {
+            other += 1;
+            continue;
+        }
+        if other > 0 {
+            html.push_str(&marker(other));
+            other = 0;
+        }
         let (number, class) = match (then, line.kind.as_str()) {
-            (true, "+") | (false, "-") => continue,
             (true, "-") => (line.old, " tr-removed"),
             (false, "+") => (line.new, " tr-added"),
             (true, _) => (line.old, ""),
@@ -1264,6 +1447,9 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
             number.map_or(String::new(), |n| n.to_string()),
             escape(&line.text)
         ));
+    }
+    if other > 0 {
+        html.push_str(&marker(other));
     }
     html
 }
@@ -1698,7 +1884,7 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         .flat_map(|p| p.files.iter().map(|f| f.path.as_str()))
         .collect();
     html.push_str(&format!(
-        r#"<div class="try-review then-now-view facet-items" id="try-review" data-then-now="both" data-then-now-narrow="now" data-key="{key}">"#,
+        r#"<div class="try-review then-now-view facet-items" id="try-review" data-then-now="both" data-then-now-narrow="now" data-then-now-columns="80" data-key="{key}">"#,
         key = escape(&view.key)
     ));
     html.push_str(&crate::html_escape::json_data_block(
@@ -1896,7 +2082,8 @@ Binary files img.png and img.png differ
                         def: None,
                         section: Section::Uses,
                         lines: vec![],
-                        added: lines,
+                        // (The patch's lines, across its files.)
+                        added: lines / files.len() as u32,
                         removed: 0,
                     }],
                     truncated: false,
@@ -1943,6 +2130,32 @@ Binary files img.png and img.png differ
     }
 
     #[test]
+    fn test_with_context() {
+        let lines = |kinds: &str| Hunk {
+            lines: kinds
+                .chars()
+                .enumerate()
+                .map(|(i, kind)| HunkLine {
+                    kind: kind.to_string(),
+                    old: Some(i as u32 + 1),
+                    new: Some(i as u32 + 1),
+                    text: format!("{}", i),
+                })
+                .collect(),
+        };
+        // (Changes at 2 and 12, with 2 lines of context: two hunks; at 2 and
+        // 5: one.)
+        let far = with_context(&lines("  -         +   "), 2);
+        assert_eq!(far.len(), 2);
+        assert_eq!(far[0].lines.first().unwrap().text, "0");
+        assert_eq!(far[0].lines.last().unwrap().text, "4");
+        assert_eq!(far[1].lines.first().unwrap().text, "10");
+        let near = with_context(&lines("  -  +     "), 2);
+        assert_eq!(near.len(), 1);
+        assert_eq!(near[0].lines.len(), 8);
+    }
+
+    #[test]
     fn test_group_patches() {
         let patches = vec![
             patch("a", &["x.h", "x.cpp"], 1, 50),
@@ -1959,6 +2172,96 @@ Binary files img.png and img.png differ
         assert_eq!(groups[0].shared[0], "x.cpp");
         assert_eq!(groups[0].honorary, vec![2, 4]);
         assert_eq!(groups[2].honorary, Vec::<usize>::new());
+    }
+
+    /// Bug 2090040's push 2be539751b0f, its patches' files: 1 and 5 share
+    /// PBackground's files (but aren't consecutive), 3 and 4
+    /// NeckoChannelParams.ipdlh and BackgroundUtils.cpp, 5 and 6 only
+    /// dom/storage, and 2 nothing; and all of them share ipc/glue, but 2 and
+    /// 6, and the bug.
+    #[test]
+    fn test_group_patches_bug_2090040() {
+        let bug = 2090040;
+        let patches = vec![
+            patch(
+                "1",
+                &[
+                    "dom/broadcastchannel/BroadcastChannel.cpp",
+                    "dom/network/UDPSocketChild.cpp",
+                    "dom/storage/StorageActivityService.cpp",
+                    "ipc/glue/BackgroundChildImpl.cpp",
+                    "ipc/glue/BackgroundChildImpl.h",
+                    "ipc/glue/BackgroundParentImpl.cpp",
+                    "ipc/glue/BackgroundParentImpl.h",
+                    "ipc/glue/PBackground.ipdl",
+                ],
+                bug,
+                126,
+            ),
+            patch(
+                "2",
+                &[
+                    "netwerk/protocol/http/HttpChannelChild.cpp",
+                    "netwerk/protocol/http/HttpChannelParent.cpp",
+                    "netwerk/protocol/http/PHttpChannel.ipdl",
+                ],
+                bug,
+                22,
+            ),
+            patch(
+                "3",
+                &[
+                    "dom/serviceworkers/ServiceWorkerPrivate.cpp",
+                    "ipc/glue/BackgroundUtils.cpp",
+                    "ipc/glue/BackgroundUtils.h",
+                    "netwerk/ipc/NeckoChannelParams.ipdlh",
+                ],
+                bug,
+                83,
+            ),
+            patch(
+                "4",
+                &[
+                    "ipc/glue/BackgroundUtils.cpp",
+                    "netwerk/ipc/DocumentLoadListener.cpp",
+                    "netwerk/ipc/NeckoChannelParams.ipdlh",
+                    "netwerk/ipc/NeckoParent.cpp",
+                ],
+                bug,
+                129,
+            ),
+            patch(
+                "5",
+                &[
+                    "dom/storage/LocalStorageManager.cpp",
+                    "dom/storage/PBackgroundLocalStorageCache.ipdl",
+                    "dom/storage/StorageIPC.cpp",
+                    "ipc/glue/BackgroundChildImpl.cpp",
+                    "ipc/glue/BackgroundChildImpl.h",
+                    "ipc/glue/BackgroundParentImpl.cpp",
+                    "ipc/glue/BackgroundParentImpl.h",
+                    "ipc/glue/PBackground.ipdl",
+                ],
+                bug,
+                124,
+            ),
+            patch(
+                "6",
+                &[
+                    "dom/storage/PBackgroundSessionStorageCache.ipdl",
+                    "dom/storage/SessionStorageManager.cpp",
+                    "toolkit/components/sessionstore/SessionStoreUtils.cpp",
+                ],
+                bug,
+                53,
+            ),
+        ];
+        let groups = group_patches(&patches);
+        let members: Vec<Vec<usize>> = groups.iter().map(|g| g.patches.clone()).collect();
+        assert_eq!(members, vec![vec![0], vec![1], vec![2, 3], vec![4, 5]]);
+        assert_eq!(groups[0].honorary, vec![4]);
+        assert_eq!(groups[3].honorary, vec![0]);
+        assert_eq!(groups[3].shared, vec!["dom/storage/"]);
     }
 
     #[test]

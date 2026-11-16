@@ -906,7 +906,11 @@ impl AbstractServer for RemoteServer {
     }
 
     async fn commit_diff(&self, rev: &str) -> Result<crate::try_review::CommitDiff> {
-        parse(&self.api("commit-diff", None, &[("commit", rev)]).await?)
+        match self.api("commit-diff", None, &[("commit", rev)]).await {
+            Ok(bytes) => parse(&bytes),
+            // (A server older than the route: from the routes it has.)
+            Err(_) => crate::try_review::commit_diff_from_parts(self, rev).await,
+        }
     }
 
     async fn rev_diff(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevDiff>> {
