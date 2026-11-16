@@ -1048,7 +1048,7 @@ fn append_to_log(log_path: &Path, line: &str) {
 
 /// Why the imported try push `rev` has no semantic analysis, if its import's
 /// failed (see the module's comment).
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct SemanticFailure {
     /// The step it failed in (the last one it started).
     pub step: String,

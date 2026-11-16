@@ -33,12 +33,12 @@ function doc() {
 // onto the indexed revision, from its page's link to its semantic analysis.
 async function importPush() {
   await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
-  const link = doc().querySelector(".explore-semantic-head a")?.getAttribute("href");
+  const link = doc().querySelector(".tr-semantic-head a.tr-browse")?.getAttribute("href");
   ok(link?.startsWith("/trydelta/rev/"), "The push's page links to its semantic analysis");
   return link.split("/")[3];
 }
@@ -265,34 +265,6 @@ add_task(async function test_TryDeltaSubway() {
   ok(brushed.some(t => !station.contains(t)), "in the other cards too");
 });
 
-// A try push's page's excerpts of its changed definitions (see
-// test_Explore.js's test_ExploreExcerpts) prefer the lines on its changes'
-// dataflow, from its slicing (`slice-format:lines`; see
-// tools/src/dataflow/impact.rs), by its rebased head's lines.
-add_task(async function test_TryDeltaExcerpts() {
-  const head = await importPush();
-  const file = doc().querySelector('.explore-file[data-path="widget.cpp"]');
-  ok(file?.dataset.excerpts, "The push's files have excerpts");
-  const win = frame.contentWindow;
-  const data = await (await win.fetch(file.dataset.excerpts, { cache: "no-store" })).json();
-  ok(decodeURIComponent(data.dataflow || "").includes("slice-format:lines") &&
-     data.dataflow.endsWith(`&rev=${head}`),
-     "which name its slicing's lines on its changes' dataflow");
-  const response = await win.fetch(data.dataflow, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  ok(response.ok, "which the pipeline-server gives");
-  ok((await response.json())?.JsonValue?.value?.files, "by file");
-
-  const row = [...file.querySelectorAll("tr[data-range]")]
-    .find(r => r.querySelector(".explore-outline-name").textContent.includes("Frob"));
-  TestUtils.dispatchMouseEvent("mouseover", row);
-  await waitForCondition(() => doc().querySelector("#panel-excerpt .excerpt-added"),
-                         "Hovering over a changed definition shows its excerpt");
-  ok(doc().querySelector("#panel-excerpt .excerpt-removed"), "with the lines it removed");
-});
-
 // The push's JS is analyzed as the tree's is, by scip-typescript (see
 // scripts/try-analyze-typescript.sh), besides its compiled C++: hello.js
 // renames greetPerson to welcomePerson.
@@ -381,7 +353,7 @@ add_task(async function test_TryDeltaCitations() {
 // user's, kept in the browser and exported as JSON.
 add_task(async function test_TryCanvas() {
   const head = await importPush();
-  const canvas = doc().querySelector(".explore-semantic-head a.explore-canvas")?.getAttribute("href");
+  const canvas = doc().querySelector(".tr-semantic-head a.tr-canvas")?.getAttribute("href");
   is(canvas, `/trydelta/rev-canvas/${head}`, "The push's page links to its canvas");
 
   await TestUtils.loadPath(canvas);
@@ -488,12 +460,12 @@ add_task(async function test_TryCanvasJs() {
 add_task(async function test_TryCanvasInstances() {
   const push = "2468ace02468";
   await TestUtils.loadPath(`/trydelta/try/hg/${push}`);
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
-  const canvas = doc().querySelector(".explore-semantic-head a.explore-canvas")?.getAttribute("href");
+  const canvas = doc().querySelector(".tr-semantic-head a.tr-canvas")?.getAttribute("href");
   ok(canvas, "The push has a canvas");
   await TestUtils.loadPath(canvas);
   await waitForCondition(() => doc().documentElement.dataset.canvasReady, "The canvas is laid out");
@@ -583,22 +555,22 @@ add_task(async function test_TryCanvasClustersError() {
 // changes, and its second commit uses them.
 add_task(async function test_TryDeltaLanded() {
   await TestUtils.loadPath("/trydelta/try/hg/1a2b3c4d5e6f");
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
-  const landed = doc().querySelector(".explore-landed");
+  const landed = doc().querySelector(".tr-landed");
   ok(landed?.textContent.includes("One of its commits has landed"), "Its page says a commit landed");
   ok(landed?.textContent.includes("Bug 2345 - Let widgets shrink."), "which one");
-  const as = landed?.querySelector(".explore-landed-as");
+  const as = landed?.querySelector(".tr-landed-as");
   ok(as?.getAttribute("href").match(/^\/trydelta\/commit\/[0-9a-f]{40}$/),
      `and as what: ${as?.getAttribute("href")}`);
   const asPage = await (await fetch(as.getAttribute("href"), { cache: "no-store" })).text();
   ok(asPage.includes("Let widgets shrink"), "the tree's second revision");
-  ok(doc().querySelector(".explore-semantic-head"),
+  ok(doc().querySelector(".tr-semantic-head"),
      "The rest of its stack has semantic analysis");
-  ok(!doc().querySelector(".explore-semantic-failure"), "which didn't fail");
+  ok(!doc().querySelector(".tr-semantic-failure"), "which didn't fail");
 });
 
 // A push based on an older revision is browsed as its stack rebased onto the
@@ -611,21 +583,17 @@ add_task(async function test_TryDeltaLanded() {
 add_task(async function test_TryDeltaRebasedStack() {
   const push = "1a2b3c4d5e6f";
   await TestUtils.loadPath(`/trydelta/try/hg/${push}`);
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
-  const head = doc().querySelector(".explore-semantic-head a")?.getAttribute("href")?.split("/")[3];
+  const head = doc().querySelector(".tr-semantic-head a.tr-browse")?.getAttribute("href")?.split("/")[3];
   ok(head?.match(/^[0-9a-f]{40}$/), `The push has a rebased head: ${head}`);
-  const link = doc().querySelector('.explore-file-header a[href*="shrinker.cpp"]');
+  const link = doc().querySelector('.tr-file-head a[href*="shrinker.cpp"]');
   is(link?.getAttribute("href"), `/trydelta/rev/${head}/shrinker.cpp?stack=try/hg/${push}`,
      "Its page's files link to the rebased head's, with the push");
-  const file = link?.closest(".explore-file");
-  ok(file?.querySelector('.explore-outline-rows a[href="#commit-2"]'),
-     "and its outline rows' commits are the page's, though the rebased head's outline diff names its rebased commits");
-  ok(!file?.querySelector('.explore-outline-rows a[href^="/trydelta/commit/"]'), "and not others");
-  const commit2 = doc().querySelector('#commit-2 a[href^="/trydelta/commit/"]')?.getAttribute("href").split("/")[3];
+  const commit2 = doc().querySelector("#tr-patch-2 .tr-patch-rev")?.getAttribute("href").split("/")[3];
 
   // (The push's own commits' pages point to the rebased head's.)
   await TestUtils.loadPath(`/trydelta/rev/${commit2}/shrinker.cpp`);
@@ -652,13 +620,13 @@ add_task(async function test_TryDeltaRebasedStack() {
 // Widget::Shrink.
 add_task(async function test_TryDeltaFailure() {
   await TestUtils.loadPath("/trydelta/try/hg/fedcba987654");
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
-  ok(!doc().querySelector(".explore-semantic-head"), "The push has no semantic analysis");
-  const failure = doc().querySelector(".explore-semantic-failure")?.textContent ?? "";
+  ok(!doc().querySelector(".tr-semantic-head"), "The push has no semantic analysis");
+  const failure = doc().querySelector(".tr-semantic-failure")?.textContent ?? "";
   ok(failure.includes("failed in its rebase step"), "Its page says which step of it failed");
   ok(failure.includes("conflict with the indexed revision's"), "and why");
   ok(failure.includes("The files whose changes conflict: widget.h."), "with the files");
@@ -668,12 +636,12 @@ add_task(async function test_TryDeltaFailure() {
 // as analyzed, from its page's link to its semantic analysis.
 async function importNamedPush(push) {
   await TestUtils.loadPath(`/trydelta/try/hg/${push}`);
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
-  return doc().querySelector(".explore-semantic-head a")?.getAttribute("href")?.split("/")[3];
+  return doc().querySelector(".tr-semantic-head a.tr-browse")?.getAttribute("href")?.split("/")[3];
 }
 
 // A push on a newer trunk revision than the indexed one is analyzed as its
@@ -684,7 +652,7 @@ async function importNamedPush(push) {
 add_task(async function test_TryDeltaNewerTrunk() {
   const head = await importNamedPush("13579bdf1357");
   ok(head?.match(/^[0-9a-f]{40}$/), `The push has semantic analysis: ${head}`);
-  ok(!doc().querySelector(".explore-semantic-trunk"), "without the trunk's revision");
+  ok(!doc().querySelector(".tr-semantic-trunk"), "without the trunk's revision");
   const model = await (await fetch(`/trydelta/rev-canvas/${head}/canvas.json`, { cache: "no-store" })).json();
   const names = model.nodes.map(node => node.pretty);
   ok(names.includes("trydelta::UseSizer"), `Its canvas has its stack's functions: ${names}`);
@@ -701,7 +669,7 @@ add_task(async function test_TryDeltaNewerTrunk() {
 add_task(async function test_TryDeltaWithTrunk() {
   const head = await importNamedPush("97531fdb9753");
   ok(head?.match(/^[0-9a-f]{40}$/), `The push has semantic analysis: ${head}`);
-  const trunk = doc().querySelector(".explore-semantic-trunk")?.textContent ?? "";
+  const trunk = doc().querySelector(".tr-semantic-trunk")?.textContent ?? "";
   ok(trunk.includes("with the revision since the indexed one"),
      `Its page says it's analyzed with the trunk's revision: ${trunk}`);
   const model = await (await fetch(`/trydelta/rev-canvas/${head}/canvas.json`, { cache: "no-store" })).json();

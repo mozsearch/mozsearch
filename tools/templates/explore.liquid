@@ -39,9 +39,6 @@ files, if there are any; see facet_bar.liquid.){% endcomment %}
   {%- if note %}
   <p class="explore-note">{{ note | escape }}</p>
   {%- endif %}
-  {%- if review_url %}
-  <p class="explore-note explore-review"><a class="explore-review-link" href="{{ review_url | escape }}">Review its patches</a>: each one's changes in the order to read them (interfaces, definitions, uses, tests), with marks and notes kept in your browser.</p>
-  {%- endif %}
   {%- if landed.size > 0 %}
   <div class="explore-note explore-landed">{% if landed.size == 1 %}One of its commits has{% else %}{{ landed.size | escape }} of its commits have{% endif %} landed since it diverged from the trunk, so its semantic analysis leaves {% if landed.size == 1 %}it{% else %}them{% endif %} out:
     <ul>

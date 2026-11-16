@@ -31,12 +31,12 @@ async function getJson(url) {
 // (As test_TryDelta.js's.)
 async function importPush() {
   await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
-  return doc().querySelector(".explore-semantic-head a")?.getAttribute("href").split("/")[3];
+  return doc().querySelector(".tr-semantic-head a.tr-browse")?.getAttribute("href").split("/")[3];
 }
 
 add_task(async function test_DataApiRoutes() {

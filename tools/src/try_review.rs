@@ -418,6 +418,19 @@ pub struct ReviewView {
     pub task_selections: usize,
     /// Whether the push's stack has more commits than the view.
     pub truncated: bool,
+    /// What its page said of its semantic analysis (see `try_import::TryPush`):
+    /// the head of its stack rebased onto the indexed revision, whose pages
+    /// have it, or why its import's analysis failed; the trunk's revisions it
+    /// has besides the stack; and the commits that have landed, which it
+    /// leaves out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_head: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_failure: Option<crate::try_import::SemanticFailure>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_trunk: Option<crate::try_import::SemanticTrunk>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub landed: Vec<crate::try_import::LandedCommit>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -846,10 +859,14 @@ pub async fn review_view(
                     .ok()
                     .and_then(|value| serde_json::from_value::<OutlineDiff>(value).ok()),
             };
-            let (path_kind, subsystem) = match server.file_facet_info(&file.path) {
-                Some((kind, subsystem)) => (kind.to_string(), subsystem.map(|s| s.to_string())),
-                None if looks_like_test(&file.path) => ("test".to_string(), None),
-                None => ("normal".to_string(), None),
+            // (By the tree's path kinds' rules, for the files the indexed
+            // revision doesn't have, ex: those the push adds.)
+            let (path_kind, subsystem) = match server.path_facet_info(&file.path) {
+                (kind, _, subsystem) if !kind.is_empty() => {
+                    (kind.to_string(), subsystem.map(|s| s.to_string()))
+                }
+                _ if looks_like_test(&file.path) => ("test".to_string(), None),
+                _ => ("normal".to_string(), None),
             };
             files.push(review_file(
                 &diff.rev,
@@ -883,6 +900,10 @@ pub async fn review_view(
         groups,
         task_selections: try_push.task_selections,
         truncated: try_push.truncated,
+        semantic_head: try_push.semantic_head,
+        semantic_failure: try_push.semantic_failure,
+        semantic_trunk: try_push.semantic_trunk,
+        landed: try_push.landed,
     })
 }
 
@@ -1247,7 +1268,7 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
     html
 }
 
-fn hunk_html(tree: &str, rev: &str, file: &ReviewFile, hunk: &ReviewHunk) -> String {
+fn hunk_html(tree: &str, rev: &str, stack: &str, file: &ReviewFile, hunk: &ReviewHunk) -> String {
     let first = hunk.lines.iter().find_map(|line| line.new).unwrap_or(0);
     let last = hunk
         .lines
@@ -1255,11 +1276,14 @@ fn hunk_html(tree: &str, rev: &str, file: &ReviewFile, hunk: &ReviewHunk) -> Str
         .filter_map(|line| line.new)
         .max()
         .unwrap_or(first);
+    // (In the commit's file, whose lines these are, with the push's stack;
+    // see stack-strip.js.)
     let link = format!(
-        "/{}/rev/{}/{}#{}",
+        "/{}/rev/{}/{}?stack={}#{}",
         escape(tree),
         escape(rev),
         crate::url_encode_path::url_encode_path(&file.path),
+        escape(stack),
         first
     );
     let delta = [
@@ -1302,11 +1326,13 @@ fn hunk_html(tree: &str, rev: &str, file: &ReviewFile, hunk: &ReviewHunk) -> Str
 /// order.
 fn file_html(
     tree: &str,
+    view: &ReviewView,
     patch_index: usize,
     patch: &ReviewPatch,
     file: &ReviewFile,
     section: Section,
 ) -> String {
+    let stack = crate::try_import::push_url_path(&view.push);
     let hunks: Vec<&ReviewHunk> = file.hunks.iter().filter(|h| h.section == section).collect();
     // (The definitions of the section's hunks, and their ancestors.)
     let by_id: BTreeMap<&str, &ReviewDef> = file.defs.iter().map(|d| (d.id.as_str(), d)).collect();
@@ -1321,6 +1347,7 @@ fn file_html(
     fn children_html(
         tree: &str,
         rev: &str,
+        stack: &str,
         file: &ReviewFile,
         parent: Option<&str>,
         hunks: &[&ReviewHunk],
@@ -1332,7 +1359,7 @@ fn file_html(
         let mut items: Vec<(u32, String)> = vec![];
         for hunk in hunks.iter().filter(|h| h.def.as_deref() == parent) {
             let first = hunk.lines.iter().find_map(|l| l.new.or(l.old)).unwrap_or(0);
-            items.push((first, hunk_html(tree, rev, file, hunk)));
+            items.push((first, hunk_html(tree, rev, stack, file, hunk)));
         }
         for (order, def) in file
             .defs
@@ -1382,7 +1409,7 @@ fn file_html(
                         ""
                     },
                     status = status,
-                    children = children_html(tree, rev, file, Some(&def.id), hunks, wanted),
+                    children = children_html(tree, rev, stack, file, Some(&def.id), hunks, wanted),
                 ),
             ));
         }
@@ -1412,16 +1439,23 @@ fn file_html(
         _ => String::new(),
     };
     format!(
-        r#"<section class="tr-file" data-part="{id}" data-path="{path}" data-facets="{facets}"><h5 class="tr-file-head">{strip} <a href="/{tree}/rev/{rev}/{link}">{path}</a>{status}</h5>{children}{truncated}</section>"#,
+        r#"<section class="tr-file" data-part="{id}" data-path="{path}" data-facets="{facets}"><h5 class="tr-file-head">{strip} <a href="/{tree}/rev/{rev}/{link}?stack={stack}">{path}</a>{status}</h5>{children}{truncated}</section>"#,
         id = escape(&file.id),
         path = escape(&file.path),
         facets = escape(&serde_json::to_string(&facets).unwrap_or_default()),
         strip = strip_slot(&file.id),
         tree = escape(tree),
-        rev = escape(&patch.rev),
+        // (The file in the push's stack rebased onto the indexed revision, if
+        // it has its semantic analysis, but a removed one; else in the
+        // commit.)
+        rev = escape(match (&view.semantic_head, file.status.as_str()) {
+            (Some(head), status) if status != "removed" => head,
+            _ => &patch.rev,
+        }),
         link = crate::url_encode_path::url_encode_path(&file.path),
+        stack = escape(&stack),
         status = status,
-        children = children_html(tree, &patch.rev, file, None, &hunks, &wanted),
+        children = children_html(tree, &patch.rev, &stack, file, None, &hunks, &wanted),
         truncated = if file.truncated {
             r#"<p class="tr-note">Its other changes are left out here (it has too many lines of them).</p>"#
         } else {
@@ -1512,7 +1546,7 @@ fn patch_html(tree: &str, view: &ReviewView, i: usize) -> String {
                 .then_with(|| a.path.cmp(&b.path))
         });
         for file in files {
-            html.push_str(&file_html(tree, i, patch, file, *section));
+            html.push_str(&file_html(tree, view, i, patch, file, *section));
         }
         html.push_str("</div>");
     }
@@ -1573,6 +1607,87 @@ fn group_head_html(view: &ReviewView, g: usize) -> String {
     )
 }
 
+/// What the push's page said of its semantic analysis (see
+/// `ReviewView::semantic_head`), as the view's notes.
+fn semantic_notes_html(tree: &str, view: &ReviewView) -> String {
+    let short = |rev: &str| rev.chars().take(12).collect::<String>();
+    let mut html = String::new();
+    if let Some(head) = &view.semantic_head {
+        html.push_str(&format!(
+            r#"<p class="tr-note tr-semantic-head">Its stack rebased onto the indexed revision has semantic analysis: <a class="tr-browse" href="/{tree}/rev/{head}/">browse it</a>, with jumps and references, or see <a class="tr-canvas" href="/{tree}/rev-canvas/{head}">the functions it adds or changes and their calls on a canvas</a>.</p>"#,
+            tree = escape(tree),
+            head = escape(head),
+        ));
+        if let Some(trunk) = &view.semantic_trunk {
+            html.push_str(&format!(
+                r#"<p class="tr-note tr-semantic-trunk">Its stack is on a newer trunk revision than the indexed one (<a href="/{tree}/commit/{base}">{short}</a>), and needs its changes, so its semantic analysis is of it with the {revisions} since the indexed one.</p>"#,
+                tree = escape(tree),
+                base = escape(&trunk.stack_base),
+                short = escape(&short(&trunk.stack_base)),
+                revisions = match trunk.revisions {
+                    1 => "revision".to_string(),
+                    n => format!("{} revisions", n),
+                },
+            ));
+        }
+    }
+    if !view.landed.is_empty() {
+        html.push_str(&format!(
+            r#"<div class="tr-note tr-landed">{} landed since it diverged from the trunk, so its semantic analysis leaves {} out:<ul>"#,
+            match view.landed.len() {
+                1 => "One of its commits has".to_string(),
+                n => format!("{} of its commits have", n),
+            },
+            if view.landed.len() == 1 { "it" } else { "them" }
+        ));
+        for commit in &view.landed {
+            html.push_str(&format!(
+                r#"<li><a href="/{tree}/commit/{rev}">{summary}</a>, as <a class="tr-landed-as" href="/{tree}/commit/{landed}">{short}</a>{same}</li>"#,
+                tree = escape(tree),
+                rev = escape(&commit.rev),
+                summary = escape(&commit.rev_summary),
+                landed = escape(&commit.landed),
+                short = escape(&short(&commit.landed)),
+                same = if commit.same_changes {
+                    String::new()
+                } else {
+                    format!(
+                        " (the same Phabricator revision, which may have changed before it landed: {})",
+                        escape(&commit.summary)
+                    )
+                },
+            ));
+        }
+        html.push_str("</ul></div>");
+    }
+    if let Some(failure) = &view.semantic_failure {
+        if failure.all_landed {
+            html.push_str(r#"<p class="tr-note tr-semantic-failure">All of its commits (but those selecting try's tasks) have landed, so there's nothing for its semantic analysis to analyze: the indexed revision has its changes.</p>"#);
+        } else {
+            html.push_str(&format!(
+                r#"<p class="tr-note tr-semantic-failure">Its semantic analysis, for jumps and references in what it changes, failed in its <code>{step}</code> step{error}{commit}{conflicts}</p>"#,
+                step = escape(&failure.step),
+                error = match &failure.error {
+                    Some(error) => format!(": {}", escape(error)),
+                    None => ".".to_string(),
+                },
+                commit = match &failure.conflicting_commit {
+                    Some(commit) => format!(" The commit whose changes conflict: {}.", escape(commit)),
+                    None => String::new(),
+                },
+                conflicts = match failure.conflicts.as_slice() {
+                    [] => String::new(),
+                    files => format!(
+                        " The files whose changes conflict: {}.",
+                        escape(&files.join(", "))
+                    ),
+                },
+            ));
+        }
+    }
+    html
+}
+
 /// The view's HTML, for the query page.
 pub fn render_review(tree: &str, view: &ReviewView) -> String {
     let mut html = String::new();
@@ -1624,6 +1739,7 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             "The code after each change."
         ),
     ));
+    html.push_str(&semantic_notes_html(tree, view));
     if view.task_selections > 0 || view.truncated {
         html.push_str(&format!(
             r#"<p class="tr-note">{}</p>"#,

@@ -260,14 +260,60 @@ fn write_page_sidecar(cfg: &config::Config, raw_path: &str, response: &WebRespon
         )
 }
 
+/// The pipeline-server's address, as its `PIPELINE_SERVER_ADDR` says, here.
+fn pipeline_server_addr() -> String {
+    env::var("PIPELINE_SERVER_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:8002".to_string())
+        .replace("0.0.0.0", "127.0.0.1")
+}
+
+/// An imported try push's page (but a spec pull request's): its review view,
+/// the `try-review:` query's (see `tools::try_review`), as the
+/// pipeline-server renders its query page, here at the push's URL; in the
+/// context of its stack rebased onto the indexed revision, if that has its
+/// semantic analysis (`head`), so that the page's searches are of the push.
+fn try_review_page(tree_name: &str, push: &str, head: Option<&str>) -> WebResponse {
+    let url = format!(
+        "http://{}/{}/query/default?q={}{}",
+        pipeline_server_addr(),
+        tree_name,
+        urlencoding::encode(&format!("try-review:{}", push)),
+        head.map_or(String::new(), |head| format!("&rev={}", head))
+    );
+    let result = format::run_on_runtime(async move {
+        let response = reqwest::Client::new()
+            .get(&url)
+            .header("Accept", "text/html")
+            .timeout(PRECOMPUTE_TIMEOUT)
+            .send()
+            .await?;
+        let status = response.status();
+        response.text().await.map(|text| (status, text))
+    });
+    match result {
+        Ok((status, text)) if status.is_success() => WebResponse::html(text),
+        // (The query page's, which says what went wrong.)
+        Ok((_, text)) => WebResponse {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            ..WebResponse::html(text)
+        }
+        .uncached(),
+        Err(err) => {
+            WebResponse::internal_error(format!("Its review couldn't be rendered: {}", err))
+                .uncached()
+        }
+    }
+}
+
 /// How long precomputing a try push's slicing may take (see
 /// `precompute_try_push`; big pushes' take minutes).
 const PRECOMPUTE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 /// Precompute what the pages of the try push `rev`, which the tree has just
 /// imported (see `tools::try_import`), show which takes long to compute, so
-/// that they're ready by the time its import says it's done, if it has a
-/// semantic analysis (see `try_delta`): its canvas's page (see
+/// that they're ready by the time its import says it's done: its page, its
+/// review (see `try_review_page`), and if it has a semantic analysis (see
+/// `try_delta`), its canvas's page (see
 /// `format::format_try_canvas`), written as a sidecar file, as its first
 /// request's would be (see `write_page_sidecar`), and its slicing, in the
 /// formats its pages ask for (the canvas's clusters' JSON, the slicing's
@@ -281,6 +327,19 @@ fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
     let Some(tree_config) = cfg.trees.get(tree_name) else {
         return;
     };
+    // (Its review, its page, whether or not it has a semantic analysis; see
+    // `try_review_page`.)
+    if !tools::try_import::is_pull_request(rev) {
+        let review_started = Instant::now();
+        let head = tools::try_import::try_push(cfg, tree_name, rev).and_then(|p| p.semantic_head);
+        let response = try_review_page(tree_name, rev, head.as_deref());
+        eprintln!(
+            "Precomputed try push {}'s review in {:.1} s: {}",
+            rev,
+            review_started.elapsed().as_secs_f64(),
+            response.status.as_u16()
+        );
+    }
     let Some(head) =
         tools::try_import::try_push(cfg, tree_name, rev).and_then(|push| push.semantic_head)
     else {
@@ -316,9 +375,7 @@ fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
         Err(err) => outcomes.push(format!("canvas failed: {}", err)),
     }
 
-    // (The pipeline-server's, as its `PIPELINE_SERVER_ADDR` says, here.)
-    let addr = env::var("PIPELINE_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8002".to_string());
-    let addr = addr.replace("0.0.0.0", "127.0.0.1");
+    let addr = pipeline_server_addr();
     let slicing = format!("slice-rev:{}..{}", base, head);
     let queries = [
         (
@@ -1384,6 +1441,12 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                         .uncached();
                     }
                     Err(err) => notice = Some(err),
+                }
+            }
+            // (Once it's imported, its review; see `try_review_page`.)
+            if notice.is_none() && !tools::try_import::is_pull_request(&push) {
+                if let Some(imported) = tools::try_import::try_push(cfg, tree_name, &push) {
+                    return try_review_page(tree_name, &push, imported.semantic_head.as_deref());
                 }
             }
             let mut writer = Vec::new();

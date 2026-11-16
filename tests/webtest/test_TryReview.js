@@ -18,9 +18,9 @@ function doc() {
 
 async function importPush() {
   await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
 }
@@ -51,8 +51,10 @@ async function removeReview() {
   });
 }
 
+// (The push's page, which is its review once it's imported, as the
+// `try-review:` query's.)
 async function loadReview() {
-  await TestUtils.loadQuery("trydelta", `try-review:${PUSH}`);
+  await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
   await waitForCondition(() => doc().querySelector("#try-review[data-review-ready]"),
                          "The review's marks are loaded");
 }
@@ -68,13 +70,9 @@ function markButton(part, state) {
 add_task(async function test_TryReview() {
   await removeReview();
   await importPush();
-  const link = doc().querySelector(".explore-review-link");
-  ok(link, "The push's page links to its review");
-  const loaded = TestUtils.waitForLoad();
-  TestUtils.click(link);
-  await loaded;
   await waitForCondition(() => doc().querySelector("#try-review[data-review-ready]"),
-                         "which loads with its marks");
+                         "The push's page, once it's imported, is its review, with its marks");
+  is(doc().querySelector("#query")?.value, `try-review:${PUSH}`, "which is its query's");
 
   const patches = doc().querySelectorAll(".tr-patch");
   is(patches.length, 1, "It has the push's patch");
@@ -169,9 +167,9 @@ add_task(async function test_TryReviewSummary() {
 // twice", don't share a file, a class or a bug, so they're two groups.)
 add_task(async function test_TryReviewPatches() {
   await TestUtils.loadPath("/trydelta/try/hg/1a2b3c4d5e6f");
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
   await TestUtils.loadQuery("trydelta", "try-review:1a2b3c4d5e6f");

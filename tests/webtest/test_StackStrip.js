@@ -3,7 +3,7 @@
 
 // The patch stack strip (see tools/src/hyperblame/stack_strip.rs and
 // static/js/stack-strip.js): files' views opened from explore pages (and try
-// pushes' pages) show beside the blame strip which of the stack's commits
+// pushes' reviews) show beside the blame strip which of the stack's commits
 // changed each line.
 
 function doc() {
@@ -52,8 +52,9 @@ add_task(async function test_StackStripTry() {
   }
   is(status.state, "imported", "The try push is imported");
 
+  // (Its page is its review, whose last patch's file is the push's.)
   await TestUtils.loadPath(`/spechist/try/hg/${push}`);
-  const link = doc().querySelector('.explore-file-header a[href*="cite.cpp"]');
+  const link = [...doc().querySelectorAll('.tr-file-head a[href*="cite.cpp"]')].pop();
   ok(link?.getAttribute("href").endsWith(`?stack=try/hg/${push}`),
      "Its page's files link to their views with the push");
   await TestUtils.loadPath(link.getAttribute("href"));
@@ -66,20 +67,8 @@ add_task(async function test_StackStripTry() {
      "The first's removal of Never is a scar on the line before it");
   is(doc().querySelectorAll("#line-6 .stack-slot").length, 0,
      "Lines the push didn't change have no slots");
-
-  // Its page's other links pass the push on as they're followed (ex: its
-  // outline rows' links to the definitions it changed; see stack-strip.js),
-  // and in its context the outline's changes are since its base (see
-  // outline.js), rather than since a release.
-  await TestUtils.loadPath(`/spechist/try/hg/${push}`);
-  const row = doc().querySelector(".explore-outline-name a");
-  ok(row && !row.getAttribute("href").includes("stack="),
-     "Its outline rows link to the definitions it changed");
-  row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-  ok(row.getAttribute("href").includes(`?stack=try/hg/${push}`), "with the push, once followed");
-  await TestUtils.loadPath(row.getAttribute("href"));
-  await waitForCondition(() => doc().querySelector(".stack-strip"),
-                         "whose views show the stack strip");
+  // (In its context, the outline's changes are since its base, rather than
+  // since a release; see outline.js.)
   await waitForCondition(
     () => doc().querySelector(".outline-baseline button")?.textContent == "the try push's base",
     "and the outline's changes since the push's base");

@@ -20,12 +20,12 @@ function doc() {
 // onto the indexed revision (as test_TryDelta.js's `importPush` does).
 async function importPush() {
   await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
-  if (!doc().querySelector(".explore-page")) {
+  if (!doc().querySelector("#try-review")) {
     doc().querySelector(".try-import-button").click();
-    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
                            "The push is imported", 500, 240);
   }
-  const link = doc().querySelector(".explore-semantic-head a")?.getAttribute("href");
+  const link = doc().querySelector(".tr-semantic-head a.tr-browse")?.getAttribute("href");
   ok(link?.startsWith("/trydelta/rev/"), "The push's page links to its semantic analysis");
   return link.split("/")[3];
 }

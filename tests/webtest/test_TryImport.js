@@ -34,24 +34,24 @@ add_task(async function test_TryImport() {
   const button = doc().querySelector(".try-import-button");
   ok(button, "The page has a button to import it");
   button.click();
-  await waitForCondition(() => doc()?.querySelector(".explore-page"),
-                         "which imports it, and then the page is its explore page",
+  await waitForCondition(() => doc()?.querySelector("#try-review"),
+                         "which imports it, and then the page is its review",
                          500, 240);
-  is(doc().querySelector(".explore-page h2")?.textContent, `Try push ${PUSH}`,
+  is(doc().querySelector("#try-review h2")?.textContent, `Review of the try push ${PUSH}`,
      "titled by the push");
-  const commits = [...doc().querySelectorAll(".explore-commit-list .explore-commit")];
+  const commits = [...doc().querySelectorAll(".tr-patch")];
   is(commits.length, 1, "with the push's stack");
   ok(commits[0].textContent.includes("Make Frob frob twice"), "oldest first");
-  ok(doc().querySelector(".explore-note")?.textContent.includes("but the one selecting try's tasks"),
+  ok([...doc().querySelectorAll(".tr-note")].some(note => note.textContent.includes("selecting try's tasks")),
      "but not the commit selecting try's tasks");
-  ok(doc().querySelector('.explore-file a[href*="cite.cpp"]'),
+  ok(doc().querySelector('.tr-file[data-path="cite.cpp"]'),
      "and the files they changed");
   is((await statusOf(PUSH)).state, "imported", "Its status says it's imported");
   is(await cacheControlOf(PUSH), "max-age=120", "and from then on, it's cached as pages are");
 
   // The tree's views have the push's revisions' history, ex: the blame of the
   // file its first commit changed, at that commit.
-  const rev = commits[0].querySelector('a[href*="/commit/"]').getAttribute("href").split("/").pop();
+  const rev = commits[0].querySelector(".tr-patch-rev").getAttribute("href").split("/").pop();
   await TestUtils.loadPath(`/spechist/rev/${rev}/cite.cpp`);
   const info = frame.contentWindow.BLAME_INFO;
   ok(info?.dataUrl?.includes(`/rev-hyperblame/${rev}/`),
