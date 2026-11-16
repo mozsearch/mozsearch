@@ -9,6 +9,9 @@ add_task(async function test_ExploreBug() {
   await TestUtils.loadPath("/searchfox/explore/bug/1975601");
 
   const doc = frame.contentDocument;
+  const crumbs = [...doc.querySelectorAll(".breadcrumbs a")].map(a => a.textContent);
+  ok(crumbs[0] == "searchfox" && crumbs.at(-1).includes("1975601"),
+     "The breadcrumbs are the tree's and the page's");
   const commits = [...doc.querySelectorAll(".explore-commit-summary")].map(h => h.textContent);
   is(commits.length, 4, "The bug has 4 commits");
   for (let i = 0; i < 4; i++) {

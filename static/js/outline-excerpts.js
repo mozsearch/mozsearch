@@ -65,18 +65,33 @@
 
   // A try push's slicing's lines on its changes' dataflow (see
   // `format::outline_excerpts_json`'s `dataflow`), by file, once loaded.
+  // (And why one couldn't be had, if it couldn't, which the excerpts say:
+  // ex, a page answering rather than the JSON, which is the site's browser
+  // check's, which a page's own requests can get until it has been passed;
+  // see asuth-gecko-notes' waf-notes.md.)
   const dataflows = new Map();
   const loadedDataflows = new Map();
+  const dataflowProblems = new Map();
   function dataflowData(url) {
     if (!dataflows.has(url)) {
+      const loaded = (files, why) => {
+        loadedDataflows.set(url, files);
+        if (why) {
+          dataflowProblems.set(url, why);
+        }
+        return files;
+      };
       dataflows.set(url, fetch(url, { headers: { Accept: "application/json" } })
-        .then(response => (response.ok ? response.json() : null))
-        .then(json => {
-          const files = json?.JsonValue?.value?.files || {};
-          loadedDataflows.set(url, files);
-          return files;
+        .then(async response => {
+          if (!response.ok) {
+            return loaded({}, `${response.status} ${response.statusText}`);
+          }
+          if (!(response.headers.get("content-type") || "").includes("json")) {
+            return loaded({}, "the site's browser check answered rather than the server");
+          }
+          return loaded((await response.json())?.JsonValue?.value?.files || {});
         })
-        .catch(() => loadedDataflows.set(url, {})));
+        .catch(e => loaded({}, `the request failed: ${e.message || e}`)));
     }
     return dataflows.get(url);
   }
@@ -435,6 +450,17 @@
     }
     if (previous < rows.length - 1) {
       body.append(gap(rows.length - 1 - previous));
+    }
+    // (Without the dataflow's lines, why, with a link to the slicing,
+    // whose page passes the browser check.)
+    const problem = data.dataflow && dataflowProblems.get(data.dataflow);
+    if (problem) {
+      const hint = note(`Its lines are chosen without the changes' dataflow (${problem}); `);
+      const link = document.createElement("a");
+      link.href = data.dataflow.replace(/(%20|\+)slice-format(%3A|:)lines/, "");
+      link.textContent = "opening the slicing";
+      hint.append(link, " may let it be loaded.");
+      section.append(hint);
     }
     if (hidden) {
       body.append(note(`And ${hidden} more changed line${hidden == 1 ? "" : "s"}.`));

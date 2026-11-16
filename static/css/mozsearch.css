@@ -3826,7 +3826,7 @@ h2.sp-called-heading {
 /* Stays visible while hovering over the sparklines of files further down. */
 .explore-status {
   position: sticky;
-  top: 0;
+  top: calc(var(--header-height) + var(--breadcrumbs-height));
   z-index: 1;
   min-height: 1.5em;
   background-color: var(--page-background);

@@ -11385,6 +11385,31 @@ fn render_explore(
     };
     // (explore.liquid has the navigation panel, with the facets.)
     output::generate_header(&opt, writer)?;
+    // (Its breadcrumbs: the tree's, and its scopes, if it's a history page,
+    // the one shown linking to the page itself, else its title.)
+    let trail: Vec<(String, String)> = match extras.scopes.is_empty() {
+        true => vec![(title.to_string(), extras.explore_url.clone())],
+        false => extras
+            .scopes
+            .iter()
+            .filter_map(|scope| {
+                Some((
+                    scope["label"].as_str()?.to_string(),
+                    scope["url"]
+                        .as_str()
+                        .map_or_else(|| extras.explore_url.clone(), str::to_string),
+                ))
+            })
+            .collect(),
+    };
+    output::generate_breadcrumbs_trail(
+        &opt,
+        writer,
+        &trail
+            .iter()
+            .map(|(label, link)| (label.as_str(), link.clone()))
+            .collect::<Vec<_>>(),
+    )?;
     let mut file_groups = data["file_groups"].clone();
     unescape_explore_names(&mut file_groups);
     order_explore_files(&mut file_groups);
