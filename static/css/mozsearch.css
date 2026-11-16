@@ -7765,3 +7765,100 @@ textarea.monospace {
   border-color: #c92a2a;
   border-width: 2px;
 }
+
+/* Review marks (see review-state.js): a strip of a part's marks, whose
+   pressed button is its mark (with an arrow when it's inherited from a part
+   it's in), with the counts of the marks under it, and a note button. */
+.review-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.review-strip button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  min-width: 1.7em;
+  height: 1.6em;
+  padding: 0 2px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--page-color);
+  font-size: 0.85em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-strip button:hover,
+.review-strip button:focus-visible {
+  border-color: var(--button-active-background);
+  background: var(--button-background);
+}
+
+.review-mark .review-mark-icon {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+.review-mark[aria-pressed="true"] {
+  border-color: var(--button-active-background);
+  background: var(--button-background);
+}
+
+.review-mark[aria-pressed="true"] .review-mark-icon {
+  opacity: 1;
+  filter: none;
+}
+
+/* (An inherited mark: an arrow up, from the part it's in.) */
+.review-mark-inherited::after {
+  content: "\2191";
+  position: absolute;
+  top: -0.35em;
+  right: -0.1em;
+  font-size: 0.75em;
+  font-weight: bold;
+  color: var(--page-subtle-foreground);
+}
+
+.review-mark-inherited .review-mark-icon {
+  opacity: 0.65;
+}
+
+.review-mark-count {
+  font-size: 0.8em;
+  color: var(--page-subtle-foreground);
+}
+
+.review-mark-count:empty {
+  display: none;
+}
+
+.review-note-button {
+  opacity: 0.35;
+}
+
+.review-note-button.review-note-present {
+  opacity: 1;
+}
+
+.review-note-editor {
+  position: absolute;
+  z-index: 300;
+  padding: 4px;
+  border: 1px solid var(--tooltip-border);
+  border-radius: 4px;
+  background: var(--tooltip-background);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.review-note-editor textarea {
+  width: 24em;
+  height: 5em;
+  font: inherit;
+}
