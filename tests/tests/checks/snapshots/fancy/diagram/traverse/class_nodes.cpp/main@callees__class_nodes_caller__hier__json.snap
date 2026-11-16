@@ -25,5 +25,29 @@ input_file: inputs/fancy/diagram/traverse/class_nodes.cpp/callees__class_nodes_c
     "symbols": [
       "_ZN15SharedClassName6MethodEv"
     ]
+  },
+  {
+    "segment": "shared_ns",
+    "symbols": [
+      "NS_shared_ns"
+    ]
+  },
+  {
+    "segment": "Free",
+    "symbols": [
+      "_ZN9shared_ns4FreeEv"
+    ]
+  },
+  {
+    "segment": "Inner",
+    "symbols": [
+      "T_shared_ns::Inner"
+    ]
+  },
+  {
+    "segment": "Method",
+    "symbols": [
+      "_ZN9shared_ns5Inner6MethodEv"
+    ]
   }
 ]

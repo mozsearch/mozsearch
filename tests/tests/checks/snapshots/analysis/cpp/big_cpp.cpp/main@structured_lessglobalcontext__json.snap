@@ -12,6 +12,7 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_lessglobalcontext__json
     "type_pretty": null,
     "kind": "class",
     "subsystem": null,
+    "parentsym": "T_GlobalContext",
     "implKind": "",
     "sizeBytes": 1,
     "alignmentBytes": 1,

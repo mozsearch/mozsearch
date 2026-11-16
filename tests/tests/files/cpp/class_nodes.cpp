@@ -8,7 +8,26 @@ class SharedClassName {
   void Method() {}
 };
 
+// A namespace named like js/shared_class_name.js's JS variable: the
+// diagrams' node of the namespace its class and function are in is it, by
+// their records' `parentsym`s (and crossref's record of the namespace),
+// rather than the first symbol named shared_ns, the JS variable's (bug
+// 1958114).
+namespace shared_ns {
+
+class Inner {
+ public:
+  void Method() {}
+};
+
+void Free() {}
+
+}  // namespace shared_ns
+
 void ClassNodesCaller() {
   SharedClassName named;
   named.Method();
+  shared_ns::Inner inner;
+  inner.Method();
+  shared_ns::Free();
 }

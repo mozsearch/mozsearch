@@ -111,6 +111,7 @@ input_file: inputs/analysis/xpidl/CDATATest.h/cdata__json
     "pretty": "CDATATestNS::CDATATestStruct",
     "sym": "T_CDATATestNS::CDATATestStruct",
     "kind": "struct",
+    "parentsym": "NS_CDATATestNS",
     "sizeBytes": 1,
     "alignmentBytes": 1,
     "supers": [],

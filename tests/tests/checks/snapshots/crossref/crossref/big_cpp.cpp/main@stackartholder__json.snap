@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/big_cpp.cpp/stackartholder__json
 ---
 {
   "symbol_crossref_infos": [
@@ -41,6 +42,7 @@ expression: "&to_value(scil).unwrap()"
           "type_pretty": null,
           "kind": "class",
           "subsystem": "Core/Big",
+          "parentsym": "NS_outerNS",
           "implKind": "",
           "sizeBytes": 8,
           "alignmentBytes": 8,

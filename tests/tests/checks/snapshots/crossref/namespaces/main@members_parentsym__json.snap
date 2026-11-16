@@ -1,0 +1,17 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/crossref/namespaces/members_parentsym__json
+---
+[
+  {
+    "symbol": "_ZN9shared_ns4FreeEv",
+    "kind": "function",
+    "parentsym": "NS_shared_ns"
+  },
+  {
+    "symbol": "T_shared_ns::Inner",
+    "kind": "class",
+    "parentsym": "NS_shared_ns"
+  }
+]

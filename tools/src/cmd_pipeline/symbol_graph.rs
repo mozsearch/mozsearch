@@ -694,15 +694,19 @@ impl SymbolGraphCollection {
         // visually at 10 right now.
         const SYNTHETIC_DEPTH: u32 = 13;
 
-        // The pieces that are the nodes' ancestors (the classes they're in,
-        // and theirs, by their structured records' `parent_sym`), by their
+        // The pieces that are the nodes' ancestors (the classes and
+        // namespaces they're in, and theirs, by their structured records'
+        // `parent_sym`; crossref makes C++ namespaces' records), by their
         // pretty names: the symbols those pieces are, rather than the first
         // symbol named like them, which can be another language's (ex: the
         // TypeScript typings' interface of mozIStorageConnection, for its C++
-        // methods, or the Rust bindings' struct of nsTArray, whose jumps are
-        // to their files).  A node's class's pretty name is its own but its
-        // last piece; its class's class's is in its class's record (which
-        // can be too big for a remote server's API, ex: nsTArray's, 9 MB).
+        // methods, the Rust bindings' struct of nsTArray, whose jumps are to
+        // their files, or JS's `#mozilla`, for C++'s `mozilla` namespace,
+        // which the subsystem hierarchy then took for a class; bug 1958114).
+        // A node's parent's pretty name is its own but its last piece; its
+        // parent's parent's is in its parent's record (which can be too big
+        // for a remote server's API, ex: nsTArray's, 9 MB, or missing, ex: a
+        // template class's, which the clang plugin doesn't emit).
         let mut ancestors: HashMap<String, Ustr> = HashMap::new();
         let mut frontier: Vec<Ustr> = vec![];
         for id in graph.list_nodes() {

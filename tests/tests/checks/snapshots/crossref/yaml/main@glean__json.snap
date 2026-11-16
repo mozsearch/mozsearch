@@ -222,6 +222,7 @@ input_file: inputs/crossref/yaml/glean__json
           "type_pretty": null,
           "kind": "variable",
           "subsystem": null,
+          "parentsym": "NS_mozilla::glean::test_metrics",
           "slotOwner": {
             "slotKind": "member",
             "slotLang": "cpp",

@@ -293,6 +293,18 @@ fn event_structured(sym: Ustr, pretty: Ustr) -> AnalysisStructured {
     }
 }
 
+/// A C++ namespace's structured record, which its analysis has none of (see
+/// where `read_analysis_files` makes them): its kind, and the namespace it's
+/// in, if any.
+fn namespace_structured(sym: Ustr, pretty: Ustr, parent_sym: Option<Ustr>) -> AnalysisStructured {
+    AnalysisStructured {
+        kind: ustr("namespace"),
+        impl_kind: ustr(""),
+        parent_sym,
+        ..event_structured(sym, pretty)
+    }
+}
+
 // Maps the (raw) symbol corresponding to a type to a BTreeMap whose key
 // is the class referencing the type and whose values are a vec of tuples of
 // the form (field pretty, pointer kind).
@@ -1498,6 +1510,31 @@ fn read_analysis_files(
             },
             pretty: None,
         });
+    }
+
+    // C++ namespaces' structured records (the clang plugin's would be one for
+    // each file opening a namespace): their symbols are "NS_" and their
+    // qualified names (see the plugin's `getMangledName`; an anonymous
+    // namespace's is its location's, and its pretty name "(anonymous)" in its
+    // namespace's), so the namespace a namespace is in, its `parentsym`, is
+    // its pretty name's but its last component's, if that's a namespace.  A
+    // symbol's scopes can then be followed by their records' `parentsym`s, as
+    // the plugin's records of classes, functions and variables have the
+    // namespaces they're in as theirs (see its `getStructuredParent`), rather
+    // than by looking their pretty names' prefixes up by name, which can find
+    // another language's symbol (ex: JS's `#mozilla` for C++'s `mozilla`;
+    // bug 1958114).
+    let namespaces: Vec<(Ustr, Ustr)> = pretty_table
+        .iter()
+        .filter(|(sym, _)| sym.starts_with("NS_") && !meta_table.contains_key(*sym))
+        .map(|(sym, pretty)| (*sym, *pretty))
+        .collect();
+    for (sym, pretty) in namespaces {
+        let parent = pretty
+            .rsplit_once("::")
+            .map(|(outer, _)| ustr(&format!("NS_{}", outer)))
+            .filter(|parent| pretty_table.contains_key(parent));
+        meta_table.insert(sym, namespace_structured(sym, pretty, parent));
     }
 
     for (sym, recency) in decl_recency {

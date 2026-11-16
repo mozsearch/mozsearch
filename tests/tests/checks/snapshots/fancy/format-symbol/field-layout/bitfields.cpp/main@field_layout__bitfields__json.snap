@@ -185,6 +185,7 @@ input_file: inputs/fancy/format-symbol/field-layout/bitfields.cpp/field_layout__
             "type_pretty": null,
             "kind": "struct",
             "subsystem": null,
+            "parentsym": "NS_field_layout::bitfields",
             "implKind": "",
             "sizeBytes": 4,
             "alignmentBytes": 4,

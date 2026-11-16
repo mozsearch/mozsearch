@@ -1,0 +1,1 @@
+crossref-lookup '_ZN9shared_ns4FreeEv' 'T_shared_ns::Inner' | jq '[.symbol_crossref_infos[] | {symbol, kind: .crossref_info.meta.kind, parentsym: .crossref_info.meta.parentsym}]'

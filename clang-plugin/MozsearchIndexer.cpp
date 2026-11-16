@@ -576,6 +576,43 @@ private:
     return Result;
   }
 
+  // The declaration a declaration's structured record's "parentsym" is, for
+  // the declarations that aren't members (classes, enums, functions and
+  // variables): the class or namespace it's in, as its qualified name says
+  // (see `getQualifiedName`, which leaves out anonymous and inline
+  // namespaces), so that a symbol's scopes can be followed by their records
+  // (crossref synthesizes namespaces' records, which the analysis has none
+  // of) rather than by looking its pretty name's prefixes up by name, which
+  // can find another language's symbol (ex: JS's `#mozilla` for C++'s
+  // `mozilla`; bug 1958114).  None at the top level, or in a function or a
+  // lambda (ex: a local class).
+  const NamedDecl *getStructuredParent(const Decl *D) {
+    for (const DeclContext *DC = D->getDeclContext(); DC && isa<NamedDecl>(DC);
+         DC = DC->getParent()) {
+      if (const auto *Nd = dyn_cast<NamespaceDecl>(DC)) {
+        if (Nd->isAnonymousNamespace() || Nd->isInline()) {
+          continue;
+        }
+        return Nd;
+      }
+      if (const auto *Rd = dyn_cast<RecordDecl>(DC)) {
+        const auto *cxxDecl = dyn_cast<CXXRecordDecl>(Rd);
+        if (cxxDecl && cxxDecl->isLambda()) {
+          return nullptr;
+        }
+        return Rd;
+      }
+      return nullptr;
+    }
+    return nullptr;
+  }
+
+  void emitStructuredParent(llvm::json::OStream &J, const Decl *D) {
+    if (const NamedDecl *Parent = getStructuredParent(D)) {
+      J.attribute("parentsym", getMangledName(CurMangleContext, Parent));
+    }
+  }
+
   std::string mangleLocation(SourceLocation Loc,
                              std::string Backup = std::string()) {
     FileInfo *F = getFileInfo(Loc);
@@ -1424,6 +1461,7 @@ public:
     if (layoutHandling != LayoutHandling::LayoutOnly) {
       J.attribute("kind",
                   TypeWithKeyword::getTagTypeKindName(decl->getTagKind()));
+      emitStructuredParent(J, decl);
     }
 
     const ASTContext &C = *AstContext;
@@ -1647,6 +1685,7 @@ public:
 
   void emitStructuredEnumInfo(llvm::json::OStream &J, const EnumDecl *ED) {
     J.attribute("kind", "enum");
+    emitStructuredParent(J, ED);
   }
 
   void emitStructuredEnumConstantInfo(llvm::json::OStream &J,
@@ -1720,6 +1759,7 @@ public:
 
     } else {
       J.attribute("kind", "function");
+      emitStructuredParent(J, decl);
     }
 
     // ## Props
@@ -1798,6 +1838,8 @@ public:
 
     if (parentDecl) {
       J.attribute("parentsym", getMangledName(CurMangleContext, parentDecl));
+    } else if (!llvm::isa<ParmVarDecl>(decl) && !decl->isLocalVarDecl()) {
+      emitStructuredParent(J, decl);
     }
 
     emitBindingAttributes(J, *decl);

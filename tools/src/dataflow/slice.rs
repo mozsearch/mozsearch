@@ -345,7 +345,8 @@ async fn prefetch_units<'a>(
     for sym in &syms {
         if let Some(meta) = tracer.cached_xref(sym).and_then(|xref| xref.meta.clone()) {
             owners.extend(meta.slot_owner.map(|owner| owner.sym));
-            owners.extend(meta.parent_sym);
+            // (Not namespaces, whose entries hold all of their uses.)
+            owners.extend(meta.parent_sym.filter(|parent| !parent.starts_with("NS_")));
         }
     }
     tracer.prefetch(owners, []).await;

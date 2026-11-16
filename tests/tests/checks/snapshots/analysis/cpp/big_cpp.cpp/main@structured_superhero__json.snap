@@ -12,6 +12,7 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_superhero__json
     "type_pretty": null,
     "kind": "class",
     "subsystem": null,
+    "parentsym": "NS_outerNS",
     "implKind": "",
     "sizeBytes": 16,
     "alignmentBytes": 8,

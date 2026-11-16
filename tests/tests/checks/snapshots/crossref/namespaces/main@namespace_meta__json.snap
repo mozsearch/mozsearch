@@ -1,0 +1,25 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/crossref/namespaces/namespace_meta__json
+---
+{
+  "structured": 1,
+  "pretty": "shared_ns",
+  "sym": "NS_shared_ns",
+  "type_pretty": null,
+  "kind": "namespace",
+  "subsystem": null,
+  "implKind": "",
+  "sizeBytes": null,
+  "alignmentBytes": null,
+  "ownVFPtrBytes": null,
+  "bindingSlots": [],
+  "ontologySlots": [],
+  "supers": [],
+  "methods": [],
+  "fields": [],
+  "overrides": [],
+  "props": [],
+  "variants": []
+}

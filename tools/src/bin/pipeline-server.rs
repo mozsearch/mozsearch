@@ -351,7 +351,13 @@ fn graph_facets_value(
             pretty: jumpref.pretty,
             tree: jumpref.tree,
             subsystem: jumpref.meta.as_ref().and_then(|meta| meta.subsystem),
-            class: jumpref.meta.as_ref().and_then(|meta| meta.parent_sym),
+            // (Its parent, but a namespace, the parent of a C++ class's or
+            // function's record.)
+            class: jumpref
+                .meta
+                .as_ref()
+                .and_then(|meta| meta.parent_sym)
+                .filter(|parent| !parent.starts_with("NS_")),
             // (Its definition's file, or its declaration's.)
             path: jumpref
                 .jumps

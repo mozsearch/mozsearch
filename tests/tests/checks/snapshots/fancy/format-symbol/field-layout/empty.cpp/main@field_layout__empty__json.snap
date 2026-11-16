@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(sttl).unwrap()"
+input_file: inputs/fancy/format-symbol/field-layout/empty.cpp/field_layout__empty__json
 ---
 {
   "tables": [
@@ -16,6 +17,7 @@ expression: "&to_value(sttl).unwrap()"
             "type_pretty": null,
             "kind": "struct",
             "subsystem": null,
+            "parentsym": "NS_field_layout::empty",
             "implKind": "",
             "sizeBytes": 1,
             "alignmentBytes": 1,

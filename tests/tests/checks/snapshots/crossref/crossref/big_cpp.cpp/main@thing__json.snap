@@ -152,6 +152,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing__json
           "type_pretty": null,
           "kind": "class",
           "subsystem": "Core/Big",
+          "parentsym": "NS_outerNS",
           "implKind": "",
           "sizeBytes": 16,
           "alignmentBytes": 8,

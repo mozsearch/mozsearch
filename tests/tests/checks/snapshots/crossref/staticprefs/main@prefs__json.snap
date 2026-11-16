@@ -377,6 +377,7 @@ input_file: inputs/crossref/staticprefs/prefs__json
           "type_pretty": null,
           "kind": "function",
           "subsystem": null,
+          "parentsym": "NS_mozilla::StaticPrefs",
           "slotOwner": {
             "slotKind": "getter",
             "slotLang": "cpp",

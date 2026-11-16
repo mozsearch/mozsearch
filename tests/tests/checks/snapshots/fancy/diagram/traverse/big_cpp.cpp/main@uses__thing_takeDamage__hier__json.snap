@@ -7,7 +7,27 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/uses__thing_takeDamage__hi
   "jumprefs": {
     "NS_outerNS": {
       "sym": "NS_outerNS",
-      "pretty": "NS_outerNS",
+      "pretty": "outerNS",
+      "meta": {
+        "structured": 1,
+        "pretty": "outerNS",
+        "sym": "NS_outerNS",
+        "type_pretty": null,
+        "kind": "namespace",
+        "subsystem": null,
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [],
+        "variants": []
+      },
       "jumps": {
         "def": "big_cpp.cpp#128"
       }
@@ -22,6 +42,7 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/uses__thing_takeDamage__hi
         "type_pretty": null,
         "kind": "class",
         "subsystem": "Core/Big",
+        "parentsym": "NS_outerNS",
         "implKind": "",
         "sizeBytes": 40,
         "alignmentBytes": 8,
@@ -240,6 +261,7 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/uses__thing_takeDamage__hi
         "type_pretty": null,
         "kind": "class",
         "subsystem": "Core/Big",
+        "parentsym": "NS_outerNS",
         "implKind": "",
         "sizeBytes": 16,
         "alignmentBytes": 8,
