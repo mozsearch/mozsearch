@@ -946,19 +946,26 @@ var Diagram = new (class Diagram {
   /**
    * The legend of the diagrams' badges (see `addBadgeTooltips`), in the
    * navigation panel: the sections of `LABELS` with badges the page shows,
-   * with only those, if any; and the calls the diagram left out, if it did
-   * (see `addLeftOutCalls`).
+   * with only those, if any; and after it, the calls the diagram left out,
+   * if it did (see `addLeftOutCalls`).
    */
   addLegend() {
+    const content = document.querySelector("#panel-content");
+    if (!content) {
+      return;
+    }
+    this.addBadgeLegend(content);
+    this.addLeftOutCalls(content, this.leftOutGroups());
+  }
+
+  addBadgeLegend(content) {
     const shown = new Set([...document.querySelectorAll(`svg text[text-decoration="underline"]`)]
       .map(text => text.textContent));
     const sections = Object.entries(this.LABELS)
       .map(([sectionLabel, section]) =>
         [sectionLabel, Object.entries(section).filter(([label]) => shown.has(label))])
       .filter(([, labels]) => labels.length > 0);
-    const leftOut = this.leftOutGroups();
-    const content = document.querySelector("#panel-content");
-    if ((sections.length == 0 && leftOut.length == 0) || !content) {
+    if (sections.length == 0) {
       return;
     }
 
@@ -991,8 +998,6 @@ var Diagram = new (class Diagram {
       legendPane.append(legend);
     }
 
-    this.addLeftOutCalls(legendPane, leftOut);
-
     content.append(legendPane);
   }
 
@@ -1017,17 +1022,20 @@ var Diagram = new (class Diagram {
   }
 
   /**
-   * The legend's section of the calls the diagram left out, by their
-   * groups (with why, and the functions called, in their tooltips), each
-   * with a button showing them (the query again with `show-calls:`), and of
-   * those it shows that it would leave out, with buttons leaving them out
-   * again (but those shown as the diagram's of them).
+   * The navigation panel's section of the calls the diagram left out, by
+   * their groups (with why, and the functions called, in their tooltips),
+   * each with a button showing them (the query again with `show-calls:`),
+   * and of those it shows that it would leave out, with buttons leaving them
+   * out again (but those shown as the diagram's of them).
    */
-  addLeftOutCalls(legendPane, groups) {
+  addLeftOutCalls(content, groups) {
     if (groups.length == 0) {
       return;
     }
-    const title = document.createElement("h5");
+    const legendPane = document.createElement("section");
+    legendPane.id = "diagram-left-out-pane";
+
+    const title = document.createElement("h4");
     title.append("Left-out calls");
     legendPane.append(title);
 
@@ -1077,6 +1085,8 @@ var Diagram = new (class Diagram {
       all.append(this.showCallsButton("Show them all", hidden, true));
       legendPane.append(all);
     }
+
+    content.append(legendPane);
   }
 
   /**

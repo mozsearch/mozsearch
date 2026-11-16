@@ -16,7 +16,7 @@ function diagramText() {
 // A group's row in the legend: its name, its count, and its button.
 function leftOutGroup(name) {
   const legend = frame.contentDocument.querySelector(
-    "#panel-content #diagram-legend-pane .diagram-left-out");
+    "#panel-content #diagram-left-out-pane .diagram-left-out");
   ok(legend, "The legend has the left-out calls");
   const row = [...legend.querySelectorAll("li")]
     .find(li => li.querySelector(".diagram-left-out-name").textContent == name);
@@ -38,6 +38,12 @@ add_task(async function test_DiagramLeftOut_legend() {
      "but not the assertions' calls");
   ok(!diagramText().includes("Value"), "nor the getter's");
   ok(!diagramText().includes("isSome"), "nor Maybe's");
+
+  const doc = frame.contentDocument;
+  is(doc.querySelector("#diagram-left-out-pane h4")?.textContent, "Left-out calls",
+     "The navigation panel has a section of the left-out calls");
+  ok(!doc.querySelector("#diagram-legend-pane"),
+     "and no legend, as the diagram has no badges");
 
   const assertions = leftOutGroup("Assertions and crashes");
   ok(assertions.title.includes("check the code's logic"),
@@ -77,7 +83,7 @@ add_task(async function test_DiagramLeftOut_all() {
   await TestUtils.loadQuery("tests", QUERY);
 
   const button = [...frame.contentDocument.querySelectorAll(
-    "#diagram-legend-pane button.diagram-show-calls")]
+    "#diagram-left-out-pane button.diagram-show-calls")]
     .find(b => b.textContent == "Show them all");
   ok(button, "The legend can show all the left-out calls");
 
