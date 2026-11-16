@@ -7832,6 +7832,59 @@ textarea.monospace {
   display: none;
 }
 
+/* (The unseen mark, which isn't a problem, is grey rather than red,
+   wherever it's shown.) */
+.review-icon[data-mark="unseen"],
+.review-mark-unseen[aria-pressed="true"] .review-mark-icon {
+  filter: grayscale(1);
+  opacity: 0.7;
+}
+
+/* A part's current mark as a button, which opens a popup of its strip (see
+   review-state.js's `stateButton`). */
+.review-state {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.review-state-button {
+  position: relative;
+  min-width: 1.7em;
+  height: 1.6em;
+  padding: 0 3px;
+  border: 1px solid var(--button-active-background);
+  border-radius: 3px;
+  background: var(--button-background);
+  color: var(--page-color);
+  font-size: 0.85em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-state-button:hover,
+.review-state-button[aria-expanded="true"] {
+  border-color: var(--page-color);
+}
+
+.review-state-note {
+  margin-inline-start: 1px;
+  font-size: 0.8em;
+}
+
+.review-state-popup {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 40;
+  padding: 2px 4px;
+  border: 1px solid var(--tooltip-border);
+  border-radius: 4px;
+  background: var(--page-background);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  font-weight: normal;
+}
+
 .review-note-button {
   opacity: 0.35;
 }
@@ -8167,6 +8220,20 @@ textarea.monospace {
   padding-inline-end: 16px;
 }
 
+/* (A picker's items never wrap their icons and text apart; a picker too
+   wide for the view, even in one column, cuts its items' text short.  See
+   try-review.js's `fillFittedMenu`.) */
+#tr-patch-menu .contextmenu-link,
+#tr-jump-menu .contextmenu-link {
+  white-space: nowrap;
+}
+
+.tr-menu-narrow .contextmenu-link {
+  max-width: calc(var(--tr-menu-width) - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .tr-menu-honorary {
   font-style: italic;
 }
@@ -8349,9 +8416,9 @@ textarea.monospace {
   display: none;
 }
 
-/* A review strip's marks at rest: its mark and those with counts, the others
-   on hover and focus (in their places, so nothing moves). */
-.review-strip:not(:hover):not(:focus-within) .review-mark[aria-pressed="false"]:has(.review-mark-count:empty),
-.review-strip:not(:hover):not(:focus-within) .review-note-button:not(.review-note-present) {
-  visibility: hidden;
+/* (A source card's strip, after its heading.) */
+.tr-file-head .review-strip,
+.tr-def-head .review-strip,
+.tr-hunk-head .review-strip {
+  margin-inline-start: 0.4em;
 }

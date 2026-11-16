@@ -432,12 +432,11 @@ var ReviewState = (function () {
       button.type = "button";
       button.className = `review-mark review-mark-${mark.state}`;
       button.dataset.state = mark.state;
-      const icon = document.createElement("span");
-      icon.className = "review-mark-icon";
-      icon.textContent = mark.icon;
+      const markIcon = icon(mark.state);
+      markIcon.classList.add("review-mark-icon");
       const count = document.createElement("span");
       count.className = "review-mark-count";
-      button.append(icon, count);
+      button.append(markIcon, count);
       button.addEventListener("click", event => {
         event.stopPropagation();
         review.mark(part, review.own(part) == mark.state ? null : mark.state);
@@ -455,6 +454,106 @@ var ReviewState = (function () {
     box.append(note);
     updateStrip(review, box);
     return box;
+  }
+
+  /**
+   * A mark's icon, as an element whose `data-mark` is its state (the unseen
+   * one is grey; see mozsearch.css), and as HTML.
+   */
+  function icon(state) {
+    const span = document.createElement("span");
+    span.className = "review-icon";
+    span.dataset.mark = state;
+    span.textContent = MARKS.find(m => m.state == state)?.icon ?? "";
+    return span;
+  }
+
+  function iconHtml(state) {
+    return `<span class="review-icon" data-mark="${state}">${MARKS.find(m => m.state == state)?.icon ?? ""}</span>`;
+  }
+
+  /**
+   * A part's current mark, as a button (with an arrow if it's inherited,
+   * and a pencil if the part has a note), which opens a popup of its strip
+   * to change it (see `strip`): for where its state matters more than
+   * changing it (ex: a patch's heading), unlike a source card's strip.
+   */
+  function stateButton(review, part) {
+    const box = document.createElement("span");
+    box.className = "review-state";
+    box.dataset.part = part;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "review-state-button";
+    button.setAttribute("aria-haspopup", "true");
+    button.setAttribute("aria-expanded", "false");
+    box.append(button);
+    let popup = null;
+    const close = () => {
+      popup?.remove();
+      popup = null;
+      button.setAttribute("aria-expanded", "false");
+      document.removeEventListener("mousedown", outside, true);
+      document.removeEventListener("keydown", escape, true);
+    };
+    const outside = event => {
+      if (!box.contains(event.target)) {
+        close();
+      }
+    };
+    const escape = event => {
+      if (event.key == "Escape") {
+        close();
+        button.focus();
+      }
+    };
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      if (popup) {
+        close();
+        return;
+      }
+      popup = document.createElement("span");
+      popup.className = "review-state-popup";
+      popup.append(strip(review, part));
+      // (Choosing a mark closes it.)
+      popup.addEventListener("click", event => {
+        if (event.target.closest(".review-mark")) {
+          close();
+        }
+      });
+      box.append(popup);
+      button.setAttribute("aria-expanded", "true");
+      document.addEventListener("mousedown", outside, true);
+      document.addEventListener("keydown", escape, true);
+      popup.querySelector('.review-mark[aria-pressed="true"]')?.focus();
+    });
+    updateState(review, box);
+    return box;
+  }
+
+  function updateState(review, box) {
+    const part = box.dataset.part;
+    const { state, from } = review.effective(part);
+    const mark = MARKS.find(m => m.state == state);
+    const inherited = from !== null && from != part;
+    const button = box.querySelector(".review-state-button");
+    const label = review.parts.get(part)?.label ?? part;
+    button.replaceChildren(icon(state));
+    button.classList.toggle("review-mark-inherited", inherited);
+    if (review.noteOf(part)) {
+      const note = document.createElement("span");
+      note.className = "review-state-note";
+      note.textContent = "\u270f\ufe0f";
+      button.append(note);
+    }
+    button.title = `${mark.label}: ${label}` +
+      (inherited ? ` (from ${review.parts.get(from)?.label ?? from})` : "") +
+      "; click to change it";
+    const popupStrip = box.querySelector(".review-state-popup .review-strip");
+    if (popupStrip) {
+      updateStrip(review, popupStrip);
+    }
   }
 
   function updateStrip(review, box) {
@@ -546,6 +645,9 @@ var ReviewState = (function () {
       for (const box of root.querySelectorAll(".review-strip[data-part]")) {
         updateStrip(review, box);
       }
+      for (const box of root.querySelectorAll(".review-state[data-part]")) {
+        updateState(review, box);
+      }
     });
     document.addEventListener("keydown", event => {
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey &&
@@ -583,7 +685,7 @@ var ReviewState = (function () {
       const th = document.createElement("th");
       th.scope = "col";
       th.title = mark.label;
-      th.textContent = mark.icon;
+      th.append(icon(mark.state));
       head.append(th);
     }
     grid.append(head);
@@ -665,7 +767,8 @@ var ReviewState = (function () {
       listBox.hidden = false;
       const pages = Math.ceil(parts.length / PAGE_SIZE);
       selected.page = Math.min(selected.page, pages - 1);
-      listHead.textContent = `${selected.mark.icon} ${selected.label}: ${selected.mark.label} (${parts.length})`;
+      listHead.replaceChildren(icon(selected.mark.state),
+                               ` ${selected.label}: ${selected.mark.label} (${parts.length})`);
       list.replaceChildren(...parts
         .slice(selected.page * PAGE_SIZE, (selected.page + 1) * PAGE_SIZE)
         .map(part => {
@@ -751,5 +854,8 @@ var ReviewState = (function () {
     });
   }
 
-  return { Review, MARKS, STATES, strip, updateStrip, bind, summary, DB_NAME, STORE };
+  return {
+    Review, MARKS, STATES, icon, iconHtml, strip, updateStrip, stateButton, bind, summary,
+    DB_NAME, STORE,
+  };
 })();

@@ -1953,11 +1953,36 @@ fn parts(view: &ReviewView) -> Vec<Value> {
     out
 }
 
+/// A part's slot for its strip of marks (see review-state.js's `strip`), on
+/// source cards (files, definitions, hunks), after their headings.
 fn strip_slot(part: &str) -> String {
     format!(
         r#"<span class="tr-strip" data-part="{}"></span>"#,
         escape(part)
     )
+}
+
+/// A part's slot for a button of its mark, which opens its strip (see
+/// review-state.js's `stateButton`), where its state matters more than
+/// changing it (ex: a patch's heading).
+fn state_slot(part: &str) -> String {
+    format!(
+        r#"<span class="tr-state" data-part="{}"></span>"#,
+        escape(part)
+    )
+}
+
+/// The id of a part's element in a section (a file's and a definition's
+/// elements are in each section with their hunks), for the URL's `#` (see
+/// try-review.js's `remember`): a hash of them, which stays the same when the
+/// push is imported again.
+fn element_id(part: &str, section: Section) -> String {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in part.bytes().chain([b'\n']).chain(section.slug().bytes()) {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("tr-{:012x}", hash & 0xffff_ffff_ffff)
 }
 
 /// A side of a hunk: its lines before (`then`, kept and removed) or after
@@ -2008,7 +2033,15 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
     html
 }
 
-fn hunk_html(tree: &str, rev: &str, stack: &str, file: &ReviewFile, hunk: &ReviewHunk) -> String {
+/// A hunk's heading's lines, linked to the commit's file (with the push's
+/// stack; see stack-strip.js), and its added and removed lines' counts.
+fn hunk_lines_html(
+    tree: &str,
+    rev: &str,
+    stack: &str,
+    file: &ReviewFile,
+    hunk: &ReviewHunk,
+) -> String {
     let first = hunk.lines.iter().find_map(|line| line.new).unwrap_or(0);
     let last = hunk
         .lines
@@ -2016,8 +2049,6 @@ fn hunk_html(tree: &str, rev: &str, stack: &str, file: &ReviewFile, hunk: &Revie
         .filter_map(|line| line.new)
         .max()
         .unwrap_or(first);
-    // (In the commit's file, whose lines these are, with the push's stack;
-    // see stack-strip.js.)
     let link = format!(
         "/{}/rev/{}/{}?stack={}#{}",
         escape(tree),
@@ -2034,8 +2065,22 @@ fn hunk_html(tree: &str, rev: &str, stack: &str, file: &ReviewFile, hunk: &Revie
     .flatten()
     .collect::<Vec<_>>()
     .join(" ");
-    // (A new file has no code then, and a removed one none now.)
-    let code = match file.status.as_str() {
+    let lines = match first == last {
+        true => format!("line {}", first),
+        false => format!("lines {}&ndash;{}", first, last),
+    };
+    format!(
+        r#"<a class="tr-hunk-lines" href="{}">{}</a> <span class="tr-delta">{}</span>"#,
+        link,
+        lines,
+        escape(&delta)
+    )
+}
+
+/// A hunk's code, then and now (a new file has none then, and a removed one
+/// none now).
+fn hunk_code_html(file: &ReviewFile, hunk: &ReviewHunk) -> String {
+    match file.status.as_str() {
         "added" => format!(
             r#"<div class="now-code now-only">{}</div>"#,
             side_html(hunk, false)
@@ -2049,16 +2094,34 @@ fn hunk_html(tree: &str, rev: &str, stack: &str, file: &ReviewFile, hunk: &Revie
             side_html(hunk, true),
             side_html(hunk, false)
         ),
+    }
+}
+
+/// A hunk's card: its heading (its lines, then its strip), and its code; or,
+/// `folded` onto its definition's heading (its only hunk there), its code.
+fn hunk_html(
+    tree: &str,
+    rev: &str,
+    stack: &str,
+    file: &ReviewFile,
+    hunk: &ReviewHunk,
+    folded: bool,
+) -> String {
+    let head = match folded {
+        true => String::new(),
+        false => format!(
+            r#"<div class="tr-hunk-head">{} {}</div>"#,
+            hunk_lines_html(tree, rev, stack, file, hunk),
+            strip_slot(&hunk.id)
+        ),
     };
     format!(
-        r#"<div class="tr-hunk" data-part="{id}"><div class="tr-hunk-head">{strip} <a class="tr-hunk-lines" href="{link}">lines {first}&ndash;{last}</a> <span class="tr-delta">{delta}</span></div>{code}</div>"#,
+        r#"<div class="tr-hunk{folded}" data-part="{id}" id="{element}">{head}{code}</div>"#,
+        folded = if folded { " tr-hunk-folded" } else { "" },
         id = escape(&hunk.id),
-        strip = strip_slot(&hunk.id),
-        link = link,
-        first = first,
-        last = last,
-        delta = escape(&delta),
-        code = code,
+        element = element_id(&hunk.id, hunk.section),
+        head = head,
+        code = hunk_code_html(file, hunk),
     )
 }
 
@@ -2099,7 +2162,7 @@ fn file_html(
         let mut items: Vec<(u32, String)> = vec![];
         for hunk in hunks.iter().filter(|h| h.def.as_deref() == parent) {
             let first = hunk.lines.iter().find_map(|l| l.new.or(l.old)).unwrap_or(0);
-            items.push((first, hunk_html(tree, rev, stack, file, hunk)));
+            items.push((first, hunk_html(tree, rev, stack, file, hunk, false)));
         }
         for (order, def) in file
             .defs
@@ -2133,12 +2196,33 @@ fn file_html(
                 "moved" => r#" <span class="tr-def-status">moved</span>"#,
                 _ => "",
             };
+            // (Its only hunk, if it has no definitions of its own here, is
+            // folded onto its heading: its lines there, then the code.)
+            let own: Vec<&&ReviewHunk> = hunks
+                .iter()
+                .filter(|h| h.def.as_deref() == Some(def.id.as_str()))
+                .collect();
+            let nested = file.defs.iter().any(|d| {
+                d.parent.as_deref() == Some(def.id.as_str()) && wanted.contains(d.id.as_str())
+            });
+            let (lines, children) = match (own.as_slice(), nested) {
+                ([only], false) => (
+                    format!(" {}", hunk_lines_html(tree, rev, stack, file, only)),
+                    hunk_html(tree, rev, stack, file, only, true),
+                ),
+                _ => (
+                    String::new(),
+                    children_html(tree, rev, stack, file, Some(&def.id), hunks, wanted),
+                ),
+            };
+            let section = hunks.first().map_or(Section::Uses, |h| h.section);
             items.push((
                 first,
                 format!(
-                    r#"<div class="tr-def tr-def-{level}" data-part="{id}"><div class="tr-def-head">{strip} <span class="tr-def-kind">{kind}</span> <code class="tr-def-name" title="{pretty}">{name}</code>{decl}{status}</div>{children}</div>"#,
+                    r#"<div class="tr-def tr-def-{level}" data-part="{id}" id="{element}"><div class="tr-def-head"><span class="tr-def-kind">{kind}</span> <code class="tr-def-name" title="{pretty}">{name}</code>{decl}{status}{lines} {strip}</div>{children}</div>"#,
                     level = escape(&def.level),
                     id = escape(&def.id),
+                    element = element_id(&def.id, section),
                     strip = strip_slot(&def.id),
                     kind = escape(&def.kind),
                     pretty = escape(&def.pretty),
@@ -2149,7 +2233,8 @@ fn file_html(
                         ""
                     },
                     status = status,
-                    children = children_html(tree, rev, stack, file, Some(&def.id), hunks, wanted),
+                    lines = lines,
+                    children = children,
                 ),
             ));
         }
@@ -2179,8 +2264,9 @@ fn file_html(
         _ => String::new(),
     };
     format!(
-        r#"<section class="tr-file" data-part="{id}" data-path="{path}" data-facets="{facets}"><h5 class="tr-file-head">{strip} <a href="/{tree}/rev/{rev}/{link}?stack={stack}">{path}</a>{status}</h5>{children}{truncated}</section>"#,
+        r#"<section class="tr-file" data-part="{id}" id="{element}" data-path="{path}" data-facets="{facets}"><h5 class="tr-file-head"><a href="/{tree}/rev/{rev}/{link}?stack={stack}">{path}</a>{status} {strip}</h5>{children}{truncated}</section>"#,
         id = escape(&file.id),
+        element = element_id(&file.id, section),
         path = escape(&file.path),
         facets = escape(&serde_json::to_string(&facets).unwrap_or_default()),
         strip = strip_slot(&file.id),
@@ -2229,7 +2315,7 @@ fn patch_html(tree: &str, view: &ReviewView, i: usize) -> String {
         n = i + 1,
         count = view.patches.len(),
         id = escape(&patch.id),
-        strip = strip_slot(&patch.id),
+        strip = state_slot(&patch.id),
         tree = escape(tree),
         rev = escape(&patch.rev),
         short = escape(&short(&patch.rev)),
@@ -2534,9 +2620,10 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         files = files.len(),
         file_word = if files.len() == 1 { "file" } else { "files" },
         order = "interfaces, then definitions, then their uses, then tests",
-        modes = crate::crash_stack::then_now_modes_html(
-            "The code before each change.",
-            "The code after each change."
+        modes = crate::crash_stack::then_now_modes_labeled_html(
+            ["Now", "Patched", "Now &amp; Patched"],
+            "The code before each patch.",
+            "The code with each patch."
         ),
     ));
     html.push_str(&semantic_notes_html(tree, view));

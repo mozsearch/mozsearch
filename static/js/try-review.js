@@ -11,10 +11,9 @@
 // in the page's breadcrumbs, and its sections and patches hidden when the
 // panel's facets hide all of their files.
 
-// (A menu's groups in columns of about as many rows, at most 3.)
-function menuColumns(groups) {
+// (A menu's groups in `count` columns of about as many rows.)
+function menuColumns(groups, count) {
   const rows = groups.reduce((n, group) => n + group.items.length + 1, 0);
-  const count = Math.min(3, Math.max(1, Math.ceil(rows / 16)));
   const perColumn = Math.ceil(rows / count);
   const out = [[]];
   let inColumn = 0;
@@ -27,6 +26,38 @@ function menuColumns(groups) {
     inColumn += group.items.length + 1;
   }
   return out;
+}
+
+// Fills a menu with its groups in as many columns as fit within `maxWidth`
+// (at most 3, and about 16 rows each), or else in one, whose items' text is
+// cut short (with their whole text as their titles).  The menu is laid out
+// hidden first, and measured, so that it's shown at its size, never
+// wrapping its items' icons and text apart nor resizing once it's shown.
+function fillFittedMenu(menu, groups, maxWidth) {
+  const element = menu.menu;
+  const rows = groups.reduce((n, group) => n + group.items.length + 1, 0);
+  const most = Math.min(3, Math.max(1, Math.ceil(rows / 16)));
+  element.classList.remove("tr-menu-narrow");
+  element.style.removeProperty("--tr-menu-width");
+  element.style.visibility = "hidden";
+  element.style.display = "flex";
+  try {
+    for (let count = most; count >= 1; count--) {
+      fillCrashMenu(menu, menuColumns(groups, count));
+      if (element.scrollWidth <= maxWidth || count == 1) {
+        break;
+      }
+    }
+    if (element.scrollWidth > maxWidth) {
+      element.classList.add("tr-menu-narrow");
+      element.style.setProperty("--tr-menu-width", `${Math.max(200, maxWidth)}px`);
+      for (const link of element.querySelectorAll("a")) {
+        link.title ||= link.textContent.trim();
+      }
+    }
+  } finally {
+    element.style.visibility = "";
+  }
 }
 
 var TryReview = new (class TryReview {
@@ -54,6 +85,12 @@ var TryReview = new (class TryReview {
     for (const slot of this.root.querySelectorAll(".tr-strip[data-part]")) {
       slot.replaceWith(ReviewState.strip(this.review, slot.dataset.part));
     }
+    // (And where its state matters more than changing it, ex: a patch's
+    // heading, a button of its mark, which opens its strip.)
+    for (const slot of this.root.querySelectorAll(".tr-state[data-part]")) {
+      slot.replaceWith(ReviewState.stateButton(this.review, slot.dataset.part));
+    }
+    this.rememberLooking();
     ReviewState.bind(this.review, this.root);
     this.drawSlicings();
     this.summaryBox.append(ReviewState.summary(this.review, [
@@ -92,6 +129,11 @@ var TryReview = new (class TryReview {
     this.patchMenu = new CrashMenu(picker, document.getElementById("tr-patch-menu"),
                                    this.crumbs.querySelector(".tr-crumb-patch"),
                                    menu => this.fillPatchMenu(menu));
+    const open = this.patchMenu.open.bind(this.patchMenu);
+    this.patchMenu.open = () => {
+      open();
+      this.keepInView(this.patchMenu.menu);
+    };
     let scheduled = false;
     window.addEventListener("scroll", () => {
       if (!scheduled) {
@@ -127,13 +169,23 @@ var TryReview = new (class TryReview {
       items: group.patches.map(i => item(i, false))
         .concat((group.honorary || []).map(i => item(i, true))),
     }));
-    fillCrashMenu(menu, menuColumns(sorted));
+    fillFittedMenu(menu, sorted, this.root.getBoundingClientRect().width - 16);
     return menu.menu.querySelector(`a[data-patch="${this.currentPatch ?? 0}"]:not(.tr-menu-honorary)`);
   }
 
-  // (A part's mark's icon: its own, or what it has from its container.)
+  // (A picker's menu within the view, whose right the navigation panel can
+  // cover, rather than the window; see `fillFittedMenu`.)
+  keepInView(menu) {
+    const over = menu.getBoundingClientRect().right - this.root.getBoundingClientRect().right;
+    if (over > 0) {
+      menu.style.left = Math.max(0, menu.offsetLeft - over) + "px";
+    }
+  }
+
+  // (A part's mark's icon, as HTML: its own, or what it has from its
+  // container.)
   icon(part) {
-    return ReviewState.MARKS.find(m => m.state == this.review.effective(part).state)?.icon ?? "";
+    return ReviewState.iconHtml(this.review.effective(part).state);
   }
 
   // The sections' jump picker: a popup, under the section's heading, of its
@@ -167,11 +219,7 @@ var TryReview = new (class TryReview {
       head.append(menu);
       head.classList.add("tr-jumping");
       jumps.open();
-      // (Within the view, which the navigation panel can cover the right of.)
-      const over = menu.getBoundingClientRect().right - this.root.getBoundingClientRect().right;
-      if (over > 0) {
-        menu.style.left = Math.max(0, menu.offsetLeft - over) + "px";
-      }
+      this.keepInView(menu);
     });
   }
 
@@ -211,7 +259,7 @@ var TryReview = new (class TryReview {
         items,
       };
     });
-    fillCrashMenu(jumps, menuColumns(groups));
+    fillFittedMenu(jumps, groups, this.root.getBoundingClientRect().width - 16);
     return focus?.getFocusableElement();
   }
 
@@ -232,8 +280,8 @@ var TryReview = new (class TryReview {
       return;
     }
     section.hidden = false;
+    this.remember(section);
     section.scrollIntoView();
-    history.replaceState(history.state, "", `#${section.id}`);
     // (Picked, even if the page can't scroll it under the breadcrumbs.)
     this.setCurrentPatch(i);
   }
@@ -344,7 +392,7 @@ var TryReview = new (class TryReview {
     }
     this.review.subscribe(() => {
       for (const { node, mark } of this.sliceMarks) {
-        mark.textContent = this.icon(node.part);
+        mark.replaceChildren(ReviewState.icon(this.review.effective(node.part).state));
       }
     });
   }
@@ -372,7 +420,7 @@ var TryReview = new (class TryReview {
     if (node.part) {
       const mark = document.createElement("span");
       mark.className = "tr-slice-mark";
-      mark.textContent = this.icon(node.part);
+      mark.append(ReviewState.icon(this.review.effective(node.part).state));
       line.append(mark, " ");
       this.sliceMarks.push({ node, mark, element });
     }
@@ -441,6 +489,38 @@ var TryReview = new (class TryReview {
     return element;
   }
 
+  // Going somewhere in the review (a picker's, the summary's or a diagram's
+  // part, or a patch) is a history entry, so that Back returns to where
+  // the page was (the browser keeps each entry's scroll position), and the
+  // URL names the part (`#` its element's id), so that Enter in the URL bar
+  // scrolls back to it, without reloading.
+  remember(element) {
+    const target = element.closest("[id]");
+    if (target && location.hash != `#${target.id}`) {
+      history.pushState(history.state, "", `#${target.id}`);
+    }
+  }
+
+  // (Marking a part as being looked at is a history entry too, of its
+  // element.)
+  rememberLooking() {
+    this.root.addEventListener("click", event => {
+      const button = event.target.closest('.review-mark[data-state="looking"]');
+      const box = button?.closest(".review-strip[data-part]");
+      if (!box || this.review.own(box.dataset.part) == "looking") {
+        return;
+      }
+      // (The part's element, not the strip's popup's.)
+      const part = box.dataset.part;
+      const element = [...this.root.querySelectorAll("[data-part][id]")]
+        .find(each => each.dataset.part == part && each.contains(box)) ??
+        box.closest("[id]");
+      if (element) {
+        this.remember(element);
+      }
+    }, true);
+  }
+
   // The navigation panel's section of the review: its status (how many
   // parts are marked, that they're kept, or why not, and undo) and summary
   // (see `ReviewState.summary`), before the panel's "Debug" section.
@@ -490,6 +570,7 @@ var TryReview = new (class TryReview {
       this.statusText.textContent = "The navigation panel's facets hide it; clear them to see it.";
       return;
     }
+    this.remember(element);
     element.scrollIntoView({ block: "start" });
     element.classList.remove("tr-flash");
     void element.offsetWidth;

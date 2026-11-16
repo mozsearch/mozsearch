@@ -59,8 +59,21 @@ async function loadReview() {
                          "The review's marks are loaded");
 }
 
+// (A part's strip: a source card's own, after its heading, or for a part
+// shown by its mark's button, ex: a patch, the strip the button opens.)
 function strip(part) {
+  const own = doc().querySelector(`.review-strip[data-part="${part}"]`);
+  if (own) {
+    return own;
+  }
+  doc().querySelector(`.review-state[data-part="${part}"] .review-state-button`)?.click();
   return doc().querySelector(`.review-strip[data-part="${part}"]`);
+}
+
+// (A cancelable click, as a real one is, which a link's handler can keep
+// from following the link; TestUtils.click's isn't.)
+function realClick(element) {
+  element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 }
 
 function markButton(part, state) {
@@ -101,7 +114,24 @@ add_task(async function test_TryReview() {
   ok(wobbler.querySelector('.now-code .tr-text span[class^="syn_"]') &&
      doc().querySelector('.then-code .tr-text span[class^="syn_"]'),
      "with its syntax highlighted, as the source listings' is, then and now");
-  ok(doc().querySelector('.then-now-modes button[data-mode="now"]'), "and the Then/Now choice");
+  const modes = [...doc().querySelectorAll(".tr-head .then-now-modes button")].map(b => b.textContent);
+  is(modes.join(", "), "Now, Patched, Now & Patched",
+     "and the choice of the code now (before each patch), patched, or both");
+
+  // (Source cards have their strips after their headings; a definition's
+  // only hunk is folded onto its heading.)
+  const fileHead = definitions.querySelector('.tr-file[data-path="widget.h"] .tr-file-head');
+  ok(fileHead.lastElementChild?.classList.contains("review-strip"),
+     "A file's card has its strip after its heading");
+  ok(doc().querySelector(".tr-def > .tr-hunk-folded") &&
+     doc().querySelector(".tr-def-head > .tr-hunk-lines"),
+     "and a definition with one hunk has its lines on its heading");
+
+  // (A patch's heading has a button of its mark, grey while it's unseen.)
+  const state = patches[0].querySelector(".tr-patch-head .review-state-button");
+  const icon = state?.querySelector('.review-icon[data-mark="unseen"]');
+  ok(icon, "A patch's heading has a button of its mark, unseen at first");
+  ok(frame.contentWindow.getComputedStyle(icon).filter.includes("grayscale"), "in grey");
 
   // (The review's marks.)
   const patch = patches[0].dataset.part;
@@ -112,7 +142,9 @@ add_task(async function test_TryReview() {
   await waitForCondition(() => markButton(file, "good").getAttribute("aria-pressed") == "true",
                          "Marking the patch good marks its files good");
   ok(markButton(file, "good").classList.contains("review-mark-inherited"), "as inherited");
-  const hunk = definitions.querySelector('.tr-file[data-path="widget.h"] .tr-hunk').dataset.part;
+  // (A hunk with a card of its own, not folded onto its definition's.)
+  const hunk = (definitions.querySelector('.tr-file[data-path="widget.h"] .tr-hunk:not(.tr-hunk-folded)') ??
+                doc().querySelector(".tr-hunk:not(.tr-hunk-folded)")).dataset.part;
   TestUtils.click(markButton(hunk, "bad"));
   await waitForCondition(() => markButton(patch, "bad").textContent.includes("1"),
                          "The patch's strip counts a hunk marked bad");
@@ -192,9 +224,41 @@ add_task(async function test_TryReviewJumps() {
   ok(wobble, "and their classes and functions");
   ok(wobble.textContent.includes("✅"), "with their marks (here, inherited from the patch)");
 
-  TestUtils.click(wobble);
+  const heights = links.map(link => link.getBoundingClientRect().height);
+  ok(Math.max(...heights) < Math.min(...heights) * 1.5, "Its items don't wrap");
+
+  realClick(wobble);
   await waitForCondition(() => doc().querySelector(".tr-def.tr-flash"), "Picking one goes to it");
   isnot(menu.style.display, "flex", "and closes the picker");
+});
+
+// (Going to parts, and marking one as being looked at, are history entries,
+// whose URLs name the parts.)
+add_task(async function test_TryReviewHistory() {
+  await removeReview();
+  await importPush();
+  await loadReview();
+  const win = frame.contentWindow;
+  const file = doc().querySelector('.tr-file[data-path="widget.h"]');
+  ok(file.id, "A file's card has an id");
+  const length = win.history.length;
+  TestUtils.click(markButton(file.dataset.part, "looking"));
+  await waitForCondition(() => win.location.hash == `#${file.id}`,
+                         "Marking a part as being looked at puts it in the URL");
+  is(win.history.length, length + 1, "as a history entry");
+
+  const definitions = doc().querySelector('.tr-section[data-section="definitions"]');
+  TestUtils.click(definitions.querySelector(".tr-jump-picker"));
+  const menu = doc().querySelector("#tr-jump-menu");
+  await waitForCondition(() => menu.style.display == "flex", "The jump picker opens");
+  const wobble = [...menu.querySelectorAll("a")].find(link => link.textContent.includes("Wobble"));
+  realClick(wobble);
+  await waitForCondition(() => win.location.hash && win.location.hash != `#${file.id}`,
+                         "Picking a part goes to it, and puts it in the URL");
+  is(win.history.length, length + 2, "as another entry");
+  win.history.back();
+  await waitForCondition(() => win.location.hash == `#${file.id}`,
+                         "Back returns to the part looked at");
 });
 
 // (Its patch's changes' dataflow, by the push's slicing: Widget::Wobble,
@@ -210,7 +274,7 @@ add_task(async function test_TryReviewSlicing() {
   const wobble = nodes.find(node => node.textContent.includes("Wobble"));
   ok(wobble, "such as the method it adds");
   ok(figure.querySelector(".crash-graph-edge"), "linked by what they share");
-  ok(wobble.querySelector(".tr-slice-mark")?.textContent.includes("❓"),
+  ok(wobble.querySelector('.tr-slice-mark .review-icon[data-mark="unseen"]'),
      "each with its part's mark");
 
   // (The marks are the review's.)
@@ -259,7 +323,7 @@ add_task(async function test_TryReviewPatches() {
   ok(labels[0]?.startsWith("Group 1") && labels[1]?.startsWith("Group 2"), "by their groups");
   const second = doc().querySelector('#tr-patch-menu a[data-patch="1"]');
   ok(second.textContent.includes("Patch 2: Bug 4567"), "with their summaries");
-  TestUtils.click(second);
+  realClick(second);
   await waitForCondition(() => link.textContent == "Patch 2 of 2",
                          "Picking one goes to it, and the breadcrumbs say so");
 

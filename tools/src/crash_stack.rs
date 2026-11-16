@@ -2300,9 +2300,17 @@ pub(crate) fn then_html(tree_name: &str, then: &ThenExcerpt, label: &str) -> Str
 /// side; the view's root is a `then-now-view`, its `data-then-now` the mode,
 /// "then" at first.
 pub(crate) fn then_now_modes_html(then: &str, now: &str) -> String {
+    then_now_modes_labeled_html(["Then", "Now", "Then &amp; Now"], then, now)
+}
+
+/// `then_now_modes_html`, with its buttons' labels (HTML) other than "Then",
+/// "Now" and "Then & Now" (ex: a try review's "Now", "Patched" and "Now &
+/// Patched", whose code before a patch is the indexed revision's, as its
+/// stack is rebased onto it).
+pub(crate) fn then_now_modes_labeled_html(labels: [&str; 3], then: &str, now: &str) -> String {
     format!(
-        r#"<div class="then-now-choice"><div class="then-now-modes" role="group" aria-label="Which code to show"><button type="button" data-mode="then" aria-pressed="true">Then</button><button type="button" data-mode="now" aria-pressed="false">Now</button><button type="button" data-mode="both" aria-pressed="false">Then &amp; Now</button></div><p class="then-now-about then-about">{}</p><p class="then-now-about now-about">{}</p></div>"#,
-        then, now
+        r#"<div class="then-now-choice"><div class="then-now-modes" role="group" aria-label="Which code to show"><button type="button" data-mode="then" aria-pressed="true">{}</button><button type="button" data-mode="now" aria-pressed="false">{}</button><button type="button" data-mode="both" aria-pressed="false">{}</button></div><p class="then-now-about then-about">{}</p><p class="then-now-about now-about">{}</p></div>"#,
+        labels[0], labels[1], labels[2], then, now
     )
 }
 
