@@ -3,7 +3,9 @@ use clap::{Args, ValueEnum};
 
 use super::interface::{JsonValue, PipelineCommand, PipelineValues, TextFile};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
-use crate::try_review::{ReviewView, TRY_REVIEW_MIME, render_review, review_view, view_facets};
+use crate::try_review::{
+    ReviewView, TRY_REVIEW_MIME, add_line_html, render_review, review_view, view_facets,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, ValueEnum)]
 pub enum TryReviewFormat {
@@ -59,11 +61,24 @@ impl PipelineCommand for TryReviewCommand {
         }
         let view: ReviewView = serde_json::from_value(value)?;
         let tree = server.tree_info()?.name;
+        let facets = view_facets(&view);
+        // (Its HTML, with its lines highlighted, cached too.)
+        let contents = crate::step_cache::cached(
+            server.cache_identity(),
+            "try-review-html",
+            &push,
+            || async {
+                let mut view = view;
+                add_line_html(server, &mut view).await;
+                Ok::<_, ServerError>(serde_json::Value::String(render_review(&tree, &view)))
+            },
+        )
+        .await?;
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: TRY_REVIEW_MIME.to_string(),
-            contents: render_review(&tree, &view),
+            contents: contents.as_str().unwrap_or_default().to_string(),
             transient: false,
-            facets: Some(view_facets(&view)),
+            facets: Some(facets),
         }))
     }
 }

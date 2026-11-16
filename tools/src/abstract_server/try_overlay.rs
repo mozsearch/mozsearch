@@ -313,6 +313,10 @@ impl AbstractServer for TryOverlay {
         self.base.commit_diff(rev).await
     }
 
+    async fn rev_text(&self, rev: &str, path: &str) -> Result<Option<String>> {
+        self.base.rev_text(rev, path).await
+    }
+
     async fn commit_page(&self, rev: &str) -> Result<Value> {
         self.base.commit_page(rev).await
     }

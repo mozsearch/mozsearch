@@ -11,6 +11,24 @@
 // in the page's breadcrumbs, and its sections and patches hidden when the
 // panel's facets hide all of their files.
 
+// (A menu's groups in columns of about as many rows, at most 3.)
+function menuColumns(groups) {
+  const rows = groups.reduce((n, group) => n + group.items.length + 1, 0);
+  const count = Math.min(3, Math.max(1, Math.ceil(rows / 16)));
+  const perColumn = Math.ceil(rows / count);
+  const out = [[]];
+  let inColumn = 0;
+  for (const group of groups) {
+    if (inColumn > 0 && inColumn + group.items.length + 1 > perColumn && out.length < count) {
+      out.push([]);
+      inColumn = 0;
+    }
+    out[out.length - 1].push(group);
+    inColumn += group.items.length + 1;
+  }
+  return out;
+}
+
 var TryReview = new (class TryReview {
   constructor() {
     this.root = document.getElementById("try-review");
@@ -23,6 +41,7 @@ var TryReview = new (class TryReview {
     }
     this.moveCrumbs();
     this.addPatchPicker();
+    this.addJumpPicker();
     this.addThenNowCrumb();
     this.addPanelSection();
     this.root.addEventListener("facetschange", () => this.hideEmpty());
@@ -90,9 +109,8 @@ var TryReview = new (class TryReview {
     const groups = TRY_REVIEW.groups?.length
       ? TRY_REVIEW.groups
       : patches.map((_, i) => ({ patches: [i], honorary: [] }));
-    const icon = part => ReviewState.MARKS.find(m => m.state == this.review.effective(part).state)?.icon ?? "";
     const item = (i, honorary) => new MenuItem({
-      html: `<span class="tr-menu-mark">${icon(patches[i].part)}</span> ` +
+      html: `<span class="tr-menu-mark">${this.icon(patches[i].part)}</span> ` +
             `<span class="tr-menu-patch">Patch ${i + 1}: ${escapeHtml(patches[i].summary)}</span>` +
             (honorary ? ` <span class="crash-menu-owner">(related)</span>` : ""),
       classNames: ["indent"].concat(honorary ? ["tr-menu-honorary"] : []),
@@ -108,22 +126,103 @@ var TryReview = new (class TryReview {
       items: group.patches.map(i => item(i, false))
         .concat((group.honorary || []).map(i => item(i, true))),
     }));
-    // (About as many rows in each column, at most 3 columns.)
-    const rows = sorted.reduce((n, group) => n + group.items.length + 1, 0);
-    const count = Math.min(3, Math.max(1, Math.ceil(rows / 16)));
-    const perColumn = Math.ceil(rows / count);
-    const columns = [[]];
-    let inColumn = 0;
-    for (const group of sorted) {
-      if (inColumn > 0 && inColumn + group.items.length + 1 > perColumn && columns.length < count) {
-        columns.push([]);
-        inColumn = 0;
-      }
-      columns[columns.length - 1].push(group);
-      inColumn += group.items.length + 1;
-    }
-    fillCrashMenu(menu, columns);
+    fillCrashMenu(menu, menuColumns(sorted));
     return menu.menu.querySelector(`a[data-patch="${this.currentPatch ?? 0}"]:not(.tr-menu-honorary)`);
+  }
+
+  // (A part's mark's icon: its own, or what it has from its container.)
+  icon(part) {
+    return ReviewState.MARKS.find(m => m.state == this.review.effective(part).state)?.icon ?? "";
+  }
+
+  // The sections' jump picker: a popup, under the section's heading, of its
+  // patch's files, classes and functions by section, each with its mark,
+  // going to it.  (One menu, which each section's button opens.)
+  addJumpPicker() {
+    const menu = document.getElementById("tr-jump-menu");
+    if (!menu || typeof CrashMenu == "undefined") {
+      return;
+    }
+    const jumps = new CrashMenu(null, menu, null, () => this.fillJumpMenu(jumps));
+    // (Its heading above the later ones while it's open, which would
+    // otherwise cover it.)
+    jumps.hide = () => {
+      CrashMenu.prototype.hide.call(jumps);
+      menu.parentElement?.classList.remove("tr-jumping");
+    };
+    this.root.addEventListener("click", event => {
+      const button = event.target.closest(".tr-jump-picker");
+      if (!button) {
+        return;
+      }
+      const shown = jumps.isShown() && jumps.button == button;
+      jumps.hide();
+      if (shown) {
+        return;
+      }
+      jumps.button = button;
+      jumps.anchor = button;
+      const head = button.closest(".tr-section-head");
+      head.append(menu);
+      head.classList.add("tr-jumping");
+      jumps.open();
+      // (Within the view, which the navigation panel can cover the right of.)
+      const over = menu.getBoundingClientRect().right - this.root.getBoundingClientRect().right;
+      if (over > 0) {
+        menu.style.left = Math.max(0, menu.offsetLeft - over) + "px";
+      }
+    });
+  }
+
+  fillJumpMenu(jumps) {
+    const button = jumps.button;
+    const here = button.closest(".tr-section");
+    const patch = button.closest(".tr-patch");
+    let focus = null;
+    const groups = [...patch.querySelectorAll(".tr-section")].filter(section => !section.hidden).map(section => {
+      const items = [];
+      for (const file of section.querySelectorAll(".tr-file[data-part]")) {
+        if (file.hidden) {
+          continue;
+        }
+        const path = file.dataset.path ?? "";
+        const slash = path.lastIndexOf("/");
+        items.push(this.jumpItem(jumps, file, ["tr-menu-file"],
+          `<span class="tr-menu-path">${escapeHtml(path.slice(slash + 1))}</span>` +
+          (slash > 0 ? ` <span class="crash-menu-owner">${escapeHtml(path.slice(0, slash + 1))}</span>` : "")));
+        for (const def of file.querySelectorAll(".tr-def[data-part]")) {
+          // (As its heading says it, under its class, if it's in one.)
+          const head = def.querySelector(":scope > .tr-def-head");
+          const kind = head?.querySelector(".tr-def-kind")?.textContent ?? "";
+          const name = head?.querySelector(".tr-def-name")?.textContent ?? "";
+          const nested = def.parentElement.closest(".tr-def") && file.contains(def.parentElement.closest(".tr-def"));
+          items.push(this.jumpItem(jumps, def, nested ? ["indent", "tr-menu-deeper"] : ["indent"],
+            `<span class="crash-menu-owner">${escapeHtml(kind)}</span> ` +
+            `<span class="tr-menu-def">${escapeHtml(name)}</span>`));
+        }
+      }
+      if (section == here) {
+        focus = items[0];
+      }
+      return {
+        label: section.querySelector(".tr-section-label")?.textContent ?? "",
+        detail: section == here ? "(this section)" : null,
+        items,
+      };
+    });
+    fillCrashMenu(jumps, menuColumns(groups));
+    return focus?.getFocusableElement();
+  }
+
+  jumpItem(jumps, element, classNames, html) {
+    return new MenuItem({
+      html: `<span class="tr-menu-mark">${this.icon(element.dataset.part)}</span> ${html}`,
+      classNames,
+      action: () => {
+        jumps.hide();
+        this.goTo(element);
+      },
+    });
   }
 
   showPatch(i) {
@@ -243,9 +342,12 @@ var TryReview = new (class TryReview {
     const element = [...this.root.querySelectorAll(
       ".tr-patch[data-part], .tr-file[data-part], .tr-def[data-part], .tr-hunk[data-part]")]
       .find(e => e.dataset.part == part);
-    if (!element) {
-      return;
+    if (element) {
+      this.goTo(element);
     }
+  }
+
+  goTo(element) {
     if (element.closest("[hidden]")) {
       this.statusText.textContent = "The navigation panel's facets hide it; clear them to see it.";
       return;

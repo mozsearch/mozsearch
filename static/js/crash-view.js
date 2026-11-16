@@ -55,7 +55,7 @@ class CrashMenu extends ContextMenuBase {
   }
 
   hideOnMouseDown(event) {
-    if (this.menu && (this.menu.contains(event.target) || this.button.contains(event.target))) {
+    if (this.menu && (this.menu.contains(event.target) || this.button?.contains(event.target))) {
       return;
     }
     this.hide();

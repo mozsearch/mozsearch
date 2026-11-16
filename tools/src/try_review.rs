@@ -68,8 +68,9 @@ pub struct Hunk {
 }
 
 /// A line of a hunk: kept (" "), removed ("-"), or added ("+"), with its
-/// numbers before and after.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// numbers before and after, and as syntax-highlighted HTML on each side, if
+/// it's had (see `add_line_html`; not kept in the view's cache).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct HunkLine {
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -77,6 +78,10 @@ pub struct HunkLine {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub new: Option<u32>,
     pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub then_html: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now_html: Option<String>,
 }
 
 impl Hunk {
@@ -234,6 +239,7 @@ pub fn parse_diff(text: &str) -> Vec<FileDiff> {
                         old: o,
                         new: n,
                         text,
+                        ..Default::default()
                     });
                     continue;
                 }
@@ -531,6 +537,9 @@ pub struct ReviewPatch {
     /// Its part's id: `p:<rev>`.
     pub id: String,
     pub rev: String,
+    /// Its parent, its files' "then" (see `add_line_html`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
     pub summary: String,
     pub author: String,
     pub date: String,
@@ -992,6 +1001,7 @@ pub async fn review_view(
         }
         patches.push(ReviewPatch {
             id: format!("p:{}", diff.rev),
+            parent: diff.parent.clone(),
             rev: diff.rev,
             summary,
             author: diff.author,
@@ -1019,6 +1029,82 @@ pub async fn review_view(
         semantic_trunk: try_push.semantic_trunk,
         landed: try_push.landed,
     })
+}
+
+// ## Syntax highlighting
+
+/// The most bytes of a file whose lines are highlighted (bigger ones' are
+/// plain text).
+const MAX_HIGHLIGHTED_FILE: usize = 2 * 1024 * 1024;
+
+/// The view's hunks' lines' syntax-highlighted HTML (see `HunkLine`): each
+/// file formatted as its source listing is (`format::format_code`, without
+/// its analysis's links) in its patch's commit ("now") and in its parent
+/// ("then"; a renamed file's old path), where the server has their text (not
+/// remote servers, whose lines stay plain).
+pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &mut ReviewView) {
+    async fn formatted(
+        server: &(dyn AbstractServer + Send + Sync),
+        rev: &str,
+        path: &str,
+    ) -> Option<Vec<String>> {
+        let text = server.rev_text(rev, path).await.ok()??;
+        if text.len() > MAX_HIGHLIGHTED_FILE {
+            return None;
+        }
+        match crate::languages::select_formatting(path) {
+            crate::languages::FormatAs::Binary => None,
+            format => Some(
+                crate::format::format_code(
+                    None,
+                    &crate::file_format::jumpref::TreeJumprefs::default(),
+                    format,
+                    path,
+                    &text,
+                    &[],
+                )
+                .0
+                .into_iter()
+                .map(|line| line.line)
+                .collect(),
+            ),
+        }
+    }
+    for patch in &mut view.patches {
+        for file in &mut patch.files {
+            if file.status == "binary" {
+                continue;
+            }
+            let now = match file.status.as_str() {
+                "removed" => None,
+                _ => formatted(server, &patch.rev, &file.path).await,
+            };
+            let then = match (file.status.as_str(), &patch.parent) {
+                ("added", _) | (_, None) => None,
+                (_, Some(parent)) => {
+                    formatted(
+                        server,
+                        parent,
+                        file.old_path.as_deref().unwrap_or(&file.path),
+                    )
+                    .await
+                }
+            };
+            let at = |lines: &Option<Vec<String>>, n: Option<u32>| -> Option<String> {
+                lines.as_ref()?.get((n? as usize).checked_sub(1)?).cloned()
+            };
+            for hunk in &mut file.hunks {
+                for line in &mut hunk.lines {
+                    if line.kind != "+" {
+                        line.then_html = at(&then, line.old);
+                    }
+                    if line.kind != "-" {
+                        line.now_html = at(&now, line.new);
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ## Patch groups
@@ -1441,11 +1527,15 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
             (true, _) => (line.old, ""),
             (false, _) => (line.new, ""),
         };
+        let code = match then {
+            true => line.then_html.as_deref(),
+            false => line.now_html.as_deref(),
+        };
         html.push_str(&format!(
             r#"<div class="tr-line{}"><span class="tr-lno">{}</span><code class="tr-text">{}</code></div>"#,
             class,
             number.map_or(String::new(), |n| n.to_string()),
-            escape(&line.text)
+            code.map_or_else(|| escape(&line.text).to_string(), str::to_string)
         ));
     }
     if other > 0 {
@@ -1697,10 +1787,11 @@ fn patch_html(tree: &str, view: &ReviewView, i: usize) -> String {
     }
     for section in &present {
         html.push_str(&format!(
-            r#"<div class="tr-section tr-section-{slug}" data-section="{slug}"><h4 class="tr-section-head"><span class="tr-section-label">{label}</span> <span class="tr-section-about">{about}</span><span class="tr-section-jumps">{jumps}</span></h4>"#,
+            r#"<div class="tr-section tr-section-{slug}" data-section="{slug}"><h4 class="tr-section-head"><span class="tr-section-label">{label}</span> <span class="tr-section-about">{about}</span><span class="tr-section-jumps">{jumps}<button type="button" class="tr-jump-picker" data-patch="{patch}" title="Go to one of the patch's files, classes or functions" aria-expanded="false" aria-haspopup="true" aria-controls="tr-jump-menu">Jump to</button></span></h4>"#,
             slug = section.slug(),
             label = section.label(),
             about = section.about(),
+            patch = i,
             jumps = present
                 .iter()
                 .filter(|other| *other != section)
@@ -1905,7 +1996,7 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
     ));
     // (The breadcrumbs' trail, which try-review.js puts in the page's.)
     html.push_str(&format!(
-        r##"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/try/hg/{push}">try push {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span><span class="path-separator">/</span><span class="tr-crumb-patch"><a class="tr-crumb-patch-link" href="#tr-patch-1">Patch 1</a><button type="button" class="crash-crumb-button" id="tr-patch-picker" title="Pick a patch" aria-expanded="false" aria-haspopup="true" aria-controls="tr-patch-menu"></button><div id="tr-patch-menu" title="The patches" role="menu" class="context-menu initially-hidden"></div></span><span class="tr-crumb-then-now" hidden></span></span>"##,
+        r##"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/try/hg/{push}">try push {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span><span class="path-separator">/</span><span class="tr-crumb-patch"><a class="tr-crumb-patch-link" href="#tr-patch-1">Patch 1</a><button type="button" class="crash-crumb-button" id="tr-patch-picker" title="Pick a patch" aria-expanded="false" aria-haspopup="true" aria-controls="tr-patch-menu"></button><div id="tr-patch-menu" title="The patches" role="menu" class="context-menu initially-hidden"></div></span><span class="tr-crumb-then-now" hidden></span></span><div id="tr-jump-menu" title="The patch's files, classes and functions" role="menu" class="context-menu initially-hidden"></div>"##,
         tree = escape(tree),
         push = escape(&view.push),
         short = escape(&short(&view.push)),
@@ -2061,6 +2152,7 @@ Binary files img.png and img.png differ
         ReviewPatch {
             id: format!("p:{}", rev),
             rev: rev.to_string(),
+            parent: None,
             summary: String::new(),
             author: String::new(),
             date: String::new(),
@@ -2140,6 +2232,7 @@ Binary files img.png and img.png differ
                     old: Some(i as u32 + 1),
                     new: Some(i as u32 + 1),
                     text: format!("{}", i),
+                    ..Default::default()
                 })
                 .collect(),
         };

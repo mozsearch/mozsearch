@@ -98,6 +98,9 @@ add_task(async function test_TryReview() {
   const pair = definitions.querySelector('.tr-file[data-path="widget.h"] .then-now');
   ok(pair?.querySelector(".then-code .tr-removed") && pair?.querySelector(".now-code .tr-added"),
      "A changed file's hunks have their code then and now");
+  ok(wobbler.querySelector('.now-code .tr-text span[class^="syn_"]') &&
+     doc().querySelector('.then-code .tr-text span[class^="syn_"]'),
+     "with its syntax highlighted, as the source listings' is, then and now");
   ok(doc().querySelector('.then-now-modes button[data-mode="now"]'), "and the Then/Now choice");
 
   // (The review's marks.)
@@ -161,6 +164,37 @@ add_task(async function test_TryReviewSummary() {
   await waitForCondition(() => Number(cell("file", "unseen").textContent) > 0,
                          "Undo puts the summary back");
   ok(files > 0, "(The view has files.)");
+});
+
+// (A section's jump picker: its patch's files, classes and functions, by
+// section, with their marks.)
+add_task(async function test_TryReviewJumps() {
+  await removeReview();
+  await importPush();
+  await loadReview();
+  const patch = doc().querySelector(".tr-patch");
+  TestUtils.click(markButton(patch.dataset.part, "good"));
+  await waitForCondition(() => markButton(patch.dataset.part, "good").getAttribute("aria-pressed") == "true",
+                         "The patch is marked good");
+
+  const definitions = patch.querySelector('.tr-section[data-section="definitions"]');
+  TestUtils.click(definitions.querySelector(".tr-jump-picker"));
+  const menu = doc().querySelector("#tr-jump-menu");
+  await waitForCondition(() => menu.style.display == "flex" && menu.querySelector("a"),
+                         "A section's jump picker opens under its heading");
+  ok(definitions.querySelector(".tr-section-head").contains(menu), "(which has it)");
+  const labels = [...menu.querySelectorAll(".context-menu-group-label")].map(label => label.textContent);
+  ok(labels[0]?.startsWith("Definitions") && labels[0].includes("this section"),
+     "It lists the patch's sections, saying which one it's in");
+  const links = [...menu.querySelectorAll("a")];
+  ok(links.some(link => link.textContent.includes("widget.h")), "and their files");
+  const wobble = links.find(link => link.textContent.includes("Wobble"));
+  ok(wobble, "and their classes and functions");
+  ok(wobble.textContent.includes("✅"), "with their marks (here, inherited from the patch)");
+
+  TestUtils.click(wobble);
+  await waitForCondition(() => doc().querySelector(".tr-def.tr-flash"), "Picking one goes to it");
+  isnot(menu.style.display, "flex", "and closes the picker");
 });
 
 // (1a2b3c4d5e6f's two patches, "Let widgets shrink" and "Shrink widgets

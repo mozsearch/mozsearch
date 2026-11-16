@@ -8171,6 +8171,58 @@ textarea.monospace {
   font-style: italic;
 }
 
+/* The sections' jump picker (try-review.js's `addJumpPicker`): a button
+   with the select arrow after the jumps, and its menu under the heading. */
+.tr-jump-picker {
+  margin-inline-start: 0.75em;
+  padding: 0 16px 0 2px;
+  border: none;
+  border-radius: 3px;
+  background: transparent var(--select-arrow-svg) no-repeat right center;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tr-jump-picker:hover {
+  background-color: var(--list-hover-background);
+}
+
+.tr-section-head.tr-jumping {
+  z-index: 21;
+}
+
+#tr-jump-menu {
+  display: flex;
+  flex-direction: row;
+  max-height: 70vh;
+  font-size: 13px;
+  font-weight: normal;
+}
+
+#tr-jump-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#tr-jump-menu > div + div {
+  border-inline-start: 1px solid var(--page-border-color);
+}
+
+#tr-jump-menu .contextmenu-link {
+  padding: 0.3em 16px 0.3em 0.5em;
+  white-space: nowrap;
+}
+
+#tr-jump-menu .indent {
+  padding-inline-start: 24px;
+}
+
+#tr-jump-menu .tr-menu-deeper {
+  padding-inline-start: 40px;
+}
+
 .tr-crumb-then-now {
   margin-inline-start: 1em;
 }
