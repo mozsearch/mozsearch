@@ -274,6 +274,9 @@ pub struct Tracer<'s> {
     pub oracle: Option<Arc<Oracle>>,
     /// What it treats as black boxes (see `mapping`).
     mapping: Option<Arc<DataflowMapping>>,
+    /// What test code is, beyond test files (diagram-mapping.toml's
+    /// `[tests]`; see `TraceOpts::include_tests`).
+    tests: Option<Arc<crate::cmd_pipeline::diagram_mapping::DiagramMapping>>,
     pub graph: TraceGraph,
     /// The places followed, and those of its steps (assignments' and
     /// parameters'), in their functions (by their files' paths), in the order
@@ -315,6 +318,7 @@ impl<'s> Tracer<'s> {
             type_syms: HashMap::new(),
             oracle: None,
             mapping: server.dataflow_mapping(),
+            tests: server.diagram_mapping(),
             graph: TraceGraph::default(),
             traced: vec![],
             node_ids: HashMap::new(),
@@ -2257,7 +2261,12 @@ impl<'s> Tracer<'s> {
                 next += batch.len();
                 self.prefetch_defs(batch.clone()).await;
                 for o in &batch {
-                    if skip_tests && self.xref(o).await.is_some_and(|xref| xref.is_test_code()) {
+                    if skip_tests
+                        && self
+                            .xref(o)
+                            .await
+                            .is_some_and(|xref| self.is_test_code(&xref))
+                    {
                         continue;
                     }
                     followed += 1;
@@ -2482,13 +2491,17 @@ impl<'s> Tracer<'s> {
                 .uses
                 .iter()
                 .flatten()
-                .filter(|p| !(skip_tests && p.path_kind == "test"))
+                .filter(|p| !(skip_tests && self.is_test_path(&p.path_kind, &p.path)))
                 .flat_map(|p| {
                     p.lines
                         .iter()
                         .map(move |l| (p.path.to_string(), l.lineno, l.contextsym))
                 })
                 .collect();
+            let uses = match skip_tests {
+                true => self.without_test_callers(uses).await,
+                false => uses,
+            };
             for (path, line, contextsym) in uses {
                 total += 1;
                 if sites.len() >= self.opts.fanout {
@@ -3549,7 +3562,23 @@ impl<'s> Tracer<'s> {
     /// Whether to leave out the symbol's uses in test files (see
     /// `TraceOpts::include_tests`).
     fn skips_tests(&self, xref: &CrossrefData) -> bool {
-        !self.opts.include_tests && !xref.is_test_code()
+        !self.opts.include_tests && !self.is_test_code(xref)
+    }
+
+    /// Whether a symbol is test code (see `DiagramMapping::is_test_xref`).
+    pub fn is_test_code(&self, xref: &CrossrefData) -> bool {
+        match &self.tests {
+            Some(tests) => tests.is_test_xref(xref),
+            None => xref.is_test_code(),
+        }
+    }
+
+    /// Whether a file is test code's (see `DiagramMapping::is_test_path`).
+    fn is_test_path(&self, path_kind: &str, path: &str) -> bool {
+        match &self.tests {
+            Some(tests) => tests.is_test_path(path_kind, path),
+            None => path_kind == "test",
+        }
     }
 
     /// The symbol's uses and assignments, but test files' (see
@@ -3559,17 +3588,53 @@ impl<'s> Tracer<'s> {
             return vec![];
         };
         let skip_tests = self.skips_tests(&xref);
-        xref.uses
+        let uses: Vec<(String, u32, Ustr)> = xref
+            .uses
             .iter()
             .flatten()
             .chain(xref.assignments.iter().flatten())
-            .filter(|p| !(skip_tests && p.path_kind == "test"))
+            .filter(|p| !(skip_tests && self.is_test_path(&p.path_kind, &p.path)))
             .flat_map(|p| {
                 p.lines
                     .iter()
                     .map(move |l| (p.path.to_string(), l.lineno, l.contextsym))
             })
-            .collect()
+            .collect();
+        match skip_tests {
+            true => self.without_test_callers(uses).await,
+            false => uses,
+        }
+    }
+
+    /// Uses (as `(path, line, contextsym)`), but those whose functions are
+    /// test code (see `is_test_code`), outside test files (whose uses are
+    /// already left out), ex: a gtest made by googletest's macros wherever it
+    /// is (see `TraceOpts::include_tests`).
+    async fn without_test_callers(
+        &mut self,
+        uses: Vec<(String, u32, Ustr)>,
+    ) -> Vec<(String, u32, Ustr)> {
+        // (Their entries at once.)
+        let mut callers: Vec<Ustr> = uses
+            .iter()
+            .map(|(_, _, contextsym)| *contextsym)
+            .filter(|sym| !sym.is_empty() && !self.xrefs.contains_key(sym))
+            .collect();
+        callers.sort();
+        callers.dedup();
+        self.server.prefetch_crossref(&callers).await;
+        let mut kept = Vec::with_capacity(uses.len());
+        for (path, line, contextsym) in uses {
+            let test = !contextsym.is_empty()
+                && self
+                    .xref(&contextsym)
+                    .await
+                    .is_some_and(|xref| self.is_test_code(&xref));
+            if !test {
+                kept.push((path, line, contextsym));
+            }
+        }
+        kept
     }
 
     // ## Backwards

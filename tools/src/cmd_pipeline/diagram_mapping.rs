@@ -4,6 +4,11 @@
 //! as dataflow-mapping.toml is when a trace runs, so that changing it doesn't
 //! need a reindex.
 //!
+//! It also says what test code is, beyond test files (`[tests]`: test
+//! frameworks' code, and tests' subsystems), and which subsystems are
+//! infrastructure (`[overview]`), for roll-ups (crossref reads it when
+//! indexing) and diagrams.
+//!
 //! A group's functions (ex: mfbt's assertions, `Result`'s methods, nsCOMPtr's
 //! operators, strings' and arrays' methods) are infrastructure and generic
 //! data manipulation that most functions call: their nodes and edges crowd
@@ -25,6 +30,26 @@ use crate::dataflow::summary::untemplated_pretty;
 struct MappingToml {
     #[serde(default, rename = "left-out")]
     left_out: Vec<GroupToml>,
+    #[serde(default)]
+    tests: TestsToml,
+    #[serde(default)]
+    overview: OverviewToml,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TestsToml {
+    #[serde(default)]
+    frameworks: Vec<String>,
+    #[serde(default)]
+    subsystems: Vec<String>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OverviewToml {
+    #[serde(default)]
+    infrastructure: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -65,17 +90,33 @@ pub struct DiagramMapping {
     paths: Vec<(String, usize)>,
     /// The group of getters (see `group_of_symbol`), if there's one.
     getters: Option<usize>,
+    /// Test frameworks' paths' prefixes (see `is_test_code`).
+    test_frameworks: Vec<String>,
+    /// Tests' subsystems, by name or, ending in "/", prefix (see
+    /// `is_test_subsystem`).
+    test_subsystems: Vec<String>,
+    /// Infrastructure subsystems (see `is_infrastructure_subsystem`).
+    infrastructure: Vec<String>,
 }
 
 impl DiagramMapping {
     pub fn parse(text: &str) -> Result<DiagramMapping, String> {
         let toml: MappingToml = toml::from_str(text).map_err(|e| e.to_string())?;
+        let trim = |list: Vec<String>| -> Vec<String> {
+            list.into_iter()
+                .map(|item| item.trim().to_string())
+                .filter(|item| !item.is_empty())
+                .collect()
+        };
         let mut mapping = DiagramMapping {
             groups: vec![],
             functions: HashMap::new(),
             prefixes: vec![],
             paths: vec![],
             getters: None,
+            test_frameworks: trim(toml.tests.frameworks),
+            test_subsystems: trim(toml.tests.subsystems),
+            infrastructure: trim(toml.overview.infrastructure),
         };
         for (i, group) in toml.left_out.into_iter().enumerate() {
             if mapping
@@ -183,6 +224,71 @@ impl DiagramMapping {
         }
     }
 
+    /// Whether a file is a test framework's (by `[tests]`'s `frameworks`,
+    /// ex: googletest's).
+    pub fn is_test_framework_path(&self, path: &str) -> bool {
+        self.test_frameworks
+            .iter()
+            .any(|prefix| path.starts_with(prefix.as_str()))
+    }
+
+    /// Whether a file (by its path kind and path) is test code's: a test
+    /// file (per-file-info.toml's `pathkind.test`) or a test framework's.
+    pub fn is_test_path(&self, path_kind: &str, path: &str) -> bool {
+        path_kind == "test" || self.is_test_framework_path(path)
+    }
+
+    /// Whether a symbol, by its definitions' path kinds and paths, is test
+    /// code: some of its definitions are a test framework's (whose macros
+    /// define tests: a gtest's TEST is defined in its file, wherever that
+    /// is, and in googletest's headers), or all of them are in test files.
+    /// (A symbol without definitions isn't.)  Roll-ups leave out test code's
+    /// calls, and the calls of it (see crossref's `test_code`), and diagrams
+    /// test files' uses but of test code (see `Traverse::include_tests`).
+    pub fn is_test_code<'a>(
+        &self,
+        definitions: impl IntoIterator<Item = (&'a str, &'a str)>,
+    ) -> bool {
+        let mut any = false;
+        let mut all_tests = true;
+        for (path_kind, path) in definitions {
+            any = true;
+            if self.is_test_framework_path(path) {
+                return true;
+            }
+            all_tests &= path_kind == "test";
+        }
+        any && all_tests
+    }
+
+    /// Whether a symbol is test code (see `is_test_code`), by its crossref
+    /// entry's definitions.
+    pub fn is_test_xref(&self, xref: &crate::file_format::crossref::CrossrefData) -> bool {
+        xref.is_test_code_with(&|path| self.is_test_framework_path(path))
+    }
+
+    /// Whether a subsystem is tests' (by `[tests]`'s `subsystems`: names, or
+    /// prefixes ending in "/", ex: "Testing/"), which block diagrams leave
+    /// out (see `cmd_block_diagram`).
+    pub fn is_test_subsystem(&self, subsystem: &str) -> bool {
+        Self::names(&self.test_subsystems, subsystem)
+    }
+
+    /// Whether a subsystem is infrastructure (by `[overview]`'s
+    /// `infrastructure`, as `is_test_subsystem`'s), which the whole tree's
+    /// block diagram draws as it does the omnipresent subsystems, without
+    /// the calls into it.
+    pub fn is_infrastructure_subsystem(&self, subsystem: &str) -> bool {
+        Self::names(&self.infrastructure, subsystem)
+    }
+
+    fn names(list: &[String], subsystem: &str) -> bool {
+        list.iter().any(|name| match name.ends_with('/') {
+            true => subsystem.starts_with(name.as_str()),
+            false => subsystem == name,
+        })
+    }
+
     /// The groups `show-calls:`'s value names (separated by commas, or
     /// "all"), by their indices.
     pub fn shown_groups(&self, list: Option<&str>) -> Vec<bool> {
@@ -271,6 +377,43 @@ getters = true
             group(mapping.group_of_symbol("Foo::GetBar", &["mfbt/Maybe.h"], true)),
             Some("mfbt")
         );
+    }
+
+    #[test]
+    fn test_tests_and_overview() {
+        let toml = format!(
+            "{}{}",
+            TOML,
+            r#"
+[tests]
+frameworks = ["third_party/googletest/"]
+subsystems = ["Testing/", "Core/Test Things"]
+
+[overview]
+infrastructure = ["Core/IPC"]
+"#
+        );
+        let mapping = DiagramMapping::parse(&toml).unwrap();
+        // (A gtest's TEST: in its file, and in googletest's macros.)
+        assert!(mapping.is_test_code([
+            ("normal", "ipc/ports_unittest.cpp"),
+            (
+                "third_party",
+                "third_party/googletest/include/gtest/internal/gtest-internal.h"
+            ),
+        ]));
+        assert!(mapping.is_test_code([("test", "dom/tests/a.cpp"), ("test", "dom/tests/b.cpp")]));
+        assert!(!mapping.is_test_code([("test", "dom/tests/a.cpp"), ("normal", "dom/a.cpp")]));
+        assert!(!mapping.is_test_code([]));
+        assert!(mapping.is_test_path("third_party", "third_party/googletest/src/gtest.cc"));
+        assert!(mapping.is_test_path("test", "dom/tests/a.cpp"));
+        assert!(!mapping.is_test_path("third_party", "third_party/libwebrtc/a.cc"));
+        assert!(mapping.is_test_subsystem("Testing/GTest"));
+        assert!(mapping.is_test_subsystem("Core/Test Things"));
+        assert!(!mapping.is_test_subsystem("Core/Test Things Too"));
+        assert!(!mapping.is_test_subsystem("Core/Testing"));
+        assert!(mapping.is_infrastructure_subsystem("Core/IPC"));
+        assert!(!mapping.is_infrastructure_subsystem("Core/IPC/Other"));
     }
 
     #[test]
@@ -376,9 +519,53 @@ getters = true
                 "containers",
             ),
             ("mozilla::Maybe::isSome", "mfbt/Maybe.h", "containers"),
+            (
+                "IPC::ParamTraits::Write",
+                "dom/ipc/PermissionMessageUtils.h",
+                "ipc",
+            ),
+            (
+                "mozilla::ipc::IPCResult::Ok",
+                "ipc/glue/ProtocolUtils.h",
+                "ipc",
+            ),
+            (
+                "mozilla::binding_danger::TErrorResult::Throw",
+                "dom/bindings/ErrorResult.h",
+                "bindings",
+            ),
+            (
+                "mozilla::dom::Optional_base::WasPassed",
+                "dom/bindings/BindingDeclarations.h",
+                "bindings",
+            ),
         ] {
             assert_eq!(group(pretty, path), Some(expected), "{}", pretty);
         }
+        // (Classes, as block diagrams match them: their functions' prefix.)
+        for (class, path, expected) in [
+            ("nsTArray_Impl::", "xpcom/ds/nsTArray.h", "containers"),
+            ("nsTSubstring::", "xpcom/string/nsTSubstring.h", "strings"),
+            (
+                "mozilla::binding_danger::TErrorResult::",
+                "dom/bindings/ErrorResult.h",
+                "bindings",
+            ),
+            (
+                "mozilla::ipc::IPCResult::",
+                "ipc/glue/ProtocolUtils.h",
+                "ipc",
+            ),
+        ] {
+            assert_eq!(group(class, path), Some(expected), "{}", class);
+        }
+        assert_eq!(
+            group(
+                "mozilla::dom::LocalStorageCache::",
+                "dom/storage/LocalStorageCache.h"
+            ),
+            None
+        );
         // (Not the code's own logic, nor what it does with others'.)
         for (pretty, path) in [
             (
@@ -397,6 +584,15 @@ getters = true
             (
                 "nsObserverService::NotifyObservers",
                 "xpcom/ds/nsObserverService.cpp",
+            ),
+            // (IPC's own logic, and actors' receiving of messages.)
+            (
+                "mozilla::ipc::MessageChannel::Send",
+                "ipc/glue/MessageChannel.cpp",
+            ),
+            (
+                "mozilla::ipc::BackgroundParentImpl::RecvPBroadcastChannelConstructor",
+                "ipc/glue/BackgroundParentImpl.cpp",
             ),
         ] {
             assert_eq!(group(pretty, path), None, "{}", pretty);

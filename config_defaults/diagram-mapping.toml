@@ -314,7 +314,86 @@ paths = [
 ]
 
 [[left-out]]
+group = "ipc"
+name = "IPC's plumbing"
+why = "Serializing messages' parameters (ParamTraits, WriteParam and ReadParam, the message writers and readers) and IPDL methods' results (IPCResult): how messages are sent, rather than what they do.  A message's sending is still drawn, as a call of its receivers' methods."
+functions = [
+  "IPC::ParamTraits::",
+  "IPC::WriteParam",
+  "IPC::ReadParam",
+  "IPC::MessageWriter::",
+  "IPC::MessageReader::",
+  "IPC::Message::",
+  "mozilla::ipc::IPCResult::",
+  "mozilla::ipc::IPDLParamTraits::",
+  "mozilla::ipc::IPDLStructMemberWrapper::",
+  "mozilla::ipc::WriteIPDLParam",
+  "mozilla::ipc::ReadIPDLParam",
+]
+
+[[left-out]]
+group = "bindings"
+name = "WebIDL bindings' plumbing"
+why = "Error results (ErrorResult), optional, nullable and sequence values, the global object, and converting values to and from JS: how WebIDL bindings pass values, which most DOM methods take or return."
+functions = [
+  "mozilla::binding_danger::TErrorResult::",
+  "mozilla::ErrorResult::",
+  "mozilla::IgnoredErrorResult::",
+  "mozilla::CopyableErrorResult::",
+  "mozilla::OOMReporter::",
+  "mozilla::dom::Optional::",
+  "mozilla::dom::Optional_base::",
+  "mozilla::dom::Nullable::",
+  "mozilla::dom::Sequence::",
+  "mozilla::dom::GlobalObject::",
+  "mozilla::dom::BindingCallContext::",
+  "mozilla::dom::PinnedStringId::",
+  "mozilla::dom::ToJSValue",
+  "mozilla::dom::Constify",
+  "mozilla::dom::NonNullHelper",
+  "mozilla::dom::ValueToPrimitive",
+  "mozilla::dom::ConvertJSValueToString",
+]
+
+[[left-out]]
 group = "getters"
 name = "Getters"
 why = "Methods that only return a field (of their object, or of an argument) and call nothing, by their dataflow summaries (ex: an IPDL struct's accessors): reading data, not doing something.  (A heuristic.)"
 getters = true
+
+# ## Test code
+#
+# Roll-ups (crossref's, when indexing) and diagrams leave out test code: its
+# calls, and the calls of it, unless they're asked for (the query language's
+# `include-tests:true`), as tests (ex: gtests, mochitests) obscure how the
+# code calls itself.  Test code is that of test files (per-file-info.toml's
+# `pathkind.test`, ex: gtest directories), and of test frameworks:
+# - `frameworks`: prefixes of test frameworks' paths, whose code is test code
+#   wherever it's used, and whose macros make test code (a gtest's TEST is
+#   defined in its file, wherever that is, and, by its macros, in
+#   googletest's headers);
+# - `subsystems`: tests' subsystems (names, or prefixes ending in "/"), which
+#   block diagrams leave out.
+[tests]
+frameworks = [
+  "third_party/googletest/",
+  "testing/gtest/",
+]
+subsystems = [
+  "Testing/",
+]
+
+# ## The whole tree's overview
+#
+# `infrastructure`: subsystems (names, or prefixes ending in "/") that most
+# code uses as plumbing, or through generated code, which the whole tree's
+# block diagram draws as it does the subsystems most others use: their boxes
+# say how many subsystems use them, and the calls into them aren't drawn, so
+# that the diagram shows how the other subsystems interact.  (IPC's messages
+# are still drawn, between their senders' and their receivers' subsystems:
+# roll-ups count a message's `Send` as a call of its actors' `Recv`s.)
+[overview]
+infrastructure = [
+  "Core/IPC",
+  "Core/DOM/Bindings (WebIDL)",
+]

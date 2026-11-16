@@ -51,3 +51,9 @@ with Files("rollup/engine.cpp"):
 
 with Files("rollup/tests/*"):
     BUG_COMPONENT = ("Core", "Rollup Tests")
+
+with Files("rollup/storage_unittest.cpp"):
+    BUG_COMPONENT = ("Core", "Rollup Unit Tests")
+
+with Files("third_party/googletest/*"):
+    BUG_COMPONENT = ("Testing", "MiniTest")

@@ -293,3 +293,25 @@ add_task(async function test_BlockDiagramArcs() {
   is(new URLSearchParams(link.split("?")[1]).get("q"), "block-diagram:'Core/Rollup Engine'",
      "Its subsystem links to its block diagram");
 });
+
+// Test code is left out of block diagrams, as tests obscure how the code
+// proper works: rollup/storage_unittest.cpp's test, outside test directories
+// but made by a test framework's macro (third_party/googletest/minitest.h;
+// see diagram-mapping.toml's `[tests]`), so its calls (and the framework's)
+// aren't in the roll-ups (see crossref's `rollup_left_out`); and tests'
+// subsystems (Testing/MiniTest) aren't in the diagrams.
+add_task(async function test_BlockDiagramTests() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery("tests", "block-diagram:*");
+  const texts = svgTexts().join(" ");
+  ok(texts.includes("Rollup Storage"), "The tree's diagram has the code's subsystems");
+  ok(!texts.includes("Rollup Unit Tests") && !texts.includes("MiniTest"),
+     `but not the tests' or the test framework's: ${texts}`);
+  ok(frame.contentWindow.GRAPH_OPTIONS.some(section =>
+       section.items.some(item => item.name == "include-tests")),
+     "The diagram panel can include the tests");
+
+  await TestUtils.loadQuery("tests", "block-diagram:'Core/Rollup Storage'");
+  ok(!svgTexts().some(text => text.includes("StorageUnit")),
+     "Storage's diagram doesn't have the test calling it");
+});

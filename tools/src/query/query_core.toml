@@ -309,6 +309,10 @@ args.include-tests = true
 command = "dataflow"
 amend = true
 args.include-tests = true
+[[term.include-tests.group.block-diagram]]
+command = "block-diagram"
+amend = true
+args.include-tests = true
 
 [term.path-limit]
 alias = "caller-limit"
@@ -332,6 +336,10 @@ args.ignore-nodes = "$0"
 [term.show-calls]
 [[term.show-calls.group.graph-traverse]]
 command = "traverse"
+amend = true
+args.show-calls = "$0"
+[[term.show-calls.group.block-diagram]]
+command = "block-diagram"
 amend = true
 args.show-calls = "$0"
 

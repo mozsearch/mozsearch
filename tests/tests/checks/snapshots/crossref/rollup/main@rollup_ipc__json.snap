@@ -1,5 +1,6 @@
 ---
 source: src/bin/test-index.rs
+assertion_line: 199
 expression: "&jv.value"
 input_file: inputs/crossref/rollup/rollup_ipc__json
 ---
@@ -15,14 +16,6 @@ input_file: inputs/crossref/rollup/rollup_ipc__json
       "mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfUnion -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestArrayOfUnion",
       "mozilla::_ipdltest::TestDataStructuresChild::TestUnionWithCxx -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithCxx",
       "mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfUnions -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestArrayOfUnions"
-    ]
-  },
-  {
-    "sym": "T_mozilla::_ipdltest::PTestDataStructuresSubParent",
-    "count": 1,
-    "ipc": 1,
-    "examples": [
-      "mozilla::_ipdltest::TestDataStructuresChild::RecvStart -> mozilla::_ipdltest::PTestDataStructuresSubParent::Recv__delete__"
     ]
   }
 ]

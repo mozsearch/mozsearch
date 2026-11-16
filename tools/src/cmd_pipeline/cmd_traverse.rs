@@ -353,8 +353,9 @@ pub struct Traverse {
     pub caller_limit: u32,
 
     /// Include the uses in test files (by their path kind; see
-    /// per-file-info.toml's `pathkind.test`), which uses traversals leave out
-    /// otherwise, but of test code (`CrossrefData::is_test_code`): tests'
+    /// per-file-info.toml's `pathkind.test`) and in test frameworks' (see
+    /// diagram-mapping.toml's `[tests]`), which uses traversals leave out
+    /// otherwise, but of test code (`DiagramMapping::is_test_xref`): tests'
     /// calls (ex: gtests', mochitests') clutter diagrams of how the code calls
     /// itself.
     #[clap(long)]
@@ -752,6 +753,18 @@ impl PipelineCommand for TraverseCommand {
         let ignore_node_set: HashSet<String> = match &self.args.ignore_nodes {
             Some(s) => split_ignore_nodes(s).into_iter().collect(),
             _ => HashSet::new(),
+        };
+
+        // (What test code is, beyond test files: see `include_tests`.)
+        let tests_mapping = server.diagram_mapping();
+        let is_test_code = |xref: &crate::file_format::crossref::CrossrefData| match &tests_mapping
+        {
+            Some(mapping) => mapping.is_test_xref(xref),
+            None => xref.is_test_code(),
+        };
+        let is_test_path = |path_kind: &str, path: &str| match &tests_mapping {
+            Some(mapping) => mapping.is_test_path(path_kind, path),
+            None => path_kind == "test",
         };
 
         // The calls a calls diagram leaves out, but those of the groups its
@@ -1936,7 +1949,7 @@ impl PipelineCommand for TraverseCommand {
                     && !sym_info
                         .crossref_info
                         .as_ref()
-                        .is_some_and(|ci| ci.is_test_code());
+                        .is_some_and(|ci| is_test_code(ci));
                 // we just took the uses, but drop the callees too.
                 if !self.args.retain_all_symbol_data {
                     sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
@@ -1962,7 +1975,9 @@ impl PipelineCommand for TraverseCommand {
                     match &env_scope {
                         Some(scope) if scope.contains(&path_hits.path) => {}
                         Some(scope) if !scope.allows(&path_hits.path) => continue,
-                        _ if skip_tests && path_hits.path_kind == "test" => continue,
+                        _ if skip_tests && is_test_path(&path_hits.path_kind, &path_hits.path) => {
+                            continue;
+                        }
                         _ => {}
                     }
                     // (Nor those of the linked trees it leaves out.)
@@ -2032,6 +2047,17 @@ impl PipelineCommand for TraverseCommand {
                     // as `Recv` methods' IPC edges from their `Send` methods
                     // are their control flow.)
                     if source_info.has_label("uses-diagram:skip") || source_info.is_ipdl_dispatch()
+                    {
+                        continue;
+                    }
+                    // (Test code calling it from outside test files, ex: a
+                    // gtest made by googletest's macros wherever it is; see
+                    // `include_tests`.)
+                    if skip_tests
+                        && source_info
+                            .crossref_info
+                            .as_ref()
+                            .is_some_and(&is_test_code)
                     {
                         continue;
                     }

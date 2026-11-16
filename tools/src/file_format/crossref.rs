@@ -117,9 +117,18 @@ impl CrossrefData {
     /// test files (by their path kind; see per-file-info.toml's
     /// `pathkind.test`), as crossref's roll-ups tell (`test_code`).
     pub fn is_test_code(&self) -> bool {
-        self.definitions
-            .as_ref()
-            .is_some_and(|defs| !defs.is_empty() && defs.iter().all(|d| d.path_kind == "test"))
+        self.is_test_code_with(&|_| false)
+    }
+
+    /// `is_test_code`, with test frameworks' code too: a symbol some of whose
+    /// definitions are in a test framework's files (`is_framework`, by path;
+    /// see `cmd_pipeline::diagram_mapping::DiagramMapping::is_test_code`).
+    pub fn is_test_code_with(&self, is_framework: &dyn Fn(&str) -> bool) -> bool {
+        self.definitions.as_ref().is_some_and(|defs| {
+            !defs.is_empty()
+                && (defs.iter().any(|d| is_framework(&d.path))
+                    || defs.iter().all(|d| d.path_kind == "test"))
+        })
     }
 
     /// Add a linked tree's data for the symbol (see

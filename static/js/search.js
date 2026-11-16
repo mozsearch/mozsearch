@@ -1008,17 +1008,23 @@ var Diagram = new (class Diagram {
    * callees, callers}` for each group whose functions its nodes call.
    */
   leftOutGroups() {
+    return this.leftOutItem()?.groups ?? [];
+  }
+
+  // (The diagram's `*left-out*` item: a calls diagram's, or a block
+  // diagram's, whose `what` is "classes"; see the tools' cmd_block_diagram.rs.)
+  leftOutItem() {
     if (typeof GRAPH_OPTIONS == "undefined") {
-      return [];
+      return null;
     }
     for (const { items } of GRAPH_OPTIONS) {
       for (const item of items) {
         if (item.name === "*left-out*") {
-          return item.groups;
+          return item;
         }
       }
     }
-    return [];
+    return null;
   }
 
   /**
@@ -1035,13 +1041,17 @@ var Diagram = new (class Diagram {
     const legendPane = document.createElement("section");
     legendPane.id = "diagram-left-out-pane";
 
+    // (A block diagram's left-out classes, or a calls diagram's calls.)
+    const classes = this.leftOutItem()?.what === "classes";
     const title = document.createElement("h4");
-    title.append("Left-out calls");
+    title.append(classes ? "Left-out classes" : "Left-out calls");
     legendPane.append(title);
 
     const note = document.createElement("p");
     note.classList.add("diagram-left-out-note");
-    note.append("Calls of infrastructure and generic data manipulation, which most code makes:");
+    note.append(classes
+      ? "Classes of infrastructure and generic data manipulation, which most code uses:"
+      : "Calls of infrastructure and generic data manipulation, which most code makes:");
     legendPane.append(note);
 
     const showCalls = this.getOption("show-calls");
@@ -1058,12 +1068,13 @@ var Diagram = new (class Diagram {
       name.classList.add("diagram-left-out-name");
       name.append(group.name);
       const more = group.count > group.callees.length ? ", …" : "";
-      name.title = `${group.why}\n\nCalled: ${group.callees.join(", ")}${more}`;
+      name.title = `${group.why}\n\n${classes ? "Classes" : "Called"}: ${group.callees.join(", ")}${more}`;
       row.append(name, " ");
 
       const count = document.createElement("span");
       count.classList.add("diagram-left-out-count");
-      count.title = group.count == 1 ? "1 function called" : `${group.count} functions called`;
+      const noun = classes ? ["class", "classes"] : ["function called", "functions called"];
+      count.title = group.count == 1 ? `1 ${noun[0]}` : `${group.count} ${noun[1]}`;
       row.append(count);
       if (!group.shown) {
         count.append(`(${group.count})`);

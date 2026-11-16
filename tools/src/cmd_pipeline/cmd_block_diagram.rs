@@ -3,6 +3,7 @@ use clap::{Args, ValueEnum};
 use serde_json::json;
 use ustr::{Ustr, ustr};
 
+use super::diagram_mapping::DiagramMapping;
 use super::interface::{PipelineCommand, PipelineValues, TextFile};
 use super::symbol_graph::{
     EdgeDetail, NamedSymbolGraph, SymbolBadge, SymbolGraphCollection, SymbolGraphEdgeSet,
@@ -117,6 +118,21 @@ pub struct BlockDiagram {
     /// For the whole tree: block diagrams, or a column of arcs.
     #[clap(long, value_enum, default_value_t = BlockView::Diagram)]
     view: BlockView,
+
+    /// Include tests: tests' subsystems (ex: "Testing/GTest") and test code's
+    /// classes (see diagram-mapping.toml's `[tests]`), which block diagrams
+    /// leave out, as tests obscure how the code proper works.  (Roll-ups
+    /// leave out test code's calls, and calls of it; see crossref's
+    /// `rollup_left_out`.)
+    #[clap(long)]
+    include_tests: bool,
+
+    /// The groups of diagram-mapping.toml's left-out calls (ex: "strings",
+    /// comma-separated, or "all") whose classes to show, which class block
+    /// diagrams leave out as calls diagrams leave out their calls (see
+    /// `traverse --show-calls`), but the focus's own.
+    #[clap(long, value_parser)]
+    show_calls: Option<String>,
 }
 
 /// Whether a symbol is a class, for block diagrams: a C++ (or other
@@ -598,6 +614,132 @@ fn omnipresent_subsystems(rollup: &Rollup) -> std::collections::HashMap<Ustr, us
 /// See `omnipresent_subsystems`.
 const OMNIPRESENT_MIN_SUBSYSTEMS: usize = 20;
 
+/// The whole tree's infrastructure subsystems (by diagram-mapping.toml's
+/// `[overview]`, ex: IPC, WebIDL bindings), by how many subsystems call
+/// them, which are drawn as the omnipresent ones are (see
+/// `omnipresent_subsystems`): most code uses them as plumbing (IPC's
+/// serialization, bindings' error results), or through generated code, and
+/// what they connect (ex: a message's sender and receivers, whose roll-ups
+/// count its `Send` as a call of its `Recv`s) is drawn without them.
+fn infrastructure_subsystems(
+    rollup: &Rollup,
+    mapping: &DiagramMapping,
+) -> std::collections::HashMap<Ustr, usize> {
+    let mut callers: std::collections::HashMap<Ustr, usize> = Default::default();
+    for member in &rollup.members {
+        if mapping.is_infrastructure_subsystem(&member.pretty) {
+            callers.insert(
+                member.sym,
+                rollup.edges.iter().filter(|e| e.to == member.sym).count(),
+            );
+        }
+    }
+    callers
+}
+
+/// The classes a class block diagram leaves out (but its focus's own, ex: a
+/// subsystem's members): generated classes; test code's (see
+/// `DiagramMapping::is_test_xref`) and tests' subsystems', unless
+/// `include_tests`; and those of
+/// diagram-mapping.toml's groups of left-out calls (ex: strings, containers,
+/// IPC's and bindings' plumbing; a class is in a group if its functions are,
+/// by its pretty name, or its definitions' paths), unless their groups are
+/// shown, which the diagram's legend lists (see `to_json`).
+struct LeftOutClasses {
+    mapping: std::sync::Arc<DiagramMapping>,
+    shown: Vec<bool>,
+    include_tests: bool,
+    /// For each group, its classes left out (their pretty names), and the
+    /// diagram's classes calling (or called by) them.
+    groups: Vec<(
+        std::collections::BTreeSet<Ustr>,
+        std::collections::BTreeSet<Ustr>,
+    )>,
+}
+
+impl LeftOutClasses {
+    fn new(
+        mapping: std::sync::Arc<DiagramMapping>,
+        show_calls: Option<&str>,
+        include_tests: bool,
+    ) -> Self {
+        let shown = mapping.shown_groups(show_calls);
+        let groups = vec![Default::default(); mapping.groups.len()];
+        LeftOutClasses {
+            mapping,
+            shown,
+            include_tests,
+            groups,
+        }
+    }
+
+    /// Whether to leave out a class (by its crossref entry), recording its
+    /// group's.  (Generated classes are left out too, ex: IPDL actors' base
+    /// classes, between their subclasses, which roll-ups count IPC messages
+    /// between, or WebIDL unions; and roll-ups leave out generated code; see
+    /// crossref's `rollup_left_out`.)
+    fn leaves_out(&mut self, xref: &crate::file_format::crossref::CrossrefData) -> Option<usize> {
+        let meta = xref.meta.as_ref()?;
+        if xref
+            .definitions
+            .as_ref()
+            .is_some_and(|defs| !defs.is_empty() && defs.iter().all(|d| d.path_kind == "generated"))
+        {
+            return Some(usize::MAX);
+        }
+        if !self.include_tests
+            && (self.mapping.is_test_xref(xref)
+                || meta
+                    .subsystem
+                    .as_ref()
+                    .is_some_and(|subsystem| self.mapping.is_test_subsystem(subsystem)))
+        {
+            return Some(usize::MAX);
+        }
+        let paths: Vec<&str> = xref
+            .definitions
+            .iter()
+            .flatten()
+            .map(|def| def.path.as_str())
+            .collect();
+        let group = self
+            .mapping
+            .group_of_symbol(&format!("{}::", meta.pretty), &paths, false)?;
+        (!self.shown[group]).then_some(group)
+    }
+
+    /// The groups whose classes it left out, for the diagram's legend, as
+    /// calls diagrams' (see `LeftOutCalls::to_json` in cmd_traverse.rs, and
+    /// static/js/search.js's `addLeftOutCalls`).
+    fn to_json(&self) -> serde_json::Value {
+        const MAX_PRETTIES: usize = 16;
+        let groups: Vec<serde_json::Value> = self
+            .groups
+            .iter()
+            .enumerate()
+            .filter(|(_, (classes, _))| !classes.is_empty())
+            .map(|(i, (classes, callers))| {
+                let group = &self.mapping.groups[i];
+                json!({
+                    "group": group.group,
+                    "name": group.name,
+                    "why": group.why,
+                    "shown": false,
+                    "count": classes.len(),
+                    "callees": classes.iter().take(MAX_PRETTIES).collect::<Vec<_>>(),
+                    "callers": callers,
+                })
+            })
+            .collect();
+        json!({
+            // (No "label", so that the control panel leaves it out.)
+            "name": "*left-out*",
+            "what": "classes",
+            "groups": groups,
+        })
+    }
+}
+
 /// Whether a diagram's end (a class, a subsystem, a field, or a function) is
 /// in `with` (a class or a subsystem): the class itself or its fields and
 /// methods; the subsystem itself or its classes and their members (by their
@@ -696,7 +838,8 @@ impl PipelineCommand for BlockDiagramCommand {
         } else {
             BlockLevel::Class
         });
-        let rollup = if level == BlockLevel::Field {
+        let mapping = server.diagram_mapping();
+        let mut rollup = if level == BlockLevel::Field {
             Rollup::default()
         } else {
             let Some(rollup) = rollup_of(server, &focus_sym, self.args.edges).await? else {
@@ -764,9 +907,26 @@ impl PipelineCommand for BlockDiagramCommand {
             edges.sort_by(|a, b| a.from.cmp(&b.from).then(a.to.cmp(&b.to)));
             edges.dedup_by(|a, b| a.from == b.from && a.to == b.to);
         } else if focus_sym == root_subsystem_sym() && level == BlockLevel::Subsystem {
-            // The whole tree's subsystems, but not the calls into omnipresent
-            // ones.
+            // The whole tree's subsystems, but tests' (unless asked for), and
+            // not the calls into omnipresent ones, and infrastructure.
+            if let Some(mapping) = mapping.as_deref().filter(|_| !self.args.include_tests) {
+                let tests: std::collections::HashSet<Ustr> = rollup
+                    .members
+                    .iter()
+                    .filter(|m| mapping.is_test_subsystem(&m.pretty))
+                    .map(|m| m.sym)
+                    .collect();
+                rollup.members.retain(|m| !tests.contains(&m.sym));
+                rollup
+                    .edges
+                    .retain(|e| !tests.contains(&e.from) && !tests.contains(&e.to));
+            }
             omnipresent = omnipresent_subsystems(&rollup);
+            if let Some(mapping) = mapping.as_deref() {
+                for (sym, callers) in infrastructure_subsystems(&rollup, mapping) {
+                    omnipresent.entry(sym).or_insert(callers);
+                }
+            }
             for pair in &rollup.edges {
                 if omnipresent.contains_key(&pair.to) {
                     continue;
@@ -781,15 +941,33 @@ impl PipelineCommand for BlockDiagramCommand {
                 });
             }
         } else if is_subsystem && level == BlockLevel::Class {
-            // A subsystem's classes, and their neighbors outside it.
-            let members: Vec<Ustr> = rollup
+            // A subsystem's classes, and their neighbors outside it (but
+            // test code's classes, unless asked for, which can have the most
+            // calls, ex: a subsystem's gtests').
+            let candidates: Vec<Ustr> = rollup
                 .members
                 .iter()
                 .filter(|m| is_block_class(&m.sym))
-                .take(self.args.max_members)
+                .take(self.args.max_members * 2)
                 .map(|m| m.sym)
                 .collect();
-            server.prefetch_crossref(&members).await;
+            server.prefetch_crossref(&candidates).await;
+            let mut members: Vec<Ustr> = vec![];
+            for sym in candidates {
+                if members.len() >= self.args.max_members {
+                    break;
+                }
+                let is_test = match (mapping.as_deref(), self.args.include_tests) {
+                    (Some(mapping), false) => server
+                        .crossref_lookup(&sym)
+                        .await?
+                        .is_some_and(|xref| mapping.is_test_xref(&xref)),
+                    _ => false,
+                };
+                if !is_test {
+                    members.push(sym);
+                }
+            }
             own.extend(members.iter().copied());
             for member in &members {
                 let Some(member_rollup) = rollup_of(server, member, self.args.edges).await? else {
@@ -821,7 +999,17 @@ impl PipelineCommand for BlockDiagramCommand {
                 }
             }
         } else {
-            // A class's, or a subsystem's, neighbors.
+            // A class's, or a subsystem's, neighbors (but tests' subsystems,
+            // unless asked for).
+            let test_subsystem = |e: &RollupEdge| {
+                !self.args.include_tests
+                    && e.sym.starts_with(SUBSYSTEM_PREFIX)
+                    && mapping
+                        .as_deref()
+                        .is_some_and(|mapping| mapping.is_test_subsystem(&e.pretty))
+            };
+            rollup.out.retain(|e| !test_subsystem(e));
+            rollup.into.retain(|e| !test_subsystem(e));
             for e in &rollup.out {
                 edges.push(BlockEdge {
                     from: focus_sym,
@@ -845,6 +1033,51 @@ impl PipelineCommand for BlockDiagramCommand {
         }
 
         edges.retain(|e| e.count >= self.args.min_count && e.from != e.to);
+        // (Class diagrams leave out tests' and infrastructure's classes; see
+        // `LeftOutClasses`.)
+        let mut left_out_classes = match (level, &mapping) {
+            (BlockLevel::Class, Some(mapping)) => Some(LeftOutClasses::new(
+                mapping.clone(),
+                self.args.show_calls.as_deref(),
+                self.args.include_tests,
+            )),
+            _ => None,
+        };
+        if let Some(left_out) = left_out_classes.as_mut() {
+            let mut others: Vec<Ustr> = edges
+                .iter()
+                .flat_map(|e| [e.from, e.to])
+                .filter(|sym| !own.contains(sym) && is_block_class(sym))
+                .collect();
+            others.sort();
+            others.dedup();
+            server.prefetch_crossref(&others).await;
+            let mut dropped: std::collections::HashMap<Ustr, usize> = Default::default();
+            for sym in others {
+                if let Some(xref) = server.crossref_lookup(&sym).await?
+                    && let Some(group) = left_out.leaves_out(&xref)
+                {
+                    dropped.insert(sym, group);
+                }
+            }
+            for e in &edges {
+                for (end, other) in [(e.from, e.to), (e.to, e.from)] {
+                    if let Some(&group) = dropped.get(&end)
+                        && group != usize::MAX
+                        && !dropped.contains_key(&other)
+                    {
+                        let pretty = server
+                            .crossref_lookup(&end)
+                            .await?
+                            .and_then(|data| data.meta)
+                            .map_or(end, |meta| meta.pretty);
+                        left_out.groups[group].0.insert(pretty);
+                        left_out.groups[group].1.insert(other);
+                    }
+                }
+            }
+            edges.retain(|e| !dropped.contains_key(&e.from) && !dropped.contains_key(&e.to));
+        }
         // (Only those with the other side; see `with`.)
         let with_sym = self
             .args
@@ -1010,7 +1243,7 @@ impl PipelineCommand for BlockDiagramCommand {
                         "{}{}",
                         match omnipresent.is_empty() {
                             true => String::new(),
-                            false => "Used by most subsystems (the calls into them aren't drawn)"
+                            false => "Infrastructure, and used by most subsystems (the calls into them aren't drawn)"
                                 .to_string(),
                         },
                         match others {
@@ -1059,7 +1292,7 @@ impl PipelineCommand for BlockDiagramCommand {
                 if !omnipresent.is_empty() {
                     graph.graph_attrs.push((
                         "label",
-                        "The calls into the subsystems most of the others use aren't drawn; their boxes say how many use them."
+                        "The calls into infrastructure and into the subsystems most of the others use aren't drawn; their boxes say how many use them."
                             .to_string(),
                     ));
                     graph.graph_attrs.push(("labelloc", "b".to_string()));
@@ -1142,9 +1375,31 @@ impl PipelineCommand for BlockDiagramCommand {
                         "type": "string",
                         "placeholder": "a class's symbol or a subsystem",
                     },
+                    {
+                        "name": "include-tests",
+                        "label": "Tests",
+                        "value": self.args.include_tests,
+                        "default": false,
+                        "type": "bool",
+                    },
+                    {
+                        "name": "show-calls",
+                        "label": "Left-out classes shown",
+                        "value": self.args.show_calls.clone().unwrap_or_default(),
+                        "default": "",
+                        "type": "string",
+                        "placeholder": "Groups (ex: strings), comma-separated, or all",
+                    },
                 ],
             }
         ]);
+        let mut options = options;
+        if let Some(left_out) = &left_out_classes {
+            options[0]["items"]
+                .as_array_mut()
+                .unwrap()
+                .push(left_out.to_json());
+        }
         Ok(PipelineValues::SymbolGraphCollection(
             SymbolGraphCollection {
                 node_set,
@@ -1155,6 +1410,49 @@ impl PipelineCommand for BlockDiagramCommand {
                 hierarchical_graphs: vec![],
             },
         ))
+    }
+}
+
+#[cfg(test)]
+mod infrastructure_tests {
+    use super::*;
+    use crate::file_format::rollup::{RollupMember, RollupPair};
+
+    /// The whole tree's infrastructure subsystems (by diagram-mapping.toml's
+    /// `[overview]`), by how many subsystems call them.
+    #[test]
+    fn test_infrastructure_subsystems() {
+        let mapping = DiagramMapping::parse(
+            "[overview]\ninfrastructure = [\"Core/IPC\", \"Core/DOM/Bindings (WebIDL)\"]\n",
+        )
+        .unwrap();
+        let member = |pretty: &str| RollupMember {
+            sym: subsystem_sym(pretty),
+            pretty: ustr(pretty),
+            count: 1,
+        };
+        let pair = |from: &str, to: &str| RollupPair {
+            from: subsystem_sym(from),
+            to: subsystem_sym(to),
+            count: 10,
+            pairs: 1,
+        };
+        let rollup = Rollup {
+            members: vec![
+                member("Core/IPC"),
+                member("Core/Networking"),
+                member("Core/DOM/Workers"),
+            ],
+            edges: vec![
+                pair("Core/Networking", "Core/IPC"),
+                pair("Core/DOM/Workers", "Core/IPC"),
+                pair("Core/DOM/Workers", "Core/Networking"),
+            ],
+            ..Default::default()
+        };
+        let infrastructure = infrastructure_subsystems(&rollup, &mapping);
+        assert_eq!(infrastructure.len(), 1);
+        assert_eq!(infrastructure.get(&subsystem_sym("Core/IPC")), Some(&2));
     }
 }
 

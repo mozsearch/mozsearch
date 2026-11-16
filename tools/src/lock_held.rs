@@ -482,7 +482,7 @@ async fn overrides(tracer: &mut Tracer<'_>, callees: &[Ustr]) -> usize {
             .as_ref()
             .map(|meta| meta.overridden_by_syms.clone())
             .unwrap_or_default();
-        if syms.len() <= CALL_FANOUT || xref.is_test_code() {
+        if syms.len() <= CALL_FANOUT || tracer.is_test_code(&xref) {
             most = most.max(syms.len());
             continue;
         }
@@ -491,7 +491,7 @@ async fn overrides(tracer: &mut Tracer<'_>, callees: &[Ustr]) -> usize {
             if tracer
                 .crossref(sym)
                 .await
-                .is_some_and(|xref| !xref.is_test_code())
+                .is_some_and(|xref| !tracer.is_test_code(&xref))
             {
                 count += 1;
                 if count > CALL_FANOUT {

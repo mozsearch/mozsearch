@@ -23,6 +23,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use serde_json::Map;
 extern crate tools;
+use tools::cmd_pipeline::diagram_mapping::DiagramMapping;
 use tools::cmd_pipeline::symbol_graph::{is_implementable, is_lambda_pretty};
 use tools::dataflow::summary::{
     Category, FieldEdge, Summary, field_class, hint_summary, is_field_sym, is_value_type_class,
@@ -2461,32 +2462,62 @@ fn xpidl_member_of_ts_sym(sym: &str) -> Option<Ustr> {
         .then(|| ustr(&format!("XPIDL_{}_{}", interface, member)))
 }
 
-/// Test code, for roll-ups, which leave out its calls (ex: the tests of many
-/// subsystems calling GTest made one group of them, in the whole tree's block
-/// diagram): the symbols whose definitions are all in test files (by their
-/// per-file info's path kind; see per-file-info.toml's `pathkind.test`).
-fn test_code(search_result_table: &SearchResultTable, ingestion: &RepoIngestion) -> UstrSet {
-    let test = ustr("test");
-    let is_test = |path: &Ustr| {
+/// The code roll-ups leave out (its calls, and the calls of it), as
+/// architecture diagrams are of the code proper:
+/// - test code (by diagram-mapping.toml's `[tests]`; see
+///   `DiagramMapping::is_test_code`): the symbols whose definitions are all in
+///   test files (by their per-file info's path kind), or some in a test
+///   framework's (ex: a gtest's TEST, which googletest's macros define, so
+///   that the tests of many subsystems calling GTest made a group of them in
+///   the whole tree's block diagram);
+/// - generated code: the symbols whose definitions are all generated (by
+///   their path kind, ex: WebIDL bindings, IPDL actors, the static components'
+///   registration), whose calls are plumbing between the code they're
+///   generated from and what it uses, which roll-ups count without them (a
+///   message's `Send` as a call of its actors' `Recv`s, a JS call of a
+///   binding as its C++ slot's; see `call_edges`).
+fn rollup_left_out(
+    search_result_table: &SearchResultTable,
+    ingestion: &RepoIngestion,
+    mapping: &DiagramMapping,
+) -> UstrSet {
+    let path_kind = |path: &Ustr| {
         ingestion
             .state
             .concise_per_file
             .get(path)
-            .is_some_and(|info| info.path_kind == test)
+            .map_or("", |info| info.path_kind.as_str())
     };
     search_result_table
         .iter()
         .filter(|(_, kinds)| {
-            kinds
-                .get(&AnalysisKind::Def)
-                .is_some_and(|paths| !paths.is_empty() && paths.keys().all(is_test))
+            let Some(paths) = kinds.get(&AnalysisKind::Def) else {
+                return false;
+            };
+            let defs = || paths.keys().map(|path| (path_kind(path), path.as_str()));
+            mapping.is_test_code(defs())
+                || (!paths.is_empty() && defs().all(|(kind, _)| kind == "generated"))
         })
         .map(|(sym, _)| *sym)
         .collect()
 }
 
-/// The calls between functions, for roll-ups, leaving out test code's (see
-/// `test_code`), and callees labeled
+/// The tree's diagram-mapping.toml (the config repo's, else
+/// config_defaults'; see `DiagramMapping`), or an empty one if it doesn't
+/// parse.
+fn diagram_mapping(cfg: &Config) -> DiagramMapping {
+    let text = cfg
+        .read_tree_config_file_with_default("diagram-mapping.toml")
+        .unwrap_or_default();
+    DiagramMapping::parse(&text).unwrap_or_else(|err| {
+        eprintln!("diagram-mapping.toml: {}", err);
+        DiagramMapping::parse("").unwrap()
+    })
+}
+
+/// The calls between functions, for roll-ups, leaving out test code's and
+/// generated code's, and the calls of them (see `rollup_left_out`), and
+/// callees labeled
 /// `calls-diagram:stop` (assertions, logging, ...), as call diagrams do, and
 /// other plumbing (`is_boring_callee`).  Some calls stand for others: an
 /// IPDL message's `Send` method's for its actors' `Recv` implementations',
@@ -2500,7 +2531,7 @@ fn call_edges(
     meta_table: &MetaTable,
     callees_table: &CalleesTable,
     categories: &UstrMap<Category>,
-    test_code: &UstrSet,
+    left_out: &UstrSet,
 ) -> Vec<UnitEdge> {
     let stop = ustr("calls-diagram:stop");
     // (IPDL messages' generated `Send` methods, and their actors' `Recv`
@@ -2594,7 +2625,7 @@ fn call_edges(
         let Some(caller_meta) = meta_table.get(caller) else {
             continue;
         };
-        if !is_rollup_callable(caller_meta) || test_code.contains(caller) {
+        if !is_rollup_callable(caller_meta) || left_out.contains(caller) {
             continue;
         }
         let from_class = rollup_class(meta_table, caller);
@@ -2606,7 +2637,7 @@ fn call_edges(
             // call of the actors' `Recv` implementations; the generated actor
             // class in between is plumbing.)
             if let Some(impls) = ipc_targets.get(callee) {
-                for recv_impl in impls {
+                for recv_impl in impls.iter().filter(|r| !left_out.contains(*r)) {
                     edges.push(UnitEdge {
                         from: *caller,
                         to: *recv_impl,
@@ -2624,7 +2655,10 @@ fn call_edges(
             });
             if let Some(targets) = targets {
                 for target in targets {
-                    if target == caller || !meta_table.get(target).is_some_and(is_rollup_callable) {
+                    if target == caller
+                        || left_out.contains(target)
+                        || !meta_table.get(target).is_some_and(is_rollup_callable)
+                    {
                         continue;
                     }
                     edges.push(UnitEdge {
@@ -2643,6 +2677,7 @@ fn call_edges(
                 continue;
             };
             if !is_rollup_callable(callee_meta)
+                || left_out.contains(callee)
                 || callee_meta.labels.contains(&stop)
                 || is_boring_callee(&callee_meta.pretty)
             {
@@ -2764,11 +2799,12 @@ impl<'a> InternalClasses<'a> {
 /// fields, from `dataflow-summarize`, for roll-ups; a field of the edge's
 /// function's class's own state (see `InternalClasses`) is the class's, and
 /// a class held by value in only one other is its owner's (see
-/// `unique_owners`); but not test code's (see `test_code`).
+/// `unique_owners`); but not test code's or generated code's (see
+/// `rollup_left_out`).
 fn data_edges(
     meta_table: &MetaTable,
     field_edges: &[FieldEdge],
-    test_code: &UstrSet,
+    left_out: &UstrSet,
 ) -> Vec<UnitEdge> {
     let mut internal = InternalClasses::new(meta_table);
     let owners = unique_owners(meta_table);
@@ -2793,7 +2829,7 @@ fn data_edges(
     };
     field_edges
         .iter()
-        .filter(|edge| !function_of(edge).is_some_and(|f| test_code.contains(&f)))
+        .filter(|edge| !function_of(edge).is_some_and(|f| left_out.contains(&f)))
         .map(|edge| {
             let mut from_class = rollup_class(meta_table, &edge.from);
             let mut to_class = rollup_class(meta_table, &edge.to);
@@ -3041,13 +3077,14 @@ fn add_rollups(
     callees_table: &CalleesTable,
     tree_metas: Option<MetaTable>,
     ingestion: &RepoIngestion,
+    mapping: &DiagramMapping,
 ) -> RollupTables {
     // (Each part's time is printed, as the step is long on one core and its
     // parts are only told apart this way.)
     let started = Instant::now();
     let (categories, field_edges, summaries) = read_dataflow_outputs(index_path);
     let read_secs = started.elapsed().as_secs_f64();
-    let test_code = test_code(search_result_table, ingestion);
+    let left_out = rollup_left_out(search_result_table, ingestion, mapping);
     let (call_rollups, data_rollups, subsystems) = {
         // (A subset's roll-ups attribute calls as the tree's do: by the
         // tree's structured records, else its own; see `tree_rollup_metas`.)
@@ -3062,7 +3099,7 @@ fn add_rollups(
             None => meta_table,
         };
         let mark = Instant::now();
-        let calls = call_edges(view, callees_table, &categories, &test_code);
+        let calls = call_edges(view, callees_table, &categories, &left_out);
         let call_edge_secs = mark.elapsed().as_secs_f64();
         let mark = Instant::now();
         let (call_rollups, mut subsystems) = rollup_edges(view, &calls);
@@ -3070,7 +3107,7 @@ fn add_rollups(
         let call_count = calls.len();
         drop(calls);
         let mark = Instant::now();
-        let data = data_edges(view, &field_edges, &test_code);
+        let data = data_edges(view, &field_edges, &left_out);
         let data_edge_secs = mark.elapsed().as_secs_f64();
         let mark = Instant::now();
         let (mut data_rollups, data_subsystems) = rollup_edges(view, &data);
@@ -3879,6 +3916,7 @@ async fn crossref_subset(
         &callees_table,
         Some(tree_metas),
         &ingestion,
+        &diagram_mapping(cfg),
     );
     add_dataflow_hints(
         &ontology,
@@ -4126,6 +4164,7 @@ async fn main() {
         &callees_table,
         None,
         &ingestion,
+        &diagram_mapping(&cfg),
     );
     add_dataflow_hints(
         &ontology,
