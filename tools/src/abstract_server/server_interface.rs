@@ -967,6 +967,19 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The token-centric blame of the file at `path` in the revision `rev`
+    /// (see `format::rev_token_blame`), if the tree's history has it, for
+    /// pages of several revisions' lines, whose blame strips name their
+    /// blames (their `BLAME_INFOS`; ex: a try review's; see hyperblame.js).
+    /// (Unsupported by remote servers.)
+    async fn token_blame(
+        &self,
+        _rev: &str,
+        _path: &str,
+    ) -> Result<Option<crate::hyperblame::page_blame::PageBlame>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The tree's git revision for the revision `rev` of another kind: an hg
     /// revision (`kind` "hg"; ex: firefox's, by git-cinnabar's mapping), a
     /// revision of the tree's old git repository ("old"; see

@@ -82,6 +82,25 @@ pub struct HunkLine {
     pub then_html: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub now_html: Option<String>,
+    /// Its blame strips' cells on each side, if its revision's blame is had
+    /// (see `add_line_html`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub then_blame: Option<BlameCell>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now_blame: Option<BlameCell>,
+}
+
+/// A line's blame strip (see `hyperblame::page_blame::StripLine`): its
+/// blame's index in the view's `BLAME_INFOS` and its line there (see
+/// hyperblame.js's `HyperblameContexts`), its commit (for its color), and
+/// its classes and data attributes (`StripLine::strip_attrs`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct BlameCell {
+    pub ctx: usize,
+    pub line: u32,
+    pub commit: Option<String>,
+    pub classes: String,
+    pub data: String,
 }
 
 impl Hunk {
@@ -534,6 +553,14 @@ pub struct ReviewView {
     /// `add_slicing`; not kept in the view's cache).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slicing: Option<ReviewSlicing>,
+    /// Its code's symbols' SYM_INFO, now (the indexed revision's) and patched
+    /// (the push's rebased head's), as `{"now": ..., "patched": ...}`, and
+    /// its blames' infos, for the page's `SYM_INFOS` and `BLAME_INFOS` (see
+    /// `add_line_html`; not kept in the view's cache).
+    #[serde(skip)]
+    pub sym_infos: Option<Value>,
+    #[serde(skip)]
+    pub blame_infos: Vec<Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -541,7 +568,12 @@ pub struct ReviewPatch {
     /// Its part's id: `p:<rev>`.
     pub id: String,
     pub rev: String,
-    /// Its parent, its files' "then" (see `add_line_html`).
+    /// The commit whose code the review shows: its commit in the push's
+    /// stack rebased onto the indexed revision, if it has one (see
+    /// `rebased_commits`), else itself.  And that one's parent, its files'
+    /// "then" (see `add_line_html`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shown: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent: Option<String>,
     pub summary: String,
@@ -948,6 +980,31 @@ fn message_refs(summary: &str, message: &str) -> (Vec<u64>, Option<u64>) {
 
 /// The review view of the try push `push`, from its stack's commits' diffs
 /// and outline diffs.
+/// The commits of the try push `push`'s stack (`revs`) rebased onto the
+/// indexed revision (see rebase-try-push.sh), by their own, as its explore
+/// data names them (see `explore::ExploreCommit::rebased`), if it has them.
+async fn rebased_commits(
+    server: &(dyn AbstractServer + Send + Sync),
+    push: &str,
+    revs: &[String],
+) -> BTreeMap<String, String> {
+    let stack_url = crate::try_import::push_url_path(push);
+    let Ok(explore) = server.explore(revs, Some(&stack_url)).await else {
+        return BTreeMap::new();
+    };
+    explore["commits"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|commit| {
+            Some((
+                commit["rev"].as_str()?.to_string(),
+                commit["rebased"].as_str()?.to_string(),
+            ))
+        })
+        .collect()
+}
+
 pub async fn review_view(
     server: &(dyn AbstractServer + Send + Sync),
     push: &str,
@@ -964,11 +1021,20 @@ pub async fn review_view(
     };
     let mut indices: Vec<Value> = vec![json!(["rev", push])];
     let mut patches = vec![];
+    let revs: Vec<String> = try_push.stack.iter().map(|c| c.rev.clone()).collect();
+    let rebased = rebased_commits(server, push, &revs).await;
     for commit in &try_push.stack {
-        let diff = server.commit_diff(&commit.rev).await?;
+        // (Its code is its rebased commit's, if it has one, whose parent's
+        // analysis, for its stack's first commit changing a file, is the
+        // indexed revision's; its parts are its own's, which stay the same
+        // when it's rebased again.)
+        let shown = rebased.get(&commit.rev).cloned();
+        let diff = server
+            .commit_diff(shown.as_deref().unwrap_or(&commit.rev))
+            .await?;
         let summary = diff.message.lines().next().unwrap_or("").to_string();
         let (bugs, phab) = message_refs(&summary, &diff.message);
-        indices.push(json!(["rev", diff.rev]));
+        indices.push(json!(["rev", commit.rev]));
         for bug in &bugs {
             indices.push(json!(["bug", bug]));
         }
@@ -996,7 +1062,7 @@ pub async fn review_view(
                 _ => ("normal".to_string(), None),
             };
             files.push(review_file(
-                &diff.rev,
+                &commit.rev,
                 file,
                 outline.as_ref(),
                 path_kind,
@@ -1004,9 +1070,10 @@ pub async fn review_view(
             ));
         }
         patches.push(ReviewPatch {
-            id: format!("p:{}", diff.rev),
+            id: format!("p:{}", commit.rev),
             parent: diff.parent.clone(),
-            rev: diff.rev,
+            rev: commit.rev.clone(),
+            shown,
             summary,
             author: diff.author,
             date: diff.date,
@@ -1033,6 +1100,8 @@ pub async fn review_view(
         semantic_trunk: try_push.semantic_trunk,
         landed: try_push.landed,
         slicing: None,
+        sym_infos: None,
+        blame_infos: vec![],
     })
 }
 
@@ -1042,18 +1111,44 @@ pub async fn review_view(
 /// plain text).
 const MAX_HIGHLIGHTED_FILE: usize = 2 * 1024 * 1024;
 
-/// The view's hunks' lines' syntax-highlighted HTML (see `HunkLine`): each
-/// file formatted as its source listing is (`format::format_code`, without
-/// its analysis's links) in its patch's commit ("now") and in its parent
-/// ("then"; a renamed file's old path), where the server has their text (not
-/// remote servers, whose lines stay plain).
+/// A source listing's row's code (see `chunked_gzip::ROW_START`): its
+/// `source-line` cell's HTML, with its symbols.
+fn row_code(row: &str) -> Option<String> {
+    const CODE: &str = r#"<code role="cell" class="source-line">"#;
+    let start = row.find(CODE)? + CODE.len();
+    let end = row.rfind("</code>")?;
+    (start <= end).then(|| row[start..end].trim_end_matches('\n').to_string())
+}
+
+/// The view's hunks' lines' HTML (see `HunkLine`), as the source listings
+/// have it, and their blame:
+/// - Each line's code, highlighted, from the listing of the push's rebased
+///   head (patched, for the lines a patch adds or keeps which are the head's
+///   too) or of the indexed revision (now, for the lines before a patch which
+///   are the indexed revision's, as all of those of the stack's first patch
+///   changing a file are, the stack being rebased onto it), with their
+///   symbols, whose SYM_INFO the view has (`sym_infos`, for the page's
+///   `SYM_INFOS` by side; see context-menu.js); the other lines formatted as
+///   their listings would be (`format::format_code`, without links).
+/// - Each line's blame strip, by its revision's token-centric blame (the
+///   patch's commit's, and its parent's), whose infos the view has
+///   (`blame_infos`, for the page's `BLAME_INFOS`; see hyperblame.js).
+/// Remote servers have no files' texts or blame, so their lines are plain.
 pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &mut ReviewView) {
-    async fn formatted(
+    async fn text(
         server: &(dyn AbstractServer + Send + Sync),
+        texts: &mut BTreeMap<(String, String), Option<String>>,
         rev: &str,
         path: &str,
-    ) -> Option<Vec<String>> {
-        let text = server.rev_text(rev, path).await.ok()??;
+    ) -> Option<String> {
+        let key = (rev.to_string(), path.to_string());
+        if !texts.contains_key(&key) {
+            let text = server.rev_text(rev, path).await.ok().flatten();
+            texts.insert(key.clone(), text);
+        }
+        texts.get(&key).cloned().flatten()
+    }
+    fn formatted(path: &str, text: &str) -> Option<Vec<String>> {
         if text.len() > MAX_HIGHLIGHTED_FILE {
             return None;
         }
@@ -1065,7 +1160,7 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
                     &crate::file_format::jumpref::TreeJumprefs::default(),
                     format,
                     path,
-                    &text,
+                    text,
                     &[],
                 )
                 .0
@@ -1075,25 +1170,151 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
             ),
         }
     }
+    // (The listing's rows of `listing`'s file at `path` for the lines of
+    // `text` that `listing_text` has too, by their lines in `text`.)
+    async fn listing_code(
+        listing: &(dyn AbstractServer + Send + Sync),
+        path: &str,
+        text: &str,
+        listing_text: &str,
+        lines: &BTreeSet<u32>,
+    ) -> BTreeMap<u32, String> {
+        let map = crate::rev_lines::line_map(text.as_bytes(), listing_text.as_bytes());
+        let at: BTreeMap<u32, u32> = lines
+            .iter()
+            .filter_map(|line| Some((*line, (*map.get((*line as usize).checked_sub(1)?)?)?)))
+            .collect();
+        let wanted: BTreeSet<u32> = at.values().copied().collect();
+        if wanted.is_empty() {
+            return BTreeMap::new();
+        }
+        let Ok(mut rows) = listing
+            .fetch_html_lines(vec![(ustr::ustr(path), wanted)])
+            .await
+        else {
+            return BTreeMap::new();
+        };
+        let Some(rows) = rows.remove(&ustr::ustr(path)) else {
+            return BTreeMap::new();
+        };
+        at.into_iter()
+            .filter_map(|(line, listing_line)| {
+                Some((line, row_code(&rows.get(&listing_line)?.html)?))
+            })
+            .collect()
+    }
+    let meta = server.try_delta_meta();
+    let base_server = meta.as_ref().and_then(|meta| server.old_side(&meta.base));
+    let mut texts: BTreeMap<(String, String), Option<String>> = BTreeMap::new();
+    let mut syms: [Vec<ustr::Ustr>; 2] = [vec![], vec![]];
+    let mut blame_infos: Vec<Value> = vec![];
+    // (A revision's file's blame, as a cell maker, once each.)
+    let mut blames: BTreeMap<
+        (String, String),
+        Option<(usize, crate::hyperblame::page_blame::PageBlame)>,
+    > = BTreeMap::new();
     for patch in &mut view.patches {
+        let shown = patch.shown.clone().unwrap_or_else(|| patch.rev.clone());
+        let parent = patch.parent.clone();
         for file in &mut patch.files {
             if file.status == "binary" {
                 continue;
             }
-            let now = match file.status.as_str() {
+            let old_path = file.old_path.clone().unwrap_or_else(|| file.path.clone());
+            let now_text = match file.status.as_str() {
                 "removed" => None,
-                _ => formatted(server, &patch.rev, &file.path).await,
+                _ => text(server, &mut texts, &shown, &file.path).await,
             };
-            let then = match (file.status.as_str(), &patch.parent) {
+            let then_text = match (file.status.as_str(), &parent) {
                 ("added", _) | (_, None) => None,
-                (_, Some(parent)) => {
-                    formatted(
-                        server,
-                        parent,
-                        file.old_path.as_deref().unwrap_or(&file.path),
-                    )
-                    .await
+                (_, Some(parent)) => text(server, &mut texts, parent, &old_path).await,
+            };
+            let now_lines: BTreeSet<u32> = file
+                .hunks
+                .iter()
+                .flat_map(|h| h.lines.iter().filter_map(|l| l.new))
+                .collect();
+            let then_lines: BTreeSet<u32> = file
+                .hunks
+                .iter()
+                .flat_map(|h| h.lines.iter().filter_map(|l| l.old))
+                .collect();
+            // (Its lines from the listings: patched, the head's; now, the
+            // indexed revision's.)
+            let mut now_code = BTreeMap::new();
+            let mut then_code = BTreeMap::new();
+            if let Some(meta) = &meta {
+                if let (Some(now_text), Some(head_text)) = (
+                    &now_text,
+                    text(server, &mut texts, &meta.head, &file.path).await,
+                ) {
+                    now_code =
+                        listing_code(server, &file.path, now_text, &head_text, &now_lines).await;
                 }
+                if let (Some(then_text), Some(base), Some(base_text)) = (
+                    &then_text,
+                    base_server.as_deref(),
+                    text(server, &mut texts, &meta.base, &old_path).await,
+                ) {
+                    then_code =
+                        listing_code(base, &old_path, then_text, &base_text, &then_lines).await;
+                }
+            }
+            syms[0].extend(
+                then_code
+                    .values()
+                    .flat_map(|html| crate::abstract_server::sym_info::html_symbols(html)),
+            );
+            syms[1].extend(
+                now_code
+                    .values()
+                    .flat_map(|html| crate::abstract_server::sym_info::html_symbols(html)),
+            );
+            let now_fmt = now_text.as_deref().and_then(|t| formatted(&file.path, t));
+            let then_fmt = then_text.as_deref().and_then(|t| formatted(&old_path, t));
+            // (Their blames.)
+            let mut blame_of = async |rev: Option<&str>, path: &str| -> Option<usize> {
+                let rev = rev?;
+                let key = (rev.to_string(), path.to_string());
+                if !blames.contains_key(&key) {
+                    let page = server
+                        .token_blame(rev, path)
+                        .await
+                        .ok()
+                        .flatten()
+                        .map(|page| {
+                            blame_infos
+                                .push(serde_json::to_value(&page.info).unwrap_or(Value::Null));
+                            (blame_infos.len() - 1, page)
+                        });
+                    blames.insert(key.clone(), page);
+                }
+                blames.get(&key)?.as_ref().map(|(ctx, _)| *ctx)
+            };
+            let now_ctx = match file.status.as_str() {
+                "removed" => None,
+                _ => blame_of(Some(&shown), &file.path).await,
+            };
+            let then_ctx = match file.status.as_str() {
+                "added" => None,
+                _ => blame_of(parent.as_deref(), &old_path).await,
+            };
+            let cell = |ctx: Option<usize>, line: Option<u32>| -> Option<BlameCell> {
+                let ctx = ctx?;
+                let line = line?;
+                let (_, page) = blames.values().flatten().find(|(index, _)| *index == ctx)?;
+                let strip = page.lines.get((line as usize).checked_sub(1)?)?;
+                let (classes, data) = strip.strip_attrs();
+                Some(BlameCell {
+                    ctx,
+                    line,
+                    commit: strip
+                        .commit
+                        .and_then(|commit| page.info.commits.get(commit))
+                        .map(|commit| commit.0.clone()),
+                    classes,
+                    data,
+                })
             };
             let at = |lines: &Option<Vec<String>>, n: Option<u32>| -> Option<String> {
                 lines.as_ref()?.get((n? as usize).checked_sub(1)?).cloned()
@@ -1101,15 +1322,43 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
             for hunk in &mut file.hunks {
                 for line in &mut hunk.lines {
                     if line.kind != "+" {
-                        line.then_html = at(&then, line.old);
+                        line.then_html = line
+                            .old
+                            .and_then(|n| then_code.get(&n).cloned())
+                            .or_else(|| at(&then_fmt, line.old));
+                        line.then_blame = cell(then_ctx, line.old);
                     }
                     if line.kind != "-" {
-                        line.now_html = at(&now, line.new);
+                        line.now_html = line
+                            .new
+                            .and_then(|n| now_code.get(&n).cloned())
+                            .or_else(|| at(&now_fmt, line.new));
+                        line.now_blame = cell(now_ctx, line.new);
                     }
                 }
             }
         }
     }
+    // (The symbols' SYM_INFO, now by the indexed revision's server, and
+    // patched by the push's.)
+    let mut infos = vec![];
+    for (side, side_server) in [(0, base_server.as_deref().unwrap_or(server)), (1, server)] {
+        let mut info = BTreeMap::new();
+        let mut traversed = ustr::UstrMap::default();
+        crate::abstract_server::sym_info::add_syms_info(
+            side_server,
+            std::mem::take(&mut syms[side]),
+            &mut info,
+            &mut traversed,
+        )
+        .await;
+        infos.push(crate::abstract_server::sym_info::script_json(&info));
+    }
+    view.sym_infos = Some(json!({
+        "now": serde_json::from_str::<Value>(&infos[0]).unwrap_or(json!({})),
+        "patched": serde_json::from_str::<Value>(&infos[1]).unwrap_or(json!({})),
+    }));
+    view.blame_infos = blame_infos;
 }
 
 // ## Patch groups
@@ -1986,7 +2235,9 @@ fn element_id(part: &str, section: Section) -> String {
 }
 
 /// A side of a hunk: its lines before (`then`, kept and removed) or after
-/// (kept and added).
+/// (kept and added), as a source listing's rows (so that their blame strips'
+/// popups and their symbols' menus work as a listing's do; see blame.js,
+/// hyperblame.js and context-menu.js).
 fn side_html(hunk: &ReviewHunk, then: bool) -> String {
     let mut html = String::new();
     // (Where the other side has lines this one doesn't, a marker saying how
@@ -1994,13 +2245,17 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
     let mut other = 0;
     let marker = |n: usize| {
         format!(
-            r#"<div class="tr-line tr-other-side"><span class="tr-lno"></span><code class="tr-text">{} {} line{} {}</code></div>"#,
+            r#"<div role="row" class="source-line-with-number tr-line tr-other-side"><div role="cell" class="tr-blame"></div><span class="tr-lno"></span><code role="cell" class="tr-text">{} {} line{} {}</code></div>"#,
             if then { "+" } else { "\u{2212}" },
             n,
             if n == 1 { "" } else { "s" },
             if then { "added" } else { "removed" }
         )
     };
+    // (A strip's color alternates when its commit changes, as a listing's
+    // does.)
+    let mut last_commit: Option<String> = None;
+    let mut color = false;
     for line in &hunk.lines {
         if (then && line.kind == "+") || (!then && line.kind == "-") {
             other += 1;
@@ -2020,9 +2275,33 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
             true => line.then_html.as_deref(),
             false => line.now_html.as_deref(),
         };
+        let blame = match then {
+            true => line.then_blame.as_ref(),
+            false => line.now_blame.as_ref(),
+        };
+        let strip = match blame {
+            Some(cell) => {
+                let color_class = match &cell.commit {
+                    Some(commit) => {
+                        if last_commit.as_ref() != Some(commit) {
+                            color = !color;
+                        }
+                        last_commit = Some(commit.clone());
+                        if color { " c1" } else { " c2" }
+                    }
+                    None => "",
+                };
+                format!(
+                    r#"<div class="blame-strip{}{}" data-hb-ctx="{}" data-hb-line="{}"{} role="button" aria-label="blame" aria-expanded="false"></div>"#,
+                    color_class, cell.classes, cell.ctx, cell.line, cell.data
+                )
+            }
+            None => String::new(),
+        };
         html.push_str(&format!(
-            r#"<div class="tr-line{}"><span class="tr-lno">{}</span><code class="tr-text">{}</code></div>"#,
+            r#"<div role="row" class="source-line-with-number tr-line{}"><div role="cell" class="tr-blame">{}</div><span class="tr-lno">{}</span><code role="cell" class="source-line tr-text">{}</code></div>"#,
             class,
+            strip,
             number.map_or(String::new(), |n| n.to_string()),
             code.map_or_else(|| escape(&line.text).to_string(), str::to_string)
         ));
@@ -2079,19 +2358,35 @@ fn hunk_lines_html(
 
 /// A hunk's code, then and now (a new file has none then, and a removed one
 /// none now).
-fn hunk_code_html(file: &ReviewFile, hunk: &ReviewHunk) -> String {
+/// (Each side's code's symbols are in its SYM_INFO, the page's `SYM_INFOS`
+/// "now" or "patched"; see `add_line_html`.)
+/// (And the code before a patch is searched in the indexed revision, rather
+/// than the push, whose context the page is in; see context-menu.js's
+/// `searchContext`.)
+fn hunk_code_html(tree: &str, file: &ReviewFile, hunk: &ReviewHunk) -> String {
+    let then_attrs = format!(
+        r#"class="file then-code" role="table" data-sym-info="now" data-tree="{}" data-search="{}""#,
+        escape(tree),
+        escape(&crate::file_format::config::search_url(tree))
+    );
+    const NOW: &str = r#"class="file now-code" role="table" data-sym-info="patched""#;
+    let then = then_attrs.as_str();
     match file.status.as_str() {
         "added" => format!(
-            r#"<div class="now-code now-only">{}</div>"#,
+            r#"<div {}>{}</div>"#,
+            NOW.replace("now-code", "now-code now-only"),
             side_html(hunk, false)
         ),
         "removed" => format!(
-            r#"<div class="then-code then-only">{}</div>"#,
+            r#"<div {}>{}</div>"#,
+            then.replace("then-code", "then-code then-only"),
             side_html(hunk, true)
         ),
         _ => format!(
-            r#"<div class="then-now"><div class="then-code">{}</div><div class="now-code">{}</div></div>"#,
+            r#"<div class="then-now"><div {}>{}</div><div {}>{}</div></div>"#,
+            then,
             side_html(hunk, true),
+            NOW,
             side_html(hunk, false)
         ),
     }
@@ -2121,7 +2416,7 @@ fn hunk_html(
         id = escape(&hunk.id),
         element = element_id(&hunk.id, hunk.section),
         head = head,
-        code = hunk_code_html(file, hunk),
+        code = hunk_code_html(tree, file, hunk),
     )
 }
 
@@ -2281,7 +2576,16 @@ fn file_html(
         link = crate::url_encode_path::url_encode_path(&file.path),
         stack = escape(&stack),
         status = status,
-        children = children_html(tree, &patch.rev, &stack, file, None, &hunks, &wanted),
+        // (Its hunks' lines link to the commit whose code they are.)
+        children = children_html(
+            tree,
+            patch.shown.as_deref().unwrap_or(&patch.rev),
+            &stack,
+            file,
+            None,
+            &hunks,
+            &wanted
+        ),
         truncated = if file.truncated {
             r#"<p class="tr-note">Its other changes are left out here (it has too many lines of them).</p>"#
         } else {
@@ -2603,6 +2907,17 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             "slicing": view.slicing,
         }),
     ));
+    // (Its code's symbols' SYM_INFO by side, and its blames; see
+    // `add_line_html`.)
+    if let Some(sym_infos) = &view.sym_infos {
+        html.push_str(&crate::html_escape::json_data_block("SYM_INFOS", sym_infos));
+    }
+    if !view.blame_infos.is_empty() {
+        html.push_str(&crate::html_escape::json_data_block(
+            "BLAME_INFOS",
+            &json!(view.blame_infos),
+        ));
+    }
     // (The breadcrumbs' trail, which try-review.js puts in the page's.)
     html.push_str(&format!(
         r##"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/try/hg/{push}">try push {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span><span class="path-separator">/</span><span class="tr-crumb-patch"><a class="tr-crumb-patch-link" href="#tr-patch-1">Patch 1</a><button type="button" class="crash-crumb-button" id="tr-patch-picker" title="Pick a patch" aria-expanded="false" aria-haspopup="true" aria-controls="tr-patch-menu"></button><div id="tr-patch-menu" title="The patches" role="menu" class="context-menu initially-hidden"></div></span><span class="tr-crumb-then-now" hidden></span></span><div id="tr-jump-menu" title="The patch's files, classes and functions" role="menu" class="context-menu initially-hidden"></div>"##,
@@ -2620,11 +2935,20 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         files = files.len(),
         file_word = if files.len() == 1 { "file" } else { "files" },
         order = "interfaces, then definitions, then their uses, then tests",
-        modes = crate::crash_stack::then_now_modes_labeled_html(
-            ["Now", "Patched", "Now &amp; Patched"],
-            "The code before each patch.",
-            "The code with each patch."
-        ),
+        // (Its code is its stack rebased onto the indexed revision's, if it
+        // has one; see `review_view`.)
+        modes = match view.patches.iter().any(|patch| patch.shown.is_some()) {
+            true => crate::crash_stack::then_now_modes_labeled_html(
+                ["Now", "Patched", "Now &amp; Patched"],
+                "The code before each patch, with the push's stack rebased onto the indexed revision: that revision's, before the stack's first patch changing a file.",
+                "The code with each patch, with the push's stack rebased onto the indexed revision."
+            ),
+            false => crate::crash_stack::then_now_modes_labeled_html(
+                ["Now", "Patched", "Now &amp; Patched"],
+                "The code before each patch.",
+                "The code with each patch."
+            ),
+        },
     ));
     html.push_str(&semantic_notes_html(tree, view));
     if view.task_selections > 0 || view.truncated {
@@ -2764,6 +3088,7 @@ Binary files img.png and img.png differ
         ReviewPatch {
             id: format!("p:{}", rev),
             rev: rev.to_string(),
+            shown: None,
             parent: None,
             summary: String::new(),
             author: String::new(),
@@ -2825,6 +3150,8 @@ Binary files img.png and img.png differ
             semantic_trunk: None,
             landed: vec![],
             slicing: None,
+            sym_infos: None,
+            blame_infos: vec![],
         };
         // (The first's commit rebased is "rrrr"; what the push removes from
         // a.cpp has no commits.)

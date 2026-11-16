@@ -99,18 +99,11 @@ async fn review_slicing(
     });
     match slicing {
         Ok(slicing) => {
-            let revs: Vec<String> = view.patches.iter().map(|p| p.rev.clone()).collect();
-            let stack_url = crate::try_import::push_url_path(&view.push);
-            let explore = server.explore(&revs, Some(&stack_url)).await.ok();
-            let rebased: BTreeMap<String, String> = explore
+            // (The rebased commits its units name, by the patches'.)
+            let rebased: BTreeMap<String, String> = view
+                .patches
                 .iter()
-                .flat_map(|explore| explore["commits"].as_array().into_iter().flatten())
-                .filter_map(|commit| {
-                    Some((
-                        commit["rebased"].as_str()?.to_string(),
-                        commit["rev"].as_str()?.to_string(),
-                    ))
-                })
+                .filter_map(|patch| Some((patch.shown.clone()?, patch.rev.clone())))
                 .collect();
             out.groups = group_slicings(view, &slicing, &rebased);
             // (Its cards' lines: those on the changes' dataflow, in the

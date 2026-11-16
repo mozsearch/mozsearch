@@ -8057,6 +8057,22 @@ textarea.monospace {
   white-space: pre;
 }
 
+/* (A review's lines are source listing rows, for their blame strips and
+   symbols, without the listing's padding; their blame cells are narrower.) */
+.tr-line.source-line-with-number {
+  padding: 0;
+}
+
+.tr-blame {
+  flex: none;
+  width: 14px;
+  margin-inline-end: 2px;
+}
+
+.tr-blame .blame-strip {
+  width: 100%;
+}
+
 .tr-lno {
   flex: none;
   width: 4em;

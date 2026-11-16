@@ -114,6 +114,22 @@ add_task(async function test_TryReview() {
   ok(wobbler.querySelector('.now-code .tr-text span[class^="syn_"]') &&
      doc().querySelector('.then-code .tr-text span[class^="syn_"]'),
      "with its syntax highlighted, as the source listings' is, then and now");
+  // (Its lines are source listing rows: the rebased commits' code, with
+  // the symbols of the listings of the indexed revision (now) and of the
+  // push's rebased head (patched), and blame strips by their revisions'
+  // token-centric blame.)
+  const win = frame.contentWindow;
+  const header = definitions.querySelector('.tr-file[data-path="widget.h"]');
+  ok(header.querySelector(".now-code .source-line-with-number .blame-strip[data-hb-ctx]") &&
+     header.querySelector(".then-code .source-line-with-number .blame-strip[data-hb-ctx]") &&
+     Array.isArray(win.BLAME_INFOS),
+     "Its lines have blame strips then and now, by their revisions' blame");
+  ok(header.querySelector('.now-code[data-sym-info="patched"] [data-symbols]') &&
+     header.querySelector('.then-code[data-sym-info="now"] [data-symbols]') &&
+     Object.keys(win.SYM_INFOS?.patched ?? {}).length > 0 &&
+     Object.keys(win.SYM_INFOS?.now ?? {}).length > 0,
+     "and their symbols, now (the indexed revision's) and patched (the push's)");
+
   const modes = [...doc().querySelectorAll(".tr-head .then-now-modes button")].map(b => b.textContent);
   is(modes.join(", "), "Now, Patched, Now & Patched",
      "and the choice of the code now (before each patch), patched, or both");

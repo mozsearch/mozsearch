@@ -6657,6 +6657,19 @@ fn set_token_blame_urls(
     });
 }
 
+/// `revision_token_blame` of the revision `rev` (for trees' servers; see
+/// `AbstractServer::token_blame`).
+pub fn rev_token_blame(cfg: &Config, tree_name: &str, rev: &str, path: &str) -> Option<PageBlame> {
+    let tree_config = cfg.trees.get(tree_name)?;
+    let git = tree_config.git.as_ref()?;
+    let commit = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|object| object.peel_to_commit())
+        .ok()?;
+    revision_token_blame(tree_config, tree_name, git, &commit, path)
+}
+
 /// The token-centric blame of the file at `path` in `commit`, if the commit has
 /// the file and the tree's history has its blame, with the URLs of its data
 /// for a page about the revision (ex: a diff), which the page will request

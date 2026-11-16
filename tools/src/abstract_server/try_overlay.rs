@@ -317,6 +317,14 @@ impl AbstractServer for TryOverlay {
         self.base.rev_text(rev, path).await
     }
 
+    async fn token_blame(
+        &self,
+        rev: &str,
+        path: &str,
+    ) -> Result<Option<crate::hyperblame::page_blame::PageBlame>> {
+        self.base.token_blame(rev, path).await
+    }
+
     async fn commit_page(&self, rev: &str) -> Result<Value> {
         self.base.commit_page(rev).await
     }

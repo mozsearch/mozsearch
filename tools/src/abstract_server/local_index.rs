@@ -615,6 +615,20 @@ impl AbstractServer for LocalIndex {
         Ok(crate::format::rev_text(&cfg, &self.tree_name, rev, path))
     }
 
+    async fn token_blame(
+        &self,
+        rev: &str,
+        path: &str,
+    ) -> Result<Option<crate::hyperblame::page_blame::PageBlame>> {
+        let cfg = self.tree_config_loaded();
+        Ok(crate::format::rev_token_blame(
+            &cfg,
+            &self.tree_name,
+            rev,
+            path,
+        ))
+    }
+
     async fn map_rev(&self, kind: &str, rev: &str) -> Result<Option<String>> {
         match kind {
             "hg" => {
