@@ -106,7 +106,14 @@ var RevCanvas = new (class RevCanvas {
     let why = null;
     try {
       const response = await fetch(queryUrl("json"), { headers: { Accept: "application/json" } });
-      if (response.ok) {
+      // (A page answering instead of the JSON is the site's browser check's,
+      // which a page's own requests can get until it has been passed; see
+      // asuth-gecko-notes' waf-notes.md.)
+      const json = (response.headers.get("content-type") || "").includes("json");
+      if (response.ok && !json) {
+        why = "the site's browser check answered rather than the server; opening the slicing " +
+          "passes it, and then this page can load its clusters";
+      } else if (response.ok) {
         this.slicing = (await response.json())?.JsonValue?.value;
         if (!this.slicing?.clusters) {
           why = "the server's response had no clusters";

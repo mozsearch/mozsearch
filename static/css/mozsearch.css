@@ -3817,15 +3817,8 @@ h2.sp-called-heading {
 .explore-backout .explore-commit-summary {
   text-decoration: line-through;
 }
-.explore-pick input {
-  margin: 0 2px;
-  vertical-align: middle;
-}
 .explore-interdiff {
   font-size: smaller;
-}
-.explore-interdiff-link:not([href]) {
-  color: GrayText;
 }
 .explore-current {
   background-color: var(--line-highlight-background);
