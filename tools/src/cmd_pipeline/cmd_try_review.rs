@@ -58,6 +58,61 @@ fn slicing_command(spec: &str, format: &str) -> Option<DataflowCommand> {
     }
 }
 
+/// The groups' block diagrams (see `try_review::GroupSlicing::block`): each
+/// group's classes' (`block-diagram --classes`), by the roll-ups of the
+/// push's context (which have its patches' calls; see `Rollup::with_delta`),
+/// rendered as the query page's diagrams are (`graph --format mozsearch
+/// --hier subsystem`), and their nodes' SYM_INFO, as the page's script's
+/// JSON.
+async fn block_diagrams(
+    server: &(dyn AbstractServer + Send + Sync),
+    slicing: &mut ReviewSlicing,
+) -> Option<String> {
+    let parse = |args: &[&str]| -> Option<Command> {
+        Some(
+            ToolOpts::try_parse_from(std::iter::once("searchfox-tool").chain(args.iter().copied()))
+                .ok()?
+                .cmd,
+        )
+    };
+    let mut symbols = BTreeMap::new();
+    for group in &mut slicing.groups {
+        if group.classes.is_empty() {
+            continue;
+        }
+        let classes = group.classes.join(",");
+        let (Some(Command::BlockDiagram(block_args)), Some(Command::Graph(graph_args))) = (
+            parse(&["block-diagram", "--classes", &classes]),
+            parse(&["graph", "--format", "mozsearch", "--hier", "subsystem"]),
+        ) else {
+            return None;
+        };
+        let block = super::cmd_block_diagram::BlockDiagramCommand { args: block_args };
+        let graph = super::cmd_graph::GraphCommand { args: graph_args };
+        let Ok(collection) = block.execute(server, PipelineValues::Void).await else {
+            continue;
+        };
+        if let Ok(PipelineValues::GraphResultsBundle(bundle)) =
+            graph.execute(server, collection).await
+        {
+            group.block = Some(
+                bundle
+                    .graphs
+                    .into_iter()
+                    .map(|graph| graph.graph)
+                    .collect::<String>(),
+            );
+            symbols.extend(
+                bundle
+                    .symbols
+                    .into_iter()
+                    .map(|(sym, data)| (sym, Some(data))),
+            );
+        }
+    }
+    (!symbols.is_empty()).then(|| crate::abstract_server::sym_info::script_json(&symbols))
+}
+
 /// The slicing `spec` of the push's semantic analysis (see `try_delta`), if
 /// it has one.
 fn slicing_spec(server: &(dyn AbstractServer + Send + Sync)) -> Option<String> {
@@ -182,6 +237,9 @@ impl PipelineCommand for TryReviewCommand {
         let mut key = push.clone();
         if !crate::step_cache::is_cached(identity, "try-review-html", &key) {
             view.slicing = review_slicing(server, &view).await;
+            if let Some(slicing) = view.slicing.as_mut() {
+                view.block_sym_info = block_diagrams(server, slicing).await;
+            }
             if view.slicing.as_ref().is_some_and(|s| s.note.is_some()) {
                 key = format!("{} unsliced", push);
             }

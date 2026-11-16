@@ -306,6 +306,11 @@ add_task(async function test_TryReviewSlicing() {
                          "Clicking one goes to its part");
   is(doc(), page, "on the page, rather than to its source");
 
+  // (And a block diagram of the classes its patches change, by roll-ups.)
+  const block = doc().querySelector(".tr-block svg");
+  ok([...(block?.querySelectorAll("text") ?? [])].some(text => text.textContent.includes("Widget")),
+     "The group has a block diagram of the classes it changes");
+
   ok(!figure.querySelector(".tr-slice-code"), "The diagram leaves out the code at first");
   TestUtils.click(figure.querySelector(".tr-slicing-code"));
   await waitForCondition(() => figure.querySelector(".tr-slice-code .tr-added"),

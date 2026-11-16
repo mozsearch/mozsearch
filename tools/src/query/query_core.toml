@@ -182,6 +182,18 @@ args.positional = "$0"
 command = "graph"
 args.hier = "subsystem"
 
+# A block diagram of a set of classes (their symbols, comma-separated): the
+# edges among them, and each one's strongest with other classes (see
+# `block-diagram --classes`; ex: those a try review's group of patches
+# changes).
+[term.block-classes]
+[[term.block-classes.group.block-diagram]]
+command = "block-diagram"
+args.classes = "$0"
+[[term.block-classes.group.graph-render]]
+command = "graph"
+args.hier = "subsystem"
+
 [term.block-level]
 [[term.block-level.group.block-diagram]]
 command = "block-diagram"

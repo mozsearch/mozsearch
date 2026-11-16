@@ -580,6 +580,10 @@ pub struct ReviewView {
     /// `add_later_changes`; not kept in the view's cache).
     #[serde(skip)]
     pub later: Vec<LaterChange>,
+    /// The SYM_INFO of its block diagrams' nodes (see `GroupSlicing::block`),
+    /// as the page's script's JSON (not kept in the view's cache).
+    #[serde(skip)]
+    pub block_sym_info: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1122,6 +1126,7 @@ pub async fn review_view(
         sym_infos: None,
         blame_infos: vec![],
         later: vec![],
+        block_sym_info: None,
     })
 }
 
@@ -1848,6 +1853,9 @@ pub fn view_facets(view: &ReviewView) -> Value {
 /// out, and it says so).
 const MAX_GROUP_UNITS: usize = 60;
 
+/// The most classes a group's block diagram has (see `GroupSlicing::classes`).
+const MAX_BLOCK_CLASSES: usize = 12;
+
 /// The push's slicing (`slice-rev:`'s; see `dataflow::slice`) by the view's
 /// patch groups (see `group_slicings`), or why it isn't there.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -1871,6 +1879,15 @@ pub struct ReviewSlicing {
 pub struct GroupSlicing {
     pub nodes: Vec<SliceNode>,
     pub edges: Vec<SliceEdge>,
+    /// The classes its patches' units are in (their symbols), most units
+    /// first, at most `MAX_BLOCK_CLASSES`, for its block diagram (see
+    /// `block`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub classes: Vec<String>,
+    /// Its block diagram, as SVG (see cmd_try_review.rs's `block_diagrams`;
+    /// not in the page's data).
+    #[serde(skip)]
+    pub block: Option<String>,
     /// How many of its units its diagram leaves out (past
     /// `MAX_GROUP_UNITS`).
     #[serde(default)]
@@ -2289,12 +2306,27 @@ pub fn group_slicings(
                     why.push(reason);
                 }
             }
+            // (Its units' classes, most units first.)
+            let mut class_counts: BTreeMap<String, usize> = BTreeMap::new();
+            for id in &members {
+                if let Some(class) = &slicing.units[*id].class {
+                    *class_counts.entry(class.to_string()).or_default() += 1;
+                }
+            }
+            let mut classes: Vec<(String, usize)> = class_counts.into_iter().collect();
+            classes.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
             GroupSlicing {
                 nodes,
                 edges: edges
                     .into_iter()
                     .map(|((from, to), why)| SliceEdge { from, to, why })
                     .collect(),
+                classes: classes
+                    .into_iter()
+                    .take(MAX_BLOCK_CLASSES)
+                    .map(|(class, _)| class)
+                    .collect(),
+                block: None,
                 left_out,
             }
         })
@@ -2837,8 +2869,6 @@ fn patch_html(tree: &str, view: &ReviewView, i: usize) -> String {
     html
 }
 
-/// A group of patches' heading (see `group_patches`): its patches, what they
-/// share, and its honorary members (links to them).
 /// The URL of the page of the push's slicing.
 fn slicing_url(tree: &str, slicing: &ReviewSlicing) -> String {
     format!(
@@ -2846,6 +2876,42 @@ fn slicing_url(tree: &str, slicing: &ReviewSlicing) -> String {
         tree,
         urlencoding::encode(&slicing.query),
         urlencoding::encode(&slicing.rev)
+    )
+}
+
+/// A group's block diagram's figure (see `GroupSlicing::block`), if it has
+/// one: the classes its patches change, how they call each other and their
+/// strongest neighbors (by the roll-ups of the push's context), with a link
+/// to the diagram's page (`block-classes:`), whose panel can change it.
+fn block_html(tree: &str, view: &ReviewView, g: usize) -> String {
+    let Some(slicing) = &view.slicing else {
+        return String::new();
+    };
+    let Some((group, svg)) = slicing
+        .groups
+        .get(g)
+        .and_then(|group| Some((group, group.block.as_ref()?)))
+    else {
+        return String::new();
+    };
+    let query = format!("block-classes:{}", group.classes.join(","));
+    format!(
+        r#"<figure class="tr-block"><figcaption><span class="tr-slicing-title">Its classes</span> <span class="tr-slicing-about">{about} (<a href="{url}">the block diagram's page</a>)</span></figcaption><div class="tr-block-diagram">{svg}</div></figure>"#,
+        about = escape(&format!(
+            "the {} its patches change, how they call each other, and their strongest neighbors",
+            if group.classes.len() == 1 {
+                "class"
+            } else {
+                "classes"
+            }
+        )),
+        url = escape(&format!(
+            "/{}/query/default?q={}&rev={}",
+            tree,
+            urlencoding::encode(&query),
+            urlencoding::encode(&slicing.rev)
+        )),
+        svg = svg,
     )
 }
 
@@ -2895,6 +2961,8 @@ fn slicing_html(tree: &str, view: &ReviewView, g: usize) -> String {
     )
 }
 
+/// A group of patches' heading (see `group_patches`): its patches, what they
+/// share, and its honorary members (links to them).
 fn group_head_html(view: &ReviewView, g: usize) -> String {
     let group = &view.groups[g];
     let numbers = |patches: &[usize]| -> String {
@@ -3066,6 +3134,12 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             &json!(view.blame_infos),
         ));
     }
+    // (And its block diagrams' nodes', for their context menus.)
+    if let Some(sym_info) = &view.block_sym_info {
+        html.push_str(&crate::html_escape::json_merge_block_from_json(
+            "SYM_INFO", sym_info,
+        ));
+    }
     // (The breadcrumbs' trail, which try-review.js puts in the page's.)
     html.push_str(&format!(
         r##"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/try/hg/{push}">try push {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span><span class="path-separator">/</span><span class="tr-crumb-patch"><a class="tr-crumb-patch-link" href="#tr-patch-1">Patch 1</a><button type="button" class="crash-crumb-button" id="tr-patch-picker" title="Pick a patch" aria-expanded="false" aria-haspopup="true" aria-controls="tr-patch-menu"></button><div id="tr-patch-menu" title="The patches" role="menu" class="context-menu initially-hidden"></div></span><span class="tr-crumb-then-now" hidden></span></span><div id="tr-jump-menu" title="The patch's files, classes and functions" role="menu" class="context-menu initially-hidden"></div>"##,
@@ -3142,6 +3216,7 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         if view.groups.len() > 1 {
             html.push_str(&group_head_html(&view, g));
         }
+        html.push_str(&block_html(tree, &view, g));
         html.push_str(&slicing_html(tree, &view, g));
         for i in &group.patches {
             html.push_str(&patch_html(tree, &view, *i));
@@ -3301,6 +3376,7 @@ Binary files img.png and img.png differ
             sym_infos: None,
             blame_infos: vec![],
             later: vec![],
+            block_sym_info: None,
         };
         // (The first's commit rebased is "rrrr"; what the push removes from
         // a.cpp has no commits.)
@@ -3466,6 +3542,7 @@ Binary files img.png and img.png differ
             sym_infos: None,
             blame_infos: vec![],
             later: vec![],
+            block_sym_info: None,
         };
         let texts: BTreeMap<(String, String), Option<String>> = [
             ("p0", "a\nb\n"),

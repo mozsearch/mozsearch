@@ -127,6 +127,18 @@ pub struct BlockDiagram {
     #[clap(long)]
     include_tests: bool,
 
+    /// A set of classes (symbols, comma-separated) to diagram rather than
+    /// `focus` (ex: those a try push's patches change; see `try_review`):
+    /// the edges among them, and each one's strongest (`--max-neighbors`)
+    /// with classes outside them.
+    #[clap(long, value_parser)]
+    classes: Option<String>,
+
+    /// For `--classes`: how many of each class's edges with classes outside
+    /// them to show (its strongest).
+    #[clap(long, default_value_t = 4)]
+    max_neighbors: usize,
+
     /// The groups of diagram-mapping.toml's left-out calls (ex: "strings",
     /// comma-separated, or "all") whose classes to show, which class block
     /// diagrams leave out as calls diagrams leave out their calls (see
@@ -826,20 +838,34 @@ impl PipelineCommand for BlockDiagramCommand {
         let focus = self.args.focus.as_deref().unwrap_or("").trim();
         // ("*" is the whole tree, for query terms.)
         let focus = if focus == "*" { "" } else { focus };
-        let focus_sym = if focus.is_empty() {
-            root_subsystem_sym()
-        } else {
-            block_sym(focus)
+        // (Or a set of classes; see `classes`.)
+        let classes: Vec<Ustr> = self
+            .args
+            .classes
+            .as_deref()
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|class| !class.is_empty())
+            .map(ustr)
+            .collect();
+        let focus_sym = match classes.first() {
+            Some(class) => *class,
+            None if focus.is_empty() => root_subsystem_sym(),
+            None => block_sym(focus),
         };
         let is_subsystem = focus_sym.starts_with(SUBSYSTEM_PREFIX);
         // (The whole tree's subsystems, else classes.)
-        let level = self.args.level.unwrap_or(if focus.is_empty() {
-            BlockLevel::Subsystem
-        } else {
-            BlockLevel::Class
-        });
+        let level = self
+            .args
+            .level
+            .unwrap_or(if focus.is_empty() && classes.is_empty() {
+                BlockLevel::Subsystem
+            } else {
+                BlockLevel::Class
+            });
         let mapping = server.diagram_mapping();
-        let mut rollup = if level == BlockLevel::Field {
+        let mut rollup = if level == BlockLevel::Field || !classes.is_empty() {
             Rollup::default()
         } else {
             let Some(rollup) = rollup_of(server, &focus_sym, self.args.edges).await? else {
@@ -866,7 +892,43 @@ impl PipelineCommand for BlockDiagramCommand {
                 e.count
             }
         };
-        if level == BlockLevel::Field {
+        if !classes.is_empty() {
+            // A set of classes: the edges among them, and with classes
+            // outside them (cut to each one's strongest below, once the
+            // left-out classes are left out).
+            server.prefetch_crossref(&classes).await;
+            own.extend(classes.iter().copied());
+            for class in &classes {
+                let Some(class_rollup) = rollup_of(server, class, self.args.edges).await? else {
+                    continue;
+                };
+                for e in &class_rollup.out {
+                    edges.push(BlockEdge {
+                        from: *class,
+                        to: e.sym,
+                        count: edge_count(e),
+                        example: first_example(e),
+                        via: None,
+                        ipc: e.ipc,
+                    });
+                }
+                // (Those from the others are their `out`s.)
+                for e in class_rollup
+                    .into
+                    .iter()
+                    .filter(|e| !classes.contains(&e.sym))
+                {
+                    edges.push(BlockEdge {
+                        from: e.sym,
+                        to: *class,
+                        count: edge_count(e),
+                        example: first_example(e),
+                        via: None,
+                        ipc: e.ipc,
+                    });
+                }
+            }
+        } else if level == BlockLevel::Field {
             // A class's fields' and methods' data edges.
             let meta = server
                 .crossref_lookup(&focus_sym)
@@ -1078,6 +1140,22 @@ impl PipelineCommand for BlockDiagramCommand {
             }
             edges.retain(|e| !dropped.contains_key(&e.from) && !dropped.contains_key(&e.to));
         }
+        // (A set of classes' edges with others: each one's strongest.)
+        if !classes.is_empty() {
+            edges.sort_by(|a, b| b.count.cmp(&a.count));
+            let mut outside: std::collections::HashMap<Ustr, usize> = Default::default();
+            edges.retain(|e| {
+                let (Some(class), false) = (
+                    [e.from, e.to].into_iter().find(|end| own.contains(end)),
+                    own.contains(&e.from) && own.contains(&e.to),
+                ) else {
+                    return true;
+                };
+                let shown = outside.entry(class).or_default();
+                *shown += 1;
+                *shown <= self.args.max_neighbors
+            });
+        }
         // (Only those with the other side; see `with`.)
         let with_sym = self
             .args
@@ -1273,6 +1351,11 @@ impl PipelineCommand for BlockDiagramCommand {
                 server.prefetch_crossref(&[focus_sym]).await;
                 let (focus_id, _) = node_set.ensure_symbol(&focus_sym, server, 0).await?;
                 graph.ensure_node(focus_id);
+            }
+            // (And each of a set of classes.)
+            for class in classes.iter().skip(1) {
+                let (id, _) = node_set.ensure_symbol(class, server, 0).await?;
+                graph.ensure_node(id);
             }
             let edges: Vec<&BlockEdge> = edges.iter().collect();
             add_edges(

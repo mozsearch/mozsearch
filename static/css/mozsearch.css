@@ -8309,8 +8309,25 @@ textarea.monospace {
   border-radius: 4px;
 }
 
-.tr-slicing figcaption {
+.tr-slicing figcaption,
+.tr-block figcaption {
   margin-bottom: 0.4em;
+}
+
+/* A patch group's block diagram (try_review.rs's `block_html`): the classes
+   its patches change and their strongest neighbors, as the query page's
+   block diagrams are drawn. */
+.tr-block {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.5em 0 1em;
+  padding: 0.3em 0.5em 0.5em;
+  border: 1px solid var(--page-border-color);
+  border-radius: 4px;
+}
+
+.tr-block-diagram svg {
+  max-width: none;
 }
 
 .tr-slicing-title {
