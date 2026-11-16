@@ -1,0 +1,3 @@
+Bug 7001 - Make Stacked return 2. r=reviewer
+
+Differential Revision: https://phabricator.services.mozilla.com/D7002

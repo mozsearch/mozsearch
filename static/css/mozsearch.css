@@ -8073,6 +8073,50 @@ textarea.monospace {
   width: 100%;
 }
 
+/* (A line a later patch changes: a bar beside its blame strip, outside it,
+   and its change's popup above it, on hover; see try-review.js's
+   `addLaterChanges`.) */
+.tr-blame {
+  box-sizing: content-box;
+  padding-inline-end: 3px;
+}
+
+.tr-later > .tr-blame {
+  background: linear-gradient(to left, #e8590c 3px, transparent 3px);
+}
+
+.tr-later-popup {
+  position: absolute;
+  z-index: 250;
+  max-width: 60em;
+  padding: 3px 6px;
+  border: 1px solid var(--tooltip-border);
+  border-radius: 4px;
+  background: var(--tooltip-background);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.tr-later-head {
+  margin-bottom: 2px;
+  color: var(--page-subtle-foreground);
+  font-size: 0.85em;
+}
+
+.tr-later-code {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.tr-later-code:hover {
+  background: var(--list-hover-background);
+}
+
+.tr-later-code .source-line {
+  display: block;
+  font-size: 0.9em;
+}
+
 .tr-lno {
   flex: none;
   width: 4em;

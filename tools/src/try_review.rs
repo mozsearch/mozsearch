@@ -88,6 +88,21 @@ pub struct HunkLine {
     pub then_blame: Option<BlameCell>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub now_blame: Option<BlameCell>,
+    /// If a later patch of the push changes it (as it is with its patch), that
+    /// change, its index in the view's `later` (see `add_later_changes`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub later: Option<usize>,
+}
+
+/// A later patch's change of a line a patch adds or keeps (see
+/// `add_later_changes`): the patch (its index), the id of the element of its
+/// hunk changing it, and that hunk's lines it adds (their HTML, the first
+/// few), for the line's popup (see try-review.js's `addLaterChanges`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct LaterChange {
+    pub patch: usize,
+    pub element: String,
+    pub lines: Vec<String>,
 }
 
 /// A line's blame strip (see `hyperblame::page_blame::StripLine`): its
@@ -561,6 +576,10 @@ pub struct ReviewView {
     pub sym_infos: Option<Value>,
     #[serde(skip)]
     pub blame_infos: Vec<Value>,
+    /// The later patches' changes of the lines patches add or keep (see
+    /// `add_later_changes`; not kept in the view's cache).
+    #[serde(skip)]
+    pub later: Vec<LaterChange>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1102,6 +1121,7 @@ pub async fn review_view(
         slicing: None,
         sym_infos: None,
         blame_infos: vec![],
+        later: vec![],
     })
 }
 
@@ -1359,6 +1379,125 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
         "patched": serde_json::from_str::<Value>(&infos[1]).unwrap_or(json!({})),
     }));
     view.blame_infos = blame_infos;
+    add_later_changes(view, &texts);
+}
+
+/// The most of a later change's added lines its popup shows.
+const LATER_LINES: usize = 6;
+
+/// Marks the lines patches add or keep which later patches change (see
+/// `HunkLine::later`): each such line (as it is with its patch) is followed
+/// through the next patches changing its file, by their line diffs (with
+/// `texts`, the files' texts by revision and path, as `add_line_html` had
+/// them), to the first one removing it, whose hunk doing so is its change.
+/// (The patches in between leave the file as it was.)
+fn add_later_changes(view: &mut ReviewView, texts: &BTreeMap<(String, String), Option<String>>) {
+    let text = |rev: &Option<String>, path: &str| -> Option<&String> {
+        texts.get(&(rev.clone()?, path.to_string()))?.as_ref()
+    };
+    // (Each patch's files, by their paths then and now.)
+    struct Change {
+        patch: usize,
+        file: usize,
+    }
+    let shown =
+        |patch: &ReviewPatch| Some(patch.shown.clone().unwrap_or_else(|| patch.rev.clone()));
+    let mut later: Vec<LaterChange> = vec![];
+    let mut marks: Vec<(usize, usize, usize, usize, usize)> = vec![];
+    for (k, patch) in view.patches.iter().enumerate() {
+        for (f, file) in patch.files.iter().enumerate() {
+            if file.status == "removed" || file.status == "binary" {
+                continue;
+            }
+            // (The later patches changing the file, in order, following
+            // renames.)
+            let mut path = file.path.clone();
+            let mut changes: Vec<Change> = vec![];
+            for (j, other) in view.patches.iter().enumerate().skip(k + 1) {
+                if let Some(g) = other
+                    .files
+                    .iter()
+                    .position(|o| o.old_path.as_deref().unwrap_or(&o.path) == path)
+                {
+                    path = other.files[g].path.clone();
+                    changes.push(Change { patch: j, file: g });
+                }
+            }
+            if changes.is_empty() {
+                continue;
+            }
+            // (Each later change's line map, from its parent's file to its
+            // own.)
+            let maps: Vec<Option<Vec<Option<u32>>>> = changes
+                .iter()
+                .map(|change| {
+                    let other = &view.patches[change.patch];
+                    let other_file = &other.files[change.file];
+                    let before = text(
+                        &other.parent,
+                        other_file.old_path.as_deref().unwrap_or(&other_file.path),
+                    )?;
+                    let after = text(&shown(other), &other_file.path)?;
+                    Some(crate::rev_lines::line_map(
+                        before.as_bytes(),
+                        after.as_bytes(),
+                    ))
+                })
+                .collect();
+            for (h, hunk) in file.hunks.iter().enumerate() {
+                for (l, line) in hunk.lines.iter().enumerate() {
+                    if line.kind == "-" {
+                        continue;
+                    }
+                    let Some(mut position) = line.new else {
+                        continue;
+                    };
+                    for (change, map) in changes.iter().zip(&maps) {
+                        let other_file = &view.patches[change.patch].files[change.file];
+                        // (Its hunk removing the line, if any.)
+                        if let Some(other_hunk) = other_file.hunks.iter().find(|other_hunk| {
+                            other_hunk
+                                .lines
+                                .iter()
+                                .any(|o| o.kind == "-" && o.old == Some(position))
+                        }) {
+                            let lines = other_hunk
+                                .lines
+                                .iter()
+                                .filter(|o| o.kind == "+")
+                                .take(LATER_LINES)
+                                .map(|o| {
+                                    o.now_html
+                                        .clone()
+                                        .unwrap_or_else(|| escape(&o.text).to_string())
+                                })
+                                .collect();
+                            later.push(LaterChange {
+                                patch: change.patch,
+                                element: element_id(&other_hunk.id, other_hunk.section),
+                                lines,
+                            });
+                            marks.push((k, f, h, l, later.len() - 1));
+                            break;
+                        }
+                        match map
+                            .as_ref()
+                            .and_then(|map| *map.get((position as usize).checked_sub(1)?)?)
+                        {
+                            Some(next) => position = next,
+                            // (Removed where its hunks don't say, ex: a
+                            // diff's other alignment; or its map's unknown.)
+                            None => break,
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for (k, f, h, l, index) in marks {
+        view.patches[k].files[f].hunks[h].lines[l].later = Some(index);
+    }
+    view.later = later;
 }
 
 // ## Patch groups
@@ -2298,9 +2437,16 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
             }
             None => String::new(),
         };
+        // (A line a later patch changes says so; see try-review.js's
+        // `addLaterChanges`.)
+        let later = match (then, line.later) {
+            (false, Some(index)) => format!(r#" tr-later" data-later="{}"#, index),
+            _ => String::new(),
+        };
         html.push_str(&format!(
-            r#"<div role="row" class="source-line-with-number tr-line{}"><div role="cell" class="tr-blame">{}</div><span class="tr-lno">{}</span><code role="cell" class="source-line tr-text">{}</code></div>"#,
+            r#"<div role="row" class="source-line-with-number tr-line{}{}"><div role="cell" class="tr-blame">{}</div><span class="tr-lno">{}</span><code role="cell" class="source-line tr-text">{}</code></div>"#,
             class,
+            later,
             strip,
             number.map_or(String::new(), |n| n.to_string()),
             code.map_or_else(|| escape(&line.text).to_string(), str::to_string)
@@ -2905,6 +3051,8 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             "tree": tree,
             // (The groups' diagrams' data; see `group_slicings`.)
             "slicing": view.slicing,
+            // (The later patches' changes of lines; see `add_later_changes`.)
+            "later": view.later,
         }),
     ));
     // (Its code's symbols' SYM_INFO by side, and its blames; see
@@ -3152,6 +3300,7 @@ Binary files img.png and img.png differ
             slicing: None,
             sym_infos: None,
             blame_infos: vec![],
+            later: vec![],
         };
         // (The first's commit rebased is "rrrr"; what the push removes from
         // a.cpp has no commits.)
@@ -3260,6 +3409,100 @@ Binary files img.png and img.png differ
         );
         // (Not what's removed, which isn't in the head.)
         assert!(groups[0].nodes[1].card.is_empty());
+    }
+
+    #[test]
+    fn test_add_later_changes() {
+        // (Patch 1 adds `x = 1;`, which patch 2 changes to `x = 2;`.)
+        let line = |kind: &str, old: Option<u32>, new: Option<u32>, text: &str| HunkLine {
+            kind: kind.to_string(),
+            old,
+            new,
+            text: text.to_string(),
+            ..Default::default()
+        };
+        let hunk = |id: &str, lines: Vec<HunkLine>| ReviewHunk {
+            id: id.to_string(),
+            def: None,
+            section: Section::Uses,
+            lines,
+            added: 1,
+            removed: 0,
+        };
+        let mut first = patch("r1", &["a.cpp"], 1, 1);
+        first.parent = Some("p0".to_string());
+        first.files[0].hunks = vec![hunk(
+            "h1",
+            vec![
+                line(" ", Some(1), Some(1), "a"),
+                line("+", None, Some(2), "x = 1;"),
+                line(" ", Some(2), Some(3), "b"),
+            ],
+        )];
+        let mut second = patch("r2", &["a.cpp"], 1, 2);
+        second.parent = Some("r1".to_string());
+        second.files[0].hunks = vec![hunk(
+            "h2",
+            vec![
+                line(" ", Some(1), Some(1), "a"),
+                line("-", Some(2), None, "x = 1;"),
+                line("+", None, Some(2), "x = 2;"),
+                line(" ", Some(3), Some(3), "b"),
+            ],
+        )];
+        let mut view = ReviewView {
+            push: "r2".to_string(),
+            key: String::new(),
+            indices: vec![],
+            patches: vec![first, second],
+            groups: vec![],
+            task_selections: 0,
+            truncated: false,
+            semantic_head: None,
+            semantic_failure: None,
+            semantic_trunk: None,
+            landed: vec![],
+            slicing: None,
+            sym_infos: None,
+            blame_infos: vec![],
+            later: vec![],
+        };
+        let texts: BTreeMap<(String, String), Option<String>> = [
+            ("p0", "a\nb\n"),
+            ("r1", "a\nx = 1;\nb\n"),
+            ("r2", "a\nx = 2;\nb\n"),
+        ]
+        .into_iter()
+        .map(|(rev, text)| {
+            (
+                (rev.to_string(), "a.cpp".to_string()),
+                Some(text.to_string()),
+            )
+        })
+        .collect();
+        add_later_changes(&mut view, &texts);
+        let lines = &view.patches[0].files[0].hunks[0].lines;
+        assert_eq!(
+            lines[1].later,
+            Some(0),
+            "patch 2 changes the line patch 1 adds"
+        );
+        assert_eq!(lines[0].later, None, "but not the lines around it");
+        assert_eq!(
+            view.later,
+            vec![LaterChange {
+                patch: 1,
+                element: element_id("h2", Section::Uses),
+                lines: vec!["x = 2;".to_string()],
+            }]
+        );
+        // (And patch 2's own lines have no later changes.)
+        assert!(
+            view.patches[1].files[0].hunks[0]
+                .lines
+                .iter()
+                .all(|l| l.later.is_none())
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 "use strict";
 // webtest-group: trydelta-push (they import it)
-// webtest-timeout: 120 (it imports the push, with its semantic analysis)
+// webtest-timeout: 240 (it imports pushes, with their semantic analysis)
 
 // A try push's review view (the `try-review:` query; see the tools'
 // try_review.rs and static/js/try-review.js): the trydelta tree's push
@@ -350,6 +350,36 @@ add_task(async function test_TryReviewPatches() {
   is(doc().querySelector("#try-review").dataset.thenNow, "then", "which chooses for the view");
   is(doc().querySelector('.tr-head .then-now-modes button[data-mode="then"]').getAttribute("aria-pressed"),
      "true", "as the view's own does");
+});
+
+// (A later patch's change of a line: 3579ace13579's first patch adds
+// stacked.cpp's Stacked, returning 1, and its second makes it return 2.)
+add_task(async function test_TryReviewLaterChanges() {
+  await TestUtils.loadPath("/trydelta/try/hg/3579ace13579");
+  if (!doc().querySelector("#try-review")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
+                           "The push is imported", 500, 240);
+  }
+  await waitForCondition(() => doc().querySelector("#try-review[data-review-ready]"),
+                         "The review is loaded");
+  const first = doc().querySelector('#tr-patch-1 .tr-file[data-path="stacked.cpp"]');
+  const row = [...(first?.querySelectorAll(".now-code .tr-line.tr-later") ?? [])]
+    .find(each => each.textContent.includes("return 1"));
+  ok(row, "A line a later patch changes is marked");
+  row.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  const popup = doc().querySelector(".tr-later-popup");
+  await waitForCondition(() => popup && !popup.hidden, "Hovering over it shows the later change");
+  ok(popup.textContent.includes("Patch 2") && popup.textContent.includes("return 2"),
+     "that patch's, and the line it makes of it");
+
+  const win = frame.contentWindow;
+  const length = win.history.length;
+  realClick(popup.querySelector(".tr-later-code"));
+  await waitForCondition(() => win.location.hash.length > 1, "Clicking it goes to that patch's hunk");
+  ok(doc().querySelector("#tr-patch-2")?.contains(doc().getElementById(win.location.hash.slice(1))),
+     "in the later patch");
+  is(win.history.length, length + 1, "as a history entry");
 });
 
 add_task(async function test_TryReviewFacets() {

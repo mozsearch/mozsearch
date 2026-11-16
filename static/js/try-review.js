@@ -91,6 +91,7 @@ var TryReview = new (class TryReview {
       slot.replaceWith(ReviewState.stateButton(this.review, slot.dataset.part));
     }
     this.rememberLooking();
+    this.addLaterChanges();
     ReviewState.bind(this.review, this.root);
     this.drawSlicings();
     this.summaryBox.append(ReviewState.summary(this.review, [
@@ -499,6 +500,88 @@ var TryReview = new (class TryReview {
     if (target && location.hash != `#${target.id}`) {
       history.pushState(history.state, "", `#${target.id}`);
     }
+  }
+
+  // The lines a later patch of the push changes (see the tools'
+  // `add_later_changes`), which are marked beside their blame strips: hovering
+  // over one shows, above it, that patch's change (the lines its hunk adds),
+  // and clicking that goes to the hunk (a history entry, so that Back returns
+  // to the line).
+  addLaterChanges() {
+    const changes = TRY_REVIEW.later || [];
+    if (!changes.length) {
+      return;
+    }
+    const popup = document.createElement("div");
+    popup.className = "tr-later-popup";
+    popup.hidden = true;
+    popup.setAttribute("role", "tooltip");
+    document.body.append(popup);
+    let shownFor = null;
+    let hideTimer = null;
+    const hide = () => {
+      popup.hidden = true;
+      shownFor = null;
+    };
+    const show = row => {
+      clearTimeout(hideTimer);
+      if (shownFor == row) {
+        return;
+      }
+      const change = changes[Number(row.dataset.later)];
+      if (!change) {
+        return;
+      }
+      shownFor = row;
+      const head = document.createElement("div");
+      head.className = "tr-later-head";
+      head.textContent = `Patch ${change.patch + 1} changes this line to:`;
+      const code = document.createElement("a");
+      code.className = "tr-later-code";
+      code.href = `#${change.element}`;
+      code.title = `Go to patch ${change.patch + 1}'s change`;
+      for (const html of change.lines.length ? change.lines : [""]) {
+        const line = document.createElement("code");
+        line.className = "source-line";
+        if (!html) {
+          line.textContent = "(it removes it)";
+        } else {
+          // (The tools' HTML, of the code's highlighting, escaped there.)
+          TrustedHTML.set(line, html);
+        }
+        code.append(line);
+      }
+      code.addEventListener("click", event => {
+        event.preventDefault();
+        hide();
+        const target = document.getElementById(change.element);
+        if (target) {
+          this.goTo(target);
+        }
+      });
+      popup.replaceChildren(head, code);
+      popup.hidden = false;
+      const rect = row.getBoundingClientRect();
+      popup.style.left = `${Math.max(4, rect.left + window.scrollX + 24)}px`;
+      popup.style.top = `${rect.top + window.scrollY - popup.offsetHeight - 2}px`;
+    };
+    this.root.addEventListener("mouseover", event => {
+      const row = event.target.closest(".tr-line.tr-later");
+      if (row) {
+        show(row);
+      }
+    });
+    const leave = () => {
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hide, 300);
+    };
+    this.root.addEventListener("mouseout", event => {
+      if (event.target.closest(".tr-line.tr-later")) {
+        leave();
+      }
+    });
+    popup.addEventListener("mouseenter", () => clearTimeout(hideTimer));
+    popup.addEventListener("mouseleave", leave);
   }
 
   // (Marking a part as being looked at is a history entry too, of its
