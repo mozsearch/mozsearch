@@ -39,14 +39,27 @@ var ReviewState = (function () {
   ];
   const STATES = MARKS.map(mark => mark.state);
 
-  function openDb() {
+  // (The database, with its store: a database without it, ex: one opened
+  // by something else first, is upgraded to have it.)
+  function openDb(version) {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1);
+      const request = version ? indexedDB.open(DB_NAME, version) : indexedDB.open(DB_NAME);
       request.onupgradeneeded = () => {
-        const store = request.result.createObjectStore(STORE, { keyPath: "key" });
-        store.createIndex("indices", "indices", { multiEntry: true });
+        if (!request.result.objectStoreNames.contains(STORE)) {
+          const store = request.result.createObjectStore(STORE, { keyPath: "key" });
+          store.createIndex("indices", "indices", { multiEntry: true });
+        }
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const db = request.result;
+        if (db.objectStoreNames.contains(STORE)) {
+          resolve(db);
+          return;
+        }
+        const next = db.version + 1;
+        db.close();
+        openDb(next).then(resolve, reject);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -84,8 +97,10 @@ var ReviewState = (function () {
       this.error = null;
       this.tab = Math.random().toString(36).slice(2);
       this.channel = null;
-      // (The changes not written yet, in order: one transaction at a time.)
+      // (The changes not written yet, in order: one transaction at a time,
+      // and how many.)
       this.writing = Promise.resolve();
+      this.pending = 0;
     }
 
     /** Adds a part: its id, its parent's id (or null), level and label. */
@@ -102,7 +117,6 @@ var ReviewState = (function () {
     /** Loads the review's record, and listens to the other tabs'. */
     async open() {
       try {
-        this.db = await openDb();
         const record = await this.read();
         if (record) {
           this.data = record.data;
@@ -131,9 +145,23 @@ var ReviewState = (function () {
       this.db = null;
     }
 
-    read() {
+    // (The database's connection, opened again if another tab's upgrade of
+    // it closed it.)
+    async connection() {
+      if (!this.db) {
+        this.db = await openDb();
+        this.db.onversionchange = () => {
+          this.db?.close();
+          this.db = null;
+        };
+      }
+      return this.db;
+    }
+
+    async read() {
+      const db = await this.connection();
       return new Promise((resolve, reject) => {
-        const request = this.db.transaction(STORE).objectStore(STORE).get(this.key);
+        const request = db.transaction(STORE).objectStore(STORE).get(this.key);
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
@@ -141,9 +169,10 @@ var ReviewState = (function () {
 
     // Writes a change: in one transaction, reads the record, applies it, and
     // puts it back; resolves to the record's new `seq`.
-    write(change) {
+    async write(change) {
+      const db = await this.connection();
       return new Promise((resolve, reject) => {
-        const transaction = this.db.transaction(STORE, "readwrite");
+        const transaction = db.transaction(STORE, "readwrite");
         const store = transaction.objectStore(STORE);
         let seq = null;
         const request = store.get(this.key);
@@ -157,6 +186,9 @@ var ReviewState = (function () {
           record.data.seq = seq = (record.data.seq || 0) + 1;
           record.indices = this.indices;
           store.put(record);
+          // (Written as soon as it can be, not when the page next idles: a
+          // page left right after a change shouldn't lose it.)
+          transaction.commit?.();
         };
         transaction.oncomplete = () => resolve(seq);
         transaction.onerror = () => reject(transaction.error);
@@ -186,6 +218,7 @@ var ReviewState = (function () {
         this.channel?.postMessage({ change, seq: null });
         return Promise.resolve();
       }
+      this.pending++;
       this.writing = this.writing.then(async () => {
         try {
           const seq = await this.write(change);
@@ -195,8 +228,9 @@ var ReviewState = (function () {
         } catch (e) {
           this.error = e;
           console.warn("Couldn't keep a review mark:", e);
-          this.notify(change.part);
         }
+        this.pending--;
+        this.notify(change.part);
       });
       return this.writing;
     }
@@ -336,6 +370,21 @@ var ReviewState = (function () {
         }
       }
       return { counts, notes };
+    }
+
+    /**
+     * The parts by level and mark (effective): `Map(level -> Map(state ->
+     * [part]))`, in the parts' order.
+     */
+    tally() {
+      const tally = new Map();
+      for (const [id, info] of this.parts) {
+        if (!tally.has(info.level)) {
+          tally.set(info.level, new Map(STATES.map(state => [state, []])));
+        }
+        tally.get(info.level).get(this.effective(id).state).push(id);
+      }
+      return tally;
     }
 
     /** The parts of a level whose marks (effective) are a state. */
@@ -482,10 +531,17 @@ var ReviewState = (function () {
   }
 
   /**
-   * Keeps a page's strips (`.review-strip[data-part]`) up to date, and makes
-   * Ctrl+Z (or Cmd+Z), outside of text fields, undo the latest change.
+   * Keeps a page's strips (`.review-strip[data-part]`) up to date, makes
+   * Ctrl+Z (or Cmd+Z), outside of text fields, undo the latest change, and
+   * has the browser ask before leaving the page while a change isn't written
+   * yet (which leaving would lose).
    */
   function bind(review, root = document) {
+    window.addEventListener("beforeunload", event => {
+      if (review.pending > 0) {
+        event.preventDefault();
+      }
+    });
     review.subscribe(() => {
       for (const box of root.querySelectorAll(".review-strip[data-part]")) {
         updateStrip(review, box);
@@ -501,5 +557,199 @@ var ReviewState = (function () {
     });
   }
 
-  return { Review, MARKS, STATES, strip, updateStrip, bind, DB_NAME, STORE };
+  // ## The review's summary
+
+  // (How many of a list's parts a page has, and the list's height, which its
+  // resizer changes, kept.)
+  const PAGE_SIZE = 8;
+  const LIST_HEIGHT_KEY = "review-summary-list-height";
+
+  /**
+   * The review's summary, for the navigation panel: a grid of how many parts
+   * of each level (`levels`, `[[level, label]]`, ex: `[["patch",
+   * "Patches"], ...]`) have each mark, whose cells list their parts below it,
+   * a page at a time (`go(part)` going to one), with a resizer under the
+   * list; it follows the review's changes.
+   */
+  function summary(review, levels, go) {
+    const box = document.createElement("div");
+    box.className = "review-summary";
+
+    const grid = document.createElement("table");
+    grid.className = "review-summary-grid";
+    const head = document.createElement("tr");
+    head.append(document.createElement("th"));
+    for (const mark of MARKS) {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.title = mark.label;
+      th.textContent = mark.icon;
+      head.append(th);
+    }
+    grid.append(head);
+    const cells = new Map();
+    for (const [level, label] of levels) {
+      const row = document.createElement("tr");
+      const th = document.createElement("th");
+      th.scope = "row";
+      th.textContent = label;
+      row.append(th);
+      for (const mark of MARKS) {
+        const td = document.createElement("td");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "review-summary-cell";
+        button.dataset.level = level;
+        button.dataset.state = mark.state;
+        button.addEventListener("click", () => {
+          selected = selected?.level == level && selected?.state == mark.state
+            ? null
+            : { level, state: mark.state, label, mark, page: 0 };
+          render();
+        });
+        td.append(button);
+        row.append(td);
+        cells.set(`${level} ${mark.state}`, button);
+      }
+      grid.append(row);
+    }
+    box.append(grid);
+
+    const listBox = document.createElement("div");
+    listBox.className = "review-summary-list-box";
+    listBox.hidden = true;
+    const listHead = document.createElement("div");
+    listHead.className = "review-summary-list-head";
+    const list = document.createElement("ul");
+    list.className = "review-summary-list";
+    const saved = Number(localStorage.getItem(storageKeyOf(LIST_HEIGHT_KEY)));
+    if (saved > 0) {
+      list.style.maxHeight = `${saved}px`;
+    }
+    const pager = document.createElement("div");
+    pager.className = "review-summary-pager";
+    const resizer = document.createElement("div");
+    resizer.className = "review-summary-resizer";
+    resizer.setAttribute("role", "separator");
+    resizer.setAttribute("aria-orientation", "horizontal");
+    resizer.title = "Drag to give the list more room, or less";
+    resizer.tabIndex = 0;
+    listBox.append(listHead, list, pager, resizer);
+    box.append(listBox);
+    setupResizer(resizer, list);
+
+    let selected = null;
+    function render() {
+      const tally = review.tally();
+      const partsWith = (level, state) => tally.get(level)?.get(state) ?? [];
+      for (const [key, button] of cells) {
+        const [level, state] = key.split(" ");
+        const count = partsWith(level, state).length;
+        button.textContent = count ? String(count) : "·";
+        button.disabled = count == 0;
+        button.setAttribute("aria-pressed",
+                            String(selected?.level == level && selected?.state == state));
+        const mark = MARKS.find(m => m.state == state);
+        button.title = `${count} ${levels.find(([l]) => l == level)[1].toLowerCase()}: ${mark.label}`;
+      }
+      if (!selected) {
+        listBox.hidden = true;
+        return;
+      }
+      const parts = partsWith(selected.level, selected.state);
+      if (parts.length == 0) {
+        selected = null;
+        listBox.hidden = true;
+        return;
+      }
+      listBox.hidden = false;
+      const pages = Math.ceil(parts.length / PAGE_SIZE);
+      selected.page = Math.min(selected.page, pages - 1);
+      listHead.textContent = `${selected.mark.icon} ${selected.label}: ${selected.mark.label} (${parts.length})`;
+      list.replaceChildren(...parts
+        .slice(selected.page * PAGE_SIZE, (selected.page + 1) * PAGE_SIZE)
+        .map(part => {
+          const item = document.createElement("li");
+          const link = document.createElement("a");
+          link.href = "#";
+          link.textContent = review.parts.get(part)?.label ?? part;
+          const from = review.effective(part).from;
+          if (from && from != part) {
+            link.title = `Marked by ${review.parts.get(from)?.label ?? from}`;
+          }
+          link.addEventListener("click", event => {
+            event.preventDefault();
+            go(part);
+          });
+          item.append(link);
+          return item;
+        }));
+      pager.replaceChildren();
+      if (pages > 1) {
+        const button = (label, page, title) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.textContent = label;
+          b.title = title;
+          b.disabled = page < 0 || page >= pages;
+          b.addEventListener("click", () => {
+            selected.page = page;
+            render();
+          });
+          return b;
+        };
+        const where = document.createElement("span");
+        where.textContent = ` ${selected.page + 1} of ${pages} `;
+        pager.append(button("‹", selected.page - 1, "The previous page"), where,
+                     button("›", selected.page + 1, "The next page"));
+      }
+    }
+    review.subscribe(render);
+    render();
+    return box;
+  }
+
+  // (The page's settings' keys are prefixed; see settings.js's `storageKey`.)
+  function storageKeyOf(key) {
+    return typeof storageKey == "function" ? storageKey(key) : `hb_${key}`;
+  }
+
+  // A resizer under a list: dragging it (or ArrowUp/ArrowDown) changes the
+  // list's height, which is kept.
+  function setupResizer(resizer, list) {
+    const keep = () => {
+      try {
+        localStorage.setItem(storageKeyOf(LIST_HEIGHT_KEY), String(Math.round(list.getBoundingClientRect().height)));
+      } catch (e) {
+        // (Storage may be off.)
+      }
+    };
+    const setHeight = height => {
+      list.style.maxHeight = `${Math.max(48, Math.min(height, window.innerHeight * 0.8))}px`;
+      list.style.height = list.style.maxHeight;
+    };
+    resizer.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      resizer.setPointerCapture(event.pointerId);
+      const top = list.getBoundingClientRect().top;
+      const move = e => setHeight(e.clientY - top);
+      const up = () => {
+        resizer.removeEventListener("pointermove", move);
+        resizer.removeEventListener("pointerup", up);
+        keep();
+      };
+      resizer.addEventListener("pointermove", move);
+      resizer.addEventListener("pointerup", up);
+    });
+    resizer.addEventListener("keydown", event => {
+      const delta = { ArrowDown: 24, ArrowUp: -24 }[event.key];
+      if (delta) {
+        event.preventDefault();
+        setHeight(list.getBoundingClientRect().height + delta);
+        keep();
+      }
+    });
+  }
+
+  return { Review, MARKS, STATES, strip, updateStrip, bind, summary, DB_NAME, STORE };
 })();

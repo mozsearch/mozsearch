@@ -9,7 +9,8 @@
 
 // (Which code the view shows beside what it's of: then, now, or both side by
 // side; see crash_stack.rs's `then_now_modes_html`.  At first, both if there's
-// room for two columns of code beside what they're of, else then, again as the
+// room for two columns of code beside what they're of, else then (or the
+// view's `data-then-now-narrow`, ex: a try review's, now), again as the
 // window's resized, until a button's pressed.)
 function showThenNow(view, mode) {
   view.dataset.thenNow = mode;
@@ -20,8 +21,8 @@ function showThenNow(view, mode) {
 function fitThenNow() {
   for (const view of document.querySelectorAll(".then-now-view:not([data-then-now-chosen])")) {
     const pair = view.querySelector(".then-now");
-    const area = pair?.closest(".bug-comment-cards, .crash-stack");
-    const line = pair?.querySelector(".source-line");
+    const area = pair?.closest(".bug-comment-cards, .crash-stack, .try-review");
+    const line = pair?.querySelector(".source-line, .tr-line");
     if (!area || !line) {
       continue;
     }
@@ -39,7 +40,7 @@ function fitThenNow() {
     if (info) {
       room -= info.getBoundingClientRect().width + 24;
     }
-    showThenNow(view, room >= 2 * column + 16 ? "both" : "then");
+    showThenNow(view, room >= 2 * column + 16 ? "both" : (view.dataset.thenNowNarrow || "then"));
   }
 }
 fitThenNow();

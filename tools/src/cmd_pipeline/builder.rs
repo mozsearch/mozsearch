@@ -29,7 +29,7 @@ use super::{
     cmd_lock_regions::LockRegionsCommand, cmd_render::RenderCommand, cmd_rev_at::RevAtCommand,
     cmd_token_history::TokenHistoryCommand, cmd_token_names::TokenNamesCommand,
     cmd_token_timeline::TokenTimelineCommand, cmd_tokenize_source::TokenizeSourceCommand,
-    cmd_traverse::TraverseCommand, cmd_webtest::WebtestCommand,
+    cmd_traverse::TraverseCommand, cmd_try_review::TryReviewCommand, cmd_webtest::WebtestCommand,
 };
 use super::{
     cmd_cat_html::CatHtmlCommand,
@@ -109,6 +109,7 @@ pub fn fab_command_from_opts(
         (Command::CrashStack(c), _) => Ok(Box::new(CrashStackCommand { args: c })),
         (Command::CrashSet(c), _) => Ok(Box::new(CrashSetCommand { args: c })),
         (Command::LockHeld(c), _) => Ok(Box::new(LockHeldCommand { args: c })),
+        (Command::TryReview(c), _) => Ok(Box::new(TryReviewCommand { args: c })),
         (Command::LockRegions(c), _) => Ok(Box::new(LockRegionsCommand { args: c })),
         (Command::BugComment(c), _) => Ok(Box::new(BugCommentCommand { args: c })),
         (Command::RevAt(r), _) => Ok(Box::new(RevAtCommand { args: r })),

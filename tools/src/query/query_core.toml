@@ -695,6 +695,14 @@ args.positional = "$0"
 command = "lock-held"
 args.positional = "$0"
 
+# A try push's review view (see the tools' `try_review`): its patches, each
+# one's changes ordered for reading (interfaces, definitions, uses, tests),
+# with review marks kept in the browser, by the push's head.
+[term.try-review]
+[[term.try-review.group.try-review]]
+command = "try-review"
+args.positional = "$0"
+
 [term.crash-threads]
 [[term.crash-threads.group.crash]]
 command = "crash-stack"
@@ -905,6 +913,9 @@ output = "result"
 output = "result"
 
 [group.lock-held]
+output = "result"
+
+[group.try-review]
 output = "result"
 
 [group.bug-comment]

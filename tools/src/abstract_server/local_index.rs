@@ -412,6 +412,12 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn commit_diff(&self, rev: &str) -> Result<crate::try_review::CommitDiff> {
+        let cfg = self.tree_config_loaded();
+        crate::try_review::commit_diff_data(&cfg, &self.tree_name, rev)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn rev_diff(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevDiff>> {
         let cfg = self.tree_config_loaded();
         crate::format::rev_diff_data(&cfg, &self.tree_name, rev, path)

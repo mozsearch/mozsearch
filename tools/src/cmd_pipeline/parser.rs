@@ -36,6 +36,7 @@ use super::cmd_token_names::TokenNamesArgs;
 use super::cmd_token_timeline::TokenTimelineArgs;
 use super::cmd_tokenize_source::TokenizeSource;
 use super::cmd_traverse::Traverse;
+use super::cmd_try_review::TryReview;
 use super::cmd_webtest::Webtest;
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -108,6 +109,7 @@ pub enum Command {
     CrashStack(CrashStack),
     CrashSet(CrashSet),
     LockHeld(LockHeld),
+    TryReview(TryReview),
     LockRegions(LockRegions),
     BugComment(BugComment),
     RevAt(RevAt),

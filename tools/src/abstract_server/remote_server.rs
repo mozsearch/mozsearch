@@ -905,6 +905,10 @@ impl AbstractServer for RemoteServer {
         parse(&self.api("history", None, &params).await?)
     }
 
+    async fn commit_diff(&self, rev: &str) -> Result<crate::try_review::CommitDiff> {
+        parse(&self.api("commit-diff", None, &[("commit", rev)]).await?)
+    }
+
     async fn rev_diff(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevDiff>> {
         parse(
             &self

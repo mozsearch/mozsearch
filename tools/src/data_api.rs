@@ -426,6 +426,15 @@ const ROUTES: &[Route] = &[
         host: Host::PipelineServer,
         post: false,
     },
+    // (A commit's changes from its first parent, by file and hunk; see
+    // `try_review::commit_diff_data`.)
+    Route {
+        name: "commit-diff",
+        takes_path: false,
+        params: &["commit"],
+        host: Host::PipelineServer,
+        post: false,
+    },
     Route {
         name: "commit",
         takes_path: false,
@@ -1166,6 +1175,13 @@ async fn route_body(
                 .await
                 .map_err(error)?;
             Ok(Body::json(&data))
+        }
+        "commit-diff" => {
+            let diff = server
+                .commit_diff(&commit_param(params)?)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(&serde_json::to_value(diff).unwrap_or_default()))
         }
         "rev-diff" => {
             let commit = commit_param(params)?;

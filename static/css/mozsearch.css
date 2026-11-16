@@ -7862,3 +7862,274 @@ textarea.monospace {
   height: 5em;
   font: inherit;
 }
+
+/* A try push's review view (see try_review.rs and try-review.js): its
+   patches, whose headings stick under the breadcrumbs, and their sections
+   (interfaces, definitions, uses, tests), whose headings stick under the
+   patch's, each with its files, their definitions and their hunks' code
+   before and after. */
+.try-review {
+  --tr-patch-head-height: 2.2em;
+  margin: 0 1rem 2rem;
+}
+
+.tr-head h2 {
+  margin-bottom: 0.25em;
+}
+
+.tr-summary,
+.tr-status,
+.tr-note {
+  margin: 0.25em 0;
+  color: var(--page-subtle-foreground);
+}
+
+.tr-patch {
+  margin-top: 1.5em;
+}
+
+.tr-patch.tr-backout .tr-patch-summary {
+  font-style: italic;
+}
+
+.tr-patch-head {
+  position: sticky;
+  top: calc(var(--header-height) + var(--breadcrumbs-height));
+  z-index: 20;
+  min-height: var(--tr-patch-head-height);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.3em 0.5em;
+  border-bottom: 1px solid var(--page-border-color);
+  background: var(--page-background);
+  font-size: 1.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tr-patch-n {
+  color: var(--page-subtle-foreground);
+  font-weight: normal;
+}
+
+.tr-patch-meta {
+  margin-inline-start: 0.75em;
+  font-weight: normal;
+  font-size: 0.85em;
+  color: var(--page-subtle-foreground);
+}
+
+.tr-section-head {
+  position: sticky;
+  top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height));
+  z-index: 19;
+  margin: 0.75em 0 0.25em;
+  padding: 0.2em 0.5em;
+  background: var(--page-background);
+  border-bottom: 1px dotted var(--page-border-color);
+}
+
+.tr-section-about {
+  margin-inline-start: 0.5em;
+  font-weight: normal;
+  font-size: 0.85em;
+  color: var(--page-subtle-foreground);
+}
+
+.tr-section-jumps {
+  float: right;
+  font-weight: normal;
+  font-size: 0.85em;
+}
+
+.tr-section-jump + .tr-section-jump {
+  margin-inline-start: 0.75em;
+}
+
+.tr-anchor {
+  display: block;
+  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + 2em);
+}
+
+.tr-file {
+  margin: 0.5em 0 1em 0.5em;
+}
+
+.tr-file-head {
+  margin: 0.25em 0;
+  font-size: 1em;
+}
+
+.tr-file-status,
+.tr-def-status,
+.tr-def-decl,
+.tr-delta {
+  margin-inline-start: 0.5em;
+  font-weight: normal;
+  font-size: 0.85em;
+  color: var(--page-subtle-foreground);
+}
+
+.tr-def {
+  margin-inline-start: 1em;
+}
+
+.tr-def-head {
+  margin: 0.3em 0 0.15em;
+}
+
+.tr-def-kind {
+  color: var(--page-subtle-foreground);
+  font-size: 0.85em;
+}
+
+.tr-hunk {
+  margin: 0.2em 0 0.6em 1em;
+}
+
+.tr-hunk-head {
+  font-size: 0.9em;
+}
+
+.try-review .then-now,
+.try-review .then-code,
+.try-review .now-code {
+  min-width: 0;
+}
+
+.try-review .then-code,
+.try-review .now-code {
+  border: 1px solid var(--page-border-color);
+  overflow-x: auto;
+}
+
+.tr-line {
+  display: flex;
+  font-family: monospace;
+  font-size: 0.9em;
+  white-space: pre;
+}
+
+.tr-lno {
+  flex: none;
+  width: 4em;
+  padding-inline-end: 0.5em;
+  text-align: end;
+  color: var(--page-subtle-foreground);
+  user-select: none;
+}
+
+.tr-added {
+  background: rgba(46, 160, 67, 0.18);
+}
+
+.tr-removed {
+  background: rgba(248, 81, 73, 0.18);
+}
+
+.tr-crumbs .tr-crumb-review {
+  color: var(--page-subtle-foreground);
+}
+
+/* The review's summary in the navigation panel (see review-state.js's
+   `summary`): a grid of how many parts of each level have each mark, whose
+   cells list their parts under it, a page at a time, with a resizer. */
+#tr-review-pane .tr-status {
+  margin: 0 0.5rem 0.25em 1rem;
+}
+
+.review-summary {
+  margin: 0 0.5rem 0.5em 1rem;
+}
+
+.review-summary-grid {
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.review-summary-grid th {
+  padding: 1px 4px;
+  font-weight: normal;
+  text-align: start;
+}
+
+.review-summary-grid th[scope="col"] {
+  text-align: center;
+}
+
+.review-summary-cell {
+  min-width: 2.4em;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--page-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+.review-summary-cell:disabled {
+  color: var(--page-subtle-foreground);
+  cursor: default;
+}
+
+.review-summary-cell:not(:disabled):hover,
+.review-summary-cell[aria-pressed="true"] {
+  border-color: var(--button-active-background);
+  background: var(--button-background);
+}
+
+.review-summary-list-head {
+  margin-top: 0.4em;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.review-summary-list {
+  max-height: 12em;
+  margin: 0.2em 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  font-size: 0.9em;
+}
+
+.review-summary-list li {
+  margin: 1px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-summary-pager {
+  font-size: 0.85em;
+}
+
+.review-summary-resizer {
+  height: 6px;
+  margin-top: 2px;
+  border-top: 1px solid var(--page-border-color);
+  border-bottom: 1px solid var(--page-border-color);
+  cursor: ns-resize;
+}
+
+.review-summary-resizer:focus-visible {
+  outline: 2px solid var(--link-color);
+}
+
+.tr-file,
+.tr-def,
+.tr-hunk {
+  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + 2.5em);
+}
+
+.tr-flash {
+  animation: tr-flash 1.5s ease-out;
+}
+
+@keyframes tr-flash {
+  from {
+    background-color: var(--tooltip-background);
+  }
+}

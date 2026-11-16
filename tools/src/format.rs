@@ -9938,6 +9938,7 @@ pub fn render_explore_page(
         semantic_trunk: None,
         landed: vec![],
         pull_request: None,
+        review_url: None,
     };
     let title = data["title"].as_str().unwrap_or_default().to_string();
     render_explore(
@@ -10361,6 +10362,7 @@ pub fn render_history(
         semantic_trunk: None,
         landed: vec![],
         pull_request: None,
+        review_url: None,
     };
     let title = data["title"].as_str().unwrap_or_default().to_string();
     render_explore(
@@ -10505,6 +10507,9 @@ struct ExploreExtras {
     /// newer commits, and its changed specs' views with just its changes (see
     /// `spec_pr_views`): `{link, path, views}`.
     pull_request: Option<serde_json::Value>,
+    /// For a try push (but a pull request), its review view's URL (the
+    /// `try-review:` query's; see `try_review`).
+    review_url: Option<String>,
 }
 
 /// The data of an explore page (see `render_explore`) of the commits `refs`,
@@ -11420,6 +11425,7 @@ fn render_explore(
         "semantic_trunk": extras.semantic_trunk,
         "landed": extras.landed,
         "pull_request": extras.pull_request,
+        "review_url": extras.review_url,
     }))
     .map_err(|_| "Template problems")?;
     build_and_parse_explore()
@@ -11557,6 +11563,13 @@ pub fn format_try(
                 )),
                 scopes: vec![],
                 semantic_head: push.semantic_head,
+                review_url: (!is_pull_request(&rev)).then(|| {
+                    format!(
+                        "/{}/query/default?q={}",
+                        tree_name,
+                        urlencoding::encode(&format!("try-review:{}", rev))
+                    )
+                }),
             };
             render_explore(Some(server), tree_name, &push_name, data, extras, writer)?;
             return Ok(true);

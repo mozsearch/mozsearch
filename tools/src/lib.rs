@@ -155,6 +155,8 @@ pub mod tokenize;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod try_import;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod try_review;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod try_delta;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod typos;

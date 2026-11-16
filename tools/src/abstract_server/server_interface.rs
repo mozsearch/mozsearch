@@ -793,6 +793,12 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// A commit's metadata and its changes from its first parent, by file and
+    /// hunk (see `try_review::commit_diff_data`).
+    async fn commit_diff(&self, _rev: &str) -> Result<crate::try_review::CommitDiff> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The data of the diff of the file at `path` in the revision `rev`, if
     /// it changes it (see `format::rev_diff_data`).
     async fn rev_diff(&self, _rev: &str, _path: &str) -> Result<Option<crate::format::RevDiff>> {

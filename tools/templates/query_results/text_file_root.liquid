@@ -30,6 +30,9 @@
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.lock-held+html" %}
 {%- comment %}(The code run with a mutex held; see lock_held.rs.){% endcomment %}
     {{ results.TextFile.contents }}
+{% elsif results.TextFile.mime_type == "application/vnd.searchfox.try-review+html" %}
+{%- comment %}(A try push's review view; see try_review.rs.){% endcomment %}
+    {{ results.TextFile.contents }}
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.bug-comment+html" %}
 {%- comment %}(A Bugzilla comment's view; see bug_comment.rs.){% endcomment %}
     {{ results.TextFile.contents }}

@@ -309,6 +309,10 @@ impl AbstractServer for TryOverlay {
         self.base.rev_diff(rev, path).await
     }
 
+    async fn commit_diff(&self, rev: &str) -> Result<crate::try_review::CommitDiff> {
+        self.base.commit_diff(rev).await
+    }
+
     async fn commit_page(&self, rev: &str) -> Result<Value> {
         self.base.commit_page(rev).await
     }
