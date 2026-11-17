@@ -498,10 +498,15 @@ class TestUtils {
     TestUtils.dispatchMouseEvent("click", elem, options);
   }
 
+  // (Cancelable, as a real one is, but for mouseenter and mouseleave: ex: a
+  // menu item's click, whose handler cancels its link's navigation to "#",
+  // which would otherwise happen once the event is dispatched, and, since
+  // Firefox 160, synchronously, firing popstate, which hides the menu.)
   static dispatchMouseEvent(name, elem, options = { bubbles: true }) {
     TestHarness.debug(`Dispatching MouseEvent ${name}`);
 
-    const ev = new MouseEvent(name, options);
+    const cancelable = name != "mouseenter" && name != "mouseleave";
+    const ev = new MouseEvent(name, { cancelable, ...options });
     elem.dispatchEvent(ev);
   }
 

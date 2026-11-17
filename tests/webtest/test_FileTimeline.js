@@ -1,4 +1,7 @@
 "use strict";
+// webtest-timeout: 90 (its tasks load 12 listings, 5 of them format.rs's,
+// which took longer than the 30 seconds a test has by default with the other
+// browsers' tests running, on 2026-11-16)
 
 // The file timeline replaces the revision's description under the search box
 // (see file-timeline.js).

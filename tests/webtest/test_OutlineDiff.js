@@ -83,8 +83,11 @@ add_task(async function test_OutlineSection() {
   TestUtils.click(link);
   await waitForCondition(() => frame.contentWindow.location.hash == link.getAttribute("href"),
                          "Clicking it goes to its line");
-  ok(doc.getElementById(`line-${link.getAttribute("href").slice(1)}`).classList.contains("highlighted"),
-     "which it selects");
+  // (Since Firefox 160, a link's navigation to a fragment is synchronous, but
+  // hashchange, on which the line is selected, still comes after.)
+  await waitForCondition(
+    () => doc.getElementById(`line-${link.getAttribute("href").slice(1)}`).classList.contains("highlighted"),
+    "which it selects");
 });
 
 // The page of an outline diff, from the timeline's commits: the file's

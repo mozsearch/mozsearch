@@ -434,6 +434,10 @@ class MenuItemWithSubMenu extends MenuItem {
     const link = this.focusableElement;
 
     link.href = "#";
+    // (A click toggles the submenu (see `createListItem`), and never follows
+    // the link to "#", which, since Firefox 160, fires popstate synchronously,
+    // whose handler hides the menu; see search.js.)
+    link.addEventListener("click", event => event.preventDefault());
 
     const label = document.createElement("div");
     label.classList.add("submenu-label");

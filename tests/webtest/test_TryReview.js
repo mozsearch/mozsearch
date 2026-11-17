@@ -70,12 +70,6 @@ function strip(part) {
   return doc().querySelector(`.review-strip[data-part="${part}"]`);
 }
 
-// (A cancelable click, as a real one is, which a link's handler can keep
-// from following the link; TestUtils.click's isn't.)
-function realClick(element) {
-  element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-}
-
 function markButton(part, state) {
   return strip(part).querySelector(`.review-mark[data-state="${state}"]`);
 }
@@ -243,7 +237,7 @@ add_task(async function test_TryReviewJumps() {
   const heights = links.map(link => link.getBoundingClientRect().height);
   ok(Math.max(...heights) < Math.min(...heights) * 1.5, "Its items don't wrap");
 
-  realClick(wobble);
+  TestUtils.click(wobble);
   await waitForCondition(() => doc().querySelector(".tr-def.tr-flash"), "Picking one goes to it");
   isnot(menu.style.display, "flex", "and closes the picker");
 });
@@ -268,7 +262,7 @@ add_task(async function test_TryReviewHistory() {
   const menu = doc().querySelector("#tr-jump-menu");
   await waitForCondition(() => menu.style.display == "flex", "The jump picker opens");
   const wobble = [...menu.querySelectorAll("a")].find(link => link.textContent.includes("Wobble"));
-  realClick(wobble);
+  TestUtils.click(wobble);
   await waitForCondition(() => win.location.hash && win.location.hash != `#${file.id}`,
                          "Picking a part goes to it, and puts it in the URL");
   is(win.history.length, length + 2, "as another entry");
@@ -298,10 +292,10 @@ add_task(async function test_TryReviewSlicing() {
   TestUtils.click(markButton(patch, "good"));
   await waitForCondition(() => wobble.querySelector(".tr-slice-mark").textContent.includes("✅"),
                          "which change with the review's");
-  // (A cancelable click, which the node's handler keeps from following its
-  // link to its source; TestUtils.click's isn't.)
+  // (The node's handler keeps the click from following its link to its
+  // source.)
   const page = doc();
-  wobble.click();
+  TestUtils.click(wobble);
   await waitForCondition(() => doc().querySelector(".tr-def.tr-flash, .tr-file.tr-flash"),
                          "Clicking one goes to its part");
   is(doc(), page, "on the page, rather than to its source");
@@ -344,7 +338,7 @@ add_task(async function test_TryReviewPatches() {
   ok(labels[0]?.startsWith("Group 1") && labels[1]?.startsWith("Group 2"), "by their groups");
   const second = doc().querySelector('#tr-patch-menu a[data-patch="1"]');
   ok(second.textContent.includes("Patch 2: Bug 4567"), "with their summaries");
-  realClick(second);
+  TestUtils.click(second);
   await waitForCondition(() => link.textContent == "Patch 2 of 2",
                          "Picking one goes to it, and the breadcrumbs say so");
 
@@ -380,7 +374,7 @@ add_task(async function test_TryReviewLaterChanges() {
 
   const win = frame.contentWindow;
   const length = win.history.length;
-  realClick(popup.querySelector(".tr-later-code"));
+  TestUtils.click(popup.querySelector(".tr-later-code"));
   await waitForCondition(() => win.location.hash.length > 1, "Clicking it goes to that patch's hunk");
   ok(doc().querySelector("#tr-patch-2")?.contains(doc().getElementById(win.location.hash.slice(1))),
      "in the later patch");
