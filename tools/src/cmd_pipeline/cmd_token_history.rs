@@ -29,6 +29,13 @@ pub struct TokenHistoryArgs {
     /// The view's: more of the journal, and its records and yearly totals.
     #[clap(long, value_parser)]
     view: bool,
+
+    /// The paths the query's results are in (its `path:`), which the
+    /// history, the whole tree's, can't count the removals in: so the note
+    /// has no history, as comparing its removals with the results wouldn't
+    /// hold (see `cmd_compile_results`).  (Not the view's.)
+    #[clap(long, value_parser)]
+    pathre: Option<String>,
 }
 
 #[derive(Debug)]
@@ -51,7 +58,9 @@ impl PipelineCommand for TokenHistoryCommand {
             history: None,
             unsupported: false,
         };
-        if !is_journal_key(token) {
+        if !is_journal_key(token)
+            || (!self.args.view && self.args.pathre.as_deref().is_some_and(|re| !re.is_empty()))
+        {
             return Ok(PipelineValues::TokenHistory(value));
         }
         let opts = TokenHistoryOptions {

@@ -123,6 +123,7 @@ async fn candidate_files(
         let files = server
             .search_files(
                 &super::transforms::path_case(search.pathre.to_string(), !search.fold_case),
+                "",
                 &super::transforms::path_case(search.not_pathre.to_string(), !search.fold_case),
                 false,
                 limit + 1,

@@ -193,6 +193,32 @@ impl CrossrefData {
             callee.tree = callee.tree.or(Some(tree));
         }
     }
+
+    /// Keep only the path results in the files `keep` says to (by their
+    /// paths; ex: a query's `path:`; see `crossref-expand`'s `--pathre`), of
+    /// every kind (its meta and callees stay).
+    pub fn retain_paths(&mut self, keep: &dyn Fn(&str) -> bool) {
+        for results in [
+            &mut self.uses,
+            &mut self.definitions,
+            &mut self.assignments,
+            &mut self.declarations,
+            &mut self.forwards,
+            &mut self.idl,
+            &mut self.idl_partial,
+            &mut self.glean,
+            &mut self.aliases,
+            &mut self.doc_defs,
+            &mut self.doc_uses,
+        ] {
+            if let Some(list) = results {
+                list.retain(|result| keep(&result.path));
+                if list.is_empty() {
+                    *results = None;
+                }
+            }
+        }
+    }
 }
 
 /// What a try push changes about a symbol's crossref data (see `try_delta`):

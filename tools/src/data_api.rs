@@ -17,8 +17,9 @@
 //! - `identifiers?q=[&exact=true][&ignore_case=true][&limit=]`: identifiers
 //!   starting with `q` (or equal to it, if `exact`), as `[symbol,
 //!   identifier]`s.
-//! - `files?re=[&not_re=][&dirs=true][&limit=]`: the files (and directories, if `dirs`)
-//!   whose paths match the regular expression.
+//! - `files?re=[&also_re=][&not_re=][&dirs=true][&limit=]`: the files (and
+//!   directories, if `dirs`) whose paths match the regular expression, and
+//!   `also_re` too, but not `not_re`.
 //! - `source/{path}`: a file's text.
 //! - `analysis/{path}`: a file's analysis records, one JSON record a line, as
 //!   the tools read them (see `fetch_raw_analysis`).
@@ -529,7 +530,7 @@ const ROUTES: &[Route] = &[
     Route {
         name: "files",
         takes_path: false,
-        params: &["re", "not_re", "dirs", "limit"],
+        params: &["re", "also_re", "not_re", "dirs", "limit"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -1412,6 +1413,13 @@ async fn route_body(
                     MAX_NEEDLE_BYTES
                 )));
             }
+            let also_pathre = params.get("also_re").unwrap_or_default();
+            if also_pathre.len() > MAX_NEEDLE_BYTES {
+                return Err(bad(format!(
+                    "also_re must have at most {} bytes",
+                    MAX_NEEDLE_BYTES
+                )));
+            }
             let not_pathre = params.get("not_re").unwrap_or_default();
             if not_pathre.len() > MAX_NEEDLE_BYTES {
                 return Err(bad(format!(
@@ -1420,7 +1428,13 @@ async fn route_body(
                 )));
             }
             let matches = server
-                .search_files(pathre, not_pathre, params.flag("dirs")?, params.limit()?)
+                .search_files(
+                    pathre,
+                    also_pathre,
+                    not_pathre,
+                    params.flag("dirs")?,
+                    params.limit()?,
+                )
                 .await
                 .map_err(error)?;
             Ok(Body::json(
@@ -1792,6 +1806,7 @@ pub(crate) mod fake {
         async fn search_files(
             &self,
             pathre: &str,
+            _also_pathre: &str,
             _not_pathre: &str,
             _include_dirs: bool,
             _limit: usize,

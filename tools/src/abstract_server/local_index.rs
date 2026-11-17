@@ -1309,12 +1309,13 @@ impl AbstractServer for LocalIndex {
     async fn search_files(
         &self,
         pathre: &str,
+        also_pathre: &str,
         not_pathre: &str,
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches> {
         self.file_lookup_map()
-            .search_files(pathre, not_pathre, include_dirs, limit)
+            .search_files(pathre, also_pathre, not_pathre, include_dirs, limit)
     }
 
     async fn search_identifiers(

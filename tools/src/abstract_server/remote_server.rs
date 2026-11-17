@@ -711,6 +711,7 @@ impl AbstractServer for RemoteServer {
     async fn search_files(
         &self,
         pathre: &str,
+        also_pathre: &str,
         not_pathre: &str,
         include_dirs: bool,
         limit: usize,
@@ -723,13 +724,33 @@ impl AbstractServer for RemoteServer {
         }
         let limit = limit.min(MAX_LIMIT).to_string();
         let mut params = vec![("re", pathre), ("limit", limit.as_str())];
+        if !also_pathre.is_empty() {
+            params.push(("also_re", also_pathre));
+        }
         if !not_pathre.is_empty() {
             params.push(("not_re", not_pathre));
         }
         if include_dirs {
             params.push(("dirs", "true"));
         }
-        parse(&self.api("files", None, &params).await?)
+        match self.api("files", None, &params).await {
+            Ok(body) => parse(&body),
+            // (A server from before `also_re`, which it doesn't take: its
+            // files matching `re`, which match `also_re` too.)
+            Err(ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::BadInput,
+                message,
+            })) if message.contains("also_re") => {
+                params.retain(|(name, _)| *name != "also_re");
+                let mut matches: FileMatches = parse(&self.api("files", None, &params).await?)?;
+                let also = regex::Regex::new(also_pathre)?;
+                matches
+                    .file_matches
+                    .retain(|file| also.is_match(&file.path));
+                Ok(matches)
+            }
+            Err(err) => Err(err),
+        }
     }
 
     async fn search_identifiers(
@@ -1240,7 +1261,7 @@ mod tests {
             }))
         ));
         assert!(matches!(
-            server.search_files("(", "", false, 10).await,
+            server.search_files("(", "", "", false, 10).await,
             Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::BadInput,
                 ..

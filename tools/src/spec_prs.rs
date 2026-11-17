@@ -1169,6 +1169,7 @@ mod tests {
         async fn search_files(
             &self,
             _pathre: &str,
+            _also_pathre: &str,
             _not_pathre: &str,
             _include_dirs: bool,
             _limit: usize,

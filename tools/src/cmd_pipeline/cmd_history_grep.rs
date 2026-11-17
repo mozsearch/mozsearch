@@ -219,7 +219,7 @@ impl PipelineCommand for HistoryGrepCommand {
         let mut files = vec![];
         if !pathre.is_empty()
             && let Ok(matches) = server
-                .search_files(&pathre, &not_pathre, false, MAX_PATH_FILES + 1)
+                .search_files(&pathre, "", &not_pathre, false, MAX_PATH_FILES + 1)
                 .await
             && !matches.limit_hit
             && matches.file_matches.len() <= MAX_PATH_FILES

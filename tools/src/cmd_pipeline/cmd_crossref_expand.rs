@@ -8,6 +8,7 @@ use super::interface::{
     OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolCrossrefInfo,
     SymbolCrossrefInfoList, SymbolMetaFlags, SymbolRelation,
 };
+use super::transforms::path_case;
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
@@ -26,6 +27,51 @@ pub struct CrossrefExpand {
     pub override_local_limit: u32,
     #[clap(long, value_parser, default_value = "400")]
     pub override_global_limit: u32,
+
+    /// Keep only the results in files whose paths match a regexp (the query
+    /// language's `path:` and `pathre:`, as the files and text it searches),
+    /// once the symbols are expanded (the symbols stay, with their meta).
+    #[clap(long, value_parser)]
+    pub pathre: Option<String>,
+
+    /// Leave out the results in files whose paths match a regexp (`-path:`).
+    #[clap(long, value_parser)]
+    pub not_pathre: Option<String>,
+
+    /// Match the paths' case (`case:sensitive`); they ignore it otherwise, as
+    /// a query's file search does.
+    #[clap(long, value_parser)]
+    pub case_sensitive: bool,
+}
+
+impl CrossrefExpand {
+    /// Which results' paths to keep, by `pathre` and `not_pathre`, if either
+    /// says (see `CrossrefData::retain_paths`).
+    fn path_filter(&self) -> Result<Option<Box<dyn Fn(&str) -> bool + Send + Sync>>> {
+        let compile = |pattern: &Option<String>| -> Result<Option<regex::Regex>> {
+            match pattern.as_deref().filter(|pattern| !pattern.is_empty()) {
+                Some(pattern) => {
+                    regex::Regex::new(&path_case(pattern.to_string(), self.case_sensitive))
+                        .map(Some)
+                        .map_err(|err| {
+                            ServerError::StickyProblem(ErrorDetails {
+                                layer: ErrorLayer::BadInput,
+                                message: format!("Bad path pattern {:?}: {}", pattern, err),
+                            })
+                        })
+                }
+                None => Ok(None),
+            }
+        };
+        let (pathre, not_pathre) = (compile(&self.pathre)?, compile(&self.not_pathre)?);
+        if pathre.is_none() && not_pathre.is_none() {
+            return Ok(None);
+        }
+        Ok(Some(Box::new(move |path: &str| {
+            pathre.as_ref().is_none_or(|re| re.is_match(path))
+                && !not_pathre.as_ref().is_some_and(|re| re.is_match(path))
+        })))
+    }
 }
 
 /// Crosseref expansion exists to help us:
@@ -319,11 +365,76 @@ impl PipelineCommand for CrossrefExpandCommand {
             expanded.push(info);
         }
 
+        // (The results in the paths asked for, of every symbol the expansion
+        // found, ex: the overrides in them.)
+        if let Some(keep) = self.args.path_filter()? {
+            for info in &mut expanded {
+                info.crossref_info.retain_paths(&keep);
+            }
+        }
+
         Ok(PipelineValues::SymbolCrossrefInfoList(
             SymbolCrossrefInfoList {
                 symbol_crossref_infos: expanded,
                 unknown_symbols,
             },
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CrossrefExpand;
+    use crate::file_format::analysis::PathSearchResult;
+    use crate::file_format::crossref::CrossrefData;
+    use clap::Parser;
+    use ustr::ustr;
+
+    #[derive(Parser)]
+    struct Command {
+        #[clap(flatten)]
+        args: CrossrefExpand,
+    }
+
+    fn args(args: &[&str]) -> CrossrefExpand {
+        Command::parse_from(std::iter::once("crossref-expand").chain(args.iter().copied())).args
+    }
+
+    /// `--pathre` and `--not-pathre` keep the results in the paths asked for
+    /// (ignoring case), of every kind, and leave out the kinds left without
+    /// any.
+    #[test]
+    fn test_path_filter() {
+        let result = |path: &str| PathSearchResult {
+            path: ustr(path),
+            path_kind: ustr("normal"),
+            lines: vec![],
+            tree: None,
+        };
+        let mut data = CrossrefData {
+            uses: Some(vec![
+                result("dom/fs/A.cpp"),
+                result("dom/ipc/B.cpp"),
+                result("Dom/FS/test/C.cpp"),
+            ]),
+            definitions: Some(vec![result("dom/ipc/B.cpp")]),
+            ..Default::default()
+        };
+        let keep = args(&["--pathre", "dom/fs", "--not-pathre", "test"])
+            .path_filter()
+            .unwrap()
+            .unwrap();
+        data.retain_paths(&keep);
+        let paths = data
+            .uses
+            .iter()
+            .flatten()
+            .map(|result| result.path.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(paths, vec!["dom/fs/A.cpp"]);
+        assert!(data.definitions.is_none());
+        // (Without paths, there's no filter; a bad one is the input's problem.)
+        assert!(args(&[]).path_filter().unwrap().is_none());
+        assert!(args(&["--pathre", "("]).path_filter().is_err());
     }
 }

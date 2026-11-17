@@ -124,11 +124,16 @@ impl FileLookupMap {
     pub fn search_files(
         &self,
         pathre: &str,
+        also_pathre: &str,
         not_pathre: &str,
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches> {
         let re_path = Regex::new(pathre)?;
+        let also_path = match also_pathre {
+            "" => None,
+            also_pathre => Some(Regex::new(also_pathre)?),
+        };
         let not_path = match not_pathre {
             "" => None,
             not_pathre => Some(Regex::new(not_pathre)?),
@@ -140,7 +145,9 @@ impl FileLookupMap {
                 if !include_dirs && v.1.is_dir {
                     false
                 } else {
-                    re_path.is_match(v.0) && !not_path.as_ref().is_some_and(|re| re.is_match(v.0))
+                    re_path.is_match(v.0)
+                        && also_path.as_ref().is_none_or(|re| re.is_match(v.0))
+                        && !not_path.as_ref().is_some_and(|re| re.is_match(v.0))
                 }
             })
             .map(|v| FileMatch {

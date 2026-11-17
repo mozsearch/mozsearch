@@ -1,6 +1,5 @@
 ---
 source: src/bin/test-index.rs
-assertion_line: 188
 expression: "&fb.contents"
 input_file: inputs/web/dirs/root_listing__html
 ---
@@ -483,6 +482,13 @@ input_file: inputs/web/dirs/root_listing__html
           <td class="description"><a href="/tests/source/imported-module.mjs" title=""></td>
           <td class="size"><a href="/tests/source/imported-module.mjs">401</a></td>
           <td class="coverage"><a href="/tests/source/imported-module.mjs" class="cov-percentage cov-percentage-none" title="There&#39;s no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/inpath" class="mimetype-fixed-container mimetype-icon-folder">inpath</a></td>
+          <td class="description"><a href="/tests/source/inpath" title=""></td>
+          <td class="size"><a href="/tests/source/inpath"></a></td>
+          <td class="coverage"><a href="/tests/source/inpath" class="cov-percentage cov-percentage-none" title="There&#39;s no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>

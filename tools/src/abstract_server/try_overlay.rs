@@ -503,14 +503,19 @@ impl AbstractServer for TryOverlay {
     async fn search_files(
         &self,
         pathre: &str,
+        also_pathre: &str,
         not_pathre: &str,
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches> {
         let mut matches = self
             .base
-            .search_files(pathre, not_pathre, include_dirs, limit)
+            .search_files(pathre, also_pathre, not_pathre, include_dirs, limit)
             .await?;
+        let also_re = match also_pathre {
+            "" => None,
+            also_pathre => Some(regex::Regex::new(also_pathre)?),
+        };
         let not_re = match not_pathre {
             "" => None,
             not_pathre => Some(regex::Regex::new(not_pathre)?),
@@ -522,6 +527,7 @@ impl AbstractServer for TryOverlay {
         for (path, change) in &self.delta.meta.changed {
             if *change == FileChange::Added
                 && re.is_match(path)
+                && also_re.as_ref().is_none_or(|re| re.is_match(path))
                 && !not_re.as_ref().is_some_and(|re| re.is_match(path))
             {
                 matches.file_matches.push(FileMatch {

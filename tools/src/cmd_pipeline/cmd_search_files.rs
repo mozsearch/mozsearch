@@ -22,7 +22,10 @@ pub struct SearchFiles {
     #[clap(value_parser)]
     path: Option<String>,
 
-    /// Constrain matching path patterns with a regexp.
+    /// Constrain matching path patterns with a regexp: with `path`, the files
+    /// must match both (ex: the query language's `path:dom/fs
+    /// validateprincipal`, the files in dom/fs with "validateprincipal" in
+    /// their paths).
     #[clap(long, value_parser)]
     pathre: Option<String>,
 
@@ -55,20 +58,20 @@ pub struct SearchFilesCommand {
 const FILE_MATCH_LIMIT: usize = 2_000_000;
 
 impl SearchFiles {
-    /// The regexps of the paths to match and to leave out (see
-    /// `AbstractServer::search_files`), ignoring case unless it's
-    /// `case_sensitive`.
-    fn patterns(&self) -> (String, String) {
-        let pathre = if let Some(pathre) = &self.pathre {
-            pathre.clone()
-        } else if let Some(path) = &self.path {
-            path_glob_transform(path)
-        } else {
-            "".to_string()
+    /// The regexps of the paths to match, to match too, and to leave out
+    /// (see `AbstractServer::search_files`): `path`'s and `pathre`, both if
+    /// there are both, ignoring case unless it's `case_sensitive`.
+    fn patterns(&self) -> (String, String, String) {
+        let path = self.path.as_deref().map(path_glob_transform);
+        let (pathre, also_pathre) = match (path, self.pathre.clone()) {
+            (Some(path), Some(pathre)) => (path, pathre),
+            (Some(pattern), None) | (None, Some(pattern)) => (pattern, String::new()),
+            (None, None) => (String::new(), String::new()),
         };
         let not_pathre = self.not_pathre.clone().unwrap_or_default();
         (
             path_case(pathre, self.case_sensitive),
+            path_case(also_pathre, self.case_sensitive),
             path_case(not_pathre, self.case_sensitive),
         )
     }
@@ -81,7 +84,7 @@ impl PipelineCommand for SearchFilesCommand {
         server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let (pathre_pattern, not_pathre_pattern) = self.args.patterns();
+        let (pathre_pattern, also_pathre_pattern, not_pathre_pattern) = self.args.patterns();
 
         // A zero limit implies no limit, but the server currently needs us to
         // provide a limit because it uses take().  Also, it's probably
@@ -96,6 +99,7 @@ impl PipelineCommand for SearchFilesCommand {
         let mut matches = server
             .search_files(
                 &pathre_pattern,
+                &also_pathre_pattern,
                 &not_pathre_pattern,
                 self.args.include_dirs,
                 use_limit + 1,
@@ -147,19 +151,30 @@ mod tests {
                 .args
                 .patterns()
         };
+        let none = String::new;
         assert_eq!(
             patterns(&["httpbasechannel.cpp"]),
-            (r"(?i)httpbasechannel\.cpp".to_string(), String::new())
+            (r"(?i)httpbasechannel\.cpp".to_string(), none(), none())
         );
         assert_eq!(
             patterns(&["--pathre", "^netwerk/", "--not-pathre", "test"]),
-            ("(?i)^netwerk/".to_string(), "(?i)test".to_string())
+            ("(?i)^netwerk/".to_string(), none(), "(?i)test".to_string())
         );
         assert_eq!(
             patterns(&["HttpBaseChannel.cpp", "--case-sensitive"]),
-            (r"HttpBaseChannel\.cpp".to_string(), String::new())
+            (r"HttpBaseChannel\.cpp".to_string(), none(), none())
         );
-        assert_eq!(patterns(&[]), (String::new(), String::new()));
+        assert_eq!(patterns(&[]), (none(), none(), none()));
+        // (A path and `--pathre` (ex: `path:dom/fs validateprincipal`): the
+        // files must match both.)
+        assert_eq!(
+            patterns(&["validateprincipal", "--pathre", "dom/fs"]),
+            (
+                "(?i)validateprincipal".to_string(),
+                "(?i)dom/fs".to_string(),
+                none()
+            )
+        );
         let re = regex::Regex::new(&patterns(&["httpbasechannel.cpp"]).0).unwrap();
         assert!(re.is_match("netwerk/protocol/http/HttpBaseChannel.cpp"));
     }

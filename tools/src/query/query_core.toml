@@ -461,17 +461,25 @@ command = "crossref-expand"
 amend = true
 args.subclass-local-limit = "$0"
 
+# The paths to search in, a regexp (`path:`'s glob, transformed): the files
+# whose paths also match what the query searches for, if it does (ex:
+# `path:dom/fs validateprincipal`, the files in dom/fs with
+# "validateprincipal" in their paths), the text in those files, and the
+# semantic results' in them (once their symbols are expanded, ex: the
+# overrides in them).  The token's history is the whole tree's, so with a
+# path, the results have no note of its removals.
 [term.pathre]
 [[term.pathre.group.file-search]]
 command = "search-files"
 args.pathre = "$0"
-## TODO: Implement filtering crossref output by path
-## does this really want to be its own stage, or just part of crossref-lookup?
-## I guess this may need to come after crossref-expand, so then it would want
-## to be its own command.
-#[[term.pathre.group.semantic-search]]
-#command = "filter-crossref"
-#args.pathre = "$0"
+[[term.pathre.group.semantic-search]]
+command = "crossref-expand"
+amend = true
+args.pathre = "$0"
+[[term.pathre.group.removal-search]]
+command = "token-history"
+amend = true
+args.pathre = "$0"
 [[term.pathre.group.text-search]]
 command = "search-text"
 args.pathre = "$0"
@@ -510,6 +518,11 @@ command = "search-identifiers"
 when = "sensitive"
 amend = true
 args.case-sensitive = true
+[[term.case.group.semantic-search]]
+command = "crossref-expand"
+when = "sensitive"
+amend = true
+args.case-sensitive = true
 [[term.case.group.removal-search]]
 command = "token-history"
 when = "sensitive"
@@ -532,11 +545,15 @@ amend = true
 args.case-sensitive = true
 
 # The paths to leave out, a regexp: `-path:`'s and `-pathre:`'s, which
-# chew_query combines (only these terms can be negated), from the files and
-# the text the query searches, if it does.
+# chew_query combines (only these terms can be negated), from the files, the
+# text and the semantic results the query searches, if it does.
 [term.not-pathre]
 [[term.not-pathre.group.file-search]]
 command = "search-files"
+amend = true
+args.not-pathre = "$0"
+[[term.not-pathre.group.semantic-search]]
+command = "crossref-expand"
 amend = true
 args.not-pathre = "$0"
 [[term.not-pathre.group.text-search]]

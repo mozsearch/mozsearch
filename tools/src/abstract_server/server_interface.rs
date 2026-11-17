@@ -603,11 +603,14 @@ pub trait AbstractServer {
     /// as a remote API really hinges on a rationale for not just remoting
     /// the new "query" mechanism.
     ///
-    /// Paths matching `not_pathre` (if it's not empty) are left out, before
-    /// the limit (ex: the query language's `-path:`).
+    /// Paths must also match `also_pathre` (if it's not empty; ex: a file
+    /// search's pattern, and the query language's `path:`), and paths
+    /// matching `not_pathre` (if it's not empty) are left out, before the
+    /// limit (ex: the query language's `-path:`).
     async fn search_files(
         &self,
         pathre: &str,
+        also_pathre: &str,
         not_pathre: &str,
         include_dirs: bool,
         limit: usize,
