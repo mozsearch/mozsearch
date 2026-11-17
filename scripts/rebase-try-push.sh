@@ -6,31 +6,34 @@ set -o pipefail # Check all commands in a pipeline
 # Rebase a try push's stack onto the tree's indexed revision (its git repo's
 # HEAD), for the push's semantic analysis (see tools/src/try_delta.rs), as
 # refs/try-rebased/NAME, and print its commit: the push's head itself if its
-# stack is on the indexed revision, and otherwise its stack's commits (those
-# in PUSH_REVS if it's set, oldest first, ex: the try repository's draft
-# changesets, since a push on a newer trunk revision than the indexed one has
-# others since the indexed revision; else those since its history diverged
-# from the indexed revision's) applied to the indexed revision one at a time,
+# stack is on the indexed revision, and otherwise its stack's commits
+# (PUSH_REVS, oldest first, ex: the try repository's draft changesets, since
+# a push on a newer trunk revision than the indexed one has others since the
+# indexed revision) applied to the indexed revision one at a time,
 # each a commit with its commit's author,
 # dates and message (so that the history, which imports them too, blames
-# their tokens on them; see import-try-rebased.sh), leaving out those which
-# have landed since then (as `git rebase` would): commits whose changes are a
+# their tokens on them; see the trees' import-try hooks, and
+# import-try-rebased.sh), leaving out those which have landed since then (as `git rebase` would): commits whose changes are a
 # landed commit's (the same patch id), or which are the same Phabricator
 # revision as one (their messages' "Differential Revision: <URL>" lines), even
 # if it changed before it landed.  Which commits landed, and as what, it
 # writes to stderr ("Landed: <commit> as <landed commit> (<how>)"), which the
-# push's import log has (see tools/src/try_import.rs).  It fails if a commit's
-# changes conflict ("Conflicting commit: <commit> <summary>", and git's lines
-# for the files), or if all of the stack's commits have landed ("All of the
-# push's commits have landed."), but those selecting try's tasks (changing
-# only try_task_config.json), so there's nothing to analyze.  But a stack on
-# a newer trunk revision than the indexed one which needs that revision's
-# changes (its commits conflict on the indexed revision) is the push's head
-# itself, with the revisions since the indexed one, and
-# refs/try-stack-base/NAME names the revision its stack is on, so that what
-# the stack itself changes can be told apart (see build-try-delta's
-# --stack-base); it says so on stderr ("Analyzing it with the N revisions its
-# stack is on since the indexed revision: ...").
+# push's import log has (see tools/src/try_import.rs).
+#
+# A commit whose changes don't apply at once is applied a file at a time, and
+# a file whose changes conflict which the C++ build doesn't read (see
+# `outside_cpp_build`, ex: a test's JS, on a newer trunk revision whose
+# changes to it the commit's are on) is taken at the commit's version ("Took
+# <file> at <commit>'s version: ..."), whose analysis, of that file alone, is
+# then of that version.  It fails if another file's changes conflict
+# ("Conflicting commit: <commit> <summary>", "Conflicting file: <file>", and
+# git's lines for them), or if all of the stack's commits have landed ("All
+# of the push's commits have landed."), but those selecting try's tasks
+# (changing only try_task_config.json), so there's nothing to analyze, or if
+# the stack is unknown (no PUSH_REVS; "The push's stack is unknown: ..."):
+# the push then has no semantic analysis (its import hook's), rather than one
+# of all the trunk's changes since the indexed revision too, whose build
+# would compile much of the tree.
 #
 # Usage: rebase-try-push.sh GIT_ROOT NAME HEAD_REV
 
@@ -49,33 +52,76 @@ git() {
 
 BASE=$(git rev-parse HEAD)
 FORK=$(git merge-base "$BASE" "$HEAD_REV")
+# (Earlier revisions analyzed a push whose commits conflict with the trunk
+# revision its stack is on; see build-try-delta's --stack-base.)
 git update-ref -d "refs/try-stack-base/$NAME" 2>/dev/null || true
-# The stack's commits, and the revision it's on.
-if [ -n "${PUSH_REVS:-}" ]; then
-    read -r -a STACK <<< "$PUSH_REVS"
-    STACK_BASE=$(git rev-parse "${STACK[0]}^")
-else
-    mapfile -t STACK < <(git rev-list --reverse --no-merges "$FORK..$HEAD_REV")
-    STACK_BASE=$FORK
+# The stack's commits, and the revision it's on.  Without PUSH_REVS, there's
+# no rebase: the push's revisions since its history diverged from the
+# indexed revision's could be the trunk's it's on, as well as its stack's (ex:
+# a push on a newer trunk revision), whose analysis, and build, would be
+# theirs too.
+read -r -a STACK <<< "${PUSH_REVS:-}"
+if [ ${#STACK[@]} -eq 0 ]; then
+    echo "The push's stack is unknown: which of its commits are its own, rather than the trunk's it's on." 1>&2
+    exit 1
 fi
+STACK_BASE=$(git rev-parse "${STACK[0]}^")
 if [ "$STACK_BASE" = "$BASE" ]; then
     git update-ref "refs/try-rebased/$NAME" "$HEAD_REV"
     echo "$HEAD_REV"
     exit 0
 fi
 
-# A stack on a newer trunk revision than the indexed one (descending from
-# it) whose commits conflict on the indexed revision: the push's head itself,
-# with the revisions since the indexed one (see the top); otherwise a failure.
-with_trunk() {
-    if [ "$FORK" != "$BASE" ]; then
-        exit 1
+# Whether the C++ build doesn't read a file, nor generate code from it, for
+# taking its version when its changes conflict (see the top): web pages and
+# scripts (but SpiderMonkey's, whose self-hosted JS the engine compiles in),
+# stylesheets, Fluent and documentation files, and test manifests.
+outside_cpp_build() {
+    case "$1" in
+        js/src/*) return 1 ;;
+        *.js | *.mjs | *.jsm | *.jsx | *.ts | *.tsx | *.html | *.htm | *.xhtml | *.xul | *.css | *.ftl | *.md | *.rst) return 0 ;;
+        *.ini | */xpcshell*.toml | */mochitest*.toml | */browser*.toml | */chrome*.toml | */a11y*.toml | */reftest*.list | */crashtests*.list) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Apply a commit's changes to the index (on the stack's commits before it):
+# at once, or else a file at a time, taking the commit's version of each file
+# whose changes conflict which the C++ build doesn't read.  It fails, saying
+# which other files' changes conflict, if any do.
+apply_commit() {
+    local commit=$1 log good file entry mode type blob rest unresolved=0
+    good=$(git write-tree)
+    if log=$(git diff --binary --full-index "$commit^" "$commit" | git apply --cached --3way 2>&1); then
+        [ -z "$log" ] || echo "$log" 1>&2
+        return 0
     fi
-    echo "Analyzing it with the $(git rev-list --count "$BASE..$STACK_BASE") revisions its stack is on since the indexed revision: its stack is on $STACK_BASE." 1>&2
-    git update-ref "refs/try-stack-base/$NAME" "$STACK_BASE"
-    git update-ref "refs/try-rebased/$NAME" "$HEAD_REV"
-    echo "$HEAD_REV"
-    exit 0
+    git read-tree "$good"
+    while IFS= read -r -d '' file; do
+        if log=$(git diff --no-renames --binary --full-index "$commit^" "$commit" -- "$file" |
+                git apply --cached --3way 2>&1); then
+            [ -z "$log" ] || echo "$log" 1>&2
+            good=$(git write-tree)
+            continue
+        fi
+        git read-tree "$good"
+        if outside_cpp_build "$file"; then
+            entry=$(git ls-tree "$commit" -- "$file")
+            if [ -n "$entry" ]; then
+                read -r mode type blob rest <<< "$entry"
+                git update-index --add --cacheinfo "$mode,$blob,$file"
+            else
+                git update-index --force-remove -- "$file"
+            fi
+            good=$(git write-tree)
+            echo "Took $file at $commit's version: its changes conflict, but the C++ build doesn't read it." 1>&2
+        else
+            [ -z "$log" ] || echo "$log" 1>&2
+            echo "Conflicting file: $file" 1>&2
+            unresolved=1
+        fi
+    done < <(git diff --no-renames -z --name-only "$commit^" "$commit")
+    return $unresolved
 }
 
 WORK=$(mktemp -d)
@@ -125,9 +171,9 @@ for COMMIT in "${STACK[@]}"; do
         echo "Landed: $COMMIT as $LANDED ($HOW)" 1>&2
         continue
     fi
-    if ! git diff --binary --full-index "$COMMIT^" "$COMMIT" | git apply --cached --3way 1>&2; then
+    if ! apply_commit "$COMMIT"; then
         echo "Conflicting commit: $COMMIT $(git log -1 --format=%s "$COMMIT")" 1>&2
-        with_trunk
+        exit 1
     fi
     if [ "$(git diff-tree --no-commit-id --name-only -r "$COMMIT")" != "try_task_config.json" ]; then
         APPLIED=$((APPLIED + 1))

@@ -1,0 +1,3 @@
+Bug 6793 - Add the JS tests' head. r=reviewer
+
+Differential Revision: https://phabricator.services.mozilla.com/D9755

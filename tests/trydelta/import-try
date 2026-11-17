@@ -13,9 +13,20 @@ set -o pipefail # Check all commands in a pipeline
 # imported like any tree's push.  The first try/NAME/public of its commits
 # (if it says) aren't its stack's but the trunk's it's on (ex: a push on a
 # newer trunk revision than the indexed one), as the try repository's public
-# changesets are.  Then it's analyzed semantically (see
-# analyze-try), and its rebased stack imported too; if that fails, it's still
-# imported, without them.
+# changesets are; and with try/NAME/unknown-stack, none of them are known to
+# be its stack's, as when the try repository's draft changesets and pushlog
+# can't be read.  As the config repos' hooks do, its stack is rebased onto
+# the indexed revision first (see rebase-try-push.sh), whose steps' lines are
+# "semantic::" steps' and the import's "try-import::" steps' (for its page to
+# say why it has no semantic analysis; see try_import's `semantic_failure`),
+# unless it's unknown (its revisions since the indexed one could be the
+# trunk's too).  If it rebases, it's analyzed semantically (see analyze-try),
+# and the history imports the push as it is and its rebased stack too (see
+# import-try-rebased.sh), or, if it's on a newer trunk revision than the
+# indexed one, only its rebased stack, as the push (not the trunk's revisions
+# since the indexed one).  If not, the history imports the push as it is
+# (with those revisions), and it has no semantic analysis, rather than one of
+# those revisions' changes too.
 
 NAME=$1
 PUSH="$CONFIG_REPO/$TREE_NAME/try/$NAME"
@@ -51,16 +62,45 @@ rm -f "$GIT_INDEX_FILE"
 unset GIT_DIR GIT_INDEX_FILE
 PUBLIC=$(cat "$PUSH/public" 2>/dev/null || echo 0)
 STACK="${REVS[*]:$PUBLIC}"
+if [ -f "$PUSH/unknown-stack" ]; then
+    STACK=""
+fi
 
-PUSH_REVS="$STACK" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
-    "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$HEAD_REV" "$MAX_REVISIONS"
-
-if PUSH_REVS="$STACK" "$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$HEAD_REV"; then
-    # (And its stack rebased for that analysis, for its pages' blame and stack
-    # strip; see import-try-rebased.sh.)
-    "$MOZSEARCH_PATH/scripts/import-try-rebased.sh" \
-        "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$MAX_REVISIONS" ||
-        echo "WARNING: The push's rebased stack's import failed."
+echo "Performing semantic::rebase step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+IMPORT_REV=$HEAD_REV
+IMPORT_REVS=$STACK
+ALSO_REBASED=""
+REBASED=""
+if [ -z "${STACK// /}" ]; then
+    echo "ERROR: Its stack (which of its commits are its own, rather than the trunk's it's on) is unknown, so it has no semantic analysis (which could be of the trunk's changes since the indexed revision too)."
+elif REBASED=$(PUSH_REVS="$STACK" "$MOZSEARCH_PATH/scripts/rebase-try-push.sh" "$GIT_ROOT" "$NAME" "$HEAD_REV"); then
+    # (The revisions the push has which the indexed revision doesn't: more
+    # than its stack's, if it's on a newer trunk revision.)
+    if (( $(git -C "$GIT_ROOT" rev-list --count "$HEAD_REV" --not HEAD) > $(wc -w <<< "$STACK") )); then
+        IMPORT_REV=$REBASED
+        IMPORT_REVS=$(git -C "$GIT_ROOT" rev-list --reverse "HEAD..$REBASED" | tr '\n' ' ')
+    elif [ "$REBASED" != "$HEAD_REV" ]; then
+        ALSO_REBASED=1
+    fi
 else
-    echo "WARNING: The push's semantic analysis failed."
+    echo "ERROR: Its stack's changes conflict with the indexed revision's in the files the C++ build reads, so it has no semantic analysis (which would be of the trunk's changes since the indexed revision too)."
+    REBASED=""
+fi
+
+echo "Performing try-import::history step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+PUSH_REVS="$IMPORT_REVS" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
+    "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$IMPORT_REV" "$MAX_REVISIONS"
+
+if [ -n "$REBASED" ]; then
+    echo "Performing try-import::semantic step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+    if "$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$REBASED"; then
+        if [ -n "$ALSO_REBASED" ]; then
+            echo "Performing try-import::rebased step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+            "$MOZSEARCH_PATH/scripts/import-try-rebased.sh" \
+                "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$MAX_REVISIONS" ||
+                echo "WARNING: The push's rebased stack's import failed."
+        fi
+    else
+        echo "WARNING: The push's semantic analysis failed."
+    fi
 fi

@@ -12,7 +12,10 @@ set -o pipefail # Check all commands in a pipeline
 # too: its rebased commits are the push's commits, with their authors, dates
 # and messages, on top of the indexed revision.  (A push on top of the indexed
 # revision is its own rebased stack, which the history has already.)  The
-# tree's import-try hook runs this after the push's semantic analysis.
+# trees' import-try hooks run this for a push whose commits the history
+# imports as they are, beside them, as for a push on an older revision: one
+# on a newer trunk revision than the indexed one is imported as its rebased
+# stack instead, not with the trunk's revisions since the indexed one.
 #
 # Usage: import-try-rebased.sh SOURCE_GIT HISTORY_ROOT BRANCH NAME MAX_REVISIONS [SYNTAX_ARGS...]
 # (As import-try-push.sh's.)

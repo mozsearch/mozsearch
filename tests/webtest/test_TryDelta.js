@@ -1,8 +1,9 @@
 "use strict";
 // webtest-group: trydelta-push (they import it)
-// webtest-timeout: 120 (its tasks import pushes, with their semantic
+// webtest-timeout: 180 (its tasks import pushes, with their semantic
 // analysis, and wait for their pages, which took longer than the 30 seconds a
-// test has by default since 2026-11-06)
+// test has by default since 2026-11-06, and two more pushes since
+// 2026-11-17)
 
 // The trydelta tree's try pushes get semantic analysis (see
 // tests/trydelta/analyze-try and tools/src/try_delta.rs): 0123456789ab changes
@@ -660,39 +661,52 @@ add_task(async function test_TryDeltaNewerTrunk() {
   ok(!model.other_files.some(file => file.path == "trunk.cpp"), "nor its files");
 });
 
-// But one whose stack needs the trunk's changes (its commits conflict on the
-// indexed revision) is analyzed with them, which its page says, and its
-// canvas has only its stack's changes (see `TryDeltaMeta::stack_base`):
-// 97531fdb9753's first commit is the trunk's (adding counter.h's
-// CountWidgets, and trunk2.cpp), and its stack changes CountWidgets, adds
-// CountGadgets, and adds tally.cpp.
+// But one whose stack's changes conflict on the indexed revision in files the
+// C++ build reads (its commits need the trunk's changes) has no semantic
+// analysis, rather than one of the trunk's changes since the indexed revision
+// too, whose build would compile much of a big tree; its page says why, and
+// the history imports it as it is, with the trunk's revision: 97531fdb9753's
+// first commit is the trunk's (adding counter.h's CountWidgets, and
+// trunk2.cpp), and its stack changes CountWidgets, adds CountGadgets, and adds
+// tally.cpp.
 add_task(async function test_TryDeltaWithTrunk() {
   const head = await importNamedPush("97531fdb9753");
-  ok(head?.match(/^[0-9a-f]{40}$/), `The push has semantic analysis: ${head}`);
-  const trunk = doc().querySelector(".tr-semantic-trunk")?.textContent ?? "";
-  ok(trunk.includes("with the revision since the indexed one"),
-     `Its page says it's analyzed with the trunk's revision: ${trunk}`);
-  const model = await (await fetch(`/trydelta/rev-canvas/${head}/canvas.json`, { cache: "no-store" })).json();
-  const status = name => model.nodes.find(node => node.pretty == name)?.status;
-  is(status("trydelta::CountGadgets"), "added", "Its canvas has the functions its stack adds");
-  is(status("trydelta::CountWidgets"), "changed", "and those it changes");
-  is(status("trydelta::Tally"), "added", "and those of the files it adds");
-  ok(!["added", "changed"].includes(status("trydelta::TrunkTwo")),
-     "but not the trunk revision's (TrunkTwo calls CountWidgets: a card of the context)");
-  ok(!model.other_files.some(file => file.path == "trunk2.cpp"), "nor its files");
+  ok(!head, "The push has no semantic analysis");
+  ok(!doc().querySelector(".tr-semantic-trunk"), "not even with the trunk's revision");
+  const failure = doc().querySelector(".tr-semantic-failure")?.textContent ?? "";
+  ok(failure.includes("failed in its rebase step") && failure.includes("in the files the C++ build reads"),
+     `Its page says why: ${failure}`);
+  ok(failure.includes("The files whose changes conflict: counter.h."), "with the file");
+});
 
-  // The slicing of its range from the indexed revision has the commits making
-  // its units' lines, by the tree's token-centric history (see
-  // `rev_lines::history_line_commits`): CountGadgets is the stack's, and
-  // trunk2.cpp the trunk revision's.
-  const query = `slice-rev:${INDEXED}..${head} slice-format:json`;
-  const response = await fetch(
-    `/trydelta/query/default?q=${encodeURIComponent(query)}&rev=${head}`,
-    { headers: { Accept: "application/json" }, cache: "no-store" });
-  const units = (await response.json())?.JsonValue?.value?.units ?? [];
-  const gadgets = units.find(u => u.path == "counter.h" && u.text.some(t => t.includes("CountGadgets")));
-  is(gadgets?.commits?.join(), head, "A unit's commit is the one adding its lines");
-  const trunkUnit = units.find(u => u.path == "trunk2.cpp");
-  ok(trunkUnit?.commits?.length == 1 && trunkUnit.commits[0] != head,
-     `and another unit's another one's: ${trunkUnit?.commits}`);
+// A push whose stack's changes conflict on the indexed revision only in files
+// the C++ build doesn't read (ex: a test's JS, which the newer trunk revision
+// it's on changed) is still analyzed as its stack rebased onto the indexed
+// revision, with those files at its version (see rebase-try-push.sh):
+// 86420fdb8642's first commit is the trunk's (adding jstests/head.js), and its
+// stack changes head.js and adds rebased.cpp's RebasedPastJs.
+add_task(async function test_TryDeltaJsConflict() {
+  const head = await importNamedPush("86420fdb8642");
+  ok(head?.match(/^[0-9a-f]{40}$/), `The push has semantic analysis: ${head}`);
+  ok(!doc().querySelector(".tr-semantic-trunk"), "without the trunk's revision");
+  const model = await (await fetch(`/trydelta/rev-canvas/${head}/canvas.json`, { cache: "no-store" })).json();
+  ok(model.nodes.some(node => node.pretty == "trydelta::RebasedPastJs"),
+     `Its canvas has its stack's C++: ${model.nodes.map(node => node.pretty)}`);
+  const page = new DOMParser().parseFromString(
+    await (await fetch(`/trydelta/rev/${head}/jstests/head.js`, { cache: "no-store" })).text(), "text/html");
+  const code = [...page.querySelectorAll("code.source-line")].map(line => line.textContent).join("\n");
+  ok(code.includes('return "stack";'), `and its head.js is its version: ${code}`);
+});
+
+// A push whose stack is unknown (when the try repository's draft changesets
+// and pushlog can't be read) has no semantic analysis, as its revisions since
+// the indexed one could be the trunk's too, which its page says:
+// 1357ace02468's first commit is the trunk's (adding trunk3.cpp), and its
+// second adds unknown_stack.cpp, but neither is known to be its stack's.
+add_task(async function test_TryDeltaUnknownStack() {
+  const head = await importNamedPush("1357ace02468");
+  ok(!head, "The push has no semantic analysis");
+  const failure = doc().querySelector(".tr-semantic-failure")?.textContent ?? "";
+  ok(failure.includes("failed in its rebase step") && failure.includes("is unknown"),
+     `Its page says why: ${failure}`);
 });

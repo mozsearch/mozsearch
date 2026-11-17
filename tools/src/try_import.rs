@@ -1130,7 +1130,16 @@ fn parse_semantic_failure(log: &str) -> Option<SemanticFailure> {
         .next()
         .unwrap_or_default()
         .to_string();
+    // (Until the import's next step, if any: ex: after a failed rebase, its
+    // history's import, of the push as it is.)
     let after = &lines[start + 1..];
+    let after = match after
+        .iter()
+        .position(|line| line.starts_with("Performing try-import::"))
+    {
+        Some(end) => &after[..end],
+        None => after,
+    };
     let is_exception = |line: &str| {
         line.split_once(": ").is_some_and(|(name, _)| {
             !name.contains(char::is_whitespace)
@@ -1439,6 +1448,24 @@ mod tests {
                    All of the push's commits have landed.\n\
                    ERROR: The push's changes conflict.\n";
         assert!(parse_semantic_failure(log).unwrap().all_landed);
+        // (A rebase failing before the import's history step (of the push as
+        // it is, so without a semantic analysis), whose lines aren't its.)
+        let log = "Performing semantic::rebase step for x\n\
+                   Took t/head.js at aaa's version: its changes conflict, but the C++ build doesn't read it.\n\
+                   Applied patch to 'a.h' with conflicts.\n\
+                   Conflicting file: a.h\n\
+                   Conflicting commit: aaa Bug 1 - Do a thing\n\
+                   ERROR: Its stack's changes conflict.\n\
+                   Performing try-import::history step for x\n\
+                   error: b.cpp: patch does not apply\n\
+                   ERROR: Something else.\n";
+        let failure = parse_semantic_failure(log).unwrap();
+        assert_eq!(failure.step, "rebase");
+        assert_eq!(
+            failure.error.as_deref(),
+            Some("Its stack's changes conflict.")
+        );
+        assert_eq!(failure.conflicts, vec!["a.h".to_string()]);
     }
 
     #[test]

@@ -6,8 +6,8 @@ set -o pipefail # Check all commands in a pipeline
 
 # The trydelta tree's semantic analysis of a try push (see import-try, which
 # runs this with its environment, and tools/src/try_delta.rs): its stack
-# (PUSH_REVS, as the import's) rebased onto the indexed revision (here, the
-# tree's head) is compiled with the indexer (all of the tree's C++, since it's
+# rebased onto the indexed revision (here, the tree's head; REBASED, which
+# import-try rebased; see rebase-try-push.sh) is compiled with the indexer (all of the tree's C++, since it's
 # small; see build), its Rust indexed by rust-analyzer (the files whose
 # analysis it can change; see try-analyze-rust.sh), its TypeScript, JS, pages
 # and stylesheets analyzed as the tree's are (see try-analyze-typescript.sh
@@ -16,18 +16,12 @@ set -o pipefail # Check all commands in a pipeline
 # that analysis.  Its steps are "semantic::" steps, which the push's page names if it fails (see
 # try_import's `semantic_failure`).
 #
-# Usage: analyze-try NAME HEAD_REV
+# Usage: analyze-try NAME REBASED
 
 NAME=$1
-HEAD_REV=$2
+REBASED=$2
 # (The tree's, before the build's environment below replaces it.)
 TREE_INDEX_ROOT=$INDEX_ROOT
-
-echo "Performing semantic::rebase step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
-if ! REBASED=$("$MOZSEARCH_PATH/scripts/rebase-try-push.sh" "$GIT_ROOT" "$NAME" "$HEAD_REV"); then
-    echo "ERROR: The push's changes conflict with the indexed revision's, so it can't be analyzed semantically until it's rebased."
-    exit 1
-fi
 
 echo "Performing semantic::build step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 WORK=$(mktemp -d)
@@ -85,9 +79,5 @@ echo "Performing semantic::rest step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     "$WORK/files" "$WORK/objdir" "$WORK/changed.lst" "$WORK/tip-analysis"
 
 echo "Performing semantic::delta step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
-# (A stack on a newer trunk revision which needs its changes is analyzed with
-# them; see rebase-try-push.sh.)
-STACK_BASE=$(git -C "$GIT_ROOT" rev-parse -q --verify "refs/try-stack-base/$NAME" || true)
-build-try-delta "$CONFIG_FILE" "$TREE_NAME" "$NAME" "$REBASED" "$WORK/tip-analysis" \
-    ${STACK_BASE:+--stack-base "$STACK_BASE"}
+build-try-delta "$CONFIG_FILE" "$TREE_NAME" "$NAME" "$REBASED" "$WORK/tip-analysis"
 rm -rf "$WORK"

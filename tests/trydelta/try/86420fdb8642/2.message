@@ -1,0 +1,3 @@
+Bug 6794 - Rebase past a JS conflict. r=reviewer
+
+Differential Revision: https://phabricator.services.mozilla.com/D9756
