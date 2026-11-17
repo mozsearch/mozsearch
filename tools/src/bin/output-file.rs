@@ -478,7 +478,9 @@ fn main() {
         }
 
         // The review guidance (see review-context.toml) for patches changing
-        // the file, by the rules' loads, with links to the rules.
+        // the file, by the rules' loads, with links to the rules, collapsed
+        // in a group of their own ("Review skills (N)").
+        let mut review_items = vec![];
         for rule in detailed_info.info["review_rules"]
             .as_array()
             .into_iter()
@@ -498,14 +500,14 @@ fn main() {
                 let Some((link, copy_text, what)) = review_load_link(&tree_name, load) else {
                     continue;
                 };
-                let mut label = format!("Review skill: {}", name);
+                let mut label = name.to_string();
                 if loads.len() > 1 {
                     label = format!("{} ({})", label, what);
                 }
                 if partial {
                     label = format!("{}, with other changes", label);
                 }
-                source_panel_items.push(PanelItem {
+                review_items.push(PanelItem {
                     label: PanelItemLabel::Plaintext(label),
                     tooltip: format!(
                         "{}{}",
@@ -533,11 +535,20 @@ fn main() {
             }
         }
 
-        if !source_panel_items.is_empty() {
+        let mut source_raw_items = vec![];
+        if !review_items.is_empty() {
+            source_raw_items.push(tools::output::panel_item_group(
+                &format!("Review skills ({})", review_items.len()),
+                "The review guidance for patches changing this file (review-context.toml's rules)",
+                &review_items,
+            ));
+        }
+
+        if !source_panel_items.is_empty() || !source_raw_items.is_empty() {
             panel.push(PanelSection {
                 name: "Source code".to_owned(),
                 items: source_panel_items,
-                raw_items: vec![],
+                raw_items: source_raw_items,
             });
         };
 

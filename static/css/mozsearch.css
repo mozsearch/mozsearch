@@ -1223,6 +1223,24 @@ html.fancy-bar-resizing {
 .panel .item-extra:hover {
   background-color: var(--button-hover-background);
 }
+/* A section's collapsible group of items, ex: the file's review skills (see
+   output.rs's panel_item_group): its summary looks like an item, with its
+   disclosure triangle where items' icons are, and its items are indented
+   under it.  (Without #content's details' margin.) */
+#panel-content .panel-group > details {
+  margin: 0;
+}
+.panel .panel-group > details > summary {
+  padding: 0.5em 0.5em 0.5em 14px;
+  cursor: pointer;
+}
+.panel .panel-group > details > summary:hover {
+  background-color: var(--list-hover-background);
+  color: var(--list-hover-color);
+}
+.panel .panel-group .item {
+  padding-left: 46px;
+}
 /* (Hidden items, ex: "Copy as"'s file link and raw file, which keep their
    keyboard shortcuts.) */
 .panel .item[hidden] {

@@ -6,15 +6,22 @@ input_file: inputs/web/files/nav-panel/test_otherthing__navpanel__html
 <section id="panel-content" aria-expanded="true" aria-hidden="false">
   <h4>Source code</h4>
   <ul>
-  <li class="with-extra">
-  <a href="/tests/source/tests/head.js" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Review skill: Tests and their manifests (tests/head.js), with other changes<button class="copy" title="Copy to clipboard" data-copy="tests/head.js"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
-  </li>
-  <li class="with-extra">
-  <a href="https://github.com/mozilla/other-repo/blob/main/docs/guide.md" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Review skill: Tests and their manifests (mozilla/other-repo docs/guide.md), with other changes<button class="copy" title="Copy to clipboard" data-copy="https://github.com/mozilla/other-repo/blob/main/docs/guide.md"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
-  </li>
-  <li class="with-extra">
-  <a href="https://phabricator.services.mozilla.com/D12345" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Review skill: Tests and their manifests (D12345), with other changes<button class="copy" title="Copy to clipboard" data-copy="https://phabricator.services.mozilla.com/D12345"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
-  </li>
+  <li class="panel-group">
+  <details>
+    <summary title="The review guidance for patches changing this file (review-context.toml's rules)">Review skills (3)</summary>
+    <ul>
+    <li class="with-extra">
+    <a href="/tests/source/tests/head.js" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Tests and their manifests (tests/head.js), with other changes<button class="copy" title="Copy to clipboard" data-copy="tests/head.js"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
+    </li>
+    <li class="with-extra">
+    <a href="https://github.com/mozilla/other-repo/blob/main/docs/guide.md" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Tests and their manifests (mozilla/other-repo docs/guide.md), with other changes<button class="copy" title="Copy to clipboard" data-copy="https://github.com/mozilla/other-repo/blob/main/docs/guide.md"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
+    </li>
+    <li class="with-extra">
+    <a href="https://phabricator.services.mozilla.com/D12345" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Tests and their manifests (D12345), with other changes<button class="copy" title="Copy to clipboard" data-copy="https://phabricator.services.mozilla.com/D12345"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
+    </li>
+    </ul>
+  </details>
+</li>
   </ul>
   <h4 id="panel-tests">Tests</h4>
 <div class="panel-tests">

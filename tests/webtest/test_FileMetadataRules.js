@@ -2,8 +2,9 @@
 
 // Files' metadata links to the rules giving it (see tools/src/file_metadata):
 // the moz.build rule giving a file its Bugzilla component, review-context.toml's
-// rules for the review guidance applying to it, and its test manifests'
-// sections and conditions.
+// rules for the review guidance applying to it (its review skills, a
+// collapsed group of the panel's), and its test manifests' sections and
+// conditions.
 
 function panelItem(label) {
   return [...frame.contentDocument.querySelectorAll("#panel .item")]
@@ -26,9 +27,17 @@ add_task(async function test_BugComponentRule() {
      "/tests/source/mozbuild/moz.build#54", "The last matching rule gives it");
 });
 
+function reviewSkills() {
+  return frame.contentDocument.querySelector("#panel .panel-group details");
+}
+
 add_task(async function test_ReviewSkills() {
   await TestUtils.loadPath("/tests/source/mozbuild/test.cpp");
-  const skill = panelItem("Review skill: Build fixtures");
+  const group = reviewSkills();
+  is(group?.querySelector("summary").textContent, "Review skills (1)",
+     "The file's review skills are a group, saying how many");
+  ok(!group.open, "collapsed at first");
+  const skill = [...group.querySelectorAll(".item")].find(item => item.textContent.startsWith("Build fixtures"));
   ok(skill, "A review-context.toml rule applies to the file");
   is(skill.getAttribute("href"), "/tests/rendered/docs/md_test/index.md",
      "It goes to its document's rendered view");
@@ -40,18 +49,21 @@ add_task(async function test_ReviewSkills() {
   // A rule which also needs other files' changes says so, with an item for
   // each of its loads.
   await TestUtils.loadPath("/tests/source/tests/test_otherthing.html");
-  const items = [...frame.contentDocument.querySelectorAll("#panel .item")]
-    .filter(item => item.textContent.startsWith("Review skill: Tests and their manifests"));
+  const items = [...reviewSkills().querySelectorAll(".item")]
+    .filter(item => item.textContent.startsWith("Tests and their manifests"));
   is(JSON.stringify(items.map(item => [item.firstChild.textContent, item.getAttribute("href")])),
      JSON.stringify([
-       ["Review skill: Tests and their manifests (tests/head.js), with other changes",
+       ["Tests and their manifests (tests/head.js), with other changes",
         "/tests/source/tests/head.js"],
-       ["Review skill: Tests and their manifests (mozilla/other-repo docs/guide.md), with other changes",
+       ["Tests and their manifests (mozilla/other-repo docs/guide.md), with other changes",
         "https://github.com/mozilla/other-repo/blob/main/docs/guide.md"],
-       ["Review skill: Tests and their manifests (D12345), with other changes",
+       ["Tests and their manifests (D12345), with other changes",
         "https://phabricator.services.mozilla.com/D12345"],
      ]),
      "A partially applying rule's loads are its items");
+  ok(!items[0].checkVisibility(), "which the collapsed group hides");
+  reviewSkills().open = true;
+  ok(items[0].checkVisibility(), "until it's opened");
 });
 
 add_task(async function test_TestManifestConditions() {

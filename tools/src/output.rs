@@ -542,6 +542,122 @@ fn strip_tags(html: &str) -> String {
 static COPY_ICONS: &str =
     r#"<span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span>"#;
 
+/// A panel item's HTML (see `generate_panel`), as a list item.
+fn panel_item(item: &PanelItem) -> F {
+    let update_attr = if !item.update_link_lineno.is_empty() {
+        format!(
+            r#" data-update-link="{}" data-link="{}""#,
+            escape_attr(item.update_link_lineno),
+            escape_attr(&item.link)
+        )
+    } else {
+        String::new()
+    };
+    let accel = if let Some(key) = item.accel_key {
+        format!(r#" <span class="accel">{}</span>"#, key)
+    } else {
+        String::new()
+    };
+    let data_accel = if let Some(key) = item.accel_key {
+        format!(r#" data-accel="{key}""#)
+    } else {
+        String::new()
+    };
+    let is_link = !item.link.is_empty();
+    let copy = if item.copyable {
+        if is_link {
+            let copy_text = item
+                .extras
+                .copy_text
+                .as_ref()
+                .map_or(String::new(), |text| {
+                    format!(r#" data-copy="{}""#, escape_html(text))
+                });
+            format!(
+                r#"<button class="copy" title="Copy to clipboard"{}>{}</button>"#,
+                copy_text, COPY_ICONS
+            )
+        } else {
+            format!(r#"<span class="icon copy indicator">{}</span>"#, COPY_ICONS)
+        }
+    } else {
+        String::new()
+    };
+    let tag = if is_link { "a" } else { "button" };
+    let href = if is_link {
+        format!(r#" href="{}""#, escape_attr(&item.link))
+    } else {
+        String::new()
+    };
+    let id_attr = if !item.id.is_empty() {
+        format!(r#" id="{}""#, escape_attr(item.id))
+    } else {
+        String::new()
+    };
+    // (A link beside it, not in it: links don't nest.)
+    let extra = item.extras.link.as_ref().map_or(String::new(), |extra| {
+        format!(
+            r#"<a class="item-extra" href="{}" title="{}">{}</a>"#,
+            escape_html(&extra.link),
+            escape_html(&extra.tooltip),
+            escape_html(&extra.label)
+        )
+    });
+    F::Seq(vec![
+        F::S(if extra.is_empty() {
+            "<li>"
+        } else {
+            r#"<li class="with-extra">"#
+        }),
+        F::T(format!(
+            r#"<{}{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>{}"#,
+            tag,
+            id_attr,
+            href,
+            data_accel,
+            // (Ex: a file's bug component's, from the tree.)
+            escape_attr(&item.tooltip),
+            update_attr,
+            item.label,
+            accel,
+            copy,
+            tag,
+            extra
+        )),
+        F::S("</li>"),
+    ])
+}
+
+/// A collapsible group of panel items' HTML (ex: the file's review skills),
+/// for a section's raw items: a list item of a `<details>`, collapsed, whose
+/// summary is `summary` (with its `tooltip`), and whose list is the items'.
+pub fn panel_item_group(summary: &str, tooltip: &str, items: &[PanelItem]) -> String {
+    let f = F::Seq(vec![
+        F::S(r#"<li class="panel-group">"#),
+        F::Indent(vec![
+            F::S("<details>"),
+            F::Indent(vec![
+                F::T(format!(
+                    r#"<summary title="{}">{}</summary>"#,
+                    escape_attr(tooltip),
+                    escape_html(summary)
+                )),
+                F::S("<ul>"),
+                F::Seq(items.iter().map(panel_item).collect()),
+                F::S("</ul>"),
+            ]),
+            F::S("</details>"),
+        ]),
+        F::S("</li>"),
+    ]);
+    let mut out = Vec::new();
+    let _ = generate_formatted(&mut out, &f, 0);
+    // (Without its last newline: raw items are written as lines.)
+    String::from_utf8(out)
+        .map(|html| html.trim_end().to_string())
+        .unwrap_or_default()
+}
+
 /// Generate HTML for a panel containing the given sections and write it to the
 /// provided writer.  This is expected to be called once per document.
 pub fn generate_panel(
@@ -553,94 +669,7 @@ pub fn generate_panel(
     let sections = sections
         .iter()
         .map(|section| {
-            let items = section
-                .items
-                .iter()
-                .map(|item| {
-                    let update_attr = if !item.update_link_lineno.is_empty() {
-                        format!(
-                            r#" data-update-link="{}" data-link="{}""#,
-                            escape_attr(item.update_link_lineno),
-                            escape_attr(&item.link)
-                        )
-                    } else {
-                        String::new()
-                    };
-                    let accel = if let Some(key) = item.accel_key {
-                        format!(r#" <span class="accel">{}</span>"#, key)
-                    } else {
-                        String::new()
-                    };
-                    let data_accel = if let Some(key) = item.accel_key {
-                        format!(r#" data-accel="{key}""#)
-                    } else {
-                        String::new()
-                    };
-                    let is_link = !item.link.is_empty();
-                    let copy = if item.copyable {
-                        if is_link {
-                            let copy_text = item
-                                .extras
-                                .copy_text
-                                .as_ref()
-                                .map_or(String::new(), |text| {
-                                    format!(r#" data-copy="{}""#, escape_html(text))
-                                });
-                            format!(
-                                r#"<button class="copy" title="Copy to clipboard"{}>{}</button>"#,
-                                copy_text, COPY_ICONS
-                            )
-                        } else {
-                            format!(r#"<span class="icon copy indicator">{}</span>"#, COPY_ICONS)
-                        }
-                    } else {
-                        String::new()
-                    };
-                    let tag = if is_link { "a" } else { "button" };
-                    let href = if is_link {
-                        format!(r#" href="{}""#, escape_attr(&item.link))
-                    } else {
-                        String::new()
-                    };
-                    let id_attr = if !item.id.is_empty() {
-                        format!(r#" id="{}""#, escape_attr(item.id))
-                    } else {
-                        String::new()
-                    };
-                    // (A link beside it, not in it: links don't nest.)
-                    let extra = item.extras.link.as_ref().map_or(String::new(), |extra| {
-                        format!(
-                            r#"<a class="item-extra" href="{}" title="{}">{}</a>"#,
-                            escape_html(&extra.link),
-                            escape_html(&extra.tooltip),
-                            escape_html(&extra.label)
-                        )
-                    });
-                    F::Seq(vec![
-                        F::S(if extra.is_empty() {
-                            "<li>"
-                        } else {
-                            r#"<li class="with-extra">"#
-                        }),
-                        F::T(format!(
-                            r#"<{}{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>{}"#,
-                            tag,
-                            id_attr,
-                            href,
-                            data_accel,
-                            // (Ex: a file's bug component's, from the tree.)
-                            escape_attr(&item.tooltip),
-                            update_attr,
-                            item.label,
-                            accel,
-                            copy,
-                            tag,
-                            extra
-                        )),
-                        F::S("</li>"),
-                    ])
-                })
-                .collect::<Vec<_>>();
+            let items = section.items.iter().map(panel_item).collect::<Vec<_>>();
 
             let raw_items = section
                 .raw_items
