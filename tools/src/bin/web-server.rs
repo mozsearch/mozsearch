@@ -1830,11 +1830,12 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         // push's context if it was (`rev`).  A query page's box's input is a
         // query already (`as=query`, of its `preset`; see
         // header_query.liquid), searched as it is, unless a DWIM rule goes
-        // somewhere at once.
+        // somewhere at once.  Either is without its helper prefix, ". " (see
+        // `dwim::without_helper_prefix`).
         "search" if config::search_endpoint(tree_name) == config::SearchEndpoint::Query => {
             let params = query_params(req.query);
             let param = |name: &str| params.get(name).map(String::as_str);
-            let input = param("q").unwrap_or_default();
+            let input = tools::query::dwim::without_helper_prefix(param("q").unwrap_or_default());
             let form = tools::query::normalize::SearchForm {
                 path: param("path"),
                 case: param("case") == Some("true"),

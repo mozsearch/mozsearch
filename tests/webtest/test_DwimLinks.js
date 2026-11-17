@@ -48,6 +48,16 @@ add_task(async function test_DwimLinks() {
   }
   is(await search("try D1"), "/trydelta/query/default", "but a revision it didn't push is searched for");
 
+  // (After ". ", which Firefox's address bar searches for too, every rule
+  // applies, and the rest is what's searched for.)
+  is(await search(". https://bugzil.la/1517978"), "/trydelta/explore/bug/1517978",
+     'After ". ", a bug goes to its commits\' explore page too');
+  is(await search(". try deadbeefdead"), "/trydelta/try/hg/deadbeefdead", 'as do "try "\'s rules');
+  is(await search(". DwimNothingHere"), "/trydelta/query/default", "Without a rule, it's searched for");
+  const params = new URLSearchParams(doc().location.search);
+  is(params.get("q"), "DwimNothingHere", 'without the ". "');
+  ok(!params.has("input"), "which is all of the input");
+
   // (The "hg-commit" rule's route, which nginx sends to the web server: the
   // searchfox tree's repository isn't hg's, so it doesn't know the revision.)
   const hg = await frame.contentWindow.fetch("/searchfox/hgcommit/deadbeefdead", { cache: "no-store" });

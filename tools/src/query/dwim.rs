@@ -82,16 +82,30 @@ pub struct DwimTarget {
 /// A lookup rule's lookup (ex: "spec") of the input's captures (by name).
 pub type DwimLookup<'a> = &'a dyn Fn(&str, &dyn Fn(&str) -> Option<String>) -> Option<String>;
 
-/// Where the first DWIM rule matching the input says it may be in the tree,
-/// whose paths `has_path` says it has, and which `lookup` does the lookups of,
-/// if one does.
+/// The input without its helper prefix, ". " (a "." and whitespace), if it
+/// has one.  Firefox's address bar goes to what looks like a URL (ex: a
+/// pasted pull request's), even after a keyword or a search engine was
+/// chosen, but searches for it after something else, so the input can start
+/// with ". " for every DWIM rule to apply (and to search for the rest), as
+/// "try " does for the rules taking it.
+pub fn without_helper_prefix(input: &str) -> &str {
+    match input.trim_start().strip_prefix('.') {
+        Some(rest) if rest.starts_with(char::is_whitespace) => rest.trim_start(),
+        _ => input,
+    }
+}
+
+/// Where the first DWIM rule matching the input (without its helper prefix;
+/// see `without_helper_prefix`) says it may be in the tree, whose paths
+/// `has_path` says it has, and which `lookup` does the lookups of, if one
+/// does.
 pub fn dwim_target(
     tree: &str,
     input: &str,
     has_path: &dyn Fn(&str) -> bool,
     lookup: DwimLookup,
 ) -> Option<DwimTarget> {
-    let input = input.trim();
+    let input = without_helper_prefix(input).trim();
     for rule in RULES.iter() {
         let Some(captures) = rule.pattern.captures(input) else {
             continue;
@@ -433,6 +447,31 @@ mod tests {
         );
         assert_eq!(redirect("widget/Foo.cpp:12"), None);
         assert_eq!(redirect("Foo::Bar"), None);
+    }
+
+    #[test]
+    fn test_helper_prefix() {
+        // (After ". ", which Firefox's address bar searches for, rather than
+        // going to a pasted URL, every rule applies, "try "'s too.)
+        assert_eq!(
+            redirect(". https://github.com/w3c/web-locks/pull/126/changes").as_deref(),
+            Some("lookup:spec-pr:w3c/web-locks,126")
+        );
+        assert_eq!(
+            redirect(" .  https://bugzil.la/1517978").as_deref(),
+            Some("lookup:explore-bug:1517978")
+        );
+        assert_eq!(
+            redirect(". try D333833").as_deref(),
+            Some("lookup:try-phabricator:333833")
+        );
+        assert_eq!(without_helper_prefix(". Foo::Bar"), "Foo::Bar");
+        assert_eq!(without_helper_prefix(".\tfoo bar"), "foo bar");
+        // (But not a "." of the input's own.)
+        assert_eq!(without_helper_prefix(".foo"), ".foo");
+        assert_eq!(without_helper_prefix("."), ".");
+        assert_eq!(without_helper_prefix("foo . bar"), "foo . bar");
+        assert_eq!(redirect(".https://bugzil.la/1517978"), None);
     }
 
     #[test]
