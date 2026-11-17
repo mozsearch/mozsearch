@@ -17,7 +17,10 @@
 # - `why`: why its calls aren't worth showing, for people;
 # - `functions`: pretty names without template arguments (as in
 #   dataflow-mapping.toml), matched whole, or prefixes ending in "::" for all
-#   of a class's (or namespace's) functions;
+#   of a class's (or namespace's) functions, or, starting with "*::", a
+#   function's name in any class or namespace, or its prefix, ending in "*"
+#   (ex: "*::AssertIsOn*" for AssertIsOnBackgroundThread and every class's
+#   AssertIsOnOwningThread);
 # - `paths`: prefixes of the paths of functions' definitions (ex:
 #   "xpcom/string/" for a directory, or "xpcom/ds/nsTArray" for nsTArray.h
 #   and nsTArray-inl.h), for the functions all of whose definitions are
@@ -25,15 +28,21 @@
 # - `getters`: whether it's the group of getters, the methods whose dataflow
 #   summaries say they only return a field and which call nothing (a
 #   heuristic, for the functions the other groups don't name).
-# A function's group is its name's, else its longest prefix's, else its
-# definitions' longest path prefix's, else the getters' if it's one.  The
+# A function's group is its name's, else its longest prefix's, else its last
+# name's ("*::"), else its definitions' longest path prefix's, else the
+# getters' if it's one.  The
 # groups are in the legend in this order.
 
 [[left-out]]
 group = "assertions"
 name = "Assertions and crashes"
-why = "What the expansions of MOZ_ASSERT, MOZ_RELEASE_ASSERT, MOZ_DIAGNOSTIC_ASSERT, MOZ_CRASH, NS_ASSERTION, NS_WARNING and NS_ENSURE_* call (in debug builds, for the assertions), and the NS_IsMainThread() they mostly check: they check the code's logic rather than being part of it."
+why = "What the expansions of MOZ_ASSERT, MOZ_RELEASE_ASSERT, MOZ_DIAGNOSTIC_ASSERT, MOZ_CRASH, NS_ASSERTION, NS_WARNING and NS_ENSURE_* call (in debug builds, for the assertions), the NS_IsMainThread() they mostly check, and the functions asserting which thread runs them or which locks it holds (AssertIsOnBackgroundThread, AssertIsOnOwningThread, AssertCurrentThreadOwns, NS_ASSERT_OWNINGTHREAD): they check the code's logic rather than being part of it."
 functions = [
+  "*::AssertIsOn*",
+  "*::AssertIsIn*",
+  "*::AssertCurrentThread*",
+  "*::AssertNotCurrentThread*",
+  "nsAutoOwningThread::",
   "AnnotateMozCrashReason",
   "MOZ_AssertAssignmentTest",
   "MOZ_Crash",
@@ -257,9 +266,11 @@ paths = [
 
 [[left-out]]
 group = "logging"
-name = "Logging and profiler labels"
-why = "What MOZ_LOG and the profiler's labels and markers (AUTO_PROFILER_LABEL, PROFILER_MARKER) call: instrumentation beside the code's logic."
+name = "Logging, tracing and profiler labels"
+why = "What MOZ_LOG, the profiler's labels and markers (AUTO_PROFILER_LABEL, PROFILER_MARKER), gecko-trace's spans, and dom/quota's extra information for its error logs (ScopedLogExtraInfo) call: instrumentation beside the code's logic."
 functions = [
+  "mozilla::gecko_trace::",
+  "mozilla::dom::quota::ScopedLogExtraInfo::",
   "mozilla::LogModule::",
   "mozilla::LazyLogModule::",
   "mozilla::detail::log_print",
@@ -275,7 +286,62 @@ functions = [
   "printf_stderr",
 ]
 paths = [
+  "toolkit/components/gecko-trace/",
   "xpcom/base/Logging.",
+]
+
+[[left-out]]
+group = "time"
+name = "Time and durations"
+why = "Reading clocks and converting durations (TimeStamp, TimeDuration, NowExcludingSuspendMs, PR_Now): how the code measures time, for its timeouts and telemetry, which its own lines say."
+functions = [
+  "mozilla::TimeStamp::",
+  "mozilla::BaseTimeDuration::",
+  "mozilla::TimeStampValue::",
+  "mozilla::AwakeTimeStamp::",
+  "mozilla::AwakeTimeDuration::",
+  "mozilla::NowExcludingSuspendMs",
+  "mozilla::NowIncludingSuspendMs",
+  "PR_Now",
+  "PR_IntervalNow",
+  "PR_IntervalToMilliseconds",
+  "PR_MillisecondsToInterval",
+]
+paths = [
+  "mozglue/misc/AwakeTimeStamp.",
+  "mozglue/misc/Now.",
+  "mozglue/misc/TimeStamp",
+]
+
+[[left-out]]
+group = "runnables"
+name = "Runnables and dispatching"
+why = "Making runnables (NS_NewRunnableFunction, NewRunnableMethod, their classes' constructors) and dispatching them to threads (NS_DispatchToMainThread and its kin): how the code hands work to an event loop.  A lambda a runnable runs is still drawn, as called later."
+functions = [
+  "NS_NewRunnableFunction",
+  "NS_NewCancelableRunnableFunction",
+  "mozilla::NewRunnableMethod",
+  "mozilla::NewCancelableRunnableMethod",
+  "mozilla::NewNonOwningRunnableMethod",
+  "mozilla::NewNonOwningCancelableRunnableMethod",
+  "mozilla::NewIdleRunnableMethod",
+  "mozilla::NewIdleRunnableMethodWithTimer",
+  "mozilla::Runnable::",
+  "mozilla::CancelableRunnable::",
+  "mozilla::DiscardableRunnable::",
+  "mozilla::IdleRunnable::",
+  "mozilla::PrioritizableRunnable::",
+  "mozilla::detail::RunnableFunction::",
+  "mozilla::detail::RunnableMethodImpl::",
+  "mozilla::detail::RunnableMethodArguments::",
+  "NS_DispatchToMainThread",
+  "NS_DispatchToCurrentThread",
+  "NS_DispatchToMainThreadQueue",
+  "NS_DispatchToCurrentThreadQueue",
+  "NS_DispatchToThreadQueue",
+  "NS_DispatchBackgroundTask",
+  "NS_DelayedDispatchToCurrentThread",
+  "NS_IdleDispatchToCurrentThread",
 ]
 
 [[left-out]]

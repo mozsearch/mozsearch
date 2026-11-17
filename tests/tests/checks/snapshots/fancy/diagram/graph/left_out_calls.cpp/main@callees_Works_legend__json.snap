@@ -18,7 +18,7 @@ input_file: inputs/fancy/diagram/graph/left_out_calls.cpp/callees_Works_legend__
       {
         "group": "assertions",
         "name": "Assertions and crashes",
-        "why": "What the expansions of MOZ_ASSERT, MOZ_RELEASE_ASSERT, MOZ_DIAGNOSTIC_ASSERT, MOZ_CRASH, NS_ASSERTION, NS_WARNING and NS_ENSURE_* call (in debug builds, for the assertions), and the NS_IsMainThread() they mostly check: they check the code's logic rather than being part of it.",
+        "why": "What the expansions of MOZ_ASSERT, MOZ_RELEASE_ASSERT, MOZ_DIAGNOSTIC_ASSERT, MOZ_CRASH, NS_ASSERTION, NS_WARNING and NS_ENSURE_* call (in debug builds, for the assertions), the NS_IsMainThread() they mostly check, and the functions asserting which thread runs them or which locks it holds (AssertIsOnBackgroundThread, AssertIsOnOwningThread, AssertCurrentThreadOwns, NS_ASSERT_OWNINGTHREAD): they check the code's logic rather than being part of it.",
         "shown": false,
         "count": 2,
         "callees": [

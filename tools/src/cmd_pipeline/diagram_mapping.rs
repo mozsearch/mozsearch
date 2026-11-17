@@ -84,6 +84,10 @@ pub struct DiagramMapping {
     /// The groups' prefixes of functions' pretty names (ending in "::", a
     /// class's or namespace's functions), longest first.
     prefixes: Vec<(String, usize)>,
+    /// The groups' functions in any class or namespace, by their names'
+    /// last components (`*::Name`), or their prefixes (`*::Prefix*`, whose
+    /// `bool` is true), longest first.
+    last_names: Vec<(String, bool, usize)>,
     /// The groups' prefixes of the paths of functions' definitions (ex:
     /// "xpcom/string/", or "xpcom/ds/nsTArray" for nsTArray.h and
     /// nsTArray-inl.h), longest first.
@@ -112,6 +116,7 @@ impl DiagramMapping {
             groups: vec![],
             functions: HashMap::new(),
             prefixes: vec![],
+            last_names: vec![],
             paths: vec![],
             getters: None,
             test_frameworks: trim(toml.tests.frameworks),
@@ -130,6 +135,17 @@ impl DiagramMapping {
                 return Err(format!("{:?} can't be a group's key", group.group));
             }
             for function in group.functions {
+                if let Some(name) = function.trim().strip_prefix("*::") {
+                    let (name, prefix) = match name.strip_suffix('*') {
+                        Some(name) => (name, true),
+                        None => (name, false),
+                    };
+                    if name.is_empty() || name.contains(['*', ':']) {
+                        return Err(format!("{:?} isn't a name or a name's prefix", function));
+                    }
+                    mapping.last_names.push((name.to_string(), prefix, i));
+                    continue;
+                }
                 let function = untemplated_pretty(function.trim());
                 if function.ends_with("::") {
                     mapping.prefixes.push((function, i));
@@ -155,6 +171,9 @@ impl DiagramMapping {
         mapping
             .prefixes
             .sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
+        mapping
+            .last_names
+            .sort_by_key(|(name, _, _)| std::cmp::Reverse(name.len()));
         mapping
             .paths
             .sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
@@ -186,7 +205,9 @@ impl DiagramMapping {
 
     /// The group a function is in by its pretty name (with or without
     /// template arguments), if any: its whole name's, else its longest
-    /// prefix's.  (Which a callee's crossref entry needn't be looked up for.)
+    /// prefix's, else its last component's (ex: `*::AssertIsOn*`'s, for
+    /// `mozilla::ipc::AssertIsOnBackgroundThread`).  (Which a callee's
+    /// crossref entry needn't be looked up for.)
     pub fn group_of_name(&self, pretty: &str) -> Option<usize> {
         let pretty = untemplated_pretty(pretty);
         self.functions.get(&pretty).copied().or_else(|| {
@@ -194,6 +215,16 @@ impl DiagramMapping {
                 .iter()
                 .find(|(prefix, _)| pretty.starts_with(prefix.as_str()))
                 .map(|(_, i)| *i)
+                .or_else(|| {
+                    let last = pretty.rsplit("::").next().unwrap_or_default();
+                    self.last_names
+                        .iter()
+                        .find(|(name, prefix, _)| match prefix {
+                            true => last.starts_with(name.as_str()),
+                            false => last == name,
+                        })
+                        .map(|(_, _, i)| *i)
+                })
         })
     }
 
@@ -380,6 +411,41 @@ getters = true
     }
 
     #[test]
+    fn test_last_names() {
+        let mapping = DiagramMapping::parse(
+            r#"
+[[left-out]]
+group = "checks"
+name = "Checks"
+why = "Checks."
+functions = ["*::AssertIsOn*", "*::Exactly", "Foo::"]
+"#,
+        )
+        .unwrap();
+        let left_out = |pretty: &str| mapping.group_of_name(pretty).is_some();
+        // (In any class or namespace, or none, by a prefix or the whole name.)
+        assert!(left_out("mozilla::ipc::AssertIsOnBackgroundThread"));
+        assert!(left_out("Bar::AssertIsOnOwningThread"));
+        assert!(left_out("AssertIsOnMainThread"));
+        assert!(left_out("AssertIsOn"));
+        assert!(left_out("Bar::Exactly"));
+        assert!(left_out("Foo::Anything"));
+        assert!(!left_out("Bar::ExactlyNot"));
+        assert!(!left_out("Bar::IsAssertIsOn"));
+        // (Only the last component: not a class of that name's functions, nor
+        // the class itself, as block diagrams match classes.)
+        assert!(!left_out("AssertIsOnFoo::Bar"));
+        assert!(!left_out("AssertIsOnFoo::"));
+        for bad in ["*::", "*::*", "*::A*B*", "*::a::b"] {
+            let toml = format!(
+                "[[left-out]]\ngroup = \"g\"\nname = \"G\"\nwhy = \"W\"\nfunctions = [{:?}]\n",
+                bad
+            );
+            assert!(DiagramMapping::parse(&toml).is_err(), "{}", bad);
+        }
+    }
+
+    #[test]
     fn test_tests_and_overview() {
         let toml = format!(
             "{}{}",
@@ -539,6 +605,64 @@ infrastructure = ["Core/IPC"]
                 "dom/bindings/BindingDeclarations.h",
                 "bindings",
             ),
+            // (QuotaManager::ShutdownInstance's thread assertion, time
+            // measurements and runnable.)
+            (
+                "mozilla::ipc::AssertIsOnBackgroundThread",
+                "ipc/glue/BackgroundParent.h",
+                "assertions",
+            ),
+            (
+                "mozilla::dom::quota::BackgroundThreadObject::AssertIsOnOwningThread",
+                "dom/quota/QuotaCommon.h",
+                "assertions",
+            ),
+            (
+                "mozilla::OffTheBooksMutex::AssertCurrentThreadOwns",
+                "xpcom/threads/Mutex.h",
+                "assertions",
+            ),
+            (
+                "mozilla::NowExcludingSuspendMs",
+                "mozglue/misc/Now.h",
+                "time",
+            ),
+            (
+                "mozilla::BaseTimeDuration::FromMilliseconds",
+                "mozglue/misc/TimeStamp.h",
+                "time",
+            ),
+            (
+                "mozilla::TimeStamp::Now",
+                "mozglue/misc/TimeStamp.h",
+                "time",
+            ),
+            (
+                "NS_NewRunnableFunction",
+                "xpcom/threads/nsThreadUtils.h",
+                "runnables",
+            ),
+            (
+                "mozilla::detail::RunnableFunction::RunnableFunction<StoredFunction>",
+                "xpcom/threads/nsThreadUtils.h",
+                "runnables",
+            ),
+            (
+                "NS_DispatchToMainThread",
+                "xpcom/threads/nsThreadUtils.cpp",
+                "runnables",
+            ),
+            // (And QuotaManager::Shutdown's tracing span and log context.)
+            (
+                "mozilla::gecko_trace::Tracer::StartSpan",
+                "toolkit/components/gecko-trace/GeckoTrace.h",
+                "logging",
+            ),
+            (
+                "mozilla::dom::quota::ScopedLogExtraInfo::ScopedLogExtraInfo",
+                "dom/quota/ScopedLogExtraInfo.h",
+                "logging",
+            ),
         ] {
             assert_eq!(group(pretty, path), Some(expected), "{}", pretty);
         }
@@ -593,6 +717,19 @@ infrastructure = ["Core/IPC"]
             (
                 "mozilla::ipc::BackgroundParentImpl::RecvPBroadcastChannelConstructor",
                 "ipc/glue/BackgroundParentImpl.cpp",
+            ),
+            // (Telemetry, a nested event loop, and the code's own helpers.)
+            (
+                "mozilla::glean::impl::TimingDistributionStandalone::AccumulateRawDuration",
+                "toolkit/components/glean/bindings/private/TimingDistributionStandalone.h",
+            ),
+            (
+                "mozilla::SpinEventLoopUntil",
+                "xpcom/threads/nsThreadUtils.h",
+            ),
+            (
+                "mozilla::dom::quota::RecordTimeDeltaHelper::Start",
+                "dom/quota/ActorsParent.cpp",
             ),
         ] {
             assert_eq!(group(pretty, path), None, "{}", pretty);

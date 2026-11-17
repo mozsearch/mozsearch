@@ -8,12 +8,10 @@ input_file: inputs/fancy/diagram/graph/lambda_invocations.cpp/callees_Dispatches
     "_ZN18lambda_invocations10DispatchesEv",
     "_ZN18lambda_invocations11NewRunnableERKT_",
     "_ZN18lambda_invocations5LaterEv",
-    "_ZN7mozilla6detail16RunnableFunctionC1ERKT_",
     "_ZZN18lambda_invocations10DispatchesEvENK3$_0clEv"
   ],
   [
     "_ZN18lambda_invocations10DispatchesEv -> _ZN18lambda_invocations11NewRunnableERKT_ (default)",
-    "_ZN18lambda_invocations10DispatchesEv -> _ZN7mozilla6detail16RunnableFunctionC1ERKT_ (default)",
     "_ZN18lambda_invocations10DispatchesEv -> _ZZN18lambda_invocations10DispatchesEvENK3$_0clEv (later)",
     "_ZZN18lambda_invocations10DispatchesEvENK3$_0clEv -> _ZN18lambda_invocations5LaterEv (default)"
   ]
