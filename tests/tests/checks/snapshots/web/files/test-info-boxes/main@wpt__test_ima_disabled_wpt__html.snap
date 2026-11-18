@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
+input_file: inputs/web/files/test-info-boxes/wpt__test_ima_disabled_wpt__html
 ---
 <section class="info-boxes" id="info-boxes-container">
   <section class="info-box info-box-warning">
@@ -10,8 +11,8 @@ expression: "&fb.contents"
         <li>This test has a <a href="/tests/source/testing/web-platform/meta/fake-standard/test_ima_disabled_wpt.js.ini">WPT meta file</a> that disables it given conditions:
             <ul>
                 <li><span class="test-skip-info"></span>&nbsp; : <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=12345">12345</a></li>
-                <li><span class="test-skip-info">os == "win"</span>&nbsp; : <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=234567">https://bugzilla.mozilla.org/show_bug.cgi?id=234567</a></li>
-                <li><span class="test-skip-info">os == "linux"</span>&nbsp; : <a href="https://bugzilla.mozilla.org/234567">https://bugzilla.mozilla.org/234567</a></li></ul>
+                <li><span class="test-skip-info">os == &quot;win&quot;</span>&nbsp; : <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=234567">https://bugzilla.mozilla.org/show_bug.cgi?id=234567</a></li>
+                <li><span class="test-skip-info">os == &quot;linux&quot;</span>&nbsp; : <a href="https://bugzilla.mozilla.org/234567">https://bugzilla.mozilla.org/234567</a></li></ul>
         </li>
         <li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
             <ul>
