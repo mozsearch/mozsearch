@@ -42,7 +42,6 @@ use tools::{
     query_limits::{self, Tier},
     templating::builder::build_and_parse_query_results,
 };
-use tower::limit::GlobalConcurrencyLimitLayer;
 use tracing::Instrument;
 use ustr::{Ustr, UstrMap};
 
@@ -908,7 +907,16 @@ async fn admit(mut req: Request, next: Next) -> Response {
     }
 }
 
-/// Time the request's processing (inside the concurrency limit), for `admit`.
+/// Process the request in one of the server's slots, which browsers' requests
+/// get first (see `admission::Slots`), once it's admitted (by `admit`, which
+/// says its class).
+async fn in_slot(req: Request, next: Next) -> Response {
+    let class = req.extensions().get::<admission::RequestClass>().copied();
+    let _slot = admission::SLOTS.acquire(class).await;
+    next.run(req).await
+}
+
+/// Time the request's processing (inside its slot), for `admit`.
 async fn time_processing(req: Request, next: Next) -> Response {
     let start = std::time::Instant::now();
     let mut response = next.run(req).await;
@@ -977,9 +985,9 @@ async fn main() {
         .layer(Extension(templates))
         .merge(data_api::router(local_servers, data_api_trees))
         .layer(middleware::from_fn(time_processing))
-        .layer(GlobalConcurrencyLimitLayer::new(4))
-        // (Outside the concurrency limit, so that requests waiting for their
-        // tokens don't hold its permits.)
+        .layer(middleware::from_fn(in_slot))
+        // (Outside the slots, so that requests waiting for their tokens don't
+        // hold them.)
         .layer(middleware::from_fn(admit));
 
     // (Elsewhere with PIPELINE_SERVER_ADDR, ex: beside a production server's

@@ -31,12 +31,12 @@
 //! addresses can, but those are the WAF's to stop; this is for fairness
 //! between the others.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use hyper::http::HeaderMap;
-use tokio::sync::{Semaphore, SemaphorePermit};
+use tokio::sync::{Semaphore, SemaphorePermit, oneshot};
 
 /// Who a request is from, by its user agent.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -100,14 +100,124 @@ impl RequestClass {
         }
     }
 
-    /// How many of the server's concurrent requests (of the 4 each server
-    /// processes at once) the class can have.
+    /// How many concurrent requests the class can have (of the
+    /// pipeline-server's `CONCURRENCY`, which browsers' get first; see
+    /// `Slots`).
     pub const fn concurrency_limit(self) -> usize {
         match self {
-            RequestClass::Browser => 4,
+            RequestClass::Browser => CONCURRENCY,
             RequestClass::Agent => 2,
             RequestClass::Bot => 1,
         }
+    }
+}
+
+/// How many requests the pipeline-server processes at once (see `Slots`).
+/// (It was 4, until asuth's "Let's start with increasing concurrency to 8 with
+/// browsers first", 2026-11-18, for results as one types.)
+pub const CONCURRENCY: usize = 8;
+
+/// The pipeline-server's slots for processing requests (`CONCURRENCY` of
+/// them), which browsers' requests (people's, or from inside, ex: the web
+/// server's) get before agents' and bots' (which also have their classes'
+/// limits; see `RequestClass::concurrency_limit`): a freed slot goes to the
+/// browser request that has waited longest, if any, else to the agent's or
+/// bot's.
+pub struct Slots {
+    state: Mutex<SlotsState>,
+}
+
+struct SlotsState {
+    free: usize,
+    /// The requests waiting for a slot, browsers' first, each told when it
+    /// has one.
+    waiting: [VecDeque<oneshot::Sender<()>>; 2],
+}
+
+pub static SLOTS: Slots = Slots::new(CONCURRENCY);
+
+/// A request's slot, which it holds while it's processed.
+pub struct Slot(&'static Slots);
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        self.0.release();
+    }
+}
+
+/// A request waiting for a slot, which passes the slot on if it stops waiting
+/// (ex: its client went away) once it was given one.
+struct Waiting {
+    rx: Option<oneshot::Receiver<()>>,
+    slots: &'static Slots,
+}
+
+impl Drop for Waiting {
+    fn drop(&mut self) {
+        if let Some(mut rx) = self.rx.take() {
+            // (After which no slot can be given to it.)
+            rx.close();
+            if rx.try_recv().is_ok() {
+                self.slots.release();
+            }
+        }
+    }
+}
+
+impl Slots {
+    pub const fn new(slots: usize) -> Slots {
+        Slots {
+            state: Mutex::new(SlotsState {
+                free: slots,
+                waiting: [VecDeque::new(), VecDeque::new()],
+            }),
+        }
+    }
+
+    /// A slot for a request of `class` (None: from inside), once there's one
+    /// for it.
+    pub async fn acquire(&'static self, class: Option<RequestClass>) -> Slot {
+        let priority = match class {
+            None | Some(RequestClass::Browser) => 0,
+            Some(RequestClass::Agent | RequestClass::Bot) => 1,
+        };
+        let rx = {
+            let mut state = self.state.lock().unwrap();
+            // (Without those which stopped waiting.)
+            for queue in state.waiting.iter_mut() {
+                queue.retain(|tx| !tx.is_closed());
+            }
+            if state.free > 0 && state.waiting.iter().all(VecDeque::is_empty) {
+                state.free -= 1;
+                return Slot(self);
+            }
+            let (tx, rx) = oneshot::channel();
+            state.waiting[priority].push_back(tx);
+            rx
+        };
+        let mut waiting = Waiting {
+            rx: Some(rx),
+            slots: self,
+        };
+        // (Its sender is only dropped by sending it its slot.)
+        if let Some(rx) = waiting.rx.as_mut() {
+            let _ = rx.await;
+        }
+        waiting.rx = None;
+        Slot(self)
+    }
+
+    /// Give a slot to the request that has waited longest, browsers' first.
+    fn release(&self) {
+        let mut state = self.state.lock().unwrap();
+        for queue in state.waiting.iter_mut() {
+            while let Some(tx) = queue.pop_front() {
+                if tx.send(()).is_ok() {
+                    return;
+                }
+            }
+        }
+        state.free += 1;
     }
 }
 
@@ -580,5 +690,37 @@ mod tests {
         assert!(is_navigation(None));
         assert!(!is_navigation(Some("empty")));
         assert!(!is_navigation(Some("script")));
+    }
+
+    #[tokio::test]
+    async fn test_slots() {
+        // One slot: an agent's request waiting since before a browser's
+        // waits until after it.
+        let slots: &'static Slots = Box::leak(Box::new(Slots::new(1)));
+        let first = slots.acquire(Some(RequestClass::Bot)).await;
+        let order = std::sync::Arc::new(Mutex::new(vec![]));
+        let waiter = |class: RequestClass, name: &'static str| {
+            let order = order.clone();
+            tokio::spawn(async move {
+                let _slot = slots.acquire(Some(class)).await;
+                order.lock().unwrap().push(name);
+            })
+        };
+        let agent = waiter(RequestClass::Agent, "agent");
+        tokio::task::yield_now().await;
+        let browser = waiter(RequestClass::Browser, "browser");
+        tokio::task::yield_now().await;
+        // (And one which stops waiting doesn't keep the slot.)
+        let gone = tokio::spawn(slots.acquire(None));
+        tokio::task::yield_now().await;
+        gone.abort();
+        let _ = gone.await;
+        drop(first);
+        browser.await.unwrap();
+        agent.await.unwrap();
+        assert_eq!(*order.lock().unwrap(), vec!["browser", "agent"]);
+        // All of them released their slots.
+        drop(slots.acquire(None).await);
+        assert_eq!(slots.state.lock().unwrap().free, 1);
     }
 }
