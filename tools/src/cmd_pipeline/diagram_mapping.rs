@@ -558,6 +558,23 @@ infrastructure = ["Core/IPC"]
             ("nsCOMPtr::nsCOMPtr<T>", "xpcom/base/nsCOMPtr.h", "pointers"),
             ("nsCOMPtr::operator->", "xpcom/base/nsCOMPtr.h", "pointers"),
             ("RefPtr::operator T *", "mfbt/RefPtr.h", "pointers"),
+            // (SafeRefPtr, which dom/indexedDB has, and dom/cache and
+            // dom/quota use, and its classes' SafeRefPtrFromThis.)
+            (
+                "mozilla::SafeRefPtr::operator->",
+                "dom/indexedDB/SafeRefPtr.h",
+                "pointers",
+            ),
+            (
+                "mozilla::MakeSafeRefPtr",
+                "dom/indexedDB/SafeRefPtr.h",
+                "pointers",
+            ),
+            (
+                "mozilla::dom::cache::ReadStream::Inner::SafeRefPtrFromThis",
+                "dom/indexedDB/SafeRefPtr.h",
+                "pointers",
+            ),
             (
                 "operator\"\"_ns",
                 "xpcom/string/nsLiteralString.h",

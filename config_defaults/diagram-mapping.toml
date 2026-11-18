@@ -108,7 +108,7 @@ paths = [
 [[left-out]]
 group = "pointers"
 name = "Smart pointers and reference counting"
-why = "nsCOMPtr, RefPtr, UniquePtr and their kin (making, assigning and dereferencing them, do_QueryInterface, reference counting): how the code holds its objects, which every function with a pointer calls."
+why = "nsCOMPtr, RefPtr, UniquePtr, SafeRefPtr and their kin (making, assigning and dereferencing them, do_QueryInterface, reference counting): how the code holds its objects, which every function with a pointer calls."
 functions = [
   "nsCOMPtr::",
   "nsCOMPtr_base::",
@@ -134,8 +134,15 @@ functions = [
   "nsAutoRefCnt::",
   "nsThreadSafeAutoRefCnt::",
   "mozilla::ThreadSafeAutoRefCnt::",
+  "mozilla::SafeRefPtr::",
+  "mozilla::SafeRefCounted::",
+  "mozilla::AtomicSafeRefCounted::",
+  "mozilla::detail::SafeRefCounted::",
+  "mozilla::MakeSafeRefPtr",
+  "*::SafeRefPtrFromThis",
 ]
 paths = [
+  "dom/indexedDB/SafeRefPtr.h",
   "mfbt/AlreadyAddRefed.h",
   "mfbt/NotNull.h",
   "mfbt/RefCounted.h",

@@ -32,7 +32,7 @@ input_file: inputs/fancy/diagram/graph/left_out_calls.cpp/callees_Works_legend__
       {
         "group": "pointers",
         "name": "Smart pointers and reference counting",
-        "why": "nsCOMPtr, RefPtr, UniquePtr and their kin (making, assigning and dereferencing them, do_QueryInterface, reference counting): how the code holds its objects, which every function with a pointer calls.",
+        "why": "nsCOMPtr, RefPtr, UniquePtr, SafeRefPtr and their kin (making, assigning and dereferencing them, do_QueryInterface, reference counting): how the code holds its objects, which every function with a pointer calls.",
         "shown": false,
         "count": 1,
         "callees": [
