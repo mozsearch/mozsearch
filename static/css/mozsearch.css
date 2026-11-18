@@ -5223,32 +5223,37 @@ div.hovered-in-node {
   background-color: var(--diagram-hovered-in-node);
 }
 
-g.hovered-cur-edge > path:not(.clicktarget),
-g.hovered-cur-edge > polygon {
+/* An edge's path and arrowhead are its children, or, if it has a tooltip
+   (ex: a block diagram's "554 calls"), the children of the link graphviz
+   wraps them in (`g > a`), so these rules match either.  Edges are
+   translucent, so that where several are drawn over each other they add up
+   (darker where more pass), and they're opaque and colored when hovered. */
+g.hovered-cur-edge path:not(.clicktarget),
+g.hovered-cur-edge polygon {
   stroke: var(--diagram-hovered-cur-edge);
   stroke-opacity: 1;
   stroke-width: 2px;
 }
 
-g.edge > path.clicktarget {
+g.edge path.clicktarget {
   stroke: var(--diagram-edge-clicktarget);
   stroke-width: 10px;
 }
 
-g.edge.hovered-out-edge > path,
-g.edge.hovered-out-edge > polygon {
+g.edge.hovered-out-edge path,
+g.edge.hovered-out-edge polygon {
   stroke: var(--diagram-hovered-out-edge);
   stroke-width: 2px;
   stroke-opacity: 1;
 }
-g.edge.hovered-in-edge > path,
-g.edge.hovered-in-edge > polygon {
+g.edge.hovered-in-edge path,
+g.edge.hovered-in-edge polygon {
   stroke: var(--diagram-hovered-in-edge);
   stroke-width: 2px;
   stroke-opacity: 1;
 }
 
-g.edge > path {
+g.edge path {
   stroke-opacity: 0.2;
 }
 

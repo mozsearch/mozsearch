@@ -26,6 +26,26 @@ add_task(async function test_BlockDiagramCalls() {
   ok(edge, "There's an edge from Panel to Store");
 });
 
+// A block diagram's edges, whose paths graphviz wraps in links for their
+// tooltips ("N calls"), are translucent, and hovering over a node colors its
+// edges, as other diagrams' (the CSS reaches the wrapped paths).
+add_task(async function test_BlockDiagramEdgeHover() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery("tests", "block-diagram:'Core/Rollup View'");
+  const doc = frame.contentDocument;
+  const edge = [...doc.querySelectorAll("svg g.edge")]
+    .find(e => e.getAttribute("data-symbols") === "T_rollup::Panel->T_rollup::Store");
+  const path = edge?.querySelector("path:not(.clicktarget)");
+  ok(path?.closest("a"), "The edge's path is in its tooltip's link");
+  is(getComputedStyle(path).strokeOpacity, "0.2", "Edges are translucent");
+  const panel = [...doc.querySelectorAll("svg g.node")]
+    .find(n => n.getAttribute("data-symbols") === "T_rollup::Panel");
+  panel.querySelector("polygon, text").dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+  await waitForCondition(() => edge.classList.contains("hovered-out-edge"), "Hovering over a node marks its edges");
+  is(getComputedStyle(path).strokeOpacity, "1", "which are opaque");
+  isnot(getComputedStyle(path).stroke, "rgb(0, 0, 0)", "and colored");
+});
+
 add_task(async function test_BlockDiagramData() {
   await TestUtils.resetFeatureGate("diagramming");
   await TestUtils.loadQuery("tests", "block-diagram:'Core/Rollup View' block-edges:data");
