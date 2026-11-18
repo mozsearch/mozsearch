@@ -229,8 +229,9 @@ add_task(async function test_SpecPullRequestViewOnly() {
   is(onlyThis?.getAttribute("href"), "/specpr/rendered-prs/gizmo/source?prs=2",
      "A card's Only this links to the view of only its pull request");
   onlyThis.click();
+  // (The new page's document can have its URL before it has a body.)
   await waitForCondition(() => frame.contentWindow.location.search == "?prs=2" &&
-                         doc().body.classList.contains("sp-prs-loaded"), "which it goes to");
+                         doc().body?.classList.contains("sp-prs-loaded"), "which it goes to");
   is([...doc().querySelectorAll(".sp-pr-entry")].map(entry => entry.dataset.path).join(","), "2",
      "listing only it");
   ok(card(2) && !card(1), "with only its changes");
