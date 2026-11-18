@@ -421,6 +421,7 @@ pub fn generate_footer(
         "change-nav.js",
         "d3.v7.min.js",
         "coverage-history.js",
+        "query-frames.js",
     ];
     let script_tags: Vec<_> = scripts
         .iter()

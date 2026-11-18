@@ -233,7 +233,14 @@ var Dxr = new (class Dxr {
     // again), back and forward between them, a link to a section, or Enter in
     // the URL bar for the page's URL with a fragment.  (Reloading would also
     // lose its scroll.)
+    //
+    // A query box's results as one types (in a frame over the page) go back
+    // to the page they're over without reloading it (see query-frames.js's
+    // `onPopState`).
     window.addEventListener("popstate", event => {
+      if (window.QueryFrames?.onPopState(event)) {
+        return;
+      }
       if (this.#isDynamicSearchPage || event.state?.isDynamicSearchPage ||
           withoutFragment(document.location.href) != contentUrl) {
         window.location.reload();

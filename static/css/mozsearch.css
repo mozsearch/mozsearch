@@ -242,6 +242,52 @@ table {
   );
 }
 
+/* A query box's results as one types (see query-frames.js): a page of
+   results in a frame is without its header and footer (the box being its
+   parent's), and its parent shows the frame over its content, below its
+   header, rather than the content (which stays, for when the frame goes).
+   A frame that's loading is there, laid out, but not shown until it's
+   ready. */
+:root.in-query-frame {
+  --header-height: 0px;
+}
+:root.in-query-frame #fixed-header,
+:root.in-query-frame footer.footer,
+:root.in-query-frame #foot {
+  display: none;
+}
+:root.query-frames-shown #scrolling {
+  display: none;
+}
+/* (Nor the page's revision line, ex: a source listing's file's last change,
+   which isn't the results'; its space stays, so the frame doesn't move.) */
+:root.query-frames-shown #revision {
+  visibility: hidden;
+}
+#query-frames {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* (The content stays usable while a first frame loads, unseen.) */
+  pointer-events: none;
+}
+#query-frames > iframe.query-frame:not(.loading) {
+  pointer-events: auto;
+}
+#query-frames > iframe.query-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--page-background);
+}
+#query-frames > iframe.query-frame.loading {
+  visibility: hidden;
+}
+
 @supports (color-scheme: dark) {
 @media (prefers-color-scheme: dark) {
   :root {

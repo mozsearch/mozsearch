@@ -893,3 +893,10 @@ const EarlyLayout = {
     button.setAttribute("aria-pressed", on ? "true" : "false");
   },
 };
+
+// A query box's frame of results as one types (see query-frames.js) is the
+// page's results only, without its header: known from the head, before they
+// render.  (`frameElement` is the frame, our pages being same-origin.)
+if (window.frameElement?.classList.contains("query-frame")) {
+  document.documentElement.classList.add("in-query-frame");
+}
