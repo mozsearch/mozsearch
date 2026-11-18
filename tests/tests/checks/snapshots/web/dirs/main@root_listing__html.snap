@@ -562,6 +562,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/minified" class="mimetype-fixed-container mimetype-icon-folder">minified</a></td>
+          <td class="description"><a href="/tests/source/minified" title=""></td>
+          <td class="size"><a href="/tests/source/minified"></a></td>
+          <td class="coverage"><a href="/tests/source/minified" class="cov-percentage cov-percentage-none" title="There&#39;s no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/mobile" class="mimetype-fixed-container mimetype-icon-folder">mobile</a></td>
           <td class="description"><a href="/tests/source/mobile" title=""></td>
           <td class="size"><a href="/tests/source/mobile"></a></td>

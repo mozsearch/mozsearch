@@ -425,6 +425,16 @@ pub trait AbstractServer {
         None
     }
 
+    /// Whether the file at `path` in the indexed revision is minified (see
+    /// `repo_data_ingestion::is_minified`), so that results don't show its
+    /// lines (see `cmd_augment_results`).  (Remote servers don't say, rather
+    /// than asking for each file of a query's results: the rows they fetch
+    /// have notes in place of long lines anyway; see
+    /// `chunked_gzip::LONG_LINE_CHARS`.)
+    fn is_minified(&self, _path: &str) -> bool {
+        false
+    }
+
     /// A path's path kind, whether that's the indexed revision's (rather than
     /// guessed from its path), and its subsystem, for the facets of paths the
     /// indexed revision may not have (ex: a history grep's files; see

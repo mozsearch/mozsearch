@@ -1,0 +1,76 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(frb).unwrap()"
+input_file: inputs/web/query/execution/long-lines/query__minified_bundle__json
+---
+{
+  "path_kind_results": [
+    {
+      "path_kind": "normal",
+      "file_names": [],
+      "kind_groups": [
+        {
+          "kind": "Definitions",
+          "pretty": "#minifiedBundleWidget",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "minified/bundle.min.js",
+              "line_spans": [
+                {
+                  "key_line": 2,
+                  "line_range": [
+                    2,
+                    2
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"long-line-note\">A line of a minified file, too long to show here</span>\n</code>\n</div>\n",
+                  "context": "",
+                  "contextsym": "",
+                  "hits": [
+                    [
+                      4,
+                      24
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "#minifiedBundleWidget",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "minified/bundle.min.js",
+              "line_spans": [
+                {
+                  "key_line": 2,
+                  "line_range": [
+                    2,
+                    2
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"long-line-note\">A line of a minified file, too long to show here</span>\n</code>\n</div>\n",
+                  "context": "",
+                  "contextsym": "",
+                  "hits": [
+                    [
+                      17850,
+                      17870
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "content_type": "text/html",
+  "text_pattern": {
+    "re": "minifiedBundleWidget",
+    "case_sensitive": false
+  }
+}

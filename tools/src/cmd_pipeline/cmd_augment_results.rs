@@ -6,7 +6,12 @@ use ustr::{Ustr, UstrMap, ustr};
 
 use super::interface::{PipelineCommand, PipelineValues, PresentationKind};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::file_format::chunked_gzip::note_row;
 use crate::file_format::recency::{FileRecency, Recency};
+
+/// The excerpt of a result in a minified file (see
+/// `repo_data_ingestion::is_minified`), whose lines are too long to show.
+const MINIFIED_NOTE: &str = "A line of a minified file, too long to show here";
 
 /// Augment a FlattenedResultsBundle by scraping the rendered HTML output files
 /// for lines of interest plus any context, plus applying any predicates that
@@ -118,12 +123,31 @@ impl PipelineCommand for AugmentResultsCommand {
         //
         // Local indexes only read the chunks of the rendered files with the
         // lines, several files at a time; see `chunked_gzip`.
-        let requests: Vec<(Ustr, BTreeSet<u32>)> = results
+        // (But a minified file's, whose results are notes, without context;
+        // see `repo_data_ingestion::is_minified`.)
+        let (minified, requests): (Vec<_>, Vec<_>) = results
             .compute_path_line_sets(self.args.before, self.args.after)
             .into_iter()
-            .map(|(path, lines)| (path, lines.into_iter().collect()))
-            .collect();
+            .map(|(path, lines)| (path, lines.into_iter().collect::<BTreeSet<u32>>()))
+            .partition(|(path, _)| server.is_minified(path));
         let mut path_line_contents: UstrMap<HashMap<u32, String>> = UstrMap::default();
+        if !minified.is_empty() {
+            let minified: BTreeSet<Ustr> = minified.into_iter().map(|(path, _)| path).collect();
+            for path_kind_group in &results.path_kind_results {
+                for kind_group in &path_kind_group.kind_groups {
+                    for file in kind_group
+                        .by_file
+                        .iter()
+                        .filter(|file| minified.contains(&file.key()))
+                    {
+                        let contents = path_line_contents.entry(file.key()).or_default();
+                        for span in &file.line_spans {
+                            contents.insert(span.key_line, note_row(span.key_line, MINIFIED_NOTE));
+                        }
+                    }
+                }
+            }
+        }
         // The symbols of the innermost nesting containers of each line: the
         // one around it, and the one around it that it doesn't start (see
         // `chunked_gzip::Row`).

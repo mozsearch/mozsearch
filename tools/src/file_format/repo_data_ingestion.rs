@@ -575,7 +575,44 @@ enum FileScan {
         file_size: u64,
         description: Option<String>,
         coverage: Option<code_coverage_report::NodeMetadata>,
+        /// Whether it's minified (see `is_minified`).
+        minified: bool,
     },
+}
+
+/// The tag of the files whose text is minified (see `is_minified`), whose
+/// results' lines aren't shown (see `cmd_augment_results`).
+pub const MINIFIED_TAG: &str = "minified";
+/// A minified file's longest line has at least this many characters, and its
+/// lines more than `MINIFIED_AVERAGE_LINE` on average.
+pub const MINIFIED_LONGEST_LINE: usize = 10_000;
+pub const MINIFIED_AVERAGE_LINE: usize = 500;
+
+/// Whether `contents` are minified (ex: a bundle of JavaScript, or a
+/// stylesheet, on a line), or otherwise of very long lines (ex: a data
+/// file's): its longest line has at least `MINIFIED_LONGEST_LINE` characters,
+/// and its lines more than `MINIFIED_AVERAGE_LINE` on average.  (Not an
+/// ordinary file with a few long lines, ex: testing/talos's kraken
+/// test-contents.js, whose lines are only cut in excerpts; see
+/// `chunked_gzip::LONG_LINE_CHARS`.)
+pub fn is_minified(contents: &str) -> bool {
+    // (By bytes first, which are at least as many as characters, so most
+    // files are only measured.)
+    if contents.len() < MINIFIED_LONGEST_LINE {
+        return false;
+    }
+    let lines = contents.lines().count().max(1);
+    let longest_bytes = contents.lines().map(str::len).max().unwrap_or(0);
+    if longest_bytes < MINIFIED_LONGEST_LINE || contents.len() / lines <= MINIFIED_AVERAGE_LINE {
+        return false;
+    }
+    let longest = contents
+        .lines()
+        .filter(|line| line.len() >= MINIFIED_LONGEST_LINE)
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
+    longest >= MINIFIED_LONGEST_LINE && contents.chars().count() / lines > MINIFIED_AVERAGE_LINE
 }
 
 /// A file's path kind, size, description (written to its description file),
@@ -601,8 +638,10 @@ fn scan_file(
         }
     };
     let file_size = metadata.len();
+    let mut minified = false;
     let description = match fs::read_to_string(&raw_file_path) {
         Ok(contents) => {
+            minified = is_minified(&contents);
             let format = select_formatting(&raw_file_path);
             let maybe_description = describe_file(&contents, path_wrapper, &format);
             if let Some(ref description) = maybe_description {
@@ -634,6 +673,7 @@ fn scan_file(
         file_size,
         description,
         coverage,
+        minified,
     }
 }
 
@@ -706,12 +746,17 @@ impl RepoIngestion {
                     file_size,
                     description,
                     coverage,
+                    minified,
                 } => {
                     self.state.with_file_info(file_path, false, |pfi, _dfi| {
                         pfi.path_kind = path_kind;
                         pfi.description = description;
                         pfi.file_size = file_size;
                         pfi.coverage = coverage;
+                        let tag = ustr(MINIFIED_TAG);
+                        if let (true, Err(pos)) = (minified, pfi.tags.binary_search(&tag)) {
+                            pfi.tags.insert(pos, tag);
+                        }
                     });
                 }
             }
@@ -1199,5 +1244,28 @@ impl IngestionState {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_minified() {
+        // A bundle on a line, with or without a line or two of license
+        // before it, is minified.
+        let bundle = "x=1;".repeat(MINIFIED_LONGEST_LINE / 4);
+        assert!(is_minified(&bundle));
+        assert!(is_minified(&format!("/* license */\n{}\n", bundle)));
+        // An ordinary file with a long line (ex: of data) isn't: its lines
+        // are short on average.
+        let ordinary = format!("{}{}\n", "let a = 1;\n".repeat(100), bundle);
+        assert!(!is_minified(&ordinary));
+        // Nor is a line just under the longest's minimum, nor short files.
+        assert!(!is_minified(&"y".repeat(MINIFIED_LONGEST_LINE - 1)));
+        assert!(!is_minified("z=1;"));
+        // Characters, not bytes: 5,000 two-byte characters are 10,000 bytes.
+        assert!(!is_minified(&"é".repeat(MINIFIED_LONGEST_LINE / 2)));
     }
 }

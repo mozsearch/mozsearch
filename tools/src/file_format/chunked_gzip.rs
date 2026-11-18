@@ -109,6 +109,16 @@ fn without_long_line(row: &str) -> String {
     )
 }
 
+/// A row of `line` with `note` (HTML) in place of its code, like a long line's
+/// (see `without_long_line`; ex: for a minified file's results, whose rows
+/// aren't read; see `cmd_augment_results`).
+pub fn note_row(line: u32, note: &str) -> String {
+    format!(
+        "{}{}\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>\n  {}{}{}</span>\n{}",
+        ROW_START, line, line, CODE_START, LONG_LINE_NOTE, note, ROW_END
+    )
+}
+
 /// How many characters of text `html` has: without its tags, and with each
 /// entity (ex: `&lt;`) as one.
 fn text_chars(html: &str) -> usize {

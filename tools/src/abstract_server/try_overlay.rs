@@ -196,6 +196,12 @@ impl AbstractServer for TryOverlay {
         self.base.file_facet_info(path)
     }
 
+    // (Of the indexed revision's file; the push's own rows have notes in
+    // place of long lines; see `chunked_gzip::LONG_LINE_CHARS`.)
+    fn is_minified(&self, path: &str) -> bool {
+        !self.renders(path) && self.base.is_minified(path)
+    }
+
     fn path_facet_info(&self, path: &str) -> (Ustr, bool, Option<Ustr>) {
         self.base.path_facet_info(path)
     }
