@@ -380,6 +380,7 @@ command = "traverse"
 args.exclude-trees = "$0"
 
 [term.context]
+incremental = true
 [[term.context.group.display]]
 command = "augment-results"
 args.before = "$0"
@@ -400,6 +401,9 @@ args.mode = "field-layout"
 # The default term is what gets applied to things without a term.  It can also
 # be explicitly referenced by other terms.
 [term.default]
+# (`incremental`: its results for a partial value are worth showing while
+# it's typed, as query boxes do; see chew_query.rs's `terms_table`.)
+incremental = true
 [[term.default.expand]]
 term = "file"
 [[term.default.expand]]
@@ -410,6 +414,7 @@ term = "text"
 term = "removals"
 
 [term.file]
+incremental = true
 [[term.file.group.file-search]]
 command = "search-files"
 args.positional = "$0"
@@ -429,6 +434,7 @@ args.exact-match = true
 command = "crossref-expand"
 
 [term.idprefix]
+incremental = true
 [[term.idprefix.group.semantic-search]]
 command = "search-identifiers"
 args.positional = "$0"
@@ -469,6 +475,7 @@ args.subclass-local-limit = "$0"
 # overrides in them).  The token's history is the whole tree's, so with a
 # path, the results have no note of its removals.
 [term.pathre]
+incremental = true
 [[term.pathre.group.file-search]]
 command = "search-files"
 args.pathre = "$0"
@@ -492,6 +499,7 @@ args.pathre = "$0"
 alias = "path"
 
 [term.path]
+incremental = true
 [[term.path.expand]]
 term = "pathre"
 transforms = ["path_glob"]
@@ -502,6 +510,7 @@ transforms = ["path_glob"]
 # so do token histories, which otherwise are of the token's case variant with
 # the most removals.
 [term.case]
+incremental = true
 values = ["sensitive", "insensitive"]
 [[term.case.group.file-search]]
 command = "search-files"
@@ -762,6 +771,7 @@ command = "rev-at"
 args.positional = "$0"
 
 [term.text]
+incremental = true
 [[term.text.group.text-search]]
 command = "search-text"
 args.positional = "$0"

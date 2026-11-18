@@ -38,7 +38,11 @@ use tools::{
     hyperblame::history_grep::HistoryGrep,
     logging::{LoggedSpan, init_logging},
     memory_budget,
-    query::{chew_query::chew_query, dwim::dwim_target, normalize::normalize_input},
+    query::{
+        chew_query::{chew_query, terms_table},
+        dwim::dwim_target,
+        normalize::normalize_input,
+    },
     query_limits::{self, Tier},
     templating::builder::build_and_parse_query_results,
 };
@@ -480,6 +484,18 @@ async fn results_sym_info(
     }
     sym_info::strip_unused_meta(&mut sym_info);
     sym_info.to_string()
+}
+
+/// The query language's terms, for query boxes' results as one types (see
+/// `chew_query::terms_table`), of any tree's (they're the same).
+async fn handle_query_terms(
+    local_servers: Extension<Arc<BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>>>,
+    Path(tree): Path<String>,
+) -> Response {
+    if !local_servers.contains_key(&tree) {
+        return (StatusCode::NOT_FOUND, format!("No such tree: {}", tree)).into_response();
+    }
+    Json(terms_table()).into_response()
 }
 
 #[debug_handler]
@@ -981,6 +997,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/{tree}/query/{preset}", get(handle_query))
+        .route("/{tree}/query-terms", get(handle_query_terms))
         .layer(Extension(local_servers.clone()))
         .layer(Extension(templates))
         .merge(data_api::router(local_servers, data_api_trees))

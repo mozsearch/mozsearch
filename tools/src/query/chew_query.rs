@@ -72,6 +72,41 @@ pub struct TermConfig {
     pub expand: Vec<TermExpansion>,
     #[serde(default)]
     pub group: BTreeMap<String, Vec<PipelineUse>>,
+    /// Whether its results for a partial value are worth showing while it's
+    /// typed (ex: a text search's for `Servi`), as query boxes do (see
+    /// `terms_table`), rather than only once it's whole (ex: a diagram's,
+    /// whose identifier must be exact, or a regexp's, which may not parse).
+    #[serde(default)]
+    pub incremental: bool,
+}
+
+/// The query language's terms, for query boxes' results as one types (see
+/// search.js's `QueryGate`): whether each term's results are worth showing
+/// while its value is typed (`incremental`), and the values it can have, if
+/// only some (`values`; an alias's are its term's); and the patterns of the
+/// DWIM rules (as JavaScript's regexps' sources), whose input isn't searched
+/// as it's typed, as it may go somewhere else (see `dwim::dwim_target`).
+pub fn terms_table() -> serde_json::Value {
+    let terms: serde_json::Map<String, serde_json::Value> = QUERY_CORE
+        .term
+        .iter()
+        .map(|(name, term)| {
+            let target = term
+                .alias
+                .as_deref()
+                .and_then(|alias| QUERY_CORE.term.get(alias))
+                .unwrap_or(term);
+            let mut info = serde_json::json!({ "incremental": target.incremental });
+            if !target.values.is_empty() {
+                info["values"] = serde_json::json!(target.values);
+            }
+            (name.clone(), info)
+        })
+        .collect();
+    serde_json::json!({
+        "terms": terms,
+        "dwim": crate::query::dwim::js_patterns(),
+    })
 }
 
 #[derive(Deserialize)]
@@ -1031,5 +1066,45 @@ mod tests {
             "{traversal}"
         );
         assert!(!values("show-calls:all").contains("graph-traverse"));
+    }
+
+    #[test]
+    fn test_terms_table() {
+        // (For query boxes' results as one types; see search.js's
+        // `QueryGate`.)
+        let table = terms_table();
+        let terms = &table["terms"];
+        for name in [
+            "default", "text", "file", "idprefix", "path", "p", "pathre", "C",
+        ] {
+            assert_eq!(terms[name]["incremental"], true, "{name}");
+        }
+        for name in [
+            "calls-to",
+            "id",
+            "symbol",
+            "re",
+            "block-diagram",
+            "text-history",
+            "crash-report",
+        ] {
+            assert_eq!(terms[name]["incremental"], false, "{name}");
+        }
+        assert_eq!(
+            terms["case"]["values"],
+            serde_json::json!(["sensitive", "insensitive"])
+        );
+        assert!(terms["text"].get("values").is_none());
+        // The DWIM rules' patterns, without Rust's named groups' syntax.
+        let dwim = table["dwim"].as_array().unwrap();
+        assert!(dwim.len() > 10);
+        assert!(
+            dwim.iter()
+                .all(|pattern| !pattern.as_str().unwrap().contains("(?P<"))
+        );
+        assert!(
+            dwim.iter()
+                .any(|pattern| pattern.as_str().unwrap().contains("(?<rev>"))
+        );
     }
 }

@@ -68,6 +68,16 @@ lazy_static! {
     };
 }
 
+/// The rules' patterns as JavaScript regexps' sources (named groups as
+/// `(?<name>`), for query boxes, which don't search what a rule matches as
+/// it's typed (see `chew_query::terms_table`).
+pub fn js_patterns() -> Vec<String> {
+    RULES
+        .iter()
+        .map(|rule| rule.pattern.as_str().replace("(?P<", "(?<"))
+        .collect()
+}
+
 /// Where a DWIM rule says the input may be: its URL (ex: "/{tree}/source/...",
 /// or another site's), the rule's name and description, and whether to go
 /// there at once, without searching (its `go = "always"`).
