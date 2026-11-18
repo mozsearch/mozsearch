@@ -281,7 +281,10 @@ check-all: _INDEX_ROOT=~/index
 check-all: _CONFIG_REPO=/vagrant/tests
 check-all: _CONFIG_NAME=webtest-config.json
 check-all: export CHECK_WARNINGS=1
-check-all: export CLEAN_HISTORY=1
+# (The searchfox trees' histories, of mozsearch's thousands of commits, are
+# kept from the last run if what they're derived with is the same; see
+# scripts/history-inputs-key.sh.  CLEAN_HISTORY=1 builds them from scratch.)
+check-all: export CLEAN_HISTORY ?= auto
 check-all: export MOZSEARCH_SOURCE_PATH=/vagrant
 # (The tools' unit tests are built and run in the background meanwhile, as
 # installing the tools doesn't build them; see scripts/unit-tests-background.sh.)

@@ -23,7 +23,20 @@ popd
 
 echo "Performing setup::build-blame step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
-rm -rf $BLAME_ROOT
-mkdir -p $BLAME_ROOT
-git init $BLAME_ROOT
+# build-blame only processes revisions it hasn't already (see
+# `tools::source_mapping`), so the blame is kept between builds when
+# CLEAN_HISTORY is auto (the Makefile's check-all's) and what it's derived with
+# didn't change since it was built (its key; see scripts/history-inputs-key.sh),
+# else built again from scratch, as always before.
+BLAME_KEY=$("$MOZSEARCH_PATH/scripts/history-inputs-key.sh" "$MOZSEARCH_PATH" "tests/$TREE_NAME")
+if [ "${CLEAN_HISTORY:-}" = "auto" ] && [ -d "$BLAME_ROOT" ] &&
+    [ "$(cat "$BLAME_ROOT/../blame-inputs-key" 2>/dev/null)" = "$BLAME_KEY" ]; then
+    echo "Keeping the blame: what it's derived with is the same."
+else
+    rm -rf $BLAME_ROOT
+    mkdir -p $BLAME_ROOT
+    git init $BLAME_ROOT
+fi
+rm -f "$BLAME_ROOT/../blame-inputs-key"
 build-blame $GIT_ROOT $BLAME_ROOT
+echo "$BLAME_KEY" > "$BLAME_ROOT/../blame-inputs-key"

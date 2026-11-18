@@ -37,10 +37,25 @@ echo "Performing setup::build-syntax-token-tree step for $TREE_NAME : $(date +"%
 # The history tools only process revisions they haven't already (see
 # `tools::source_mapping`), so we keep the history between builds, even across
 # rebases.  After changing how the history is derived, set CLEAN_HISTORY=1 (ex:
-# `make clean-build-searchfox-repo`) to regenerate it from scratch.
-if [ -n "${CLEAN_HISTORY:-}" ]; then
-  rm -rf "$HISTORY_ROOT"
-fi
+# `make clean-build-searchfox-repo`) to regenerate it from scratch; with
+# CLEAN_HISTORY=auto (the Makefile's check-all's), it's regenerated if what it's
+# derived with changed since it was built (its key; see
+# scripts/history-inputs-key.sh), and kept otherwise (rather than taking a few
+# minutes for mozsearch's thousands of commits each time).
+HISTORY_KEY=$("$MOZSEARCH_PATH/scripts/history-inputs-key.sh" "$MOZSEARCH_PATH" "tests/$TREE_NAME")
+case "${CLEAN_HISTORY:-}" in
+  "" | 0) ;;
+  auto)
+    if [ "$(cat "$HISTORY_ROOT/inputs-key" 2>/dev/null)" != "$HISTORY_KEY" ]; then
+      echo "Building the history from scratch: what it's derived with changed."
+      rm -rf "$HISTORY_ROOT"
+    else
+      echo "Keeping the history: what it's derived with is the same."
+    fi
+    ;;
+  *) rm -rf "$HISTORY_ROOT" ;;
+esac
+rm -f "$HISTORY_ROOT/inputs-key"
 
 mkdir -p $HISTORY_ROOT
 if [ ! -d $HISTORY_ROOT/syntax ]; then
@@ -63,6 +78,9 @@ build-timeline-tree $GIT_ROOT $HISTORY_ROOT/syntax $HISTORY_ROOT/timeline $HISTO
 # The token journals' records sum to their tokens' instances (see
 # check-token-counts), which token-timeline:'s counts need.
 check-token-counts $HISTORY_ROOT --show 20
+
+# (What it was derived with, once it's whole; see CLEAN_HISTORY=auto above.)
+echo "$HISTORY_KEY" > "$HISTORY_ROOT/inputs-key"
 
 echo "Performing setup::build-commit-index step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
