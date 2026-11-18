@@ -679,8 +679,14 @@ for repo in config['trees']:
               'proxy_pass http://127.0.0.1:8001;'],
              cache=False)
 
-    # Handled by Rust `pipeline-server.rs`
-    location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])
+    # Handled by Rust `pipeline-server.rs`, whose response to a request its
+    # client gave up on (ex: a query box's results as one types, superseded,
+    # or Enter during their load, whose request then waits for it; see
+    # search.js's `QueryFrames`) is still cached: on a cached location, nginx
+    # lets the server finish anyway, but without
+    # `proxy_ignore_client_abort` doesn't store the response.
+    location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;',
+                                'proxy_ignore_client_abort on;'])
     # and its data API (see the tools' `data_api`), unless the tree's is off
     # (whose requests then don't reach it).
     if tree_config.get('data_api', True):

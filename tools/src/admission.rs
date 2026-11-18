@@ -466,7 +466,7 @@ pub async fn admit_request(headers: &HeaderMap, path: &str) -> Result<Admitted, 
     if let Some(client) = client_key(header("fastly-client-ip"), header("x-forwarded-for")) {
         let pool = Pool::of(path);
         let cost = cost(path);
-        let navigation = is_navigation(header("sec-fetch-dest"));
+        let navigation = is_navigation(header("sec-fetch-dest"), header("sec-fetch-site"));
         let start = Instant::now();
         loop {
             match ADMISSIONS.admit(
@@ -511,9 +511,15 @@ pub async fn admit_request(headers: &HeaderMap, path: &str) -> Result<Admitted, 
 
 /// Whether a request is a page load, by its `Sec-Fetch-Dest`: a document's
 /// (or a frame's), or one without it (ex: a crawler's or a script's), rather
-/// than a page's own requests (ex: `fetch`'s, "empty").
-pub fn is_navigation(sec_fetch_dest: Option<&str>) -> bool {
-    sec_fetch_dest.is_none_or(|dest| matches!(dest, "document" | "iframe" | "frame"))
+/// than a page's own requests (ex: `fetch`'s, "empty"), which a frame of our
+/// own pages' (by its `Sec-Fetch-Site`, "same-origin") is too: ex: a query
+/// box's results as one types (see search.js's `QueryFrames`).
+pub fn is_navigation(sec_fetch_dest: Option<&str>, sec_fetch_site: Option<&str>) -> bool {
+    match sec_fetch_dest {
+        None | Some("document") => true,
+        Some("iframe" | "frame") => sec_fetch_site != Some("same-origin"),
+        Some(_) => false,
+    }
 }
 
 /// How many tokens a request for `path` takes up front: pages 1, their data
@@ -685,11 +691,15 @@ mod tests {
 
     #[test]
     fn test_navigations() {
-        assert!(is_navigation(Some("document")));
-        assert!(is_navigation(Some("iframe")));
-        assert!(is_navigation(None));
-        assert!(!is_navigation(Some("empty")));
-        assert!(!is_navigation(Some("script")));
+        assert!(is_navigation(Some("document"), Some("none")));
+        assert!(is_navigation(Some("document"), Some("same-origin")));
+        assert!(is_navigation(Some("iframe"), Some("cross-site")));
+        assert!(is_navigation(None, None));
+        assert!(!is_navigation(Some("empty"), Some("same-origin")));
+        assert!(!is_navigation(Some("script"), None));
+        // A frame of our own pages' is their request (ex: a query box's
+        // results as one types).
+        assert!(!is_navigation(Some("iframe"), Some("same-origin")));
     }
 
     #[tokio::test]
