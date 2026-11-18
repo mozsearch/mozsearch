@@ -149,7 +149,11 @@ pub fn highlight_row(
     expected: &str,
     pattern: Option<&Regex>,
 ) -> String {
-    if hits.is_empty() && pattern.is_none() {
+    // (Nor a long line's row, whose note is in its code's place; see
+    // `chunked_gzip::LONG_LINE_CHARS`.)
+    if (hits.is_empty() && pattern.is_none())
+        || row.contains(crate::file_format::chunked_gzip::LONG_LINE_NOTE)
+    {
         return row.to_string();
     }
     let Some(text) = row_text(row) else {
@@ -259,5 +263,11 @@ mod tests {
         assert_eq!(marked.matches("query-match").count(), 2);
         // Without hits or matches, the row is unchanged.
         assert_eq!(highlight_row(&r, &[], "", None), r);
+        // As is a long line's note, which a text search could match.
+        let note = row(
+            r#"<span class="long-line-note">A line of 2,001 characters, too long to show here</span>"#,
+        );
+        let pattern = Regex::new("(?i)line").unwrap();
+        assert_eq!(highlight_row(&note, &[(0, 4)], "", Some(&pattern)), note);
     }
 }

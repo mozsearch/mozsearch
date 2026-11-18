@@ -1,0 +1,48 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(frb).unwrap()"
+input_file: inputs/web/query/execution/long-lines/query__tiger_long_line__json
+---
+{
+  "path_kind_results": [
+    {
+      "path_kind": "normal",
+      "file_names": [],
+      "kind_groups": [
+        {
+          "kind": "TextualOccurrences",
+          "pretty": "",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "tiger.svg",
+              "line_spans": [
+                {
+                  "key_line": 347,
+                  "line_range": [
+                    347,
+                    347
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\"><span class=\"long-line-note\">A line of 3,814 characters, too long to show here</span>\n</code>\n</div>\n",
+                  "context": "",
+                  "contextsym": "",
+                  "hits": [
+                    [
+                      22,
+                      48
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "content_type": "text/html",
+  "text_pattern": {
+    "re": "M20\\.895,54\\.407c1\\.542,1\\.463",
+    "case_sensitive": false
+  }
+}

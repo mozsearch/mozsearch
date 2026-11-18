@@ -599,6 +599,13 @@ td#line-numbers {
   flex-grow: 1;
 }
 
+/* An excerpt's note in place of a long line's code (see the tools'
+   `chunked_gzip::LONG_LINE_CHARS`). */
+.long-line-note {
+  color: var(--page-subtle-foreground);
+  font-style: italic;
+}
+
 .breadcrumbs.stuck,
 .source-line-with-number.stuck {
   background-color: var(--line-stuck-background);

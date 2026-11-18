@@ -72,6 +72,78 @@ pub struct Row {
 /// The rows that start nesting containers are sticky in source listings.
 const STICKY_CLASS: &str = " nesting-sticky-line";
 
+/// The most characters of text a line's row has as an excerpt (see
+/// `extract_rows`): a longer line's row (ex: a minified bundle's, or a data
+/// file's, which can be megabytes, and which every result on the line would
+/// copy) has a note saying how long the line is instead of its code.
+pub const LONG_LINE_CHARS: usize = 2_000;
+
+/// The start of a row's code (see `ROW_START`), and of the note in place of a
+/// long line's code (see `LONG_LINE_CHARS`).
+const CODE_START: &str = "<code role=\"cell\" class=\"source-line\">";
+pub const LONG_LINE_NOTE: &str = "<span class=\"long-line-note\">";
+
+/// `row`, or if its line has more than `LONG_LINE_CHARS` characters of text,
+/// the row with a note of how many instead of its code.
+fn without_long_line(row: &str) -> String {
+    // (A line's HTML is at least as long as its text.)
+    if row.len() <= LONG_LINE_CHARS {
+        return row.to_string();
+    }
+    let (Some(code), Some(code_end)) = (
+        row.find(CODE_START).map(|i| i + CODE_START.len()),
+        row.strip_suffix(ROW_END).map(str::len),
+    ) else {
+        return row.to_string();
+    };
+    let chars = text_chars(row.get(code..code_end).unwrap_or_default());
+    if chars <= LONG_LINE_CHARS {
+        return row.to_string();
+    }
+    format!(
+        "{}{}A line of {} characters, too long to show here</span>\n{}",
+        &row[..code],
+        LONG_LINE_NOTE,
+        grouped_digits(chars),
+        ROW_END
+    )
+}
+
+/// How many characters of text `html` has: without its tags, and with each
+/// entity (ex: `&lt;`) as one.
+fn text_chars(html: &str) -> usize {
+    let mut chars = 0;
+    let (mut in_tag, mut in_entity) = (false, false);
+    for c in html.trim_end_matches('\n').chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' if in_tag => in_tag = false,
+            _ if in_tag => {}
+            '&' => {
+                in_entity = true;
+                chars += 1;
+            }
+            ';' if in_entity => in_entity = false,
+            _ if in_entity => {}
+            _ => chars += 1,
+        }
+    }
+    chars
+}
+
+/// `n` with its digits in groups of three (ex: 1,788,108).
+fn grouped_digits(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+    for (i, digit) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(digit);
+    }
+    out
+}
+
 const SUBFIELD_ID: &[u8; 2] = b"SF";
 const VERSION: u8 = 1;
 /// The most offsets that fit in an extra field (of at most 65535 bytes, with
@@ -81,6 +153,7 @@ const MAX_CHUNKS: usize = (65535 - 4 - 3) / 4;
 /// The rows of the lines `lines` (1-based) of `html` (a rendered file, or a
 /// chunk of one), by line, found by searching for each from the end of the
 /// one before, with their nesting containers' symbols (see the module docs).
+/// A long line's row has a note instead of its code (see `LONG_LINE_CHARS`).
 pub fn extract_rows(html: &str, lines: &BTreeSet<u32>) -> HashMap<u32, Row> {
     // The containers open at `html`'s start (None if a chunk doesn't say),
     // and those it starts.
@@ -115,7 +188,7 @@ pub fn extract_rows(html: &str, lines: &BTreeSet<u32>) -> HashMap<u32, Row> {
         rows.insert(
             line,
             Row {
-                html: html[start..end].to_string(),
+                html: without_long_line(&html[start..end]),
                 nesting_sym: nth_innermost(&outer, &inner, 0),
                 enclosing_sym: nth_innermost(&outer, &inner, usize::from(starts_nesting)),
             },
@@ -581,6 +654,37 @@ mod tests {
             .remove(&line)
             .unwrap()
             .nesting_sym
+    }
+
+    #[test]
+    fn test_long_lines() {
+        // A row of a line with more than LONG_LINE_CHARS characters of text
+        // (tags left out, entities one each) has a note instead of its code,
+        // from a chunk too; one at the limit is whole.
+        let long = format!(
+            "<span class=\"syn_string\">{}</span>&lt;",
+            "x".repeat(LONG_LINE_CHARS)
+        );
+        let limit = format!("<span>{}</span>", "y".repeat(LONG_LINE_CHARS));
+        let mut html = page(40, true);
+        for (line, text) in [(7, &long), (40, &limit)] {
+            html = html.replacen(&format!("  let x{} = &lt;{}&gt;;", line, line), text, 1);
+        }
+        let rows = write_and_read(html.as_bytes(), &[6, 7, 40].into_iter().collect());
+        assert_eq!(
+            rows[&7].html,
+            row(
+                7,
+                false,
+                "",
+                "<span class=\"long-line-note\">A line of 2,001 characters, too long to show here</span>"
+            )
+        );
+        assert_eq!(rows[&7].nesting_sym, nesting_of(7));
+        assert!(rows[&6].html.contains("x6 = "));
+        assert!(rows[&40].html.contains(&limit));
+        assert_eq!(grouped_digits(1_788_108), "1,788,108");
+        assert_eq!(grouped_digits(999), "999");
     }
 
     #[test]
