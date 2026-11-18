@@ -14,8 +14,11 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 
 /// Runs the webtests (`tests/webtest/test_*.js`) whose paths contain the
 /// filter, in the browsers of the WebDriver servers `--webdrivers` lists (see
-/// `scripts/webtest.sh`), at once: sorted by name, and dealt to them in turn,
-/// so each browser's tests are the same each run.  A test's leading comment
+/// `scripts/webtest.sh`), at once: each browser takes the next unit of tests
+/// (a test, or a group's tests; see below) once it's done with its last, the
+/// biggest units first and then the others by name, so that a long group
+/// starts at once rather than delaying the end.  It says how long each test
+/// took, and which were the slowest.  A test's leading comment
 /// lines can say `// webtest-group: <name>` (and why), to run with the group's other
 /// tests, in order, in one browser (ex: tests sharing a try push's import), or
 /// `// webtest-exclusive`, to run once the others are done, alone (ex: tests
@@ -37,6 +40,8 @@ struct TestOutcome {
     failed: bool,
     subtests: usize,
     log: Vec<(String, String)>,
+    /// How long it took, from its page's load.
+    seconds: f64,
 }
 
 /// A test's leading comment lines (see `Webtest`), without their `//`s.
@@ -252,11 +257,13 @@ impl WebtestCommand {
         client: &Client,
         path: &str,
     ) -> std::result::Result<TestOutcome, fantoccini::error::CmdError> {
+        let test_start = Instant::now();
         let mut outcome = TestOutcome {
             path: path.to_string(),
             failed: false,
             subtests: 0,
             log: vec![],
+            seconds: 0.0,
         };
         let url = "http://localhost:16995/tests/webtest/webtest.html";
         outcome
@@ -333,23 +340,35 @@ impl WebtestCommand {
             fs::write(filename, data)?;
         }
 
+        outcome.seconds = test_start.elapsed().as_secs_f64();
+        outcome.log.push((
+            "INFO".to_string(),
+            format!("{} took {:.1} s", path, outcome.seconds),
+        ));
         Ok(outcome)
     }
 
     /// Run `units` in `client`'s browser, one after another, printing each
     /// test's log once it's done (so that the browsers' logs don't mix).
+    /// Run units of tests in `client`'s browser, taking each from `queue`
+    /// once the last is done, until it's empty.
     async fn run_units(
         &self,
         client: &Client,
-        units: Vec<Vec<String>>,
+        queue: &std::sync::Mutex<std::collections::VecDeque<Vec<String>>>,
     ) -> std::result::Result<Vec<TestOutcome>, fantoccini::error::CmdError> {
         let mut outcomes = vec![];
-        for path in units.into_iter().flatten() {
-            let outcome = self.run_test(client, &path).await?;
-            for (ty, msg) in &outcome.log {
-                print_log(ty.as_str(), msg.clone());
+        loop {
+            let Some(unit) = queue.lock().unwrap().pop_front() else {
+                break;
+            };
+            for path in unit {
+                let outcome = self.run_test(client, &path).await?;
+                for (ty, msg) in &outcome.log {
+                    print_log(ty.as_str(), msg.clone());
+                }
+                outcomes.push(outcome);
             }
-            outcomes.push(outcome);
         }
         Ok(outcomes)
     }
@@ -360,27 +379,19 @@ impl WebtestCommand {
     ) -> std::result::Result<bool, fantoccini::error::CmdError> {
         let entire_start = Instant::now();
 
-        // (Dealt to the browsers in turn.)
-        let (units, exclusive) = self.tests();
-        let mut shards: Vec<Vec<Vec<String>>> = vec![vec![]; clients.len()];
-        for (i, unit) in units.into_iter().enumerate() {
-            shards[i % clients.len()].push(unit);
-        }
-        let runs = clients
-            .iter()
-            .zip(shards)
-            .map(|(client, units)| self.run_units(client, units));
+        // (Taken by the browsers as they're free, the biggest units first:
+        // a group's tests take the longest.)
+        let (mut units, exclusive) = self.tests();
+        units.sort_by_key(|unit| std::cmp::Reverse(unit.len()));
+        let queue = std::sync::Mutex::new(units.into_iter().collect());
+        let runs = clients.iter().map(|client| self.run_units(client, &queue));
         let mut outcomes = vec![];
         for result in futures_util::future::join_all(runs).await {
             outcomes.extend(result?);
         }
-        outcomes.extend(
-            self.run_units(
-                &clients[0],
-                exclusive.into_iter().map(|path| vec![path]).collect(),
-            )
-            .await?,
-        );
+        let exclusive =
+            std::sync::Mutex::new(exclusive.into_iter().map(|path| vec![path]).collect());
+        outcomes.extend(self.run_units(&clients[0], &exclusive).await?);
 
         let test_count = outcomes.len();
         let subtest_count: usize = outcomes.iter().map(|outcome| outcome.subtests).sum();
@@ -400,6 +411,21 @@ impl WebtestCommand {
         );
         eprintln!("Passed: {} tests", test_count - failed_tests.len());
         eprintln!("Failed: {} tests", failed_tests.len());
+        let mut slowest: Vec<&TestOutcome> = outcomes.iter().collect();
+        slowest.sort_by(|a, b| b.seconds.total_cmp(&a.seconds));
+        eprintln!(
+            "Slowest: {}",
+            slowest
+                .iter()
+                .take(8)
+                .map(|outcome| format!(
+                    "{} {:.1} s",
+                    outcome.path.rsplit('/').next().unwrap_or(&outcome.path),
+                    outcome.seconds
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         eprintln!();
 
         let passed = failed_tests.is_empty();

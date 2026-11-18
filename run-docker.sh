@@ -97,8 +97,13 @@ else
     # - `--mount`: lets us bind the current directory into the container.
     # - `-p`: specifies the port mapping to expose the nginx web-server (when
     #   running; it doesn't automatically run!) on localhost port 16995.
+    # - `--pids-limit`: no limit on the container's tasks (processes and their
+    #   threads), as docker's default, rather than podman's 2,048, which the
+    #   webtests' servers and browsers come close to (8 browsers, with
+    #   WEBTEST_BROWSERS=8, exceed it; see scripts/webtest.sh).
     docker run \
         --platform linux/amd64 \
+        --pids-limit=-1 \
         -it \
         --name $CONTAINER_NAME \
         --mount type=bind,source=${THIS_DIR},target=${INSIDE_CONTAINER_DIR} \

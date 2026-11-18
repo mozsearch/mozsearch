@@ -7,7 +7,12 @@ set -x
 FILTER=${1:-}
 
 # How many browsers to run the tests in, at once (see the tools'
-# `cmd_webtest`).
+# `cmd_webtest`).  More aren't faster, even with many cores: the trydelta-push
+# group's tests, one after another, take about all of the time, and their
+# imports slow down beside more of the others' (in the development container's
+# 64 cores, 8 browsers took 110 s, rather than 4's 100).  (8 browsers' threads
+# also need more tasks than podman's default limit; see run-docker.sh's
+# --pids-limit.)
 BROWSERS=${WEBTEST_BROWSERS:-4}
 
 stop_geckodriver() {

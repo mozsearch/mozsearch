@@ -283,8 +283,13 @@ check-all: _CONFIG_NAME=webtest-config.json
 check-all: export CHECK_WARNINGS=1
 check-all: export CLEAN_HISTORY=1
 check-all: export MOZSEARCH_SOURCE_PATH=/vagrant
-check-all: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo internal-test-repo
-	./scripts/webtest.sh
+# (The tools' unit tests are built and run in the background meanwhile, as
+# installing the tools doesn't build them; see scripts/unit-tests-background.sh.)
+check-all: check-in-vagrant update-indexer-packages start-unit-tests internal-build-repo internal-serve-repo internal-test-repo
+	STATUS=0; ./scripts/webtest.sh || STATUS=$$?; ./scripts/unit-tests-background.sh wait || STATUS=1; exit $$STATUS
+
+start-unit-tests: check-in-vagrant
+	./scripts/unit-tests-background.sh start /vagrant
 
 # Create favicon for the following 3 cases, from search.png:
 #   * production.png for searchfox.org

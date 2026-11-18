@@ -153,6 +153,14 @@
             name = "serverPackages";
             paths = commonPackages ++ serverPackages;
           };
+
+          # The tools' unit tests (see nix/mozsearch/tools.nix), which
+          # installing them doesn't build.
+          mozsearch-tools-tests = mozsearch-tools.tests;
+        };
+
+        checks = {
+          mozsearch-tools-tests = mozsearch-tools.tests;
         };
 
         devShells.default = pkgs.mkShell.override {

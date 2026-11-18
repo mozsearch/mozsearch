@@ -40,6 +40,11 @@ jobs:
       - name: Indexer Provision
         run: $GITHUB_WORKSPACE/infrastructure/indexer-provision.sh
         working-directory: /home/runner
+      # (Installing the tools doesn't build their unit tests; see
+      # nix/mozsearch/tools.nix.)
+      - name: The tools' unit tests
+        run: sudo -i nix build "$HOME/mozsearch#mozsearch-tools-tests" --no-link --accept-flake-config --print-build-logs
+        working-directory: /home/runner
       - name: Set Clang plugin path
         run: echo "MOZSEARCH_CLANG_PLUGIN_DIR=/nix/var/nix/profiles/default/lib" >> "$GITHUB_ENV"
       - name: Set wasm analyzer path
