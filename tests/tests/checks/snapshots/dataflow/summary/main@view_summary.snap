@@ -32,7 +32,7 @@ input_file: inputs/dataflow/summary/view_summary
     "path": "rollup/view.cpp",
     "line": 12,
     "category": "small",
-    "events": 2,
+    "events": 3,
     "flows": [
       {
         "from": {
@@ -64,7 +64,7 @@ input_file: inputs/dataflow/summary/view_summary
     "sym": "_ZN6rollup5Panel4EditEi",
     "pretty": "rollup::Panel::Edit",
     "path": "rollup/view.cpp",
-    "line": 17,
+    "line": 18,
     "category": "small",
     "events": 2,
     "flows": [
@@ -106,7 +106,7 @@ input_file: inputs/dataflow/summary/view_summary
     "sym": "_ZN6rollup10Controller3RunERNS_5PanelE",
     "pretty": "rollup::Controller::Run",
     "path": "rollup/view.cpp",
-    "line": 29,
+    "line": 30,
     "category": "small",
     "events": 2,
     "flows": [
@@ -149,7 +149,7 @@ input_file: inputs/dataflow/summary/view_summary
     "sym": "_ZN6rollup7UseThemEv",
     "pretty": "rollup::UseThem",
     "path": "rollup/view.cpp",
-    "line": 38,
+    "line": 39,
     "category": "small",
     "events": 3,
     "flows": [

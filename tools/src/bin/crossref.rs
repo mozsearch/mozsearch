@@ -2519,7 +2519,12 @@ fn diagram_mapping(cfg: &Config) -> DiagramMapping {
 /// generated code's, and the calls of them (see `rollup_left_out`), and
 /// callees labeled
 /// `calls-diagram:stop` (assertions, logging, ...), as call diagrams do, and
-/// other plumbing (`is_boring_callee`).  Some calls stand for others: an
+/// other plumbing (`is_boring_callee`), and the calls of diagram-mapping.toml's
+/// groups of left-out calls' functions (ex: strings', smart pointers', time's,
+/// by `left_out_group`, of a symbol and its pretty name), but those by the
+/// same group's functions, as calls diagrams leave them out (but a group's
+/// function's diagram), so that the roll-ups' edges and counts (ex: how many
+/// subsystems use another, for the whole tree's diagram) are without them.  Some calls stand for others: an
 /// IPDL message's `Send` method's for its actors' `Recv` implementations',
 /// through IPC; an observer topic's (its notifications', its `send` slots')
 /// for its observers' methods receiving it (its `recv` slots); and a JS
@@ -2532,6 +2537,7 @@ fn call_edges(
     callees_table: &CalleesTable,
     categories: &UstrMap<Category>,
     left_out: &UstrSet,
+    left_out_group: &dyn Fn(&Ustr, &str) -> Option<usize>,
 ) -> Vec<UnitEdge> {
     let stop = ustr("calls-diagram:stop");
     // (IPDL messages' generated `Send` methods, and their actors' `Recv`
@@ -2620,6 +2626,14 @@ fn call_edges(
             stand_ins.insert(js, owners_cpp[owner].clone());
         }
     }
+    // (Each symbol's group of left-out calls, once: a few callees are most
+    // calls, ex: strings' methods.)
+    let mut groups: UstrMap<Option<usize>> = UstrMap::default();
+    let mut group_of = |sym: &Ustr, pretty: &str| -> Option<usize> {
+        *groups
+            .entry(*sym)
+            .or_insert_with(|| left_out_group(sym, pretty))
+    };
     let mut edges = vec![];
     for (caller, callees) in callees_table {
         let Some(caller_meta) = meta_table.get(caller) else {
@@ -2628,6 +2642,7 @@ fn call_edges(
         if !is_rollup_callable(caller_meta) || left_out.contains(caller) {
             continue;
         }
+        let caller_group = group_of(caller, &caller_meta.pretty);
         let from_class = rollup_class(meta_table, caller);
         for (callee, (_, lines, only_cites)) in callees {
             if *only_cites || callee == caller {
@@ -2681,6 +2696,11 @@ fn call_edges(
                 || callee_meta.labels.contains(&stop)
                 || is_boring_callee(&callee_meta.pretty)
             {
+                continue;
+            }
+            // (A left-out group's function, called from outside its group.)
+            let callee_group = group_of(callee, &callee_meta.pretty);
+            if callee_group.is_some() && callee_group != caller_group {
                 continue;
             }
             edges.push(UnitEdge {
@@ -3099,7 +3119,18 @@ fn add_rollups(
             None => meta_table,
         };
         let mark = Instant::now();
-        let calls = call_edges(view, callees_table, &categories, &left_out);
+        // (Diagram-mapping.toml's group of left-out calls of a function, by
+        // its pretty name and its definitions' paths; see `call_edges`.)
+        let definitions: &SearchResultTable = search_result_table;
+        let left_out_group = |sym: &Ustr, pretty: &str| -> Option<usize> {
+            let paths: Vec<&str> = definitions
+                .get(sym)
+                .and_then(|kinds| kinds.get(&AnalysisKind::Def))
+                .map(|paths| paths.keys().map(|path| path.as_str()).collect())
+                .unwrap_or_default();
+            mapping.group_of_symbol(pretty, &paths, false)
+        };
+        let calls = call_edges(view, callees_table, &categories, &left_out, &left_out_group);
         let call_edge_secs = mark.elapsed().as_secs_f64();
         let mark = Instant::now();
         let (call_rollups, mut subsystems) = rollup_edges(view, &calls);

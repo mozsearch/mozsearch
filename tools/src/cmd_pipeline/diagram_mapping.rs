@@ -7,7 +7,8 @@
 //! It also says what test code is, beyond test files (`[tests]`: test
 //! frameworks' code, and tests' subsystems), and which subsystems are
 //! infrastructure (`[overview]`), for roll-ups (crossref reads it when
-//! indexing) and diagrams.
+//! indexing) and diagrams; and the roll-ups leave out the groups' calls too
+//! (see crossref's `call_edges`).
 //!
 //! A group's functions (ex: mfbt's assertions, `Result`'s methods, nsCOMPtr's
 //! operators, strings' and arrays' methods) are infrastructure and generic

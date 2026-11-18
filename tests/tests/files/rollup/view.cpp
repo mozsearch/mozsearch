@@ -11,6 +11,7 @@ class Panel {
 
   void Refresh() {
     mStore->AssertValid();
+    mozilla::TimeStamp::Now();
     mShown = mStore->Get();
   }
 

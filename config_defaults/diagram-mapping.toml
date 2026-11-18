@@ -7,9 +7,13 @@
 # left out, and links to it with them (the query language's `show-calls:`,
 # ex: "show-calls:strings", or "show-calls:all").  A diagram of a group's
 # function (ex: calls-from:'nsTSubstring::Append') shows that group's calls.
+# The roll-ups that block diagrams draw (crossref's, when indexing) leave the
+# groups' calls out too (but a group's calls of its own), so that their edges
+# and counts (ex: how many subsystems use another) are without them.
 #
 # Read when a diagram is made (the config repo's own diagram-mapping.toml,
-# else this one), so changing it doesn't need a reindex.
+# else this one), so changing it doesn't need a reindex, but for the
+# roll-ups, which are as it was when the tree was indexed.
 #
 # Each `[[left-out]]` group has:
 # - `group`: its key, for `show-calls:`;

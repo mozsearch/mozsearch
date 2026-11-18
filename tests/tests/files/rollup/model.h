@@ -24,3 +24,15 @@ class Store {
 };
 
 }  // namespace rollup
+
+namespace mozilla {
+
+// (A function of one of diagram-mapping.toml's groups of left-out calls, the
+// time's, whose calls roll-ups leave out too: Panel's call of Now() isn't in
+// its roll-up.)
+class TimeStamp {
+ public:
+  static TimeStamp Now() { return TimeStamp(); }
+};
+
+}  // namespace mozilla
