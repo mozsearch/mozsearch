@@ -5189,17 +5189,13 @@ pub fn format_rendered(
     output::generate_panel(&opt, writer, &panel, false)?;
 
     // Info boxes, ex: an obsolete spec's (see `templating::info_boxes`).
-    let mut globals = liquid::object!({
-        "tree": tree_name,
-        "path": path,
-        "config": {
-            "github_repo_url": tree_config.paths.github_repo.as_deref().unwrap_or(""),
-            "hg_repo_url": tree_config.paths.hg_root.as_deref().unwrap_or(""),
-            "wpt_root": tree_config.paths.wpt_root.as_deref().unwrap_or(""),
-        },
-        "concise": { "info": {} },
-        "detailed": {},
-    });
+    let mut globals = crate::templating::info_boxes::bare_globals(
+        tree_name,
+        path,
+        tree_config.paths.github_repo.as_deref().unwrap_or(""),
+        tree_config.paths.hg_root.as_deref().unwrap_or(""),
+        tree_config.paths.wpt_root.as_deref().unwrap_or(""),
+    );
     globals.insert(
         "spec".into(),
         match (spec, specs.as_deref()) {

@@ -25,6 +25,30 @@ use tracing::error;
 use super::builder::build_and_parse;
 use crate::file_format::config::Config;
 
+/// The globals of a page whose file has no per-file info (ex: a rendered
+/// view; see `format::format_rendered`), for its boxes: `concise` and
+/// `detailed` with their `info`s empty, as the boxes read them (liquid fails
+/// on missing keys, ex: `detailed.info` of an empty `detailed`).
+pub fn bare_globals(
+    tree: &str,
+    path: &str,
+    github_repo_url: &str,
+    hg_repo_url: &str,
+    wpt_root: &str,
+) -> liquid::Object {
+    liquid::object!({
+        "tree": tree,
+        "path": path,
+        "config": {
+            "github_repo_url": github_repo_url,
+            "hg_repo_url": hg_repo_url,
+            "wpt_root": wpt_root,
+        },
+        "concise": { "info": {} },
+        "detailed": { "info": {} },
+    })
+}
+
 pub struct InfoBoxes {
     /// The templates, by their names, in order.
     templates: Vec<(String, Template)>,
@@ -182,5 +206,32 @@ mod tests {
         let globals = liquid::object!({ "tree": "t", "path": "p" });
         assert_eq!(boxes.render(&globals), "ApbtD");
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Mozsearch's boxes render for a page whose file has no per-file info
+    /// (ex: a rendered view), without failing on its missing keys.
+    #[test]
+    fn test_defaults_render_bare() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../config_defaults/info_boxes");
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            eprintln!("Skipping: no config_defaults/info_boxes here");
+            return;
+        };
+        let mut globals = bare_globals("t", "dir/file.html", "", "", "");
+        globals.insert("spec".into(), liquid::model::Value::Nil);
+        globals.insert("semantic".into(), liquid::model::Value::Nil);
+        let mut rendered = 0;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("liquid") {
+                continue;
+            }
+            let template = build_and_parse(&std::fs::read_to_string(&path).unwrap());
+            if let Err(e) = template.render(&globals) {
+                panic!("{} failed to render: {}", path.display(), e);
+            }
+            rendered += 1;
+        }
+        assert!(rendered > 0);
     }
 }
