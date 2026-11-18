@@ -734,5 +734,8 @@ infrastructure = ["Core/IPC"]
         ] {
             assert_eq!(group(pretty, path), None, "{}", pretty);
         }
+        // (The overview's infrastructure that isn't omnipresent.)
+        assert!(mapping.is_infrastructure_subsystem("Core/IPC"));
+        assert!(mapping.is_infrastructure_subsystem("Core/mozglue"));
     }
 }

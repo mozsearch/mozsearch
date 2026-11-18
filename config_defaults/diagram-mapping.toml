@@ -457,9 +457,15 @@ subsystems = [
 # say how many subsystems use them, and the calls into them aren't drawn, so
 # that the diagram shows how the other subsystems interact.  (IPC's messages
 # are still drawn, between their senders' and their receivers' subsystems:
-# roll-ups count a message's `Send` as a call of its actors' `Recv`s.)
+# roll-ups count a message's `Send` as a call of its actors' `Recv`s.)  Those
+# called by at least half of the subsystems are drawn so anyway (ex: XPCOM,
+# MFBT, strings, the memory allocator); these are those that aren't, but are
+# plumbing too: ex: mozglue (process-wide glue, ex: its timestamps and clocks,
+# which a group of the overview's subsystems all called, a quarter of its
+# edges).
 [overview]
 infrastructure = [
   "Core/IPC",
   "Core/DOM/Bindings (WebIDL)",
+  "Core/mozglue",
 ]
