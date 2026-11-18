@@ -46,6 +46,18 @@ add_task(async function test_BlockDiagramEdgeHover() {
   isnot(getComputedStyle(path).stroke, "rgb(0, 0, 0)", "and colored");
 });
 
+// A diagram of the classes between a subsystem and another (an edge's
+// "Classes between..."), which has none (here, as the other's code is a
+// test's), says why.
+add_task(async function test_BlockDiagramNoClassesBetween() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery("tests", "block-diagram:'Core/Rollup View' block-with:'Core/Rollup Unit Tests'");
+  const texts = svgTexts().join(" ");
+  ok(texts.includes("None of Core/Rollup View's classes call Core/Rollup Unit Tests's, nor the reverse:"),
+     `It says there are none: ${texts}`);
+  ok(texts.includes("functions outside classes, or of class templates"), "and why");
+});
+
 add_task(async function test_BlockDiagramData() {
   await TestUtils.resetFeatureGate("diagramming");
   await TestUtils.loadQuery("tests", "block-diagram:'Core/Rollup View' block-edges:data");

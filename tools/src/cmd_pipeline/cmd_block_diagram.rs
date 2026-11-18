@@ -154,6 +154,55 @@ fn is_block_class(sym: &str) -> bool {
     sym.starts_with("T_") || sym.starts_with("IPDL_") || sym.starts_with("IPC_")
 }
 
+/// A class's or subsystem's name, by its symbol, for people (ex:
+/// "Core/Storage/Cache API" for `SUBSYS_Core/Storage/Cache@20API`, whose
+/// characters `mangle_file` escaped, or "mozilla::Foo" for `T_mozilla::Foo`).
+fn block_display_name(sym: &str) -> String {
+    let name = sym
+        .strip_prefix(SUBSYSTEM_PREFIX)
+        .or_else(|| sym.strip_prefix("T_"))
+        .unwrap_or(sym);
+    let mut out = String::new();
+    let mut rest = name;
+    while let Some(at) = rest.find('@') {
+        out.push_str(&rest[..at]);
+        match rest
+            .get(at + 1..at + 3)
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok())
+        {
+            Some(byte) => {
+                out.push(byte as char);
+                rest = &rest[at + 3..];
+            }
+            None => {
+                out.push('@');
+                rest = &rest[at + 1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Why a diagram of the classes between two sides (`--with`, ex: a subsystem
+/// edge's "Classes between...") has none, for its label: the roll-ups between
+/// classes have their members' calls (or data), so the subsystems' calls of
+/// functions outside classes, of class templates (which have no records, ex:
+/// a smart pointer's), or of left-out classes, aren't in them.
+fn no_classes_between(focus: &str, with: &str, edges: BlockEdges) -> String {
+    let (focus, with) = (block_display_name(focus), block_display_name(with));
+    match edges {
+        BlockEdges::Calls => format!(
+            "None of {}'s classes call {}'s, nor the reverse:\\nthe calls between them are of functions outside classes, or of class templates (ex: smart pointers),\\nwhich classes diagrams don't have, or of the left-out classes the panel lists.",
+            focus, with
+        ),
+        BlockEdges::Data => format!(
+            "No data flows between {}'s classes and {}'s:\\nwhat flows between them goes through functions outside classes, or through class templates,\\nwhich classes diagrams don't have, or through the left-out classes the panel lists.",
+            focus, with
+        ),
+    }
+}
+
 /// A class or subsystem's symbol, by its symbol or a subsystem's name.
 fn block_sym(name: &str) -> Ustr {
     if is_block_class(name) || name.starts_with(SUBSYSTEM_PREFIX) {
@@ -1343,6 +1392,18 @@ impl PipelineCommand for BlockDiagramCommand {
             edges.truncate(self.args.max_edges);
             shown_edges = edges.len();
             let mut graph = NamedSymbolGraph::new(format!("block-diagram {}", focus_sym));
+            // (None between the focus's classes and the other side's, which
+            // its label says why.)
+            if let Some(with) = with_sym
+                && level != BlockLevel::Subsystem
+                && edges.is_empty()
+            {
+                graph.graph_attrs.push((
+                    "label",
+                    no_classes_between(&focus_sym, &with, self.args.edges),
+                ));
+                graph.graph_attrs.push(("labelloc", "t".to_string()));
+            }
             // (A class, or a subsystem among its neighbors, even if it has no
             // edges left.)
             if !is_subsystem
@@ -1503,6 +1564,34 @@ mod infrastructure_tests {
 
     /// The whole tree's infrastructure subsystems (by diagram-mapping.toml's
     /// `[overview]`), by how many subsystems call them.
+    /// Classes' and subsystems' names for people, and the label of a diagram
+    /// of the classes between two sides which has none.
+    #[test]
+    fn test_no_classes_between() {
+        assert_eq!(
+            block_display_name("SUBSYS_Core/Storage/Cache@20API"),
+            "Core/Storage/Cache API"
+        );
+        assert_eq!(block_display_name("T_mozilla::Foo"), "mozilla::Foo");
+        assert_eq!(block_display_name("SUBSYS_A@ZZ"), "A@ZZ");
+        let label = no_classes_between(
+            "SUBSYS_Core/Storage/Cache@20API",
+            "SUBSYS_Core/Storage/IndexedDB",
+            BlockEdges::Calls,
+        );
+        assert!(
+            label.starts_with(
+                "None of Core/Storage/Cache API's classes call Core/Storage/IndexedDB's, nor the reverse:\\n"
+            ),
+            "{}",
+            label
+        );
+        assert!(
+            no_classes_between("SUBSYS_A", "T_B", BlockEdges::Data)
+                .starts_with("No data flows between A's classes and B's:")
+        );
+    }
+
     #[test]
     fn test_infrastructure_subsystems() {
         let mapping = DiagramMapping::parse(
