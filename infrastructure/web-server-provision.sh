@@ -11,6 +11,16 @@ MOZSEARCH_CONFIG_BRANCH="${MOZSEARCH_CONFIG_BRANCH:-master}"
 
 # Nginx
 sudo apt-get install -y nginx
+# Ubuntu's package enables and starts its own nginx service (as root, serving
+# its default site on port 80, IPv4 and IPv6), which we don't use: the web
+# server runs a root-less nginx with the configuration nginx-setup.py writes,
+# on port 16995 (see web-server-setup.sh; aws/web-serve.sh redirects port 80 to
+# it).  So it's disabled and stopped, to not serve what we don't mean to, nor
+# expose code we don't run.  (Where systemd isn't running, ex: building the
+# docker image, nothing started it.)
+if [ -d /run/systemd/system ]; then
+  sudo systemctl disable --now nginx
+fi
 
 # Create update script.
 cat > update.sh <<"THEEND"
