@@ -29,13 +29,17 @@
 //! repo (REV being the hook's argument), so that a push is imported once that
 //! ref exists and the history has its head (see `imported_head`).
 //!
-//! Imports start in the order they were asked for, on `WORKERS` threads, each
-//! running the hook at a lower priority than the server's (`nice`) and in its
-//! own process group, so that it and what it runs can be killed after
-//! `TIME_LIMIT`, with its output in `HISTORY_ROOT/try-imports/REV.log`.  A
-//! try push's import runs alone (the history repos and the commit index take
-//! one writer at a time, and pushes based on the same new revisions would
-//! process them twice at once), but up to `WORKERS` spec pull requests'
+//! Imports start in the order they were asked for (people's before those
+//! restored from the previous index's web server; see `TryImports::restore`),
+//! on `THREADS` threads, each running the hook at a lower priority than the
+//! server's (`nice`) and in its own process group, so that it and what it runs
+//! can be killed after `TIME_LIMIT`, with its output in
+//! `HISTORY_ROOT/try-imports/REV.log`.  Each history takes its own writers, so
+//! that imports into other histories run beside each other (ex: firefox-try's
+//! try push's beside wubspecs' spec pull requests'; see `next_job`), and into
+//! a history, a try push's import runs alone (the history repos and the commit
+//! index take one writer at a time, and pushes based on the same new revisions
+//! would process them twice at once), but up to `WORKERS` spec pull requests'
 //! imports run at a time, mostly rendering and analyzing their specs, whose
 //! hooks take turns for their history steps by locking the file
 //! `TRY_IMPORT_LOCK` (ex: with flock(1); see
@@ -59,7 +63,7 @@
 //! server imports them again, those still open (see
 //! `spec_prs::start`).
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::unix::process::{CommandExt, ExitStatusExt};
@@ -109,6 +113,14 @@ pub const MAX_BATCH: usize = 500;
 /// they finish their history steps a batch at a time, a batch's worth (not
 /// all 10) render and analyze at once.
 pub const WORKERS: usize = 10;
+/// How many threads run imports: one more than a history's spec pull
+/// requests' imports can use (`WORKERS`), so that an import into another
+/// history needn't wait for theirs.  (On 2026-11-19, config8's web server
+/// restored 416 of wubspecs' spec pull requests, mostly the HTML Standard's,
+/// which its history's lock bounds, using 20-35% of its 32 cores and 15-22 GB
+/// of its 123, while firefox-try's try push requested at the start waited
+/// behind all of them; a firefox-try import uses up to 24 cores and 19 GB.)
+pub const THREADS: usize = WORKERS + 1;
 /// The most revisions an import processes (see import-try-push.sh), which
 /// includes those of its base which are newer than the tree's revision.
 pub const MAX_REVISIONS: usize = 2000;
@@ -598,19 +610,81 @@ struct Job {
 #[derive(Default)]
 struct State {
     queue: VecDeque<Job>,
+    /// The jobs of `queue` restored from the previous index's web server (see
+    /// `TryImports::restore`), which people's requests go before.
+    restored: HashSet<Job>,
     /// The running jobs, when each started, and its step.
     running: Vec<(Job, Instant, String)>,
     failed: HashMap<Job, (String, Instant)>,
 }
 
-/// Whether the import of `rev` can start beside the imports of `running`: a
-/// spec pull request's beside fewer than `WORKERS` others, all spec pull
-/// requests', and a try push's alone.
+/// Whether the import of `rev` can start beside the imports of `running` into
+/// the same history: a spec pull request's beside fewer than `WORKERS` others,
+/// all spec pull requests', and a try push's alone.
 fn can_start(rev: &str, running: &[&str]) -> bool {
     match is_pull_request(rev) {
         true => running.len() < WORKERS && running.iter().all(|rev| is_pull_request(rev)),
         false => running.is_empty(),
     }
+}
+
+/// The history the imports into the tree `tree_name` write (its history
+/// directory), which takes its own writers (see `can_start`): trees sharing
+/// one (ex: firefox-disco's and firefox-try's) share them.
+fn history_key(cfg: &Config, tree_name: &str) -> String {
+    cfg.trees
+        .get(tree_name)
+        .and_then(|tree| tree.paths.history_path.clone())
+        .unwrap_or_else(|| tree_name.to_string())
+}
+
+/// Which of `queue`'s jobs starts next beside the `running` ones (the
+/// histories of trees being `history_of`'s): the first which can (see
+/// `can_start`) beside those running into its history, but not after one into
+/// its history which can't (into a history, imports start in the order they
+/// were asked for: a try push's waits for the running ones, and those after it
+/// for it).
+fn next_job(
+    queue: &VecDeque<Job>,
+    running: &[&Job],
+    history_of: &dyn Fn(&str) -> String,
+) -> Option<usize> {
+    let mut waiting: HashSet<String> = HashSet::new();
+    for (index, job) in queue.iter().enumerate() {
+        let history = history_of(&job.tree);
+        if waiting.contains(&history) {
+            continue;
+        }
+        let beside: Vec<&str> = running
+            .iter()
+            .filter(|running| history_of(&running.tree) == history)
+            .map(|running| running.rev.as_str())
+            .collect();
+        if can_start(&job.rev, &beside) {
+            return Some(index);
+        }
+        waiting.insert(history);
+    }
+    None
+}
+
+/// How many imports are ahead of the queued `job` in `state` into its history
+/// (those running into it, and queued before it): those it waits for.
+fn queued_ahead(state: &State, job: &Job, history_of: &dyn Fn(&str) -> String) -> Option<usize> {
+    let position = state.queue.iter().position(|queued| queued == job)?;
+    let history = history_of(&job.tree);
+    let queued = state
+        .queue
+        .iter()
+        .take(position)
+        .filter(|queued| history_of(&queued.tree) == history)
+        .count();
+    let running = state
+        .running
+        .iter()
+        .filter(|(running, _, _)| history_of(&running.tree) == history)
+        .count();
+    Some(queued + running)
 }
 
 #[derive(Default)]
@@ -640,10 +714,8 @@ impl TryImports {
                     step: step.clone(),
                 };
             }
-            if let Some(ahead) = state.queue.iter().position(|queued| *queued == job) {
-                return ImportStatus::Queued {
-                    ahead: ahead + state.running.len(),
-                };
+            if let Some(ahead) = queued_ahead(&state, &job, &|tree| history_key(cfg, tree)) {
+                return ImportStatus::Queued { ahead };
             }
             if let Some((message, at)) = state.failed.get(&job) {
                 return ImportStatus::Failed {
@@ -757,22 +829,43 @@ impl TryImports {
     ) -> Result<usize, &'static str> {
         let jobs = {
             let mut state = self.state.lock().unwrap();
-            let jobs: Vec<Job> = revs
+            let requested: Vec<Job> = revs
                 .iter()
                 .map(|rev| Job {
                     tree: tree_name.to_string(),
                     rev: rev.to_string(),
                 })
+                .collect();
+            // (A person's request for a restored import moves it before the
+            // restored ones, with the request's others.)
+            let promoted: Vec<Job> = match limited {
+                true => requested
+                    .iter()
+                    .filter(|job| state.restored.contains(job))
+                    .cloned()
+                    .collect(),
+                false => vec![],
+            };
+            for job in &promoted {
+                state.restored.remove(job);
+                state.queue.retain(|queued| queued != job);
+            }
+            let jobs: Vec<Job> = requested
+                .into_iter()
                 .filter(|job| {
                     !state.queue.contains(job)
                         && !state.running.iter().any(|(running, _, _)| running == job)
                 })
                 .collect();
             for pull_requests in [false, true] {
+                // (The restored imports don't count, as people's requests go
+                // before them.)
                 let queued = state
                     .queue
                     .iter()
-                    .filter(|job| is_pull_request(&job.rev) == pull_requests)
+                    .filter(|job| {
+                        is_pull_request(&job.rev) == pull_requests && !state.restored.contains(job)
+                    })
                     .count();
                 let asked = jobs
                     .iter()
@@ -786,6 +879,11 @@ impl TryImports {
                         );
                     }
                     true if asked > 0 && queued + asked > MAX_QUEUED_PULL_REQUESTS => {
+                        // (Put back what was promoted, as it was.)
+                        for job in &promoted {
+                            state.restored.insert(job.clone());
+                            state.queue.push_back(job.clone());
+                        }
                         return Err(
                             "Too many pull requests are waiting to be imported; try again later",
                         );
@@ -793,11 +891,24 @@ impl TryImports {
                     _ => {}
                 }
             }
+            // People's requests go before the restored imports, which go last.
+            let mut at = match limited {
+                true => state
+                    .queue
+                    .iter()
+                    .position(|queued| state.restored.contains(queued))
+                    .unwrap_or(state.queue.len()),
+                false => state.queue.len(),
+            };
             for job in &jobs {
                 state.failed.remove(job);
-                state.queue.push_back(job.clone());
+                if !limited {
+                    state.restored.insert(job.clone());
+                }
+                state.queue.insert(at, job.clone());
+                at += 1;
             }
-            jobs.len()
+            jobs.len() - promoted.iter().filter(|job| jobs.contains(job)).count()
         };
         self.queued.notify_all();
         Ok(jobs)
@@ -818,8 +929,8 @@ impl TryImports {
     }
 
     /// Perform the imports as they're asked for, forever, as one of the
-    /// `WORKERS` threads running this, starting each when it can (see
-    /// `can_start`), and after each which succeeds, `precompute` (tree, push)
+    /// `THREADS` threads running this, starting each when it can (see
+    /// `next_job`), and after each which succeeds, `precompute` (tree, push)
     /// what its pages show which takes long to compute (ex: its canvas and
     /// its slicing; see the web-server's `precompute_try_push`), before its
     /// status says it's imported (as `Running` until then, with the step
@@ -830,17 +941,15 @@ impl TryImports {
             let job = {
                 let mut state = self.state.lock().unwrap();
                 loop {
-                    // (In the order they were asked for: a try push's import
-                    // waits for the running ones, and those after it for it.)
-                    let startable = state.queue.front().is_some_and(|job| {
-                        let running: Vec<&str> = state
-                            .running
-                            .iter()
-                            .map(|(job, _, _)| job.rev.as_str())
-                            .collect();
-                        can_start(&job.rev, &running)
-                    });
-                    if startable && let Some(job) = state.queue.pop_front() {
+                    // (Into a history, in the order they were asked for; see
+                    // `next_job`.)
+                    let next = {
+                        let running: Vec<&Job> =
+                            state.running.iter().map(|(job, _, _)| job).collect();
+                        next_job(&state.queue, &running, &|tree| history_key(cfg, tree))
+                    };
+                    if let Some(job) = next.and_then(|index| state.queue.remove(index)) {
+                        state.restored.remove(&job);
                         state
                             .running
                             .push((job.clone(), Instant::now(), String::new()));
@@ -1281,6 +1390,114 @@ mod tests {
         assert!(can_start("0123456789ab", &[]));
         assert!(!can_start("0123456789ab", &["dom/2"]));
         assert!(!can_start("dom/1", &["0123456789ab"]));
+    }
+
+    fn job(tree: &str, rev: &str) -> Job {
+        Job {
+            tree: tree.to_string(),
+            rev: rev.to_string(),
+        }
+    }
+
+    /// Each history takes its own writers: imports into other histories run
+    /// beside each other, and into a history, they start in the order they
+    /// were asked for.  (firefox-disco and firefox-try share a history.)
+    #[test]
+    fn test_next_job() {
+        let history_of = |tree: &str| match tree {
+            "firefox-disco" | "firefox-try" => "firefox-shared".to_string(),
+            tree => tree.to_string(),
+        };
+        let queue = |jobs: &[Job]| jobs.iter().cloned().collect::<VecDeque<Job>>();
+        let next = |queued: &[Job], running: &[Job]| {
+            let running: Vec<&Job> = running.iter().collect();
+            next_job(&queue(queued), &running, &history_of)
+        };
+        let push = job("firefox-try", "0123456789ab");
+        let specs: Vec<Job> = (0..WORKERS)
+            .map(|i| job("wubspecs", &format!("html/{}", i)))
+            .collect();
+        // A try push's import beside a spec's full set of pull requests'.
+        assert_eq!(next(std::slice::from_ref(&push), &specs), Some(0));
+        // But not beside another import into its history.
+        let other = job("firefox-disco", "fedcba987654");
+        assert_eq!(
+            next(std::slice::from_ref(&push), std::slice::from_ref(&other)),
+            None
+        );
+        // A spec pull request's after it, beside it.
+        assert_eq!(
+            next(
+                &[push.clone(), job("wubspecs", "dom/1")],
+                std::slice::from_ref(&other)
+            ),
+            Some(1)
+        );
+        // Into a history, those after one which can't start wait for it.
+        let wub_push = job("wubspecs", "abcdefabcdef");
+        assert_eq!(
+            next(
+                &[wub_push, job("wubspecs", "dom/2")],
+                &[job("wubspecs", "dom/1")]
+            ),
+            None
+        );
+        assert_eq!(next(&[], &[]), None);
+    }
+
+    /// People's requests go before the restored imports (and move theirs
+    /// before them), which don't count toward the queue's limits.
+    #[test]
+    fn test_queue_order() {
+        let imports = TryImports::default();
+        let order = || {
+            let state = imports.state.lock().unwrap();
+            state
+                .queue
+                .iter()
+                .map(|job| job.rev.clone())
+                .collect::<Vec<_>>()
+        };
+        let revs = |revs: &[&str]| revs.iter().map(|rev| rev.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            imports.enqueue_jobs("wubspecs", &revs(&["dom/1", "dom/2", "dom/3"]), false),
+            Ok(3)
+        );
+        assert_eq!(imports.enqueue("wubspecs", &revs(&["html/4"])), Ok(1));
+        assert_eq!(order(), ["html/4", "dom/1", "dom/2", "dom/3"]);
+        // (A request for a restored one moves it; it was waiting already.)
+        assert_eq!(
+            imports.enqueue("wubspecs", &revs(&["dom/3", "html/5"])),
+            Ok(1)
+        );
+        assert_eq!(order(), ["html/4", "dom/3", "html/5", "dom/1", "dom/2"]);
+        // How many are ahead, into its history.
+        let history_of = |tree: &str| tree.to_string();
+        {
+            let state = imports.state.lock().unwrap();
+            assert_eq!(
+                queued_ahead(&state, &job("wubspecs", "dom/1"), &history_of),
+                Some(3)
+            );
+            assert_eq!(
+                queued_ahead(&state, &job("wubspecs", "html/4"), &history_of),
+                Some(0)
+            );
+            assert_eq!(
+                queued_ahead(&state, &job("wubspecs", "html/9"), &history_of),
+                None
+            );
+        }
+        // The restored ones don't count toward the limits.
+        let many: Vec<String> = (0..MAX_QUEUED_PULL_REQUESTS - 3)
+            .map(|i| format!("w3c/{}", i))
+            .collect();
+        assert_eq!(
+            imports.enqueue("wubspecs", &many),
+            Ok(MAX_QUEUED_PULL_REQUESTS - 3)
+        );
+        assert!(imports.enqueue("wubspecs", &revs(&["w3c/a"])).is_err());
+        assert_eq!(order().last().map(String::as_str), Some("dom/2"));
     }
 
     #[test]
