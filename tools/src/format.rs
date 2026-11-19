@@ -9106,8 +9106,9 @@ fn interdiff_commits_html(tree_name: &str, side: &InterdiffSide) -> String {
 }
 
 /// The words, runs of whitespace, and other characters of `text`, for diffs of
-/// commit messages.
-fn message_words(text: &str) -> Vec<&str> {
+/// commit messages, and of try pushes' changed lines (see
+/// `try_review::mark_word_changes`).
+pub(crate) fn message_words(text: &str) -> Vec<&str> {
     let class = |c: char| {
         if c.is_alphanumeric() || c == '_' {
             0

@@ -120,12 +120,21 @@ pub fn note_row(line: u32, note: &str) -> String {
 }
 
 /// How many characters of text `html` has: without its tags, and with each
-/// entity (ex: `&lt;`) as one.
+/// entity (ex: `&lt;`) as one.  A tag ends at its first `>` outside quotes:
+/// attribute values can have `>` (ex: `data-symbols="T_Foo<int>"`, and a
+/// macro's `data-expansions`, whose HTML has tags of its own).
 fn text_chars(html: &str) -> usize {
     let mut chars = 0;
     let (mut in_tag, mut in_entity) = (false, false);
+    let mut quote = None;
     for c in html.trim_end_matches('\n').chars() {
         match c {
+            _ if in_tag && quote.is_some() => {
+                if quote == Some(c) {
+                    quote = None;
+                }
+            }
+            '"' | '\'' if in_tag => quote = Some(c),
             '<' => in_tag = true,
             '>' if in_tag => in_tag = false,
             _ if in_tag => {}
@@ -695,6 +704,18 @@ mod tests {
         assert!(rows[&40].html.contains(&limit));
         assert_eq!(grouped_digits(1_788_108), "1,788,108");
         assert_eq!(grouped_digits(999), "999");
+
+        // Attribute values' `>` don't end their tags, so a line whose markup
+        // is long (ex: a macro's expansions, whose HTML has tags of its own,
+        // and templates' symbols; config8's PolicyContainer.cpp's line 231,
+        // `MOZ_TRY(...)`, 81 characters, counted 2,128 on 2026-11-19) isn't
+        // taken for a long line.
+        let expansion = format!(
+            r#"<span data-expansions="{{&quot;M_1&quot;:{{&quot;linux64&quot;:&quot;&lt;span class=\&quot;syn_reserved\&quot; >auto&lt;/span> {}&quot;}}}}" data-symbols="M_1">MOZ_TRY</span>(<span data-symbols="F_<T_mozilla::dom::Foo>_mBar">mBar</span>);"#,
+            "z".repeat(3 * LONG_LINE_CHARS)
+        );
+        assert_eq!(text_chars(&expansion), "MOZ_TRY(mBar);".len());
+        assert_eq!(text_chars("<span title='a > b'>x</span>&amp;y"), 3);
     }
 
     #[test]

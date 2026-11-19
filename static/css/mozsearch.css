@@ -647,9 +647,12 @@ td#line-numbers {
 
 /* An excerpt's note in place of a long line's code (see the tools'
    `chunked_gzip::LONG_LINE_CHARS`). */
+/* (In the page's font rather than the code's, whose italic "l" can look like
+   an "L".) */
 .long-line-note {
   color: var(--page-subtle-foreground);
   font-style: italic;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 .breadcrumbs.stuck,
@@ -8208,6 +8211,21 @@ textarea.monospace {
 
 .tr-removed {
   background: rgba(248, 81, 73, 0.18);
+}
+
+/* A change's words which the other side doesn't have (see try_review.rs's
+   `mark_word_changes`), darker than their rows, as interdiffs' are. */
+mark.tr-word-removed,
+mark.tr-word-added {
+  padding: 0;
+  color: inherit;
+  border-radius: 2px;
+}
+mark.tr-word-removed {
+  background: rgba(248, 81, 73, 0.45);
+}
+mark.tr-word-added {
+  background: rgba(46, 160, 67, 0.45);
 }
 
 .tr-crumbs .tr-crumb-review {

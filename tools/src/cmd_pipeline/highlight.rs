@@ -95,6 +95,12 @@ pub fn row_text(row: &str) -> Option<String> {
     Some(text)
 }
 
+/// The text of `html` (a line's code, ex: a row's code cell's contents): its
+/// tags skipped and its entities decoded.
+pub fn html_text(html: &str) -> String {
+    pieces(html).filter_map(|(_, c)| c).collect()
+}
+
 /// `row` with `marks` (byte ranges of its line, sorted and disjoint, with
 /// their classes) in `<mark>`s, which close before tags and reopen after them,
 /// so they nest (ex: a match across tokens is a mark in each token).
@@ -102,12 +108,23 @@ pub fn mark_row(row: &str, marks: &[(Range<usize>, &str)]) -> String {
     let Some(cell) = code_cell(row) else {
         return row.to_string();
     };
-    let mut out = String::with_capacity(row.len() + 40 * marks.len());
-    out.push_str(&row[..cell.start]);
+    format!(
+        "{}{}{}",
+        &row[..cell.start],
+        mark_html(&row[cell.clone()], marks),
+        &row[cell.end..]
+    )
+}
+
+/// `html` (a line's code, ex: a row's code cell's contents) with `marks` (byte
+/// ranges of its text, sorted and disjoint, with their classes) in `<mark>`s,
+/// as `mark_row` marks a row's.
+pub fn mark_html(html: &str, marks: &[(Range<usize>, &str)]) -> String {
+    let mut out = String::with_capacity(html.len() + 40 * marks.len());
     let mut marks = marks.iter().peekable();
     let mut pos = 0;
     let mut open = false;
-    for (html, c) in pieces(&row[cell.clone()]) {
+    for (html, c) in pieces(html) {
         let Some(c) = c else {
             if open {
                 out.push_str("</mark>");
@@ -134,7 +151,6 @@ pub fn mark_row(row: &str, marks: &[(Range<usize>, &str)]) -> String {
     if open {
         out.push_str("</mark>");
     }
-    out.push_str(&row[cell.end..]);
     out
 }
 

@@ -1361,6 +1361,8 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
                         line.now_blame = cell(now_ctx, line.new);
                     }
                 }
+                // (And the words its changes change.)
+                mark_word_changes(&mut hunk.lines);
             }
         }
     }
@@ -2405,6 +2407,187 @@ fn element_id(part: &str, section: Section) -> String {
     format!("tr-{:012x}", hash & 0xffff_ffff_ffff)
 }
 
+/// The classes of the marks of a change's words which the other side doesn't
+/// have (see `mark_word_changes`): its removed lines', and its added lines'.
+pub const WORD_REMOVED_CLASS: &str = "tr-word-removed";
+pub const WORD_ADDED_CLASS: &str = "tr-word-added";
+
+/// The least share of a change's words (but whitespace) which both of its
+/// sides have, of those of the side with fewer, for its words to be marked
+/// (see `mark_word_changes`): a change whose sides share less rewrote its
+/// lines, rather than editing them, and all of their words would be marked.
+const WORD_DIFF_MIN_SHARED: f64 = 1.0 / 3.0;
+
+/// Mark the words of each change of a hunk's `lines` (a run of removed lines
+/// and the run of added lines after it) which the other side doesn't have, in
+/// their HTML (see `highlight::mark_html`), as interdiffs and commit messages'
+/// word diffs do, so that what a change keeps of the lines it replaces shows:
+/// the removed lines' as `WORD_REMOVED_CLASS`, and the added lines' as
+/// `WORD_ADDED_CLASS`.  But not those of a change whose sides share less than
+/// `WORD_DIFF_MIN_SHARED` of their words, nor of one with a long line (whose
+/// row has a note instead of its code; see `chunked_gzip::LONG_LINE_CHARS`).
+pub fn mark_word_changes(lines: &mut [HunkLine]) {
+    let mut i = 0;
+    while i < lines.len() {
+        if lines[i].kind != "-" {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < lines.len() && lines[i].kind == "-" {
+            i += 1;
+        }
+        let removed = i - start;
+        while i < lines.len() && lines[i].kind == "+" {
+            i += 1;
+        }
+        if i - start > removed {
+            mark_change(&mut lines[start..i], removed);
+        }
+    }
+}
+
+/// `mark_word_changes`'s marks of a change: `lines`, whose first `removed`
+/// lines are its removed ones, and the others its added ones.
+fn mark_change(lines: &mut [HunkLine], removed: usize) {
+    use crate::cmd_pipeline::highlight::{html_text, mark_html};
+    use crate::file_format::chunked_gzip::LONG_LINE_NOTE;
+
+    // Each side's lines' HTML (or their text, escaped) and text, and their
+    // words, each with its line and its byte range in it (each line's end
+    // being a word of its own, so that the words of different lines don't
+    // match).
+    type Side = (Vec<(String, String)>, Vec<(usize, std::ops::Range<usize>)>);
+    let side = |lines: &[HunkLine], then: bool| -> Option<Side> {
+        let mut texts = vec![];
+        for line in lines {
+            let html = match then {
+                true => line.then_html.clone(),
+                false => line.now_html.clone(),
+            }
+            .unwrap_or_else(|| escape(&line.text).to_string());
+            if html.contains(LONG_LINE_NOTE) {
+                return None;
+            }
+            let mut text = html_text(&html);
+            if text.ends_with('\n') {
+                text.pop();
+            }
+            texts.push((html, text));
+        }
+        let mut words = vec![];
+        for (index, (_, text)) in texts.iter().enumerate() {
+            for word in crate::format::message_words(text) {
+                let start = word.as_ptr() as usize - text.as_ptr() as usize;
+                words.push((index, start..start + word.len()));
+            }
+            words.push((index, text.len()..text.len()));
+        }
+        Some((texts, words))
+    };
+    let (Some((old_texts, old_words)), Some((new_texts, new_words))) = (
+        side(&lines[..removed], true),
+        side(&lines[removed..], false),
+    ) else {
+        return;
+    };
+    fn word_of<'a>(
+        texts: &'a [(String, String)],
+        (index, range): &(usize, std::ops::Range<usize>),
+    ) -> &'a str {
+        match range.is_empty() {
+            true => "\n",
+            false => &texts[*index].1[range.clone()],
+        }
+    }
+    let old: Vec<&str> = old_words
+        .iter()
+        .map(|word| word_of(&old_texts, word))
+        .collect();
+    let new: Vec<&str> = new_words
+        .iter()
+        .map(|word| word_of(&new_texts, word))
+        .collect();
+    let ops = similar::capture_diff_slices(similar::Algorithm::Patience, &old, &new);
+
+    // (Whether they share enough to be marked.)
+    let count_words = |words: &[&str]| words.iter().filter(|word| !word.trim().is_empty()).count();
+    let shared: usize = ops
+        .iter()
+        .filter(|op| op.tag() == similar::DiffTag::Equal)
+        .map(|op| count_words(&old[op.old_range()]))
+        .sum();
+    let fewer = count_words(&old).min(count_words(&new));
+    if fewer == 0 || (shared as f64) < WORD_DIFF_MIN_SHARED * fewer as f64 {
+        return;
+    }
+
+    // Each line's marks: the ranges of its side's words in the ops the other
+    // side doesn't have, merged.
+    let marks = |words: &[(usize, std::ops::Range<usize>)],
+                 ranges: Vec<std::ops::Range<usize>>,
+                 count: usize| {
+        let mut marks: Vec<Vec<std::ops::Range<usize>>> = vec![vec![]; count];
+        for range in ranges {
+            for (index, word) in &words[range] {
+                if word.is_empty() {
+                    continue;
+                }
+                let line = &mut marks[*index];
+                match line.last_mut() {
+                    Some(last) if last.end == word.start => last.end = word.end,
+                    _ => line.push(word.clone()),
+                }
+            }
+        }
+        marks
+    };
+    let changed =
+        |side: fn(&similar::DiffOp) -> std::ops::Range<usize>| -> Vec<std::ops::Range<usize>> {
+            ops.iter()
+                .filter(|op| op.tag() != similar::DiffTag::Equal)
+                .map(side)
+                .collect()
+        };
+    let old_marks = marks(
+        &old_words,
+        changed(similar::DiffOp::old_range),
+        old_texts.len(),
+    );
+    let new_marks = marks(
+        &new_words,
+        changed(similar::DiffOp::new_range),
+        new_texts.len(),
+    );
+    for (index, line) in lines.iter_mut().enumerate() {
+        let (texts, marks, class, html) = match index < removed {
+            true => (
+                &old_texts,
+                &old_marks[index],
+                WORD_REMOVED_CLASS,
+                &mut line.then_html,
+            ),
+            false => (
+                &new_texts,
+                &new_marks[index - removed],
+                WORD_ADDED_CLASS,
+                &mut line.now_html,
+            ),
+        };
+        if marks.is_empty() {
+            continue;
+        }
+        let index = if index < removed {
+            index
+        } else {
+            index - removed
+        };
+        let marks: Vec<(std::ops::Range<usize>, &str)> =
+            marks.iter().map(|range| (range.clone(), class)).collect();
+        *html = Some(mark_html(&texts[index].0, &marks));
+    }
+}
+
 /// A side of a hunk: its lines before (`then`, kept and removed) or after
 /// (kept and added), as a source listing's rows (so that their blame strips'
 /// popups and their symbols' menus work as a listing's do; see blame.js,
@@ -3245,6 +3428,98 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn hunk_line(kind: &str, text: &str, html: Option<&str>) -> HunkLine {
+        HunkLine {
+            kind: kind.to_string(),
+            text: text.to_string(),
+            then_html: html.filter(|_| kind != "+").map(str::to_string),
+            now_html: html.filter(|_| kind != "-").map(str::to_string),
+            ..Default::default()
+        }
+    }
+
+    /// A change's words which the other side doesn't have are marked in its
+    /// lines' HTML (around their tags, whose attributes can have `>`), each
+    /// line's words with its own line's; but not a rewrite's, nor a long
+    /// line's.
+    #[test]
+    fn test_mark_word_changes() {
+        let mut lines = vec![
+            hunk_line(" ", "int f() {", None),
+            hunk_line(
+                "-",
+                "  return foo(a, b);",
+                Some(
+                    r#"  <span class="syn_reserved">return</span> <span data-symbols="F_foo">foo</span>(a, b);"#,
+                ),
+            ),
+            hunk_line(
+                "+",
+                "  return bar(a, b, c);",
+                Some(
+                    r#"  <span class="syn_reserved">return</span> <span data-symbols="F_<T_X>_bar">bar</span>(a, b, c);"#,
+                ),
+            ),
+            hunk_line(" ", "}", None),
+        ];
+        mark_word_changes(&mut lines);
+        assert_eq!(
+            lines[1].then_html.as_deref(),
+            Some(
+                r#"  <span class="syn_reserved">return</span> <span data-symbols="F_foo"><mark class="tr-word-removed">foo</mark></span>(a, b);"#
+            )
+        );
+        assert_eq!(
+            lines[2].now_html.as_deref(),
+            Some(
+                r#"  <span class="syn_reserved">return</span> <span data-symbols="F_<T_X>_bar"><mark class="tr-word-added">bar</mark></span>(a, b<mark class="tr-word-added">, c</mark>);"#
+            )
+        );
+        assert_eq!(lines[0].then_html, None, "(kept lines aren't marked)");
+
+        // A change of two lines, and an entity.
+        let mut two = vec![
+            hunk_line("-", "a = f(1);", None),
+            hunk_line("-", "if (a < b)", None),
+            hunk_line("+", "a = f(1, x);", None),
+            hunk_line("+", "if (a <= b)", None),
+        ];
+        mark_word_changes(&mut two);
+        assert_eq!(two[0].then_html, None, "(nothing of it is removed)");
+        assert_eq!(two[1].then_html, None);
+        assert_eq!(
+            two[2].now_html.as_deref(),
+            Some(r#"a = f(1<mark class="tr-word-added">, x</mark>);"#)
+        );
+        assert_eq!(
+            two[3].now_html.as_deref(),
+            Some(r#"if (a &lt;<mark class="tr-word-added">=</mark> b)"#)
+        );
+
+        // A rewrite isn't marked.
+        let mut rewrite = vec![
+            hunk_line("-", "int x = 1;", None),
+            hunk_line("+", "return compute(y);", None),
+        ];
+        mark_word_changes(&mut rewrite);
+        assert_eq!(
+            (rewrite[0].then_html.clone(), rewrite[1].now_html.clone()),
+            (None, None)
+        );
+
+        // Nor a change with a long line's note.
+        let note = format!(
+            "{}A line of 2,001 characters, too long to show here</span>",
+            crate::file_format::chunked_gzip::LONG_LINE_NOTE
+        );
+        let mut long = vec![
+            hunk_line("-", "x = 1;", Some(&note)),
+            hunk_line("+", "x = 2;", None),
+        ];
+        mark_word_changes(&mut long);
+        assert_eq!(long[1].now_html, None);
+    }
 
     const DIFF: &str = "diff --git a.cpp a.cpp
 index 1111111..2222222 100644
