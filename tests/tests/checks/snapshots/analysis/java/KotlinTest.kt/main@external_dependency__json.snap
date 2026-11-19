@@ -1,13 +1,14 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(sl).unwrap()"
+input_file: inputs/analysis/java/KotlinTest.kt/external_dependency__json
 ---
 {
   "symbols": [
     {
-      "symbol": "S_jvm_kotlin/test/Test#",
+      "symbol": "S_jvm_org/junit/jupiter/api/Test#",
       "quality": "ExactIdentifier",
-      "from_identifier": "kotlin::test::Test"
+      "from_identifier": "org::junit::jupiter::api::Test"
     }
   ]
 }
