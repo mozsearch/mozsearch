@@ -21,11 +21,27 @@ input_file: inputs/dataflow/summary/rollup_field_edges
     ]
   },
   {
+    "from": "F_<T_rollup::Stats>_mLast",
+    "to": "_ZN3IPC11ParamTraitsIN6rollup5StatsEE5WriteEPiRKS2_",
+    "count": 1,
+    "via": [
+      "_ZN3IPC11ParamTraitsIN6rollup5StatsEE5WriteEPiRKS2_"
+    ]
+  },
+  {
     "from": "F_<T_rollup::Store>_mValue",
     "to": "F_<T_rollup::Panel>_mShown",
     "count": 1,
     "via": [
       "_ZN6rollup5Panel7RefreshEv"
+    ]
+  },
+  {
+    "from": "_ZN3IPC11ParamTraitsIN6rollup5StatsEE4ReadEPKiPS2_",
+    "to": "F_<T_rollup::Stats>_mLast",
+    "count": 1,
+    "via": [
+      "_ZN3IPC11ParamTraitsIN6rollup5StatsEE4ReadEPKiPS2_"
     ]
   },
   {

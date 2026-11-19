@@ -9,7 +9,10 @@
 # function (ex: calls-from:'nsTSubstring::Append') shows that group's calls.
 # The roll-ups that block diagrams draw (crossref's, when indexing) leave the
 # groups' calls out too (but a group's calls of its own), so that their edges
-# and counts (ex: how many subsystems use another) are without them.
+# and counts (ex: how many subsystems use another) are without them, and, for
+# data, the groups' functions' reads and writes of other classes' data (ex:
+# ParamTraits' serializers' of the classes they serialize), but of their own
+# group's classes'.
 #
 # Read when a diagram is made (the config repo's own diagram-mapping.toml,
 # else this one), so changing it doesn't need a reindex, but for the

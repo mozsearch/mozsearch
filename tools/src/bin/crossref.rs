@@ -2820,11 +2820,20 @@ impl<'a> InternalClasses<'a> {
 /// function's class's own state (see `InternalClasses`) is the class's, and
 /// a class held by value in only one other is its owner's (see
 /// `unique_owners`); but not test code's or generated code's (see
-/// `rollup_left_out`).
+/// `rollup_left_out`), nor the reads and writes of other classes' data by
+/// the functions of diagram-mapping.toml's groups of left-out calls (by
+/// `left_out_group`, as `call_edges` leaves out the calls of them), but of
+/// their own group's classes'.  (Ex: IPC's `ParamTraits` specializations',
+/// which serialize the classes they're of: how messages are sent, whose data
+/// roll-ups have as IPDL messages' parameters.  All of a template's explicit
+/// specializations being one class, `IPC::ParamTraits` was a class of the
+/// subsystem with the most of them, with flows to and from most of the
+/// tree's serialized classes.)
 fn data_edges(
     meta_table: &MetaTable,
     field_edges: &[FieldEdge],
     left_out: &UstrSet,
+    left_out_group: &dyn Fn(&Ustr, &str) -> Option<usize>,
 ) -> Vec<UnitEdge> {
     let mut internal = InternalClasses::new(meta_table);
     let owners = unique_owners(meta_table);
@@ -2847,13 +2856,36 @@ fn data_edges(
             .find(|sym| !is_field_sym(sym))
             .or_else(|| edge.via.first().copied())
     };
+    // (Each function's and class's group of left-out calls, once; a class's
+    // as `LeftOutClasses` in cmd_block_diagram.rs has it, by its functions'
+    // prefix.)
+    let mut groups: UstrMap<Option<usize>> = UstrMap::default();
+    let mut group_of = |sym: Ustr| -> Option<usize> {
+        *groups.entry(sym).or_insert_with(|| {
+            let meta = meta_table.get(&sym)?;
+            if matches!(meta.kind.as_str(), "class" | "struct" | "union") {
+                left_out_group(&sym, &format!("{}::", meta.pretty))
+            } else {
+                left_out_group(&sym, &meta.pretty)
+            }
+        })
+    };
     field_edges
         .iter()
         .filter(|edge| !function_of(edge).is_some_and(|f| left_out.contains(&f)))
-        .map(|edge| {
+        .filter_map(|edge| {
             let mut from_class = rollup_class(meta_table, &edge.from);
             let mut to_class = rollup_class(meta_table, &edge.to);
             let function = function_of(edge);
+            if let Some(group) = function.and_then(&mut group_of)
+                && ![edge.from, edge.to]
+                    .into_iter()
+                    .filter(|sym| is_field_sym(sym))
+                    .filter_map(|field| rollup_class(meta_table, &field))
+                    .any(|class| group_of(class) == Some(group))
+            {
+                return None;
+            }
             if let Some(context) = function.and_then(|f| rollup_class(meta_table, &f)) {
                 let own = internal.of(context);
                 for class in [&mut from_class, &mut to_class] {
@@ -2864,7 +2896,7 @@ fn data_edges(
             }
             from_class = from_class.map(owner_of);
             to_class = to_class.map(owner_of);
-            UnitEdge {
+            Some(UnitEdge {
                 from: edge.from,
                 to: edge.to,
                 from_class,
@@ -2872,7 +2904,7 @@ fn data_edges(
                 count: edge.count,
                 accessor: false,
                 ipc: false,
-            }
+            })
         })
         .collect()
 }
@@ -3138,7 +3170,7 @@ fn add_rollups(
         let call_count = calls.len();
         drop(calls);
         let mark = Instant::now();
-        let data = data_edges(view, &field_edges, &left_out);
+        let data = data_edges(view, &field_edges, &left_out, &left_out_group);
         let data_edge_secs = mark.elapsed().as_secs_f64();
         let mark = Instant::now();
         let (mut data_rollups, data_subsystems) = rollup_edges(view, &data);

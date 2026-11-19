@@ -177,5 +177,51 @@ input_file: inputs/dataflow/summary/view_summary
         }
       }
     ]
+  },
+  {
+    "sym": "_ZN3IPC11ParamTraitsIN6rollup5StatsEE5WriteEPiRKS2_",
+    "pretty": "IPC::ParamTraits<rollup::Stats>::Write",
+    "path": "rollup/view.cpp",
+    "line": 60,
+    "category": "small",
+    "events": 1,
+    "flows": [
+      {
+        "from": {
+          "k": "param",
+          "i": 1,
+          "fields": [
+            "F_<T_rollup::Stats>_mLast"
+          ]
+        },
+        "to": {
+          "k": "param",
+          "i": 0
+        }
+      }
+    ]
+  },
+  {
+    "sym": "_ZN3IPC11ParamTraitsIN6rollup5StatsEE4ReadEPKiPS2_",
+    "pretty": "IPC::ParamTraits<rollup::Stats>::Read",
+    "path": "rollup/view.cpp",
+    "line": 63,
+    "category": "small",
+    "events": 2,
+    "flows": [
+      {
+        "from": {
+          "k": "param",
+          "i": 0
+        },
+        "to": {
+          "k": "param",
+          "i": 1,
+          "fields": [
+            "F_<T_rollup::Stats>_mLast"
+          ]
+        }
+      }
+    ]
   }
 ]
