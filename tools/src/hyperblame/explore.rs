@@ -791,6 +791,7 @@ mod tests {
             rev: rev.to_string(),
             iso_date: String::new(),
             backout,
+            phabricator_revision: None,
         };
         let (landing, backout, flagged) = ("a".repeat(40), "b".repeat(40), "c".repeat(40));
         let write = |rev: &str, backs_out: &[&str]| {
@@ -819,6 +820,7 @@ mod tests {
             rev: rev.to_string(),
             iso_date: String::new(),
             backout: false,
+            phabricator_revision: None,
         };
         let commits = vec![commit("a"), commit("b")];
         let changes: Vec<CommitChanges> = vec![
@@ -897,6 +899,7 @@ mod tests {
             rev: rev.to_string(),
             iso_date: String::new(),
             backout: false,
+            phabricator_revision: None,
         };
         let commits = vec![commit("a"), commit("b")];
         // `Foo::bar` changed in old.rs, then moved to new/new.rs as `Foo::baz`.

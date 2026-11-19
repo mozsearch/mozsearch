@@ -8427,6 +8427,7 @@ fn interdiff_side<'r>(repo: &'r Repository, revs: &str) -> Result<InterdiffSide<
             rev: commit.id().to_string(),
             iso_date,
             backout: false,
+            phabricator_revision: None,
         });
     }
     if refs.is_empty() {

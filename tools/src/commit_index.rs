@@ -140,6 +140,17 @@ pub struct CommitRef {
     pub iso_date: String,
     /// Whether the commit is a backout.
     pub backout: bool,
+    /// The Phabricator revision its message's "Differential Revision:" line
+    /// links to (ex: 123456, for D123456), where it's wanted: a try push's
+    /// stack's commits (see `try_import::try_push`), so that review dashboards
+    /// can tell which of a stack's revisions a push has, and link to their
+    /// commits.
+    #[serde(
+        rename = "phabricatorRevision",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub phabricator_revision: Option<u64>,
 }
 
 /// A commit's ref, as the index has it (its date in UTC, and whether it's a
@@ -151,6 +162,7 @@ pub fn commit_ref(commit: &git2::Commit) -> CommitRef {
         rev: commit.id().to_string(),
         iso_date: iso_date(commit),
         backout: is_backout(&message),
+        phabricator_revision: None,
     }
 }
 
@@ -241,6 +253,12 @@ pub fn message_bugs(message: &str) -> Vec<String> {
         .collect();
     bugs.dedup();
     bugs
+}
+
+/// The number of the first Phabricator revision a commit message links to
+/// with a "Differential Revision:" line (ex: 12345, for D12345), if any.
+pub fn message_phab_revision(message: &str) -> Option<u64> {
+    message_phab_revs(message).first()?[1..].parse().ok()
 }
 
 /// The Phabricator revisions (ex: "D12345") a commit message links to with a
@@ -877,6 +895,7 @@ impl CommitIndex {
                     rev: rev.clone(),
                     iso_date: iso_date.clone(),
                     backout: flags == "b",
+                    phabricator_revision: None,
                 }),
                 _ => None,
             })
@@ -1329,6 +1348,34 @@ mod tests {
                 "Bug 1 - Thing\n\nDifferential Revision: https://phabricator.services.mozilla.com/D12345\n"
             ),
             vec!["D12345"]
+        );
+        assert_eq!(
+            message_phab_revision(
+                "Bug 1 - Thing\n\nDifferential Revision: https://phabricator.services.mozilla.com/D12345\n"
+            ),
+            Some(12345)
+        );
+        assert_eq!(message_phab_revision("try_task_config for D12345"), None);
+        // (Not in other commits' refs' JSON, which don't have it.)
+        let commit = CommitRef {
+            rev: "a".repeat(40),
+            iso_date: "2026-11-19T00:00:00Z".to_string(),
+            backout: false,
+            phabricator_revision: None,
+        };
+        assert!(
+            !serde_json::to_string(&commit)
+                .unwrap()
+                .contains("phabricator")
+        );
+        let with = CommitRef {
+            phabricator_revision: Some(12345),
+            ..commit
+        };
+        assert!(
+            serde_json::to_string(&with)
+                .unwrap()
+                .contains(r#""phabricatorRevision":12345"#)
         );
     }
 }

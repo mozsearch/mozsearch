@@ -485,10 +485,17 @@ pub fn try_push(cfg: &Config, tree_name: &str, rev: &str) -> Option<TryPush> {
     let git = tree_config.git.as_ref()?;
     imported_head(cfg, tree_name, rev)?;
     let (stack, task_selections) = push_commits(cfg, tree_name, rev);
+    // (With each commit's Phabricator revision, for review dashboards; see
+    // `CommitRef::phabricator_revision`.)
     let mut stack: Vec<crate::commit_index::CommitRef> = stack
         .into_iter()
         .filter_map(|oid| git.repo.find_commit(oid).ok())
-        .map(|commit| crate::commit_index::commit_ref(&commit))
+        .map(|commit| crate::commit_index::CommitRef {
+            phabricator_revision: crate::commit_index::message_phab_revision(
+                &String::from_utf8_lossy(commit.message_bytes()),
+            ),
+            ..crate::commit_index::commit_ref(&commit)
+        })
         .collect();
     let truncated = stack.len() > crate::hyperblame::explore::MAX_COMMITS;
     stack.truncate(crate::hyperblame::explore::MAX_COMMITS);

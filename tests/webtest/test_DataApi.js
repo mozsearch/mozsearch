@@ -163,6 +163,8 @@ add_task(async function test_DataApiTryContext() {
   const push = await getJson(`${API}/try-push?push=${PUSH}`);
   is(push.semantic_head, head, "and the imported push's semantic head");
   ok(push.stack?.length, "and stack");
+  is(push.stack[0].phabricatorRevision, 6789,
+     "whose commits have their Phabricator revisions (from their Differential Revision lines)");
   const revs = push.stack.map(commit => commit.rev).join(",");
   const explore = await getJson(`${API}/explore?revs=${revs}&stack_url=try/${PUSH}`);
   is(explore.commits?.length, push.stack.length, "as an explore page's data");
