@@ -327,6 +327,23 @@ impl AbstractServer for LocalIndex {
         Ok(crate::try_import::try_push(&cfg, &self.tree_name, &push))
     }
 
+    async fn phabricator_try_push(
+        &self,
+        revision: u64,
+    ) -> Result<Option<crate::code_review::RevisionTryPush>> {
+        // (The config, which isn't Send, only until the bot's API is asked.)
+        let base = {
+            let cfg = self.tree_config_loaded();
+            if crate::format::hg_try_importing(&cfg, &self.tree_name).is_none() {
+                return Err(ServerError::Unsupported);
+            }
+            cfg.code_review_url
+                .clone()
+                .unwrap_or_else(|| crate::code_review::CODE_REVIEW_URL.to_string())
+        };
+        Ok(crate::code_review::cached_try_push_of_revision(&base, revision).await)
+    }
+
     async fn spec_prs(&self, spec: Option<&str>) -> Result<Vec<crate::spec_prs::RepoSummary>> {
         let cfg = self.tree_config_loaded();
         Ok(match spec {

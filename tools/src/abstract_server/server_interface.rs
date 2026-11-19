@@ -698,6 +698,18 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The latest try push the code review bot made of Phabricator revision
+    /// `revision`'s diffs (see `code_review::RevisionTryPush`), if any, for
+    /// review dashboards (the data API's `phab-try`), if the tree's try
+    /// pushes are imported (here, or by the tree importing them; see
+    /// `format::hg_try_importing`).
+    async fn phabricator_try_push(
+        &self,
+        _revision: u64,
+    ) -> Result<Option<crate::code_review::RevisionTryPush>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The summaries of the open pull requests of the tree's spec
     /// repositories (see `spec_prs`), all of them or `spec`'s.
     async fn spec_prs(&self, _spec: Option<&str>) -> Result<Vec<crate::spec_prs::RepoSummary>> {

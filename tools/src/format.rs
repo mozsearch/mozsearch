@@ -2359,7 +2359,7 @@ pub fn dwim_lookup(
 /// The tree importing the tree's pushes to hg's try (itself or another; see
 /// `try_import::importing_tree`), if one does: one with a hook, whose pushes
 /// aren't spec repositories' pull requests (see `try_import::url_push`).
-fn hg_try_importing(cfg: &Config, tree_name: &str) -> Option<String> {
+pub(crate) fn hg_try_importing(cfg: &Config, tree_name: &str) -> Option<String> {
     let importing =
         crate::try_import::importing_tree(cfg, tree_name).unwrap_or_else(|| tree_name.to_string());
     crate::try_import::hook(cfg, &importing)?;

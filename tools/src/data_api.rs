@@ -87,6 +87,12 @@
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
 //!   status, and asking for its import; served by the web-server, which
 //!   performs imports (see `Host`).
+//! - `phab-try?revision=`: the latest try push the code review bot made of a
+//!   Phabricator revision's diffs (`{push, diff_phid, created}`, or `null`;
+//!   the diff's PHID being Phabricator's), for review dashboards, which can't
+//!   ask the bot's API (it has no CORS
+//!   headers); served by the web-server, uncached (see
+//!   `code_review::cached_try_push_of_revision`).
 //! - `spec-prs[?spec=]`: the summaries of the open pull requests of the
 //!   tree's spec repositories, or of one (see `spec_prs`); and
 //!   `spec-prs-sync-status[?spec=]` and POST `spec-prs-sync[?spec=]`, their
@@ -341,6 +347,13 @@ const ROUTES: &[Route] = &[
         takes_path: false,
         params: &["push"],
         host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "phab-try",
+        takes_path: false,
+        params: &["revision"],
+        host: Host::WebServer,
         post: false,
     },
     Route {
@@ -703,6 +716,21 @@ fn push_param(params: &Params) -> Result<String, ApiError> {
     crate::try_import::normalize_push(params.required("push")?).ok_or_else(|| {
         bad("push must be a try push's revision (12 to 40 hexadecimal digits), or a spec's pull request (SPEC/NUMBER)")
     })
+}
+
+/// A Phabricator revision's number, from the `revision` parameter (ex:
+/// `123456`, or `D123456`).
+fn revision_param(params: &Params) -> Result<u64, ApiError> {
+    let value = params.required("revision")?;
+    value
+        .strip_prefix('D')
+        .unwrap_or(value)
+        .parse::<u64>()
+        .ok()
+        .filter(|number| *number > 0)
+        .ok_or_else(|| {
+            bad("revision must be a Phabricator revision's number (ex: 123456, or D123456)")
+        })
 }
 
 /// A spec repository's directory in the forest, from the optional `spec`
@@ -1078,6 +1106,13 @@ async fn route_body(
         }
         "try-push" => {
             let push = server.try_push(&push_param(params)?).await.map_err(error)?;
+            Ok(Body::json(&serde_json::to_value(push).unwrap_or_default()))
+        }
+        "phab-try" => {
+            let push = server
+                .phabricator_try_push(revision_param(params)?)
+                .await
+                .map_err(error)?;
             Ok(Body::json(&serde_json::to_value(push).unwrap_or_default()))
         }
         "spec-prs" => {
@@ -2082,6 +2117,32 @@ mod tests {
             get("/fake/api/v1/try-status?push=0123456789ab").await.0,
             StatusCode::NOT_FOUND
         );
+        assert_eq!(
+            get("/fake/api/v1/phab-try?revision=123456").await.0,
+            StatusCode::NOT_FOUND
+        );
+        for url in [
+            "/fake/api/v1/phab-try?revision=D",
+            "/fake/api/v1/phab-try?revision=0",
+            "/fake/api/v1/phab-try?revision=12a",
+            "/fake/api/v1/phab-try",
+        ] {
+            assert_eq!(
+                respond(
+                    &FakeServers,
+                    Host::WebServer,
+                    false,
+                    false,
+                    &url.parse().unwrap()
+                )
+                .await
+                .unwrap_err()
+                .status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{}",
+                url
+            );
+        }
         assert_eq!(
             respond(
                 &FakeServers,

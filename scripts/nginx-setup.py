@@ -707,8 +707,10 @@ for repo in config['trees']:
         ])
         # but for its routes for try pushes' imports (and spec repositories'
         # pull requests') and pull request summaries' syncs, which the
-        # web-server performs, and whose statuses (and summaries) change.
-        location(f'~ ^/{repo}/api/v1/(try-(status|import)|spec-prs(-sync|-sync-status|-imports?|-imported)?)$', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+        # web-server performs, and whose statuses (and summaries) change, and
+        # its route for Phabricator revisions' latest try pushes (see the
+        # tools' `code_review`), which change with their diffs.
+        location(f'~ ^/{repo}/api/v1/(try-(status|import)|phab-try|spec-prs(-sync|-sync-status|-imports?|-imported)?)$', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 
     # Show different icons for the testing servers.
     print(f'  rewrite ^/{repo}/static/icons/search.png$ /{repo}/static/icons/$favicon permanent;')
