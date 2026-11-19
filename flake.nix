@@ -30,6 +30,32 @@
       system: let
         pkgs = import nixpkgs {
           inherit system;
+
+          overlays = [
+            (
+              final: prev: {
+                openjdk17_headless = prev.openjdk17_headless.overrideAttrs rec {
+                  version = "17.0.21.1+2";
+                  src = final.fetchFromGitHub {
+                    owner = "openjdk";
+                    repo = "jdk17u";
+                    rev = "refs/tags/jdk-${version}";
+                    hash = "sha256-b7bPdI2QDIN/199mKEIHkOeL3uAMCZ7PECnUYiBQmqY=";
+                  };
+                };
+
+                openjdk21_headless = prev.openjdk21_headless.overrideAttrs rec {
+                  version = "21.0.13.1+2";
+                  src = final.fetchFromGitHub {
+                    owner = "openjdk";
+                    repo = "jdk21u";
+                    rev = "refs/tags/jdk-${version}";
+                    hash = "sha256-FnUmoKUEztFXRIrzGRRccFlVkR3iB9Liv54HLOgoawM=";
+                  };
+                };
+              }
+            )
+          ];
         };
 
         craneLib = crane.mkLib pkgs;
