@@ -286,6 +286,15 @@ pub struct TreeConfigPaths {
     /// the same revision's); see scripts/web-analysis-share.sh.
     #[serde(default)]
     pub web_analysis_from: Option<String>,
+    /// How many of the tree's try pushes' imports can run at a time (into its
+    /// history; see `try_import::can_start`), if its import-try hook takes
+    /// `TRY_IMPORT_LOCK` for its steps writing its history and its shared
+    /// repository, and its other steps can run beside each other (ex:
+    /// firefox-try's, whose semantic analyses then take one of as many
+    /// workspaces; the hook's `TRY_IMPORT_WORKERS`): 1 if it isn't set, each
+    /// alone.
+    #[serde(default)]
+    pub try_import_workers: Option<usize>,
     /// Where the tree's pages send searches: router.py's `/search` (the
     /// default), or the pipeline-server's `/query/default` (`"query"`); see
     /// `SearchEndpoint` and `search_url`.

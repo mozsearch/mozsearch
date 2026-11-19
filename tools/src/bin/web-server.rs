@@ -2042,10 +2042,10 @@ async fn main() {
         });
     }
 
-    // Try pushes' imports, as they're asked for, on `THREADS` threads (into a
-    // history, only spec pull requests' run beside others); see
-    // `tools::try_import`.
-    for _ in 0..tools::try_import::THREADS {
+    // Try pushes' imports, as they're asked for, on `threads` threads (into a
+    // history, spec pull requests', and those of a tree's try pushes which its
+    // `try_import_workers` allows, run beside others); see `tools::try_import`.
+    for _ in 0..tools::try_import::threads(&cfg) {
         let cfg = cfg.clone();
         let runtime = tokio::runtime::Handle::current();
         std::thread::spawn(move || {

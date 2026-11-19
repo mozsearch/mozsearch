@@ -31,7 +31,7 @@
 //!
 //! Imports start in the order they were asked for (people's before those
 //! restored from the previous index's web server; see `TryImports::restore`),
-//! on `THREADS` threads, each running the hook at a lower priority than the
+//! on `threads` threads, each running the hook at a lower priority than the
 //! server's (`nice`) and in its own process group, so that it and what it runs
 //! can be killed after `TIME_LIMIT`, with its output in
 //! `HISTORY_ROOT/try-imports/REV.log`.  Each history takes its own writers, so
@@ -113,14 +113,6 @@ pub const MAX_BATCH: usize = 500;
 /// they finish their history steps a batch at a time, a batch's worth (not
 /// all 10) render and analyze at once.
 pub const WORKERS: usize = 10;
-/// How many threads run imports: one more than a history's spec pull
-/// requests' imports can use (`WORKERS`), so that an import into another
-/// history needn't wait for theirs.  (On 2026-11-19, config8's web server
-/// restored 416 of wubspecs' spec pull requests, mostly the HTML Standard's,
-/// which its history's lock bounds, using 20-35% of its 32 cores and 15-22 GB
-/// of its 123, while firefox-try's try push requested at the start waited
-/// behind all of them; a firefox-try import uses up to 24 cores and 19 GB.)
-pub const THREADS: usize = WORKERS + 1;
 /// The most revisions an import processes (see import-try-push.sh), which
 /// includes those of its base which are newer than the tree's revision.
 pub const MAX_REVISIONS: usize = 2000;
@@ -620,12 +612,43 @@ struct State {
 
 /// Whether the import of `rev` can start beside the imports of `running` into
 /// the same history: a spec pull request's beside fewer than `WORKERS` others,
-/// all spec pull requests', and a try push's alone.
-fn can_start(rev: &str, running: &[&str]) -> bool {
+/// all spec pull requests', and a try push's beside fewer than `try_workers`
+/// others (its tree's `try_import_workers`; see `try_workers`), all try
+/// pushes' (by default alone).
+fn can_start(rev: &str, running: &[&str], try_workers: usize) -> bool {
     match is_pull_request(rev) {
         true => running.len() < WORKERS && running.iter().all(|rev| is_pull_request(rev)),
-        false => running.is_empty(),
+        false => running.len() < try_workers && !running.iter().any(|rev| is_pull_request(rev)),
     }
+}
+
+/// How many of the tree `tree_name`'s try pushes' imports can run at a time
+/// (see `TreeConfigPaths::try_import_workers`): at least 1.
+pub fn try_workers(cfg: &Config, tree_name: &str) -> usize {
+    cfg.trees
+        .get(tree_name)
+        .and_then(|tree| tree.paths.try_import_workers)
+        .unwrap_or(1)
+        .max(1)
+}
+
+/// How many threads run imports (see `TryImports::run`): `WORKERS` for a
+/// history's spec pull requests, and as many as the most try pushes' imports
+/// a tree runs at a time, so that another history's imports needn't wait for
+/// a history's threads.  (On 2026-11-19, config8's web server restored 416 of
+/// wubspecs' spec pull requests, mostly the HTML Standard's, which its
+/// history's lock bounds, using 20-35% of its 32 cores and 15-22 GB of its
+/// 123, while firefox-try's try push requested at the start waited behind all
+/// of them; a firefox-try import uses up to 24 cores and 19 GB.)
+pub fn threads(cfg: &Config) -> usize {
+    let try_workers = cfg
+        .trees
+        .keys()
+        .filter(|tree| hook(cfg, tree).is_some())
+        .map(|tree| try_workers(cfg, tree))
+        .max()
+        .unwrap_or(1);
+    WORKERS + try_workers
 }
 
 /// The history the imports into the tree `tree_name` write (its history
@@ -639,7 +662,8 @@ fn history_key(cfg: &Config, tree_name: &str) -> String {
 }
 
 /// Which of `queue`'s jobs starts next beside the `running` ones (the
-/// histories of trees being `history_of`'s): the first which can (see
+/// histories of trees being `history_of`'s, and how many try pushes' imports
+/// they run at a time `try_workers_of`'s): the first which can (see
 /// `can_start`) beside those running into its history, but not after one into
 /// its history which can't (into a history, imports start in the order they
 /// were asked for: a try push's waits for the running ones, and those after it
@@ -648,6 +672,7 @@ fn next_job(
     queue: &VecDeque<Job>,
     running: &[&Job],
     history_of: &dyn Fn(&str) -> String,
+    try_workers_of: &dyn Fn(&str) -> usize,
 ) -> Option<usize> {
     let mut waiting: HashSet<String> = HashSet::new();
     for (index, job) in queue.iter().enumerate() {
@@ -660,7 +685,7 @@ fn next_job(
             .filter(|running| history_of(&running.tree) == history)
             .map(|running| running.rev.as_str())
             .collect();
-        if can_start(&job.rev, &beside) {
+        if can_start(&job.rev, &beside, try_workers_of(&job.tree)) {
             return Some(index);
         }
         waiting.insert(history);
@@ -929,7 +954,7 @@ impl TryImports {
     }
 
     /// Perform the imports as they're asked for, forever, as one of the
-    /// `THREADS` threads running this, starting each when it can (see
+    /// `threads` threads running this, starting each when it can (see
     /// `next_job`), and after each which succeeds, `precompute` (tree, push)
     /// what its pages show which takes long to compute (ex: its canvas and
     /// its slicing; see the web-server's `precompute_try_push`), before its
@@ -946,7 +971,12 @@ impl TryImports {
                     let next = {
                         let running: Vec<&Job> =
                             state.running.iter().map(|(job, _, _)| job).collect();
-                        next_job(&state.queue, &running, &|tree| history_key(cfg, tree))
+                        next_job(
+                            &state.queue,
+                            &running,
+                            &|tree| history_key(cfg, tree),
+                            &|tree| try_workers(cfg, tree),
+                        )
                     };
                     if let Some(job) = next.and_then(|index| state.queue.remove(index)) {
                         state.restored.remove(&job);
@@ -1005,6 +1035,7 @@ impl TryImports {
             .join(format!("{}.log", job.rev));
         fs::create_dir_all(log_path.parent().unwrap()).map_err(|e| e.to_string())?;
         let max_revisions = MAX_REVISIONS.to_string();
+        let workers = try_workers(cfg, &job.tree).to_string();
         let lock_path = Path::new(history_root)
             .join("try-imports")
             .join("history.lock");
@@ -1030,6 +1061,9 @@ impl TryImports {
             // (Which hooks of imports which can run beside others lock for
             // their steps which can't; see the module's comment.)
             ("TRY_IMPORT_LOCK", lock_path.to_str().unwrap_or_default()),
+            // (How many of the tree's try pushes' imports run at a time, ex:
+            // for as many semantic analyses' workspaces; see `try_workers`.)
+            ("TRY_IMPORT_WORKERS", &workers),
         ];
         run_hook(
             &hook,
@@ -1381,15 +1415,31 @@ mod tests {
     #[test]
     fn test_can_start() {
         // (Spec pull requests' imports run beside each other, up to `WORKERS`.)
-        assert!(can_start("dom/1", &[]));
-        assert!(can_start("dom/1", &["dom/2", "html/3"]));
+        assert!(can_start("dom/1", &[], 1));
+        assert!(can_start("dom/1", &["dom/2", "html/3"], 1));
         let full: Vec<String> = (0..WORKERS).map(|i| format!("dom/{}", i + 2)).collect();
         let full: Vec<&str> = full.iter().map(String::as_str).collect();
-        assert!(!can_start("dom/1", &full));
-        // (Try pushes' imports run alone.)
-        assert!(can_start("0123456789ab", &[]));
-        assert!(!can_start("0123456789ab", &["dom/2"]));
-        assert!(!can_start("dom/1", &["0123456789ab"]));
+        assert!(!can_start("dom/1", &full, 1));
+        // (Try pushes' imports run alone, by default.)
+        assert!(can_start("0123456789ab", &[], 1));
+        assert!(!can_start("0123456789ab", &["dom/2"], 1));
+        assert!(!can_start("dom/1", &["0123456789ab"], 1));
+        assert!(!can_start("0123456789ab", &["fedcba987654"], 1));
+        // (Or beside fewer than the tree's `try_import_workers` others, try
+        // pushes'.)
+        assert!(can_start("0123456789ab", &["fedcba987654"], 3));
+        assert!(can_start(
+            "0123456789ab",
+            &["fedcba987654", "abcdefabcdef"],
+            3
+        ));
+        assert!(!can_start(
+            "0123456789ab",
+            &["fedcba987654", "abcdefabcdef", "a1b2c3d4e5f6"],
+            3
+        ));
+        assert!(!can_start("0123456789ab", &["dom/2"], 3));
+        assert!(!can_start("dom/1", &["0123456789ab"], 3));
     }
 
     fn job(tree: &str, rev: &str) -> Job {
@@ -1409,9 +1459,10 @@ mod tests {
             tree => tree.to_string(),
         };
         let queue = |jobs: &[Job]| jobs.iter().cloned().collect::<VecDeque<Job>>();
+        // (One try push's import at a time; see test_next_job_try_workers.)
         let next = |queued: &[Job], running: &[Job]| {
             let running: Vec<&Job> = running.iter().collect();
-            next_job(&queue(queued), &running, &history_of)
+            next_job(&queue(queued), &running, &history_of, &|_| 1)
         };
         let push = job("firefox-try", "0123456789ab");
         let specs: Vec<Job> = (0..WORKERS)
@@ -1443,6 +1494,38 @@ mod tests {
             None
         );
         assert_eq!(next(&[], &[]), None);
+    }
+
+    /// A tree whose `try_import_workers` allows it runs several of its try
+    /// pushes' imports at a time, and those after them wait.
+    #[test]
+    fn test_next_job_try_workers() {
+        let queue = |jobs: &[Job]| jobs.iter().cloned().collect::<VecDeque<Job>>();
+        let next = |queued: &[Job], running: &[Job]| {
+            let running: Vec<&Job> = running.iter().collect();
+            next_job(
+                &queue(queued),
+                &running,
+                &|tree: &str| tree.to_string(),
+                &|tree: &str| {
+                    if tree == "firefox-try" { 3 } else { 1 }
+                },
+            )
+        };
+        let pushes: Vec<Job> = [
+            "0123456789ab",
+            "fedcba987654",
+            "abcdefabcdef",
+            "a1b2c3d4e5f6",
+        ]
+        .iter()
+        .map(|rev| job("firefox-try", rev))
+        .collect();
+        assert_eq!(next(&pushes[2..], &pushes[..2]), Some(0));
+        assert_eq!(next(&pushes[3..], &pushes[..3]), None);
+        // (Another tree's alone, by default.)
+        let other = [job("other", "0123456789ab"), job("other", "fedcba987654")];
+        assert_eq!(next(&other[1..], &other[..1]), None);
     }
 
     /// People's requests go before the restored imports (and move theirs
