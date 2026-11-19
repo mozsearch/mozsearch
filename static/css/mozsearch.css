@@ -1161,6 +1161,20 @@ html.fancy-bar-open .panel {
 html.fancy-bar-open #scrolling {
   margin-right: var(--fancy-bar-width, 22rem);
 }
+/* (Room to scroll a page wider than the window out from under the bar: an
+   invisible pixel past the page's right end by the bar's width; see panel.js's
+   `updateScrollRoom`.) */
+.fancy-bar-scroll-room {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  visibility: hidden;
+  pointer-events: none;
+}
+.fancy-bar-scroll-room[hidden] {
+  display: none;
+}
 .fancy-bar-resizer {
   display: none;
 }

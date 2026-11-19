@@ -1,3 +1,7 @@
+// How many pixels a page can be wider than the window without the fancy bar's
+// scroll room (see `Panel.updateScrollRoom`).
+const SCROLL_ROOM_SLACK = 4;
+
 var Panel = new (class Panel {
   constructor() {
     this.panel = document.getElementById("panel");
@@ -358,9 +362,27 @@ var Panel = new (class Panel {
     document.body.append(resizer);
     this.fancyBarResizer = resizer;
 
+    // Room to scroll a page wider than the window out from under the bar (see
+    // `updateScrollRoom`), as the page's content (ex: a diagram) changes, and
+    // the window and the bar do.
+    const room = document.createElement("div");
+    room.className = "fancy-bar-scroll-room";
+    room.setAttribute("aria-hidden", "true");
+    room.hidden = true;
+    document.body.append(room);
+    this.fancyBarScrollRoom = room;
+    const scheduleRoom = () => this.scheduleScrollRoom();
+    const scrolling = document.getElementById("scrolling");
+    if (scrolling) {
+      new ResizeObserver(scheduleRoom).observe(scrolling);
+      new MutationObserver(scheduleRoom).observe(scrolling, { childList: true, subtree: true });
+    }
+    window.addEventListener("resize", scheduleRoom);
+
     const setWidth = width => {
       const clamped = Math.round(Math.max(200, Math.min(width, window.innerWidth * 0.6)));
       root.style.setProperty("--fancy-bar-width", `${clamped}px`);
+      scheduleRoom();
       return clamped;
     };
     const save = () => {
@@ -416,6 +438,47 @@ var Panel = new (class Panel {
       "fancy-bar-open",
       document.documentElement.classList.contains("fancy-bar") && this.isExpanded()
     );
+    this.scheduleScrollRoom();
+  }
+
+  /**
+   * While the fancy bar is open, room to scroll a page wider than the window
+   * (ex: a big block diagram, which the document scrolls sideways) out from
+   * under it: the scrolling element's margin, which leaves the bar's width
+   * to it, doesn't count for its content's overflow, so the content's right
+   * end would stay under the bar.  The room is an invisible element past the
+   * content's right end by the bar's width.  Only for a page wider than the
+   * window by more than `SCROLL_ROOM_SLACK` pixels, so that one which fits
+   * (or overflows by a rounding's pixel) doesn't get a scroll bar.
+   */
+  updateScrollRoom() {
+    const room = this.fancyBarScrollRoom;
+    const scrolling = document.getElementById("scrolling");
+    if (!room || !scrolling) {
+      return;
+    }
+    const root = document.documentElement;
+    // (The content's right end, in the document's coordinates.)
+    const right = scrolling.getBoundingClientRect().left + window.scrollX + scrolling.scrollWidth;
+    const overflow = right - root.clientWidth;
+    if (!root.classList.contains("fancy-bar-open") || overflow <= SCROLL_ROOM_SLACK) {
+      room.hidden = true;
+      return;
+    }
+    const bar = this.panel.getBoundingClientRect().width;
+    room.style.left = `${Math.ceil(right + bar) - 1}px`;
+    room.hidden = false;
+  }
+
+  scheduleScrollRoom() {
+    if (!this.fancyBarScrollRoom || this.scrollRoomQueued) {
+      return;
+    }
+    this.scrollRoomQueued = true;
+    requestAnimationFrame(() => {
+      this.scrollRoomQueued = false;
+      this.updateScrollRoom();
+    });
   }
 
   isExpanded() {
