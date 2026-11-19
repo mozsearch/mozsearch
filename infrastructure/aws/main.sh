@@ -6,6 +6,13 @@ set -x # Show commands
 set -u # Undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+# CVE-2026-114938: every JVM this run starts (scip-java's, which converts
+# Android builds' Java analysis to SCIP) doesn't use the JIT's Base64
+# intrinsics, until nixpkgs' OpenJDKs have the fix (17.0.22 and 21.0.14), whose
+# flake.lock update can remove this.  Each JVM prints "Picked up
+# JAVA_TOOL_OPTIONS: ..." on its stderr, so the index log says it applied.
+export JAVA_TOOL_OPTIONS="-XX:+UnlockDiagnosticVMOptions -XX:-UseBASE64Intrinsics"
+
 # Don't set -e here, because that will just exit the script on error. As
 # this is the "root" script of the indexer process, exiting this script
 # will effectively result in a silent failure. Instead, we set a trap to
