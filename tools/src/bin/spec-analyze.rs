@@ -2,7 +2,7 @@
 // references to them (see `tools::spec_analyze`).
 //
 // Usage:
-//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] [--terms-out TERMS_JSON] [--only-specs NAMES --terms TERMS_JSON] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
+//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] [--terms-out TERMS_JSON] [--only-specs NAMES --terms TERMS_JSON] [--analysis-out OUT_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
 //
 // SPECS_TOML lists the specs (`[[spec]]`s, see `spec_analyze::SpecsConfig`),
 // and each spec whose format we analyze gets the analysis of its source
@@ -44,6 +44,10 @@
 // from --terms's TERMS_JSON (and ecmarkup's biblios from the specs whose
 // biblios they load, which are analyzed too, but not written).
 //
+// With --analysis-out, the analysis is written to OUT_ROOT/<path> instead,
+// with ANALYSIS_ROOT's of the file, if any (ex: a try push's, whose files
+// with citations are only those spec-analyze writes; see build-try-delta).
+//
 // With --bcd, MDN's browser-compat-data (BCD_JSON, its data.json) gives the
 // specs' definitions (unless --citations-only) their MDN pages, and the
 // symbols of the tree's WebIDL files (in CITING_PATHS) the specs' definitions
@@ -57,7 +61,7 @@ use std::time::Instant;
 
 use tools::file_format::analysis::{AnalysisKind, Location};
 use tools::semantic_analyzer::Record;
-use tools::semantic_analyzer::{file_def_record, write_records};
+use tools::semantic_analyzer::{file_def_record, write_records_to};
 use tools::spec_analyze::citations::Defined;
 use tools::spec_analyze::{
     SpecEntry, SpecFormat, SpecsConfig, bcd, bikeshed, citations, ecmarkup, respec, stale, wattsi,
@@ -77,6 +81,7 @@ fn main() {
     let mut terms_out: Option<String> = None;
     let mut terms_in: Option<String> = None;
     let mut only: Option<HashSet<String>> = None;
+    let mut analysis_out: Option<String> = None;
     while args.len() > 1 && args[1].starts_with("--") {
         match args.remove(1).as_str() {
             "--citations-only" => citations_only = true,
@@ -89,6 +94,7 @@ fn main() {
             "--spec-index" if args.len() > 1 => spec_index_root = Some(args.remove(1)),
             "--rendered-specs" if args.len() > 1 => rendered_root = Some(args.remove(1)),
             "--bcd" if args.len() > 1 => bcd_path = Some(args.remove(1)),
+            "--analysis-out" if args.len() > 1 => analysis_out = Some(args.remove(1)),
             "--stale-anchors" if args.len() > 4 => {
                 let mut values = args.drain(1..5);
                 stale_anchors = Some((
@@ -103,11 +109,15 @@ fn main() {
     }
     if args.len() != 4 && args.len() != 5 {
         eprintln!(
-            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] [--terms-out TERMS_JSON] [--only-specs NAMES --terms TERMS_JSON] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
+            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] [--terms-out TERMS_JSON] [--only-specs NAMES --terms TERMS_JSON] [--analysis-out OUT_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
         );
         exit(1);
     }
     let (files_root, analysis_root) = (Path::new(&args[1]), Path::new(&args[2]));
+    let out_root = analysis_out
+        .as_deref()
+        .map(Path::new)
+        .unwrap_or(analysis_root);
     let config = SpecsConfig::load(Path::new(&args[3])).unwrap_or_else(|e| {
         eprintln!("spec-analyze: {}", e);
         exit(1);
@@ -261,7 +271,7 @@ fn main() {
                 terms.add(spec, &exports);
                 all_exports.insert(spec.name.clone(), exports);
                 add_defined(&path, &records);
-                write_records(analysis_root, &path, records);
+                write_records_to(analysis_root, out_root, &path, records);
                 spec_files.insert(path.clone());
                 println!(
                     "{}: {} headings, {} dfns, {} anchors, {} cross-references ({} unresolved), {} links, in {:.2}s",
@@ -312,7 +322,7 @@ fn main() {
                 }
                 for (file, records) in files {
                     add_defined(&file, &records);
-                    write_records(analysis_root, &file, records);
+                    write_records_to(analysis_root, out_root, &file, records);
                     spec_files.insert(file);
                 }
                 println!(
@@ -355,7 +365,7 @@ fn main() {
                 let file_count = files.len();
                 for (file, records) in files {
                     add_defined(&file, &records);
-                    write_records(analysis_root, &file, records);
+                    write_records_to(analysis_root, out_root, &file, records);
                     spec_files.insert(file);
                 }
                 println!(
@@ -444,7 +454,7 @@ fn main() {
         let file_count = files.len();
         for (file, records) in files {
             add_defined(&file, &records);
-            write_records(analysis_root, &file, records);
+            write_records_to(analysis_root, out_root, &file, records);
             spec_files.insert(file);
         }
         println!(
@@ -475,7 +485,7 @@ fn main() {
         let has_meta = |sym: &str| defined.as_ref().is_some_and(|d| d.has_meta(sym));
         let (files, count) = bcd::spec_supplements(bcd, &config, &definitions, &has_meta);
         for (file, records) in files {
-            write_records(analysis_root, &file, records);
+            write_records_to(analysis_root, out_root, &file, records);
         }
         println!(
             "BCD ({} features): MDN pages of {} of the specs' definitions",
@@ -617,7 +627,7 @@ fn main() {
         }
     }
     for (path, records) in citing {
-        write_records(analysis_root, &path, records);
+        write_records_to(analysis_root, out_root, &path, records);
     }
     if let Some(bcd) = &bcd {
         let webidl: Vec<(String, String)> = paths
@@ -633,7 +643,7 @@ fn main() {
         let (files, stats) =
             bcd::webidl_supplements(bcd, &webidl, analysis_root, &config, &is_defined);
         for (path, records) in files {
-            write_records(analysis_root, &path, records);
+            write_records_to(analysis_root, out_root, &path, records);
         }
         println!(
             "BCD: {} WebIDL symbols in {} files, {} in BCD, {} with their spec definitions, {} with MDN pages",

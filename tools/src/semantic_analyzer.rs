@@ -1975,9 +1975,22 @@ fn data_records(
 /// Write a file's analysis records to ANALYSIS_ROOT/<path>, or add them to
 /// the analysis there (see `merge_records`).
 pub fn write_records(analysis_root: &std::path::Path, path: &str, records: Vec<Record>) {
+    write_records_to(analysis_root, analysis_root, path, records)
+}
+
+/// `write_records`, but merging `records` with `analysis_root`'s analysis of
+/// the file, if any, into `out_root`'s (ex: a try push's analysis, which only
+/// the files with records to add are copied from; see build-try-delta's
+/// `cite_specs`).
+pub fn write_records_to(
+    analysis_root: &std::path::Path,
+    out_root: &std::path::Path,
+    path: &str,
+    records: Vec<Record>,
+) {
     use std::io::Write;
-    let out_path = analysis_root.join(path);
-    let lines = match std::fs::read_to_string(&out_path) {
+    let out_path = out_root.join(path);
+    let lines = match std::fs::read_to_string(analysis_root.join(path)) {
         Ok(existing) => merge_records(&existing, records),
         Err(_) => records.iter().map(Record::to_json).collect(),
     };

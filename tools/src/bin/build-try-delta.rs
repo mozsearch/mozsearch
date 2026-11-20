@@ -272,9 +272,6 @@ fn cite_specs<'a>(
         let file = files.join(path);
         fs::create_dir_all(file.parent().unwrap()).unwrap();
         fs::write(&file, blob.content()).unwrap();
-        if let Some(records) = read_records(&tip_root.join(path)) {
-            write_lines(&analysis.join(path), &records);
-        }
         citing.push(path.clone());
     }
     if citing.is_empty() {
@@ -292,10 +289,16 @@ fn cite_specs<'a>(
     fs::create_dir_all(&analysis).unwrap();
 
     // (Like spec-analyze.sh's, for a tree whose `SPEC_` symbols are a linked
-    // tree's.)
+    // tree's.  The files' records are the tip's, and only those it adds
+    // citations to are written, to `analysis`: most files have a URL, if only
+    // their license's, which only a few cite specs by.  Copying all of them
+    // took 304 s of a 3,334-translation-unit push's 361 s, for 666 files with
+    // citations of 7,267.)
     let mut command = Command::new("spec-analyze");
     command
         .arg("--citations-only")
+        .arg("--analysis-out")
+        .arg(&analysis)
         .arg("--spec-files")
         .arg(&spec_paths.files_path)
         .arg("--spec-index")
@@ -315,7 +318,7 @@ fn cite_specs<'a>(
     }
     let status = command
         .arg(&files)
-        .arg(&analysis)
+        .arg(tip_root)
         .arg(&specs_toml)
         .arg(&list)
         .status()
