@@ -63,20 +63,28 @@ pub fn short_name(pretty: &str) -> &str {
 }
 
 /// The type of a JVM value (an argument, field or local) named `name`, from
-/// its record's type, which scip-kotlinc and scip-javac give as its
-/// declaration (ex: "input: String", "private final val settings:
-/// DataflowSettings", "public static final int javaConst"), and SemanticDB's
-/// scip-java as its type (ex: "String", "int"), as it is.
+/// its record's type, which scip-kotlinc, scip-kotlin-analysis and scip-javac
+/// give as its declaration (ex: "input: String", "private final val
+/// settings: DataflowSettings", "public static final int javaConst"), and
+/// SemanticDB's scip-java as its type (ex: "String", "int"), as it is.
+/// Without Java's annotations, which scip-javac writes on lines of their own
+/// before the declaration (ex: "@Nullable\nprivate Thread thread"), and, for
+/// Kotlin (scip-kotlin-analysis), a parameter's default value (" = ...") and
+/// platform types' "!" (ex: "Calendar!", "Array<ForegroundColorSpan!>!").
 fn jvm_value_type(declaration: &str, name: &str) -> String {
     let declaration = declaration.trim();
-    // (Kotlin's: `[modifiers] [val|var] name: Type`.)
+    // (Kotlin's: `[modifiers] [val|var] name: Type[ = ...]`.)
     if let Some((head, ty)) = declaration.split_once(": ")
         && head.split_whitespace().last() == Some(name)
     {
-        return ty.to_string();
+        return ty.strip_suffix(" = ...").unwrap_or(ty).replace('!', "");
     }
-    // (Java's: `[modifiers] Type name`.)
-    let words: Vec<&str> = declaration.split_whitespace().collect();
+    // (Java's: `[@Annotation...] [modifiers] Type name`.)
+    let words: Vec<&str> = declaration
+        .lines()
+        .filter(|line| !line.trim_start().starts_with('@'))
+        .flat_map(str::split_whitespace)
+        .collect();
     if let [ty @ .., last] = &words[..]
         && *last == name
     {
@@ -413,6 +421,35 @@ mod tests {
         assert_eq!(
             jvm_value_type("private final Map<String, Integer> counts", "counts"),
             "Map<String, Integer>"
+        );
+        // (scip-kotlin-analysis's: default values, platform types; and
+        // scip-javac's annotations, on lines of their own.)
+        assert_eq!(
+            jvm_value_type("url: CharSequence = ...", "url"),
+            "CharSequence"
+        );
+        assert_eq!(
+            jvm_value_type("onChipClicked: ((Chip) -> Unit)? = ...", "onChipClicked"),
+            "((Chip) -> Unit)?"
+        );
+        assert_eq!(
+            jvm_value_type("local val calendar: Calendar!", "calendar"),
+            "Calendar"
+        );
+        assert_eq!(
+            jvm_value_type("local val spans: Array<ForegroundColorSpan!>!", "spans"),
+            "Array<ForegroundColorSpan>"
+        );
+        assert_eq!(
+            jvm_value_type("@Nullable\nprivate Thread thread", "thread"),
+            "Thread"
+        );
+        assert_eq!(
+            jvm_value_type(
+                "@NonNull\n@SuppressWarnings(\"unchecked\")\nfinal List<String> names",
+                "names"
+            ),
+            "List<String>"
         );
         // (SemanticDB's types, as they are.)
         assert_eq!(jvm_value_type("UrlSink", "sink"), "UrlSink");
