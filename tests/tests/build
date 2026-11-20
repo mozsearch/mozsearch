@@ -60,6 +60,7 @@ $CARGO_TARGET_DIR/debug/uniffi-bindgen generate --library $CARGO_TARGET_DIR/debu
 
 "$GRADLE" --no-daemon  -PgeneratedSources=$OBJDIR/generated/kotlin clean build
 scip-java aggregate build/scip-targetroot --no-emit-inverse-relationships --output=$OBJDIR/gradle.scip
+cp -r build/scip-targetroot "$OBJDIR/scip-targetroot"
 "$GRADLE" --no-daemon  -PgeneratedSources=$OBJDIR/generated/kotlin clean
 rm -rf build/
 
@@ -68,6 +69,23 @@ scip-indexer \
   "$TREE_NAME" \
   --subtree-root "." \
   "$OBJDIR/gradle.scip"
+
+# A try push's Java and Kotlin analysis of a file, from its build's per-file
+# SCIP, is the tree's (see scripts/try-analyze-java.sh; the trydelta tree has
+# no Java or Kotlin): ex: a Kotlin file using a Java file's class, and that
+# Java file.
+TRY_JAVA=$(mktemp -d)
+printf '%s\n' src/main/kotlin/sample/KotlinLibrary.kt src/main/java/sample/JavaLibrary.java > "$TRY_JAVA/files"
+"$MOZSEARCH_PATH/scripts/try-analyze-java.sh" "$CONFIG_FILE" "$TREE_NAME" "$FILES_ROOT" \
+  "$OBJDIR/scip-targetroot" "$TRY_JAVA/files" "$TRY_JAVA/analysis"
+while read -r FILE; do
+  if ! cmp "$TRY_JAVA/analysis/$FILE" "$INDEX_ROOT/analysis/$FILE"; then
+    diff "$TRY_JAVA/analysis/$FILE" "$INDEX_ROOT/analysis/$FILE" | head -20
+    echo "try-analyze-java.sh's analysis of $FILE isn't the tree's."
+    exit 1
+  fi
+done < "$TRY_JAVA/files"
+rm -rf "$TRY_JAVA" "$OBJDIR/scip-targetroot"
 
 echo "Performing build::scip-indexer-rust step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 

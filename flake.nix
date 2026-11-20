@@ -138,6 +138,9 @@
           # scripts/try-analyze-python.sh and try-analyze-rust.sh.)
           scip-python
           mozsearch-rust-analyzer
+          # (For try imports' Java and Kotlin analysis, from their Android
+          # builds' per-file SCIP; see scripts/try-analyze-java.sh.)
+          scip-java
         ];
       in {
         packages = {
