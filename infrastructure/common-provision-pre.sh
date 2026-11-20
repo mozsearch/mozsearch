@@ -84,11 +84,16 @@ sudo apt-get install -y fonts-noto-color-emoji
 # was so far behind, but now we're sticking with the official upstream because
 # they update so frequently and we are a cutting edge user of graphviz so it's
 # nice to have all the fixes and enhancements ASAP.
-GRAPHVIZ_DEB_BUNDLE=ubuntu_24.04_graphviz-12.0.0-debs.tar.xz
+#
+# Their debs are built per Ubuntu release (12.0.0's 24.04 debs can't be
+# installed on 26.04, which doesn't have libglade2-0), and only releases since
+# 26.04 came out have 26.04 debs.
+GRAPHVIZ_VERSION=16.1.1
+GRAPHVIZ_DEB_BUNDLE=ubuntu_$(lsb_release -rs)_graphviz-${GRAPHVIZ_VERSION}-debs.tar.xz
 if [ ! -d $HOME/graphviz-install ]; then
   mkdir -p $HOME/graphviz-install
   pushd $HOME/graphviz-install
-  curl -O https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/12.0.0/$GRAPHVIZ_DEB_BUNDLE
+  curl -fO https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/${GRAPHVIZ_VERSION}/$GRAPHVIZ_DEB_BUNDLE
   tar xvf $GRAPHVIZ_DEB_BUNDLE
   # using constrained wildcards here to not care too much about these versions
   sudo apt-get install -y ./graphviz_*_amd64.deb ./libgraphviz4_*_amd64.deb ./libgraphviz-dev_*_amd64.deb
@@ -99,8 +104,19 @@ fi
 sudo apt-get install -y unzip libssl-dev
 
 # Clang
-wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-sudo apt-add-repository -y "deb https://apt.llvm.org/${UBUNTU_RELEASE}/ llvm-toolchain-${UBUNTU_RELEASE}${CLANG_SUFFIX} main"
+#
+# (Ubuntu 26.04's apt has no apt-key, and its apt-add-repository doesn't take
+# a "deb [signed-by=...]" line: the repository's key is a keyring file that
+# only its deb822 sources file trusts.)
+sudo install -d -m 0755 /etc/apt/keyrings
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/keyrings/apt.llvm.org.asc > /dev/null
+sudo tee /etc/apt/sources.list.d/apt.llvm.org.sources > /dev/null <<EOF
+Types: deb
+URIs: https://apt.llvm.org/${UBUNTU_RELEASE}/
+Suites: llvm-toolchain-${UBUNTU_RELEASE}${CLANG_SUFFIX}
+Components: main
+Signed-By: /etc/apt/keyrings/apt.llvm.org.asc
+EOF
 sudo apt-get update
 sudo apt-get install -y clang${CLANG_SUFFIX} libclang${CLANG_SUFFIX}-dev lld${CLANG_SUFFIX}
 

@@ -180,12 +180,12 @@ if dry_run:
     sys.exit(0)
 
 # Performing lookup from https://cloud-images.ubuntu.com/locator/ec2/ by
-# searching on "22.04 us-west-2 amd64" we get:
+# searching on "26.04 us-west-2 amd64" we get:
 #
-# us-west-2	Noble Numbat	24.04 LTS	amd64	hvm:ebs-ssd-gp3	20240927	ami-04dd23e62ed049936	hvm
+# us-west-2	Resolute Raccoon	26.04 LTS	amd64	hvm:ebs-ssd-gp3	20261120	ami-0087d113babc82cbe	hvm
 #
 # and then we copy the ami ID into here:
-image_id = 'ami-04dd23e62ed049936'
+image_id = 'ami-0087d113babc82cbe'
 
 launch_spec = {
     'ImageId': image_id,
