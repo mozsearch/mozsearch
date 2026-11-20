@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     env:
       # Force cargo insta to generate all new snapshots so we can upload them
