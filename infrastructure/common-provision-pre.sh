@@ -33,8 +33,11 @@ sudo apt-get update
 # zip: used to create lambda zips
 sudo apt-get install -y software-properties-common gettext-base rsync zip
 
-sudo apt-add-repository -y ppa:git-core/ppa    # For latest git
-sudo apt-get update
+# The release's git (26.04's is 2.53), not the git-core PPA's: 26.04's EC2
+# AMIs install the archive's amd64v3 builds (APT::Architecture-Variants), which
+# the PPA doesn't have, so it only offers its architecture-independent packages
+# (ex: git-svn, git-man), whose dependencies on its git then can't be installed
+# (ex: WebKit's build dependencies, with git-svn, for the wubkat tree).
 sudo apt-get install -y git
 git config --global pull.ff only
 
