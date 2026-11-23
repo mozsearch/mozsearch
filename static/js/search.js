@@ -99,6 +99,15 @@ class QueryQuoting {
   /**
    * Write the closing quote of the name being typed, if any.
    */
+  /**
+   * Forget the quote being typed, if any: the box's value was replaced (ex:
+   * with the page's query; see query-frames.js's `restore`).
+   */
+  reset() {
+    this.open = null;
+    this.place();
+  }
+
   close() {
     if (this.open === null) {
       return;

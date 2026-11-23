@@ -213,19 +213,31 @@ window.QueryGate = QueryGate;
  *   to the page Enter made.
  * - **Elsewhere**: links in the frame go to the whole window (see the frames'
  *   part below), as does anything else the frame's page goes to.
+ * - **Back and Forward** to a page the browser kept (its back-forward cache)
+ *   show its box with the page's query, as its URL has it, rather than as it
+ *   was left (ex: with the query its Enter went on to); see `onPageShow`.
+ *   Outside a session, a box with a query that isn't the page's, which isn't
+ *   searched as it's typed (ex: a term waiting for Enter, after going back
+ *   to an earlier query's page), says so; Escape restores the page's query
+ *   (see `updateHint`).
  */
 class QueryResultsFrames {
   // (Whether the page was made by a query box's Enter, for its Escape; see
   // `onSubmit`.)
   static ENTERED_KEY = "query-frames-entered";
+  // (How long a box's query that isn't the page's waits after typing stops
+  // before it says so: not while typing a term, whose unfinished states wait
+  // for Enter, ex: `path:` before its value; see `updateHint`.)
+  static HINT_DELAY = 700;
 
   constructor(input) {
     this.input = input;
     this.form = input.form;
     this.searchBox = document.getElementById("search-box");
     this.tree = document.getElementById("data")?.dataset.tree;
-    // (What the box has on the page, which a session's Escape restores.)
-    this.pageValue = input.value;
+    // (What the box has on the page, which a session's Escape restores: its
+    // query, as the page was made with it, whatever the box was left with.)
+    this.pageValue = input.defaultValue;
     this.gate = null;
     this.gateLoading = false;
     this.timer = null;
@@ -241,6 +253,9 @@ class QueryResultsFrames {
     this.popping = null;
     // Stopped by a failed load, until Enter.
     this.stopped = false;
+    // The page's query the hint shows (see `updateHint`), and its timer.
+    this.hinted = null;
+    this.hintTimer = null;
 
     input.addEventListener("input", event => this.onInput(event));
     input.addEventListener("compositionend", () => this.onInput(null));
@@ -248,6 +263,7 @@ class QueryResultsFrames {
     input.addEventListener("keydown", event => this.onKeyDown(event));
     // (After `QueryQuoting`'s, which writes an open quote's end.)
     this.form?.addEventListener("submit", event => this.onSubmit(event));
+    window.addEventListener("pageshow", event => this.onPageShow(event));
     if (document.activeElement == input) {
       this.loadGate();
     }
@@ -294,13 +310,13 @@ class QueryResultsFrames {
       return;
     }
     const check = this.gate.check(this.input.value);
-    if (this.stopped || !check.searchable) {
-      return;
+    if (!this.stopped && check.searchable) {
+      this.timer = setTimeout(() => {
+        this.timer = null;
+        this.request();
+      }, QueryGate.delay(check.weight));
     }
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      this.request();
-    }, QueryGate.delay(check.weight));
+    this.updateHint();
   }
 
   /** Load the box's query, unless it's loaded or loading already. */
@@ -379,8 +395,124 @@ class QueryResultsFrames {
     }
     bubble.classList.remove("error", "warning");
     bubble.classList.add("info");
+    if (bubble.dataset.queryHint !== undefined) {
+      delete bubble.dataset.queryHint;
+      this.hinted = null;
+      this.searchBox?.classList.remove("query-diverged");
+    }
     bubble.textContent = text ?? "";
     bubble.style.display = text ? "block" : "none";
+  }
+
+  /**
+   * Whether the box has a query that isn't the page's (`pageValue`: a query's
+   * page's, or the one its Enter made), and that waits for Enter rather than
+   * being searched as it's typed (ex: a `text-history:` term, a partial term),
+   * outside a typing session (whose results, when shown, are its entry's):
+   * ex: after going back to an earlier query's page and changing its query.
+   * The box is then outlined (`query-diverged`), and its bubble says that
+   * Enter searches it, and that Escape restores the page's query, which is a
+   * button restoring it (see `restore`), once typing stops (`HINT_DELAY`);
+   * and not any more at once.  Pages without a query (ex: a source listing's)
+   * don't say: their box is only a box.
+   */
+  updateHint() {
+    const query = QueryResultsFrames.normalized(this.input.value);
+    const page = QueryResultsFrames.normalized(this.pageValue);
+    const waits = !!this.gate && (this.stopped || !this.gate.check(this.input.value).searchable);
+    const diverged = !!page && !!query && query != page && waits &&
+      !this.session && !this.loading && !this.timer;
+    if (!diverged) {
+      clearTimeout(this.hintTimer);
+      this.hintTimer = null;
+      this.showHint(null);
+    } else if (this.hinted != page) {
+      clearTimeout(this.hintTimer);
+      this.hintTimer = setTimeout(() => {
+        this.hintTimer = null;
+        this.showHint(page);
+      }, QueryResultsFrames.HINT_DELAY);
+    }
+  }
+
+  /** The hint (see `updateHint`) for the page's query `page`, or none. */
+  showHint(page) {
+    if (page == this.hinted) {
+      return;
+    }
+    this.hinted = page;
+    this.searchBox?.classList.toggle("query-diverged", page !== null);
+    const bubble = document.getElementById("query-bubble");
+    if (!bubble) {
+      return;
+    }
+    if (page !== null) {
+      const restore = document.createElement("button");
+      restore.type = "button";
+      restore.className = "query-restore";
+      restore.title = "Restore the page's query (Escape)";
+      restore.textContent = page;
+      // (Not blurring the box, whose query it replaces.)
+      restore.addEventListener("mousedown", event => event.preventDefault());
+      restore.addEventListener("click", () => this.restore());
+      bubble.classList.remove("error", "warning");
+      bubble.classList.add("info");
+      bubble.dataset.queryHint = page;
+      bubble.replaceChildren("Not searched until Enter. Escape restores the page's query: ", restore);
+      bubble.style.display = "block";
+    } else if (bubble.dataset.queryHint !== undefined) {
+      delete bubble.dataset.queryHint;
+      bubble.replaceChildren();
+      bubble.style.display = "none";
+    }
+  }
+
+  /** The box with the page's query again (see `updateHint`). */
+  restore() {
+    clearTimeout(this.timer);
+    this.timer = null;
+    this.input.value = this.pageValue;
+    window.Dxr?.queryQuoting?.reset();
+    this.input.focus();
+    this.input.setSelectionRange(this.input.value.length, this.input.value.length);
+    this.updateHint();
+  }
+
+  /**
+   * Back or Forward to the page from the browser's back-forward cache, as it
+   * was left: its box shows the query of what the entry shows (the page's,
+   * or a session's results' in its entry, ex: after a link in them went
+   * elsewhere), not what was typed before leaving (ex: the query whose Enter
+   * left it, when it waited for Enter, as `text-history:` does); and a session
+   * whose entry this isn't ends, without going back (the browser came back
+   * to the page's entry already).  (A page loaded again rather than kept has
+   * its query anyway: the box's autocomplete is off, so the browser doesn't
+   * restore what was typed in it.)
+   */
+  onPageShow(event) {
+    if (!event.persisted) {
+      return;
+    }
+    clearTimeout(this.timer);
+    this.timer = null;
+    this.more = false;
+    const entry = this.session?.pushed && this.shown && history.state?.queryFrames == this.session.id;
+    if (entry) {
+      if (this.loading) {
+        this.loading.frame.remove();
+        this.loading = null;
+        this.searchBox?.classList.remove("in-progress");
+      }
+      const shownUrl = this.shown.frame.contentWindow?.location.href;
+      const query = shownUrl ? new URL(shownUrl).searchParams.get("q") : null;
+      if (query !== null) {
+        this.input.value = query;
+      }
+    } else {
+      this.endSession({ popped: true });
+    }
+    window.Dxr?.queryQuoting?.reset();
+    this.updateHint();
   }
 
   onReady(loading) {
@@ -409,6 +541,7 @@ class QueryResultsFrames {
       };
     }
     document.documentElement.classList.add("query-frames-shown");
+    this.updateHint();
     const page = loading.frame.contentWindow;
     if (page?.document.title) {
       document.title = page.document.title;
@@ -450,6 +583,7 @@ class QueryResultsFrames {
     }
     const session = this.session;
     this.session = null;
+    this.updateHint();
     if (!session) {
       return;
     }
@@ -534,6 +668,11 @@ class QueryResultsFrames {
     if (this.session || this.loading || this.timer) {
       event.preventDefault();
       this.endSession();
+    } else if (QueryResultsFrames.normalized(this.input.value) !=
+               QueryResultsFrames.normalized(this.pageValue)) {
+      // (What was typed, restored before Escape goes back from the page.)
+      event.preventDefault();
+      this.restore();
     } else if (history.state?.queryEntered) {
       event.preventDefault();
       history.back();

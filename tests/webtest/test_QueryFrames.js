@@ -179,3 +179,98 @@ add_task(async function test_QueryFramesLinks() {
   is(win().location.pathname, new URL(link.href).pathname, "which go to the whole page");
   ok(!doc().documentElement.classList.contains("in-query-frame"), "not to the frame");
 });
+
+// (As the back-forward cache shows a page again: tests' pages are in a frame,
+// which the cache doesn't keep, so the event is a synthetic one.)
+function pageShownAgain() {
+  win().dispatchEvent(new (win().PageTransitionEvent)("pageshow", { persisted: true }));
+}
+
+add_task(async function test_QueryFramesPageShow() {
+  await TestUtils.loadPath("/trydelta/query/default?q=Widget");
+  const input = doc().querySelector("#query");
+  const box = doc().querySelector("#search-box");
+  win().notReloaded = true;
+
+  // (A query that waits for Enter, whose Enter left the page.)
+  type(input, " calls-to:Foo");
+  pageShownAgain();
+  is(input.value, "Widget",
+     "A page back from the back-forward cache has its query in the box, not what was typed before leaving");
+  ok(!box.classList.contains("query-diverged"), "which isn't outlined");
+  ok(win().notReloaded, "(without reloading the page)");
+
+  type(input, "X");
+  await waitForResults("WidgetX", "Typing shows results");
+  type(input, " calls-to:Foo");
+  pageShownAgain();
+  is(input.value, "WidgetX", "Back in a session's entry, the box has its results' query");
+  ok(shownFrame(), "which stay");
+
+  escape(input);
+  await waitForCondition(() => new URL(win().location.href).searchParams.get("q") == "Widget",
+                         "Escape still goes back to the page");
+  is(input.value, "Widget", "with its query");
+});
+
+add_task(async function test_QueryDiverged() {
+  await TestUtils.loadPath("/trydelta/query/default?q=Widget");
+  const input = doc().querySelector("#query");
+  const box = doc().querySelector("#search-box");
+  const bubble = doc().querySelector("#query-bubble");
+  win().notReloaded = true;
+
+  type(input, " calls-to:Foo");
+  await waitForCondition(() => box.classList.contains("query-diverged"),
+                         "A query that waits for Enter, and isn't the page's, outlines the box");
+  ok(bubble.textContent.startsWith("Not searched until Enter."), "whose bubble says Enter searches it");
+  const restore = bubble.querySelector("button.query-restore");
+  is(restore?.textContent, "Widget", "with the page's query as a button");
+  isnot(win().getComputedStyle(bubble).display, "none", "shown");
+
+  escape(input);
+  is(input.value, "Widget", "Escape restores the page's query");
+  ok(!box.classList.contains("query-diverged"), "and the box isn't outlined");
+  is(win().getComputedStyle(bubble).display, "none", "nor its bubble shown");
+  is(new URL(win().location.href).searchParams.get("q"), "Widget", "without leaving the page");
+  ok(win().notReloaded, "(or reloading it)");
+
+  type(input, " calls-to:Foo");
+  await waitForCondition(() => box.classList.contains("query-diverged"), "Outlined again");
+  bubble.querySelector("button.query-restore").click();
+  is(input.value, "Widget", "The button restores the page's query too");
+  is(doc().activeElement, input, "leaving the box focused");
+  ok(!box.classList.contains("query-diverged"), "and not outlined");
+
+  type(input, "X");
+  ok(!box.classList.contains("query-diverged"), "A query searched as it's typed isn't outlined");
+  await waitForResults("WidgetX", "as its results come");
+  escape(input);
+  await waitForCondition(() => new URL(win().location.href).searchParams.get("q") == "Widget",
+                         "whose Escape goes back to the page");
+});
+
+add_task(async function test_QueryDivergedEnteredEscape() {
+  await TestUtils.loadPath("/trydelta/source/user.cpp");
+  let input = doc().querySelector("#query");
+  type(input, "Widget");
+  await waitForResults("Widget", "Typing shows the results");
+  const load = TestUtils.waitForLoad();
+  input.form.requestSubmit();
+  await load;
+  ok(win().history.state?.queryEntered, "Enter makes them the page");
+
+  input = doc().querySelector("#query");
+  win().notReloaded = true;
+  type(input, " calls-to:Foo");
+  await waitForCondition(() => doc().querySelector("#search-box").classList.contains("query-diverged"),
+                         "A query that waits for Enter outlines the box");
+  escape(input);
+  is(input.value, "Widget", "The first Escape restores the page's query");
+  is(new URL(win().location.href).searchParams.get("q"), "Widget", "on the page Enter made");
+  ok(win().notReloaded, "(which stays)");
+  escape(input);
+  await waitForCondition(() => win().location.pathname == "/trydelta/source/user.cpp" &&
+                         doc().readyState == "complete",
+                         "and the next goes back to the page typing started on");
+});

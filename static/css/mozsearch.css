@@ -25,6 +25,10 @@ table {
   --link-color: #0095dd;
   --link-hover-color: #00539f;
 
+  /* (A query box whose query isn't its page's; see query-frames.js's
+     `updateHint`.) */
+  --query-diverged-color: #e0a800;
+
   --tooltip-foreground: var(--page-foreground);
   --tooltip-background: #ffffe0;
     --tooltip-border: var(--page-border-color);
@@ -305,6 +309,8 @@ table {
 
     --link-color: #1897db;
     --link-hover-color: #016cbf;
+
+    --query-diverged-color: #d9a400;
 
     --tooltip-foreground: var(--page-foreground);
     --tooltip-background: #333333;
@@ -4892,6 +4898,31 @@ input::placeholder {
     border: 1px solid ButtonText;
     color: FieldText;
   }
+}
+/* A query's page whose box has a query that isn't the page's and waits for
+   Enter (see query-frames.js's `updateHint`): the box is outlined, and its
+   bubble's button, the page's query, restores it. */
+#search-box.query-diverged #query {
+  outline: 2px solid var(--query-diverged-color);
+  outline-offset: -1px;
+  @media (forced-colors) {
+    outline-color: Highlight;
+  }
+}
+.query-restore {
+  font: inherit;
+  font-family: monospace;
+  color: var(--link-color);
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+  max-width: 40em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .in-progress #spinner {
   background: transparent url("../images/spinner-large.gif") 0 0 / contain
