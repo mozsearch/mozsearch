@@ -4909,6 +4909,18 @@ input::placeholder {
     outline-color: Highlight;
   }
 }
+/* (Its bubble is as wide as what it says, up to the box's width, rather than
+   leaving room beside it as the search form's bubbles do (their margin), and
+   a long query wraps rather than being cut.) */
+.bubble[data-query-hint] {
+  margin-right: 0;
+}
+/* (Over the navigation panel's toggle (`.panel`, 202) while it's shown, as an
+   autocomplete's list would be, rather than under it: it's in the header,
+   whose stacking context is under the panel's.) */
+#fixed-header:has(#search-box.query-diverged) {
+  z-index: 203;
+}
 .query-restore {
   font: inherit;
   font-family: monospace;
@@ -4918,11 +4930,9 @@ input::placeholder {
   padding: 0;
   text-decoration: underline;
   cursor: pointer;
-  max-width: 40em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .in-progress #spinner {
   background: transparent url("../images/spinner-large.gif") 0 0 / contain
