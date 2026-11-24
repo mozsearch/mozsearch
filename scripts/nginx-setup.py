@@ -678,6 +678,16 @@ for repo in config['trees']:
              ['if ($http_x_forwarded_for) { return 403; }',
               'proxy_pass http://127.0.0.1:8001;'],
              cache=False)
+    # Likewise the carry-over of try imports to the next index's web server:
+    # this one's inventory, and on the next one, (POST, the old one's
+    # inventory, up to the web-server's limit) importing its live set again,
+    # and their progress (see the tools' `try_carry_over`, and
+    # infrastructure/aws/cutover-gate.py).
+    location(f'~ ^/{repo}/try-imports/(inventory|restore|restore-status)$',
+             ['if ($http_x_forwarded_for) { return 403; }',
+              'client_max_body_size 8m;',
+              'proxy_pass http://127.0.0.1:8001;'],
+             cache=False)
 
     # Handled by Rust `pipeline-server.rs`, whose response to a request its
     # client gave up on (ex: a query box's results as one types, superseded,

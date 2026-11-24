@@ -5,8 +5,11 @@
 # - Attach INDEX_VOL to the web server
 # - Wait until the web server is ready to serve requests
 #   I could just make requests until they succeed
-# - Attach the elastic IP to the new web server
-# - Shut down any old web servers (not equal to the one I've started)
+# - Wait until the web server has imported again the try pushes wanted lately
+#   (see cutover-gate.py)
+# - Attach the elastic IP to the new web server, once it's healthy
+# - Shut down any old web servers (not equal to the one I've started), once
+#   they're drained
 # - Delete any old EBS index volumes
 #
 # Usage: ./trigger-web-server.py <channel> <mozsearch-repo-url> <mozsearch-rev>
@@ -216,24 +219,64 @@ else:
     subprocess.run([check_script, config_repo_path, working_dir, "http://%s/" % ip],
                    check=True)
 
+r = elb.describe_target_groups(Names=[targetGroup])
+targetGroupArn = r['TargetGroups'][0]['TargetGroupArn']
+
+def current_targets():
+    r = elb.describe_target_health(TargetGroupArn=targetGroupArn)
+    return [targetInfo['Target'] for targetInfo in r['TargetHealthDescriptions']
+            if targetInfo['Target']['Id'] != webServerInstanceId]
+
+if check_script != '-':
+    # - Wait for the new web server to import again the try pushes the old one
+    #   has which are wanted lately (at most the config's
+    #   `cutover_wait_minutes`), so that reviews in progress don't disappear;
+    #   see cutover-gate.py.  The old one goes on serving meanwhile.
+    oldTargets = current_targets()
+    oldIps = []
+    if oldTargets:
+        reservations = ec2.describe_instances(
+            InstanceIds=[target['Id'] for target in oldTargets])['Reservations']
+        oldIps = [instance['PrivateIpAddress'] for reservation in reservations
+                  for instance in reservation['Instances'] if instance.get('PrivateIpAddress')]
+    print('Waiting for the new web server to import the live set of try pushes again...')
+    subprocess.run([os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cutover-gate.py'),
+                    config_repo_path, config_file_name, "http://%s" % ip]
+                   + ["http://%s" % old_ip for old_ip in oldIps])
+
 # - Attach the elastic IP to the new web server
 
 print('Switching requests to new server...')
 
-r = elb.describe_target_groups(Names=[targetGroup])
-targetGroupArn = r['TargetGroups'][0]['TargetGroupArn']
-
-r = elb.describe_target_health(TargetGroupArn=targetGroupArn)
-oldTargets = []
-for targetInfo in r['TargetHealthDescriptions']:
-    oldTargets.append(targetInfo['Target'])
+oldTargets = current_targets()
 
 elb.register_targets(TargetGroupArn=targetGroupArn,
                      Targets=[{'Id': webServerInstanceId, 'Port': 80}])
 
+# - Wait for the new one to pass the load balancer's health checks, and the old
+#   ones to drain (the target group's deregistration delay), before they go,
+#   so that no request is refused meanwhile.  (Past the waits, it goes on, as
+#   it did without them.)
+try:
+    elb.get_waiter('target_in_service').wait(
+        TargetGroupArn=targetGroupArn,
+        Targets=[{'Id': webServerInstanceId, 'Port': 80}],
+        WaiterConfig={'Delay': 15, 'MaxAttempts': 40})
+    print('  The new web server is in service.')
+except Exception as e:
+    print(f'WARNING: the new web server isn\'t in service after 10 minutes: {e}')
+
 if oldTargets:
     elb.deregister_targets(TargetGroupArn=targetGroupArn,
                            Targets=oldTargets)
+    try:
+        elb.get_waiter('target_deregistered').wait(
+            TargetGroupArn=targetGroupArn,
+            Targets=oldTargets,
+            WaiterConfig={'Delay': 15, 'MaxAttempts': 60})
+        print('  The old web servers are drained.')
+    except Exception as e:
+        print(f'WARNING: the old web servers aren\'t deregistered after 15 minutes: {e}')
 
 # - Shut down any old web server (a web server not equal to the one I've started)
 

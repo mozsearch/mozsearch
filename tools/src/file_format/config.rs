@@ -295,6 +295,11 @@ pub struct TreeConfigPaths {
     /// alone.
     #[serde(default)]
     pub try_import_workers: Option<usize>,
+    /// How recently a try push the tree imported must have been asked for or
+    /// looked at, in days, for the next index's web server to import it again
+    /// (see `try_carry_over::live_set`): 14 if it isn't set.
+    #[serde(default)]
+    pub try_restore_days: Option<u64>,
     /// Where the tree's pages send searches: router.py's `/search` (the
     /// default), or the pipeline-server's `/query/default` (`"query"`); see
     /// `SearchEndpoint` and `search_url`.

@@ -41,10 +41,12 @@ struct WebRequest<'a> {
     /// The query string (ex: a history page's `scope=...`), or "".
     query: &'a str,
     /// Whether it's a POST (only `/{tree}/try/{kind}/{id}`'s,
-    /// `/{tree}/spec-prs/...`'s and `/{tree}/crash-sets/new`'s are allowed).
+    /// `/{tree}/spec-prs/...`'s, `/{tree}/crash-sets/new`'s and
+    /// `/{tree}/try-imports/restore`'s are allowed).
     post: bool,
     /// A POST's body, for those which read theirs (`/{tree}/crash-sets/new`'s
-    /// form, whose API token mustn't be in a URL), or "".
+    /// form, whose API token mustn't be in a URL, and
+    /// `/{tree}/try-imports/restore`'s inventory), or "".
     body: &'a str,
     /// Who it's from (see `admission::client_key`), if it's from outside.
     client: Option<String>,
@@ -571,6 +573,10 @@ fn opensearch_description(tree_name: &str, origin: &str) -> String {
 /// A request's query string's parameters.
 /// How big a form's body can be (see `read_body`).
 const MAX_FORM_BODY: usize = 64 * 1024;
+/// How big an inventory of try imports posted to be restored can be (see
+/// `tools::try_carry_over`): its pushes' stacks' summaries, about 1 KB a
+/// push.
+const MAX_INVENTORY_BODY: usize = 8 * 1024 * 1024;
 
 /// A request's body, if it's at most `limit` bytes of UTF-8.
 /// The most bytes of Content-Security-Policy violation reports the
@@ -1443,9 +1449,12 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     Err(err) => notice = Some(err),
                 }
             }
-            // (Once it's imported, its review; see `try_review_page`.)
+            // (Once it's imported, its review; see `try_review_page`.  Its
+            // look is noted, for the next index's web server to import it
+            // again; see `tools::try_carry_over`.)
             if notice.is_none() && !tools::try_import::is_pull_request(&push) {
                 if let Some(imported) = tools::try_import::try_push(cfg, tree_name, &push) {
+                    tools::try_carry_over::note_viewed(cfg, tree_name, &push);
                     return try_review_page(tree_name, &push, imported.semantic_head.as_deref());
                 }
             }
@@ -1518,6 +1527,50 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             match format::format_try_status(server.as_ref(), &push) {
                 Ok(json) => WebResponse::json(json).uncached(),
                 Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+            }
+        }
+
+        // The carry-over of the tree's try imports to the next index's web
+        // server (see `tools::try_carry_over`): its inventory, and on the
+        // next index's web server, (POST, an old one's inventory) importing
+        // its live set again, and their progress.  Only for requests from the
+        // indexer, not through the load balancer (whose requests have
+        // forwarding headers; see `admission::client_key`).  (Uncached.)
+        "try-imports" => {
+            if req.client.is_some()
+                || path.len() != 3
+                || tools::try_import::hook(cfg, tree_name).is_none()
+            {
+                return WebResponse::not_found().uncached();
+            }
+            let json = |value: serde_json::Value| WebResponse::json(value.to_string()).uncached();
+            match (path[2], req.post) {
+                ("inventory", false) => json(serde_json::json!({
+                    "pushes": tools::try_carry_over::inventory(cfg, tree_name),
+                })),
+                ("restore-status", false) => json(
+                    serde_json::to_value(tools::try_carry_over::status(cfg, tree_name))
+                        .unwrap_or_default(),
+                ),
+                ("restore", true) => {
+                    match serde_json::from_str::<tools::try_carry_over::CarriedPushes>(req.body) {
+                        Ok(inventory) => json(
+                            serde_json::to_value(tools::try_carry_over::restore(
+                                cfg,
+                                tree_name,
+                                inventory.pushes,
+                            ))
+                            .unwrap_or_default(),
+                        ),
+                        Err(err) => WebResponse {
+                            status: StatusCode::BAD_REQUEST,
+                            output: format!("Not an inventory: {}", err),
+                            ..WebResponse::default()
+                        }
+                        .uncached(),
+                    }
+                }
+                _ => WebResponse::not_found().uncached(),
             }
         }
 
@@ -2073,6 +2126,14 @@ async fn main() {
         std::thread::spawn(move || tools::spec_prs::start(&cfg, &tree_name));
     }
 
+    // And the imports of the live set of the try pushes which the previous
+    // index's web server had imported, again, if the indexer carried them
+    // over; see `tools::try_carry_over`.
+    for tree_name in cfg.trees.keys() {
+        let (cfg, tree_name) = (cfg.clone(), tree_name.clone());
+        std::thread::spawn(move || tools::try_carry_over::start(&cfg, &tree_name));
+    }
+
     // The eviction of sidecar files when the disk fills up; see
     // `tools::sidecars`.
     {
@@ -2125,12 +2186,13 @@ async fn main() {
                 }
                 // (Only a try push's page takes POSTs, to import it, and the
                 // pull request summaries' syncs' (see `tools::spec_prs`), as
-                // do the data API's routes for those, and crash sets' form;
-                // see `tools::crash_sets`.)
+                // do the data API's routes for those, crash sets' form (see
+                // `tools::crash_sets`), and the next index's web server's
+                // restores of try imports (see `tools::try_carry_over`).)
                 let post = req.method() == Method::POST
                     && (matches!(
                         req.uri().path().split('/').nth(2),
-                        Some("try" | "spec-prs" | "crash-sets")
+                        Some("try" | "spec-prs" | "crash-sets" | "try-imports")
                     ) || req.uri().path().ends_with("/api/v1/try-import")
                         || req.uri().path().ends_with("/api/v1/spec-prs-sync")
                         || req.uri().path().ends_with("/api/v1/spec-prs-import"));
@@ -2156,11 +2218,20 @@ async fn main() {
                     };
 
                 // (A crash set's form's body, which has its API token; see
-                // `tools::crash_sets`.  Nothing logs it.)
+                // `tools::crash_sets`.  Nothing logs it.  And a web server's
+                // inventory of try imports, for the next index's to restore;
+                // see `tools::try_carry_over`.)
                 let (parts, incoming) = req.into_parts();
                 let req = http::Request::from_parts(parts, ());
-                let body = match post && req.uri().path().contains("/crash-sets/") {
-                    true => match read_body(incoming, MAX_FORM_BODY).await {
+                let limit = match req.uri().path().contains("/try-imports/") {
+                    true => MAX_INVENTORY_BODY,
+                    false => MAX_FORM_BODY,
+                };
+                let body = match post
+                    && (req.uri().path().contains("/crash-sets/")
+                        || req.uri().path().contains("/try-imports/"))
+                {
+                    true => match read_body(incoming, limit).await {
                         Some(body) => body,
                         None => {
                             return http::Response::builder()

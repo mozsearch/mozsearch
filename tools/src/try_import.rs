@@ -61,7 +61,8 @@
 //! replaces, but the indexer asks the web server which spec pull requests it
 //! imported (see infrastructure/aws/carry-over-imports.py), and the next web
 //! server imports them again, those still open (see
-//! `spec_prs::start`).
+//! `spec_prs::start`); and its other try pushes, those wanted lately, which
+//! the old web server serves until they're imported (see `try_carry_over`).
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
@@ -321,6 +322,19 @@ pub fn imported_head(cfg: &Config, tree_name: &str, rev: &str) -> Option<Oid> {
 /// `imported_head`), for importing them again into the next index's (see
 /// `spec_prs::start`).
 pub fn imported_pull_requests(cfg: &Config, tree_name: &str) -> Vec<String> {
+    imported_pushes(cfg, tree_name, true)
+}
+
+/// The try pushes imported into the tree, but spec pull requests (their hg
+/// revisions; see `imported_head`), for importing them again into the next
+/// index's (see `try_carry_over`).
+pub fn imported_try_pushes(cfg: &Config, tree_name: &str) -> Vec<String> {
+    imported_pushes(cfg, tree_name, false)
+}
+
+/// The spec pull requests imported into the tree, or (unless
+/// `pull_requests`) its other try pushes.
+fn imported_pushes(cfg: &Config, tree_name: &str, pull_requests: bool) -> Vec<String> {
     let Some(git) = cfg.trees.get(tree_name).and_then(|tree| tree.git.as_ref()) else {
         return vec![];
     };
@@ -335,8 +349,9 @@ pub fn imported_pull_requests(cfg: &Config, tree_name: &str) -> Vec<String> {
                 .ok()?
                 .strip_prefix("refs/try/")?
                 .to_string();
-            (is_pull_request(&push) && normalize_push(&push).as_deref() == Some(push.as_str()))
-                .then_some(push)
+            (is_pull_request(&push) == pull_requests
+                && normalize_push(&push).as_deref() == Some(push.as_str()))
+            .then_some(push)
         })
         .filter(|push| imported_head(cfg, tree_name, push).is_some())
         .collect();
@@ -762,6 +777,8 @@ impl TryImports {
     /// the tree, unless it is (but for spec pull requests, which are imported
     /// again, for their newer commits) or will be, or it failed less than
     /// `RETRY_AFTER` ago, or too many imports are waiting; and its status.
+    /// (Its request is noted, for the next index's web server to import it
+    /// again if it's wanted lately; see `try_carry_over`.)
     pub fn request(
         &self,
         cfg: &Config,
@@ -769,6 +786,9 @@ impl TryImports {
         rev: &str,
     ) -> Result<ImportStatus, &'static str> {
         let status = self.status(cfg, tree_name, rev);
+        if status != ImportStatus::Unavailable {
+            crate::try_carry_over::note_requested(cfg, tree_name, rev);
+        }
         match status {
             ImportStatus::NotImported | ImportStatus::Failed { retry: true, .. } => {}
             ImportStatus::Imported { .. } if is_pull_request(rev) => {}
@@ -815,11 +835,12 @@ impl TryImports {
         self.enqueue(tree_name, &revs)
     }
 
-    /// Queue the imports of the spec pull requests `revs` (`SPEC/NUMBER`)
-    /// which the previous index's web server had imported (see
-    /// `spec_prs::start`), but those imported, waiting or running,
-    /// or which failed less than `RETRY_AFTER` ago, however many there are;
-    /// how many it queued.
+    /// Queue the imports of the try pushes `revs` (see `normalize_push`)
+    /// which the previous index's web server had imported (spec pull
+    /// requests, see `spec_prs::start`; and others, see
+    /// `try_carry_over::restore`), after people's requests, in order, but
+    /// those imported, waiting or running, or which failed less than
+    /// `RETRY_AFTER` ago, however many there are; how many it queued.
     pub fn restore(&self, cfg: &Config, tree_name: &str, revs: &[String]) -> usize {
         if hook(cfg, tree_name).is_none() {
             return 0;
@@ -827,7 +848,7 @@ impl TryImports {
         let revs: Vec<String> = revs
             .iter()
             .filter(|rev| {
-                is_pull_request(rev)
+                normalize_push(rev).as_deref() == Some(rev.as_str())
                     && matches!(
                         self.status(cfg, tree_name, rev),
                         ImportStatus::NotImported | ImportStatus::Failed { retry: true, .. }

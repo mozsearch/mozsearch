@@ -153,6 +153,8 @@ mod symbol_graph_edge_kind;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tokenize;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod try_carry_over;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod try_import;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod try_review;
