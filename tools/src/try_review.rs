@@ -184,11 +184,13 @@ impl Hunk {
         let mut range: Option<(u32, u32)> = None;
         // (Walking back, a removed line's position is the next kept or
         // added line's, or the last one's plus one.)
-        // (Blank lines aside, unless they're all it changes.)
+        // (Blank lines, preprocessor conditionals and comments aside, unless
+        // they're all it changes, as they're beside its code: ex: the
+        // `#ifdef` and `#endif` around a function it adds; see `glue_line`.)
         let mut positions = vec![];
         let mut blank_positions = vec![];
         for line in self.lines.iter().rev() {
-            let into = match line.text.trim().is_empty() {
+            let into = match is_aside(&line.text) {
                 true => &mut blank_positions,
                 false => &mut positions,
             };
@@ -222,12 +224,13 @@ impl Hunk {
             .unwrap_or(0)
     }
 
-    /// Its removed lines' old-side numbers, first and last.
+    /// Its removed lines' old-side numbers, first and last (lines aside as
+    /// for `new_range`).
     fn old_range(&self) -> Option<(u32, u32)> {
         let removed = |blank: bool| -> Vec<u32> {
             self.lines
                 .iter()
-                .filter(|line| line.kind == "-" && (blank || !line.text.trim().is_empty()))
+                .filter(|line| line.kind == "-" && (blank || !is_aside(&line.text)))
                 .filter_map(|line| line.old)
                 .collect()
         };
@@ -731,6 +734,19 @@ pub struct ReviewHunk {
     /// The index of its file's diff hunk it's (part of; see `split_hunk`).
     #[serde(default)]
     pub diff_hunk: usize,
+    /// The file's lines just before and after it which it doesn't show, the
+    /// same on both sides, which its page shows when asked to (see
+    /// `hunk_code_html`), and how many more there are on each side, to the
+    /// file's next hunk or its start or end (see `expansions`; not kept in
+    /// the view's cache).
+    #[serde(skip)]
+    pub expand_before: Vec<HunkLine>,
+    #[serde(skip)]
+    pub expand_after: Vec<HunkLine>,
+    #[serde(skip)]
+    pub beyond_before: u32,
+    #[serde(skip)]
+    pub beyond_after: u32,
 }
 
 /// A stable hash (FNV-1a, 64 bits) of a hunk's changed lines, for its id.
@@ -844,6 +860,42 @@ fn hunk_entries(entries: &[OutlineEntry], hunk: &Hunk) -> Vec<usize> {
     holding
 }
 
+/// What a changed line outside definitions is to the runs of changed lines
+/// beside it (see `split_hunk`), if it's not its own: blank, closing a
+/// preprocessor conditional (the previous run's), or opening one, or a
+/// comment (the next run's).
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Glue {
+    Blank,
+    Closer,
+    Opener,
+}
+
+/// Whether a changed line is beside a hunk's code rather than its own, for
+/// its range (see `Hunk::new_range`): blank, a preprocessor conditional or a
+/// comment.
+fn is_aside(text: &str) -> bool {
+    text.trim().is_empty() || glue_line(text).is_some()
+}
+
+fn glue_line(text: &str) -> Option<Glue> {
+    let text = text.trim();
+    if let Some(directive) = text.strip_prefix('#') {
+        let word: String = directive
+            .trim_start()
+            .chars()
+            .take_while(|c| c.is_ascii_alphabetic())
+            .collect();
+        return match word.as_str() {
+            "if" | "ifdef" | "ifndef" => Some(Glue::Opener),
+            "endif" | "else" | "elif" | "elifdef" | "elifndef" => Some(Glue::Closer),
+            _ => None,
+        };
+    }
+    (text.starts_with("//") || text.starts_with("/*") || text.starts_with('*'))
+        .then_some(Glue::Opener)
+}
+
 /// A hunk split where its changed lines' innermost definitions change (ex: a
 /// hunk changing a function's signature and adding the function after it),
 /// each part with its context (up to `CONTEXT_LINES` lines, but not into
@@ -895,27 +947,46 @@ fn split_hunk(entries: &[OutlineEntry], hunk: &Hunk) -> Vec<Hunk> {
     // (The runs of changed lines with the same innermost definition, as
     // [definition, first changed line, last changed line].)
     // (A blank changed line is in the run beside it, rather than a run of
-    // its own: the next one's, if it's before any.)
+    // its own: the previous one's, or the next one's if it's before any.
+    // Outside definitions, a line closing a preprocessor conditional
+    // (`#endif`, `#else`, `#elif`) is too, and one opening it (`#if`,
+    // `#ifdef`, `#ifndef`) or a comment is the next one's, or the previous
+    // one's if it's after all: ex: an `#ifdef` and an `#endif` around a
+    // function the hunk adds, and the function's comment, are its, rather
+    // than parts of their own around it.)
     let mut groups: Vec<(Option<usize>, usize, usize)> = vec![];
-    let mut leading_blank: Option<usize> = None;
+    // (The first and last of the lines for the next run, if any.)
+    let mut pending: Option<(usize, usize)> = None;
     for (i, line) in hunk.lines.iter().enumerate() {
         if line.kind == " " {
             continue;
         }
-        if line.text.trim().is_empty() {
-            match groups.last_mut() {
-                Some((_, _, last)) => *last = i,
-                None => {
-                    leading_blank.get_or_insert(i);
-                }
-            }
-            continue;
-        }
         let def = innermost(i);
-        match groups.last_mut() {
-            Some((group_def, _, last)) if *group_def == def => *last = i,
-            _ => groups.push((def, leading_blank.take().unwrap_or(i), i)),
+        let glue = match (line.text.trim().is_empty(), def) {
+            (true, _) => Some(Glue::Blank),
+            (false, Some(_)) => None,
+            (false, None) => glue_line(&line.text),
+        };
+        let previous = match (glue, &pending) {
+            (Some(Glue::Opener), _) | (Some(_), Some(_)) => false,
+            (Some(_), None) => true,
+            (None, _) => {
+                match groups.last_mut() {
+                    Some((group_def, _, last)) if *group_def == def => *last = i,
+                    _ => groups.push((def, pending.map_or(i, |(first, _)| first), i)),
+                }
+                pending = None;
+                continue;
+            }
+        };
+        match (previous, groups.last_mut()) {
+            (true, Some((_, _, last))) => *last = i,
+            _ => pending = Some((pending.map_or(i, |(first, _)| first), i)),
         }
+    }
+    // (Openers after all runs are the last one's.)
+    if let (Some((_, end)), Some((_, _, last))) = (pending, groups.last_mut()) {
+        *last = end;
     }
     if groups.len() < 2 {
         return vec![hunk.clone()];
@@ -1060,6 +1131,10 @@ fn review_file(
             lines,
             moved: vec![],
             diff_hunk: *diff_hunk,
+            expand_before: vec![],
+            expand_after: vec![],
+            beyond_before: 0,
+            beyond_after: 0,
         });
     }
     let mut defs: Vec<(usize, ReviewDef)> = defs.into_values().collect();
@@ -1349,16 +1424,50 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
                 ("added", _) | (_, None) => None,
                 (_, Some(parent)) => text(server, &mut texts, parent, &old_path).await,
             };
-            let now_lines: BTreeSet<u32> = file
+            let mut now_lines: BTreeSet<u32> = file
                 .hunks
                 .iter()
                 .flat_map(|h| h.lines.iter().filter_map(|l| l.new))
                 .collect();
-            let then_lines: BTreeSet<u32> = file
+            let mut then_lines: BTreeSet<u32> = file
                 .hunks
                 .iter()
                 .flat_map(|h| h.lines.iter().filter_map(|l| l.old))
                 .collect();
+            // (And the lines around its hunks which their page can show,
+            // unchanged on both sides; see `expansions`.)
+            let expansions = match (&now_text, &then_text) {
+                (Some(now_text), Some(then_text)) => {
+                    let count = now_text.lines().count() as u32;
+                    let mut old_of: Vec<Option<u32>> = vec![None; count as usize];
+                    let map = crate::rev_lines::line_map(then_text.as_bytes(), now_text.as_bytes());
+                    for (old, new) in map.iter().enumerate() {
+                        if let Some(slot) = new
+                            .and_then(|new| (new as usize).checked_sub(1))
+                            .and_then(|index| old_of.get_mut(index))
+                        {
+                            *slot = Some(old as u32 + 1);
+                        }
+                    }
+                    let spans: Vec<Option<(u32, u32)>> = file
+                        .hunks
+                        .iter()
+                        .map(|hunk| {
+                            let mut news = hunk.lines.iter().filter_map(|line| line.new);
+                            let first = news.next()?;
+                            Some(news.fold((first, first), |(a, b), n| (a.min(n), b.max(n))))
+                        })
+                        .collect();
+                    expansions(&spans, &old_of, count)
+                }
+                _ => vec![Expansion::default(); file.hunks.len()],
+            };
+            for expansion in &expansions {
+                for (new, old) in expansion.before.iter().chain(&expansion.after) {
+                    now_lines.insert(*new);
+                    then_lines.insert(*old);
+                }
+            }
             // (Its lines from the listings: patched, the head's; now, the
             // indexed revision's.)
             let mut now_code = BTreeMap::new();
@@ -1495,6 +1604,36 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
                 }
                 // (And the words its changes change.)
                 mark_word_changes(&mut hunk.lines);
+            }
+            // (And the lines around them; see `expansions`.)
+            let now_rows: Vec<&str> = now_text
+                .as_deref()
+                .map(|text| text.lines().collect())
+                .unwrap_or_default();
+            for (hunk, expansion) in file.hunks.iter_mut().zip(&expansions) {
+                let line = |&(new, old): &(u32, u32)| HunkLine {
+                    kind: " ".to_string(),
+                    old: Some(old),
+                    new: Some(new),
+                    text: now_rows
+                        .get((new as usize).saturating_sub(1))
+                        .map_or_else(String::new, |text| text.to_string()),
+                    then_html: then_code
+                        .get(&old)
+                        .cloned()
+                        .or_else(|| at(&then_fmt, Some(old))),
+                    now_html: now_code
+                        .get(&new)
+                        .cloned()
+                        .or_else(|| at(&now_fmt, Some(new))),
+                    then_blame: cell(then_ctx, Some(old)),
+                    now_blame: cell(now_ctx, Some(new)),
+                    ..Default::default()
+                };
+                hunk.expand_before = expansion.before.iter().map(line).collect();
+                hunk.expand_after = expansion.after.iter().map(line).collect();
+                hunk.beyond_before = expansion.beyond_before;
+                hunk.beyond_after = expansion.beyond_after;
             }
         }
         // (And the lines it moved, now that its files' lines have their
@@ -1765,6 +1904,102 @@ fn add_moved_lines(moved: &mut Vec<MovedFrom>, patch: &mut ReviewPatch) {
         }
         hunk.moved.push(group);
     }
+}
+
+/// How many of a file's lines before and after a hunk its page can show,
+/// when asked to (see `ReviewHunk::expand_before`): a few more than its
+/// context (`CONTEXT_LINES`, which ends at its definition), or all of them to
+/// the next hunk if there are at most twice as many, so that a hunk read
+/// beside another (ex: an `#ifdef`'s and its `#endif`'s) can be seen with
+/// what's between them.
+pub const EXPAND_LINES: u32 = 10;
+
+/// The lines a hunk's page can show around it (see `expansions`): before
+/// and after it, each as (its new-side line, its old-side line), and how many
+/// more lines there are past them.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Expansion {
+    pub before: Vec<(u32, u32)>,
+    pub beyond_before: u32,
+    pub after: Vec<(u32, u32)>,
+    pub beyond_after: u32,
+}
+
+/// The lines around each of a file's hunks (by their new-side lines,
+/// `spans`) which its page can show (see `ReviewHunk::expand_before`), in a
+/// file of `count` lines as patched: up to `EXPAND_LINES` before and after
+/// it (or all of the lines to the next hunk, if they're at most twice as
+/// many), but not into another hunk, and only those the same in the file as
+/// it was (`old_of`, each line's line there, if it's unchanged; see
+/// `rev_lines::line_map`), nearest the hunk first.
+pub fn expansions(
+    spans: &[Option<(u32, u32)>],
+    old_of: &[Option<u32>],
+    count: u32,
+) -> Vec<Expansion> {
+    let old = |new: u32| {
+        old_of
+            .get((new as usize).checked_sub(1)?)
+            .copied()
+            .flatten()
+    };
+    spans
+        .iter()
+        .map(|span| {
+            let Some((first, last)) = *span else {
+                return Expansion::default();
+            };
+            let prev_end = spans
+                .iter()
+                .flatten()
+                .filter(|(_, end)| *end < first)
+                .map(|(_, end)| *end)
+                .max()
+                .unwrap_or(0);
+            let next_start = spans
+                .iter()
+                .flatten()
+                .filter(|(start, _)| *start > last)
+                .map(|(start, _)| *start)
+                .min()
+                .unwrap_or(count + 1);
+            let cap = |gap: u32| match gap <= 2 * EXPAND_LINES {
+                true => gap as usize,
+                false => EXPAND_LINES as usize,
+            };
+            let mut before = vec![];
+            let before_cap = cap(first.saturating_sub(prev_end + 1));
+            let mut line = first;
+            while line > prev_end + 1 && before.len() < before_cap {
+                line -= 1;
+                match old(line) {
+                    Some(old) => before.push((line, old)),
+                    None => break,
+                }
+            }
+            before.reverse();
+            let mut after = vec![];
+            let after_cap = cap((next_start - 1).saturating_sub(last));
+            let mut line = last;
+            while line + 1 < next_start && after.len() < after_cap {
+                line += 1;
+                match old(line) {
+                    Some(old) => after.push((line, old)),
+                    None => break,
+                }
+            }
+            Expansion {
+                beyond_before: before
+                    .first()
+                    .map_or(first, |(line, _)| *line)
+                    .saturating_sub(prev_end + 1),
+                beyond_after: (next_start - 1)
+                    .saturating_sub(after.last().map_or(last, |(line, _)| *line)),
+                before,
+                after,
+            }
+        })
+        .collect()
 }
 
 /// The most of a later change's added lines its popup shows.
@@ -3146,7 +3381,14 @@ fn hunk_lines_html(
 /// (And the code before a patch is searched in the indexed revision, rather
 /// than the push, whose context the page is in; see context-menu.js's
 /// `searchContext`.)
-fn hunk_code_html(tree: &str, patch: usize, file: &ReviewFile, hunk: &ReviewHunk) -> String {
+fn hunk_code_html(
+    tree: &str,
+    rev: &str,
+    stack: &str,
+    patch: usize,
+    file: &ReviewFile,
+    hunk: &ReviewHunk,
+) -> String {
     let then_key = side_key(patch, true, file.old_path.as_deref().unwrap_or(&file.path));
     let now_key = side_key(patch, false, &file.path);
     let then_attrs = format!(
@@ -3167,14 +3409,109 @@ fn hunk_code_html(tree: &str, patch: usize, file: &ReviewFile, hunk: &ReviewHunk
             then.replace("then-code", "then-code then-only"),
             side_html(&hunk.lines, true, &then_key)
         ),
-        _ => format!(
-            r#"<div class="then-now"><div {}>{}</div><div {}>{}</div></div>"#,
-            then,
-            side_html(&hunk.lines, true, &then_key),
-            NOW,
-            side_html(&hunk.lines, false, &now_key)
-        ),
+        _ => {
+            // (Each side's lines, between the lines around them which the
+            // page shows when asked to, both sides' at once; see
+            // `ReviewHunk::expand_before` and try-review.js's
+            // `addExpanders`.)
+            let side = |then: bool| {
+                let key = match then {
+                    true => &then_key,
+                    false => &now_key,
+                };
+                format!(
+                    "{}{}{}",
+                    expander_html(tree, rev, stack, file, hunk, then, key, true),
+                    side_html(&hunk.lines, then, key),
+                    expander_html(tree, rev, stack, file, hunk, then, key, false)
+                )
+            };
+            format!(
+                r#"<div class="then-now"><div {}>{}</div><div {}>{}</div></div>"#,
+                then,
+                side(true),
+                NOW,
+                side(false)
+            )
+        }
     }
+}
+
+/// A row asking for the lines before (or after) a hunk which its page has
+/// (see `ReviewHunk::expand_before`), on one of its sides, and those lines'
+/// rows, as a template (try-review.js's `addExpanders` replaces the row with
+/// it, on both sides at once), with, if the file has more lines there than
+/// the page does, a row of how many more, linked to the file's listing
+/// there, as patched.
+#[allow(clippy::too_many_arguments)]
+fn expander_html(
+    tree: &str,
+    rev: &str,
+    stack: &str,
+    file: &ReviewFile,
+    hunk: &ReviewHunk,
+    then: bool,
+    key: &str,
+    before: bool,
+) -> String {
+    let (lines, beyond) = match before {
+        true => (&hunk.expand_before, hunk.beyond_before),
+        false => (&hunk.expand_after, hunk.beyond_after),
+    };
+    if lines.is_empty() {
+        return String::new();
+    }
+    let row = |class: &str, content: String| {
+        format!(
+            r#"<div role="row" class="source-line-with-number tr-line {}"{}><div role="cell" class="tr-blame"></div><span class="tr-lno"></span><span role="cell" class="tr-text">{}</span></div>"#,
+            class,
+            match before {
+                true => r#" data-expand="before""#,
+                false => r#" data-expand="after""#,
+            },
+            content
+        )
+    };
+    let count = lines.len();
+    let button = row(
+        "tr-expand",
+        format!(
+            r#"<button type="button" class="tr-expand-button" title="Show the file's {count} line{s} {where_} this hunk here">{arrow} {count} more line{s}</button>"#,
+            count = count,
+            s = if count == 1 { "" } else { "s" },
+            where_ = if before { "before" } else { "after" },
+            arrow = if before { "\u{2191}" } else { "\u{2193}" },
+        ),
+    );
+    let rest = (beyond > 0).then(|| {
+        let at = match before {
+            true => lines.first().and_then(|line| line.new).unwrap_or(1).saturating_sub(1),
+            false => lines.last().and_then(|line| line.new).unwrap_or(0) + 1,
+        };
+        row(
+            "tr-expand-rest",
+            format!(
+                r#"<a href="/{tree}/rev/{rev}/{path}?stack={stack}#{at}">{beyond} more line{s} {where_}, in the file</a>"#,
+                tree = escape(tree),
+                rev = escape(rev),
+                path = crate::url_encode_path::url_encode_path(&file.path),
+                stack = escape(stack),
+                at = at.max(1),
+                beyond = beyond,
+                s = if beyond == 1 { "" } else { "s" },
+                where_ = if before { "before them" } else { "after them" },
+            ),
+        )
+    });
+    let rows = side_html(lines, then, key);
+    let content = match before {
+        true => format!("{}{}", rest.unwrap_or_default(), rows),
+        false => format!("{}{}", rows, rest.unwrap_or_default()),
+    };
+    format!(
+        r#"{}<template class="tr-more">{}</template>"#,
+        button, content
+    )
 }
 
 /// A hunk's lines its patch moved (see `add_moved_lines`), again: each
@@ -3244,7 +3581,7 @@ fn hunk_html(
         id = escape(&hunk.id),
         element = element_id(&hunk.id, hunk.section),
         head = head,
-        code = hunk_code_html(tree, patch, file, hunk),
+        code = hunk_code_html(tree, rev, stack, patch, file, hunk),
         moved = moved_html(tree, patch, file, hunk),
     )
 }
@@ -4107,6 +4444,10 @@ Binary files img.png and img.png differ
                         removed: 0,
                         moved: vec![],
                         diff_hunk: 0,
+                        expand_before: vec![],
+                        expand_after: vec![],
+                        beyond_before: 0,
+                        beyond_after: 0,
                     }],
                     truncated: false,
                 })
@@ -4277,6 +4618,10 @@ Binary files img.png and img.png differ
             removed: 0,
             moved: vec![],
             diff_hunk: 0,
+            expand_before: vec![],
+            expand_after: vec![],
+            beyond_before: 0,
+            beyond_after: 0,
         };
         let mut first = patch("r1", &["a.cpp"], 1, 1);
         first.parent = Some("p0".to_string());
@@ -4392,6 +4737,10 @@ Binary files img.png and img.png differ
             removed: 0,
             moved: vec![],
             diff_hunk: 0,
+            expand_before: vec![],
+            expand_after: vec![],
+            beyond_before: 0,
+            beyond_after: 0,
         };
         let mut moving = patch("r1", &["a.cpp", "b.cpp"], 1, 2);
         moving.files[0].defs.push(ReviewDef {
@@ -4559,6 +4908,56 @@ Binary files img.png and img.png differ
         assert_eq!(group.lines[4].now_html, None, "(Use(uri) is as it was)");
     }
 
+    /// The lines around a file's hunks which its page can show: up to
+    /// `EXPAND_LINES` on each side, or all of a gap of at most twice as many,
+    /// not into another hunk, nor past a changed line; and how many more.
+    #[test]
+    fn test_expansions() {
+        // (100 lines as patched, line 50 added, and those after it a line
+        // further on than they were, ex: line 53 was 54.)
+        let old_of: Vec<Option<u32>> = (1..=100u32)
+            .map(|new| match new {
+                50 => None,
+                1..=49 => Some(new),
+                _ => Some(new + 1),
+            })
+            .collect();
+        let spans = [Some((30, 35)), Some((48, 52)), Some((90, 95)), None];
+        let found = expansions(&spans, &old_of, 100);
+        let lines = |pairs: &[(u32, u32)]| pairs.iter().map(|(new, _)| *new).collect::<Vec<_>>();
+        assert_eq!(lines(&found[0].before), (20..=29).collect::<Vec<_>>());
+        assert_eq!(found[0].beyond_before, 19, "lines 1-19");
+        assert_eq!(
+            lines(&found[0].after),
+            (36..=47).collect::<Vec<_>>(),
+            "all of a gap of 12 lines"
+        );
+        assert_eq!(found[0].beyond_after, 0);
+        assert_eq!(lines(&found[1].before), (36..=47).collect::<Vec<_>>());
+        assert_eq!(
+            found[1].after.first(),
+            Some(&(53, 54)),
+            "with their old lines"
+        );
+        assert_eq!(lines(&found[1].after), (53..=62).collect::<Vec<_>>());
+        assert_eq!(found[1].beyond_after, 27, "lines 63-89");
+        assert_eq!(lines(&found[2].before), (80..=89).collect::<Vec<_>>());
+        assert_eq!(found[2].beyond_before, 27);
+        assert_eq!(lines(&found[2].after), (96..=100).collect::<Vec<_>>());
+        assert_eq!(
+            found[3],
+            Expansion::default(),
+            "(a hunk without lines as patched)"
+        );
+
+        // (Not past a changed line, which another hunk would have shown.)
+        let old_of = [Some(1), Some(2), None, Some(3), Some(4), Some(5)];
+        let found = expansions(&[Some((5, 5))], &old_of, 6);
+        assert_eq!(found[0].before, vec![(4, 3)]);
+        assert_eq!(found[0].beyond_before, 3);
+        assert_eq!(found[0].after, vec![(6, 5)]);
+    }
+
     #[test]
     fn test_split_hunk() {
         // (A hunk changing f's signature, and adding g after it.)
@@ -4636,6 +5035,58 @@ Binary files img.png and img.png differ
         );
         assert_eq!(hunk_entries(&entries, &parts[0]), vec![1]);
         assert_eq!(hunk_entries(&entries, &parts[2]), vec![1]);
+
+        // (A hunk changing Prev, and adding IsOrphaned after it, in an
+        // `#ifdef`, with its comment: the `#ifdef`, the comment, the
+        // `#endif` and the blank line after it are IsOrphaned's, rather than
+        // parts of their own around it, as firefox-try's 65f9020f0b48's
+        // dom/cache/Manager.cpp had them.)
+        let diff = "diff --git c.cpp c.cpp
+--- c.cpp
++++ c.cpp
+@@ -1,6 +1,13 @@
+ bool Prev() {
+-  return false;
++  return true;
+ }
+ 
++#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
++// Whether it's orphaned.
++bool IsOrphaned() const {
++  return true;
++}
++#endif
++
+ // TODO
+ bool Next() {
+";
+        let hunk = &parse_diff(diff)[0].hunks[0];
+        let entries: Vec<OutlineEntry> = serde_json::from_value(json!([
+            {"pretty": "Prev", "name": "Prev", "kind": "function", "depth": 0, "status": "changed", "lines": [1, 3], "from_lines": [1, 3]},
+            {"pretty": "IsOrphaned", "name": "IsOrphaned", "kind": "function", "depth": 0, "status": "added", "lines": [7, 9]},
+            {"pretty": "Next", "name": "Next", "kind": "function", "depth": 0, "status": "unchanged", "lines": [13, 15], "from_lines": [6, 8]},
+        ]))
+        .unwrap();
+        let parts = split_hunk(&entries, hunk);
+        assert_eq!(
+            parts.iter().map(changed).collect::<Vec<_>>(),
+            vec![
+                vec!["-  return false;", "+  return true;"],
+                vec![
+                    "+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED",
+                    "+// Whether it's orphaned.",
+                    "+bool IsOrphaned() const {",
+                    "+  return true;",
+                    "+}",
+                    "+#endif",
+                    "+",
+                ],
+            ]
+        );
+        assert_eq!(hunk_entries(&entries, &parts[1]), vec![1]);
+        assert_eq!(glue_line("  # endif  // X"), Some(Glue::Closer));
+        assert_eq!(glue_line("#include <a.h>"), None);
+        assert_eq!(glue_line(" * More of it."), Some(Glue::Opener));
     }
 
     #[test]

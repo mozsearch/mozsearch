@@ -93,6 +93,7 @@ var TryReview = new (class TryReview {
     this.rememberLooking();
     this.addLinePopups();
     this.addLineHover();
+    this.addExpanders();
     ReviewState.bind(this.review, this.root);
     this.drawSlicings();
     this.summaryBox.append(ReviewState.summary(this.review, [
@@ -106,6 +107,28 @@ var TryReview = new (class TryReview {
     this.updateStatus();
     this.focusRevision();
     this.root.dataset.reviewReady = "";
+  }
+
+  // The lines before and after a hunk which the page has (see the tools'
+  // `expander_html`): its row asking for them, on either side, shows them on
+  // both, the template after each side's row replacing it (whose rows the
+  // line hover's index then adds; see `addLineHover`).
+  addExpanders() {
+    this.root.addEventListener("click", event => {
+      const button = event.target.closest(".tr-expand-button");
+      const row = button?.closest(".tr-expand");
+      const pair = row?.closest(".then-now");
+      if (!pair) {
+        return;
+      }
+      for (const side of pair.querySelectorAll(`.tr-expand[data-expand="${row.dataset.expand}"]`)) {
+        const template = side.nextElementSibling;
+        if (template?.matches("template.tr-more")) {
+          side.replaceWith(template.content.cloneNode(true));
+          template.remove();
+        }
+      }
+    });
   }
 
   // A Phabricator revision's review URL (`/{tree}/review/phab/D123`, its

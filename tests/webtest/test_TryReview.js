@@ -475,6 +475,39 @@ add_task(async function test_TryReviewMovedLines() {
   ok(!group.checkVisibility(), "Otherwise, they aren't shown again");
 });
 
+// (A hunk's lines around it, which its page has, shown when asked: in
+// f00dfeedbeef's user.cpp, UseWidget's new line's hunk shows only its
+// definition's line, but the file has two more lines after it; see the
+// tools' `expander_html`.)
+add_task(async function test_TryReviewExpand() {
+  await TestUtils.loadPath("/trydelta/try/hg/f00dfeedbeef");
+  if (!doc().querySelector("#try-review")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
+                           "The push is imported", 500, 240);
+  }
+  await waitForCondition(() => doc().querySelector("#try-review[data-review-ready]"),
+                         "The review is loaded");
+  const hunk = [...doc().querySelectorAll('.tr-file[data-path="user.cpp"] .tr-hunk')]
+    .find(each => each.querySelector(".now-code")?.textContent.includes("FrobbedSize(3, 2)"));
+  const now = hunk?.querySelector(".now-code");
+  const then = hunk?.querySelector(".then-code");
+  const button = now?.querySelector('.tr-expand[data-expand="after"] .tr-expand-button');
+  ok(button?.textContent.includes("2 more lines"), "A hunk can show the file's lines after it");
+  ok(!hunk.querySelector('.tr-expand[data-expand="before"]'),
+     "but not before it, which another hunk shows");
+  ok(!now.textContent.includes("namespace trydelta"), "which it doesn't at first");
+  button.click();
+  ok(now.textContent.includes("}  // namespace trydelta") && then.textContent.includes("}  // namespace trydelta"),
+     "Asking shows them, on both sides");
+  ok(!hunk.querySelector(".tr-expand"), "and the rows asking for them go");
+  const row = side => [...side.querySelectorAll(".tr-line[data-line]")]
+    .find(each => each.textContent.includes("namespace trydelta"));
+  is(row(now)?.dataset.line, "0:n:user.cpp:10", "as the rows of their lines, as patched");
+  is(row(then)?.dataset.line, "0:o:user.cpp:13", "and as they were");
+  ok(row(now)?.querySelector(".blame-strip[data-hb-ctx]"), "with their blame");
+});
+
 add_task(async function test_TryReviewFacets() {
   await importPush();
   await loadReview();

@@ -8739,6 +8739,45 @@ mark.tr-word-added {
   display: none;
 }
 
+/* A try review's rows asking for the lines before or after a hunk, and of
+   how many more the file has there (see try_review.rs's `expander_html`):
+   a light band, its text in a darker blue than links', which keeps WCAG
+   AA's 4.5:1 on it (4.6:1; the dark theme's, 5.8:1), as the site's link
+   color has 3:1. */
+.tr-expand,
+.tr-expand-rest {
+  background: rgba(9, 105, 218, 0.08);
+  --tr-expand-color: #0969da;
+}
+.tr-expand-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--tr-expand-color);
+  font: inherit;
+  font-family: sans-serif;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.tr-expand-button:hover,
+.tr-expand-button:focus-visible {
+  text-decoration: underline;
+}
+.tr-expand-rest a {
+  color: var(--tr-expand-color);
+  font-family: sans-serif;
+  font-size: 0.9em;
+}
+@supports (color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  .tr-expand,
+  .tr-expand-rest {
+    background: rgba(56, 139, 253, 0.12);
+    --tr-expand-color: #58a6ff;
+  }
+}
+}
+
 /* (A source card's strip, after its heading.) */
 .tr-file-head .review-strip,
 .tr-def-head .review-strip,
