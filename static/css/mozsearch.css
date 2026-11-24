@@ -8260,16 +8260,31 @@ textarea.monospace {
   user-select: none;
 }
 
+/* Added and removed lines' tints, and their changed words' (see
+   try_review.rs's `mark_word_changes`), a little more tinted and underlined,
+   light enough that the code's colors keep WCAG AA's 4.5:1 contrast on them:
+   on the darker tints they had (0.18, and the words' 0.45 over that), the
+   light theme's types (teal) had 2.5:1.  Teal, green and the regexps' gray
+   are barely 4.5:1 on white itself (4.77, 5.14 and 4.31), so the light
+   theme's changed lines have darker ones (6.8, 7.4 and 6.5 on white; 4.8 or
+   more on the words' tint).  The underlines (3.5:1 or more on their words'
+   tint) mark the words, as WCAG's non-text contrast asks (3:1), rather than
+   a darker tint. */
 .tr-added {
-  background: rgba(46, 160, 67, 0.18);
+  background: rgba(46, 160, 67, 0.1);
 }
 
 .tr-removed {
-  background: rgba(248, 81, 73, 0.18);
+  background: rgba(248, 81, 73, 0.1);
 }
 
-/* A change's words which the other side doesn't have (see try_review.rs's
-   `mark_word_changes`), darker than their rows, as interdiffs' are. */
+.tr-added,
+.tr-removed {
+  --syntax-type-color: #006666;
+  --syntax-string-color: #006400;
+  --syntax-regex-color: #545f6e;
+}
+
 mark.tr-word-removed,
 mark.tr-word-added {
   padding: 0;
@@ -8277,10 +8292,53 @@ mark.tr-word-added {
   border-radius: 2px;
 }
 mark.tr-word-removed {
-  background: rgba(248, 81, 73, 0.45);
+  background: rgba(248, 81, 73, 0.16);
+  box-shadow: inset 0 -2px #cf222e;
 }
 mark.tr-word-added {
-  background: rgba(46, 160, 67, 0.45);
+  background: rgba(46, 160, 67, 0.16);
+  box-shadow: inset 0 -2px #238636;
+}
+
+/* (The dark theme's tints are a little more, and its words' a little less
+   over theirs, with the brighter underlines; its code's colors are its own,
+   which keep 4.5:1 there.) */
+@supports (color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  .tr-added {
+    background: rgba(46, 160, 67, 0.13);
+  }
+  .tr-removed {
+    background: rgba(248, 81, 73, 0.13);
+  }
+  .tr-added,
+  .tr-removed {
+    --syntax-type-color: var(--syntax-type-base);
+    --syntax-string-color: var(--syntax-string-base);
+    --syntax-regex-color: var(--syntax-regex-base);
+  }
+  mark.tr-word-removed {
+    background: rgba(248, 81, 73, 0.1);
+    box-shadow: inset 0 -2px rgb(248, 81, 73);
+  }
+  mark.tr-word-added {
+    background: rgba(46, 160, 67, 0.1);
+    box-shadow: inset 0 -2px rgb(46, 160, 67);
+  }
+}
+}
+
+/* A line being hovered over, and its other rows (see try-review.js's
+   `addLineHover`), over their tints. */
+.tr-line.tr-hover {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.06));
+}
+@supports (color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  .tr-line.tr-hover {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
+  }
+}
 }
 
 .tr-crumbs .tr-crumb-review {

@@ -381,6 +381,24 @@ add_task(async function test_TryReviewLaterChanges() {
   is(win.history.length, length + 1, "as a history entry");
 });
 
+// (A line's rows, by their keys: hovering over one highlights them; see
+// try-review.js's `addLineHover`.)
+add_task(async function test_TryReviewLineHover() {
+  await importPush();
+  await loadReview();
+  const row = doc().querySelector('.tr-file[data-path="widget.h"] .now-code .tr-line.tr-added[data-line]');
+  ok(row, "An added line's row has its key");
+  ok(/^0:n:widget\.h:\d+$/.test(row.dataset.line), `of its patch, side, file and line (${row.dataset.line})`);
+  const then = doc().querySelector('.tr-file[data-path="widget.h"] .then-code .tr-line.tr-removed[data-line]');
+  ok(/^0:o:widget\.h:\d+$/.test(then?.dataset.line ?? ""), "and a removed line's, of the file as it was");
+  row.querySelector(".tr-text").dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  ok(row.classList.contains("tr-hover"), "Hovering over a line highlights it");
+  const others = [...doc().querySelectorAll(".tr-line.tr-hover")];
+  ok(others.every(other => other.dataset.line == row.dataset.line), "and only its rows");
+  doc().querySelector("#try-review").dispatchEvent(new MouseEvent("mouseleave"));
+  ok(!doc().querySelector(".tr-line.tr-hover"), "until it's left");
+});
+
 add_task(async function test_TryReviewFacets() {
   await importPush();
   await loadReview();

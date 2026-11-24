@@ -92,6 +92,7 @@ var TryReview = new (class TryReview {
     }
     this.rememberLooking();
     this.addLaterChanges();
+    this.addLineHover();
     ReviewState.bind(this.review, this.root);
     this.drawSlicings();
     this.summaryBox.append(ReviewState.summary(this.review, [
@@ -582,6 +583,53 @@ var TryReview = new (class TryReview {
     });
     popup.addEventListener("mouseenter", () => clearTimeout(hideTimer));
     popup.addEventListener("mouseleave", leave);
+  }
+
+  // A line's rows (its hunk's, and its others on the page, ex: a moved
+  // line's where it moved from; by their `data-line` keys, see the tools'
+  // `side_html`) are highlighted together while one of them is hovered over,
+  // for following a line between them.
+  addLineHover() {
+    let index = null;
+    let shown = [];
+    const rowsOf = row => {
+      const key = row.dataset.line;
+      // (Indexed at the first hover, and again for a row added since.)
+      if (!index?.get(key)?.includes(row)) {
+        index = new Map();
+        for (const other of this.root.querySelectorAll(".tr-line[data-line]")) {
+          const rows = index.get(other.dataset.line);
+          if (rows) {
+            rows.push(other);
+          } else {
+            index.set(other.dataset.line, [other]);
+          }
+        }
+      }
+      return index.get(key) || [row];
+    };
+    const clear = () => {
+      for (const row of shown) {
+        row.classList.remove("tr-hover");
+      }
+      shown = [];
+    };
+    this.root.addEventListener("mouseover", event => {
+      const row = event.target.closest?.(".tr-line[data-line]");
+      if (!row) {
+        clear();
+        return;
+      }
+      if (shown.includes(row)) {
+        return;
+      }
+      clear();
+      shown = rowsOf(row);
+      for (const other of shown) {
+        other.classList.add("tr-hover");
+      }
+    });
+    this.root.addEventListener("mouseleave", clear);
   }
 
   // (Marking a part as being looked at is a history entry too, of its

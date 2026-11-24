@@ -2592,7 +2592,13 @@ fn mark_change(lines: &mut [HunkLine], removed: usize) {
 /// (kept and added), as a source listing's rows (so that their blame strips'
 /// popups and their symbols' menus work as a listing's do; see blame.js,
 /// hyperblame.js and context-menu.js).
-fn side_html(hunk: &ReviewHunk, then: bool) -> String {
+/// A side's rows of a hunk's `lines` (`then`, as they were, else as the patch
+/// has them), each with its key (`data-line`, `line_key`'s: `key`, the
+/// patch's side's file, and its line there), by which the page's other rows
+/// of the same line (ex: a moved line's, in its hunk and where it moved from)
+/// are shown with it when it's hovered over (see try-review.js's
+/// `addLineHover`).
+fn side_html(lines: &[HunkLine], then: bool, key: &str) -> String {
     let mut html = String::new();
     // (Where the other side has lines this one doesn't, a marker saying how
     // many, which shows when only one side does.)
@@ -2610,7 +2616,7 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
     // does.)
     let mut last_commit: Option<String> = None;
     let mut color = false;
-    for line in &hunk.lines {
+    for line in lines {
         if (then && line.kind == "+") || (!then && line.kind == "-") {
             other += 1;
             continue;
@@ -2658,10 +2664,15 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
             (false, Some(index)) => format!(r#" tr-later" data-later="{}"#, index),
             _ => String::new(),
         };
+        let data_line = match number {
+            Some(n) => format!(r#" data-line="{}""#, escape(&line_key(key, n))),
+            None => String::new(),
+        };
         html.push_str(&format!(
-            r#"<div role="row" class="source-line-with-number tr-line{}{}"><div role="cell" class="tr-blame">{}</div><span class="tr-lno">{}</span><code role="cell" class="source-line tr-text">{}</code></div>"#,
+            r#"<div role="row" class="source-line-with-number tr-line{}{}"{}><div role="cell" class="tr-blame">{}</div><span class="tr-lno">{}</span><code role="cell" class="source-line tr-text">{}</code></div>"#,
             class,
             later,
+            data_line,
             strip,
             number.map_or(String::new(), |n| n.to_string()),
             code.map_or_else(|| escape(&line.text).to_string(), str::to_string)
@@ -2671,6 +2682,18 @@ fn side_html(hunk: &ReviewHunk, then: bool) -> String {
         html.push_str(&marker(other));
     }
     html
+}
+
+/// The key of the line `n` of a patch's side's file (`side_key`'s), for
+/// `side_html`'s rows.
+fn line_key(side: &str, n: u32) -> String {
+    format!("{}:{}", side, n)
+}
+
+/// The key of patch `patch`'s file `path`, as it was (`then`) or as the patch
+/// has it, for its lines' keys (see `side_html`).
+fn side_key(patch: usize, then: bool, path: &str) -> String {
+    format!("{}:{}:{}", patch, if then { "o" } else { "n" }, path)
 }
 
 /// A hunk's heading's lines, linked to the commit's file (with the push's
@@ -2724,7 +2747,9 @@ fn hunk_lines_html(
 /// (And the code before a patch is searched in the indexed revision, rather
 /// than the push, whose context the page is in; see context-menu.js's
 /// `searchContext`.)
-fn hunk_code_html(tree: &str, file: &ReviewFile, hunk: &ReviewHunk) -> String {
+fn hunk_code_html(tree: &str, patch: usize, file: &ReviewFile, hunk: &ReviewHunk) -> String {
+    let then_key = side_key(patch, true, file.old_path.as_deref().unwrap_or(&file.path));
+    let now_key = side_key(patch, false, &file.path);
     let then_attrs = format!(
         r#"class="file then-code" role="table" data-sym-info="now" data-tree="{}" data-search="{}""#,
         escape(tree),
@@ -2736,19 +2761,19 @@ fn hunk_code_html(tree: &str, file: &ReviewFile, hunk: &ReviewHunk) -> String {
         "added" => format!(
             r#"<div {}>{}</div>"#,
             NOW.replace("now-code", "now-code now-only"),
-            side_html(hunk, false)
+            side_html(&hunk.lines, false, &now_key)
         ),
         "removed" => format!(
             r#"<div {}>{}</div>"#,
             then.replace("then-code", "then-code then-only"),
-            side_html(hunk, true)
+            side_html(&hunk.lines, true, &then_key)
         ),
         _ => format!(
             r#"<div class="then-now"><div {}>{}</div><div {}>{}</div></div>"#,
             then,
-            side_html(hunk, true),
+            side_html(&hunk.lines, true, &then_key),
             NOW,
-            side_html(hunk, false)
+            side_html(&hunk.lines, false, &now_key)
         ),
     }
 }
@@ -2759,6 +2784,7 @@ fn hunk_html(
     tree: &str,
     rev: &str,
     stack: &str,
+    patch: usize,
     file: &ReviewFile,
     hunk: &ReviewHunk,
     folded: bool,
@@ -2777,7 +2803,7 @@ fn hunk_html(
         id = escape(&hunk.id),
         element = element_id(&hunk.id, hunk.section),
         head = head,
-        code = hunk_code_html(tree, file, hunk),
+        code = hunk_code_html(tree, patch, file, hunk),
     )
 }
 
@@ -2803,10 +2829,12 @@ fn file_html(
             id = def.parent.as_deref();
         }
     }
+    #[allow(clippy::too_many_arguments)]
     fn children_html(
         tree: &str,
         rev: &str,
         stack: &str,
+        patch_index: usize,
         file: &ReviewFile,
         parent: Option<&str>,
         hunks: &[&ReviewHunk],
@@ -2818,7 +2846,10 @@ fn file_html(
         let mut items: Vec<(u32, String)> = vec![];
         for hunk in hunks.iter().filter(|h| h.def.as_deref() == parent) {
             let first = hunk.lines.iter().find_map(|l| l.new.or(l.old)).unwrap_or(0);
-            items.push((first, hunk_html(tree, rev, stack, file, hunk, false)));
+            items.push((
+                first,
+                hunk_html(tree, rev, stack, patch_index, file, hunk, false),
+            ));
         }
         for (order, def) in file
             .defs
@@ -2864,11 +2895,20 @@ fn file_html(
             let (lines, children) = match (own.as_slice(), nested) {
                 ([only], false) => (
                     format!(" {}", hunk_lines_html(tree, rev, stack, file, only)),
-                    hunk_html(tree, rev, stack, file, only, true),
+                    hunk_html(tree, rev, stack, patch_index, file, only, true),
                 ),
                 _ => (
                     String::new(),
-                    children_html(tree, rev, stack, file, Some(&def.id), hunks, wanted),
+                    children_html(
+                        tree,
+                        rev,
+                        stack,
+                        patch_index,
+                        file,
+                        Some(&def.id),
+                        hunks,
+                        wanted,
+                    ),
                 ),
             };
             let section = hunks.first().map_or(Section::Uses, |h| h.section);
@@ -2942,6 +2982,7 @@ fn file_html(
             tree,
             patch.shown.as_deref().unwrap_or(&patch.rev),
             &stack,
+            patch_index,
             file,
             None,
             &hunks,
