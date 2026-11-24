@@ -413,7 +413,7 @@ mod tests {
             ("https://bugzil.la/1517978", "lookup:explore-bug:1517978"),
             (
                 "https://phabricator.services.mozilla.com/D123456?id=789",
-                "lookup:explore-phab:D123456",
+                "lookup:review-phab:D123456",
             ),
             ("rev-at:2024-08-30", "lookup:rev-at:2024-08-30"),
             (
@@ -509,6 +509,16 @@ mod tests {
                 .unwrap()
                 .always
         );
+        // (A Phabricator revision's number is its review at once too, as its
+        // URL is (non-"always" lookups can't apply: only the web-server's
+        // `search` route has the lookups, and the pipeline-server, which
+        // knows whether the search finds anything, doesn't); not a short
+        // one, nor one in a word.)
+        let number = target("D344524").unwrap();
+        assert_eq!(number.url, "lookup:review-phab:D344524");
+        assert!(number.always);
+        assert_eq!(redirect("D12"), None);
+        assert_eq!(redirect("XD344524"), None);
     }
 
     #[test]

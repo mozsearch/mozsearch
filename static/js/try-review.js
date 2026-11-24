@@ -104,7 +104,26 @@ var TryReview = new (class TryReview {
     ], part => this.go(part)));
     this.review.subscribe(() => this.updateStatus());
     this.updateStatus();
+    this.focusRevision();
     this.root.dataset.reviewReady = "";
+  }
+
+  // A Phabricator revision's review URL (`/{tree}/review/phab/D123`, its
+  // latest diff's push's review, or `.../D123/{push}`; see the web-server's
+  // `review` route) starts at the revision's patch, which the push's stack
+  // has below it, unless the URL has a fragment.
+  focusRevision() {
+    const match = location.pathname.match(/\/review\/phab\/D(\d+)(?:\/[0-9a-f]+)?\/?$/);
+    if (!match || location.hash.length > 1) {
+      return;
+    }
+    const patch = this.root.querySelector(`.tr-patch[data-phab="${match[1]}"]`);
+    if (patch) {
+      this.root.dataset.focusedPatch = patch.id;
+      if (patch != this.root.querySelector(".tr-patch")) {
+        patch.scrollIntoView({ block: "start" });
+      }
+    }
   }
 
   // (The view's trail, after the tree's, in the page's breadcrumbs.)

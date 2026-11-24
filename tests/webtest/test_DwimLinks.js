@@ -2,8 +2,9 @@
 
 // DWIM rules for other tools' pages (see tools/src/query/dwim.toml and
 // `format::dwim_lookup`), which a search in a tree searching with queries
-// (trydelta) goes to at once: a Bugzilla bug's and a Phabricator revision's
-// commits' explore pages, a GitHub commit's page (in another tree, the
+// (trydelta) goes to at once: a Bugzilla bug's commits' explore page, a
+// Phabricator revision's review (in a tree importing try pushes, as it hasn't
+// landed; see test_TryReviewUrls.js), a GitHub commit's page (in another tree, the
 // searchfox tree, whose repository has it), and a try push's page from
 // Treeherder's (but not another repository's push, which is searched for),
 // or after "try" (which Firefox's address bar searches for, rather than going
@@ -25,9 +26,10 @@ add_task(async function test_DwimLinks() {
   is(await search("https://bugzilla.mozilla.org/show_bug.cgi?id=1517978"), "/trydelta/explore/bug/1517978",
      "A bug goes to its commits' explore page");
   is(await search("https://bugzil.la/1517978"), "/trydelta/explore/bug/1517978", "as does its short URL");
-  is(await search("https://phabricator.services.mozilla.com/D123456"), "/trydelta/explore/phab/D123456",
-     "A Phabricator revision goes to its commits' explore page");
+  is(await search("https://phabricator.services.mozilla.com/D123456"), "/trydelta/review/phab/D123456",
+     "A Phabricator revision goes to its review, as it hasn't landed");
   ok(doc().querySelector(".dwim-searched"), "which offers the search instead");
+  ok(doc().querySelector(".review-missing"), "and says that the code review bot has no try push of it");
 
   const rev = "50df75fc5253890347bfac70037bc7ad42316862";
   is(await search(`https://github.com/mozsearch/mozsearch/commit/${rev}`), `/searchfox/commit/${rev}`,

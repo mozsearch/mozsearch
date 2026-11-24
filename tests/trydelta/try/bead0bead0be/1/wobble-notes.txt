@@ -1,0 +1,1 @@
+Widgets wobble when frobbed.

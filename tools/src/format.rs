@@ -2230,6 +2230,9 @@ pub fn spec_url_target(
 ///   its `hgcommit` route, which maps it);
 /// - "explore-bug" and "explore-phab": the explore page of the commits which
 ///   mention a bug or a Phabricator revision, in a tree with a history;
+/// - "review-phab": a Phabricator revision's review (see the web-server's
+///   `review_page`), in a tree importing hg try pushes (or whose sibling
+///   does), unless it landed, or else its explore page;
 /// - "spec-pr": a spec repository's pull request's try push's page, in the
 ///   tree (or its `SPEC_` linked tree) whose specs' repositories it's of;
 /// - "treeherder-try": a try push's page (from Treeherder's `repo=try` and
@@ -2296,6 +2299,21 @@ pub fn dwim_lookup(
             let at = rev_at(cfg, tree_name, time.trim().trim_matches(['\'', '"'])).ok()??;
             Some(format!("/{}/rev/{}/", tree_name, at.rev))
         }
+        // (A Phabricator revision's review, unless it landed; see the
+        // web-server's `review_page`.)
+        "review-phab" => {
+            let rev = capture("rev")?;
+            let number: u64 = rev.strip_prefix('D')?.parse().ok()?;
+            match hg_try_importing(cfg, tree_name) {
+                Some(importing) if review_landed_url(cfg, &importing, number).is_none() => {
+                    Some(format!("/{}/review/phab/D{}", tree_name, number))
+                }
+                _ => {
+                    tree_config.get_git().ok()?.history.as_ref()?;
+                    Some(format!("/{}/explore/phab/{}", tree_name, rev))
+                }
+            }
+        }
         "explore-bug" | "explore-phab" => {
             tree_config.get_git().ok()?.history.as_ref()?;
             let (page, key) = match kind {
@@ -2359,7 +2377,7 @@ pub fn dwim_lookup(
 /// The tree importing the tree's pushes to hg's try (itself or another; see
 /// `try_import::importing_tree`), if one does: one with a hook, whose pushes
 /// aren't spec repositories' pull requests (see `try_import::url_push`).
-pub(crate) fn hg_try_importing(cfg: &Config, tree_name: &str) -> Option<String> {
+pub fn hg_try_importing(cfg: &Config, tree_name: &str) -> Option<String> {
     let importing =
         crate::try_import::importing_tree(cfg, tree_name).unwrap_or_else(|| tree_name.to_string());
     crate::try_import::hook(cfg, &importing)?;
@@ -11505,21 +11523,39 @@ pub(crate) fn spec_pr_views(
         .collect()
 }
 
+/// What a Phabricator revision's review URL's page says of the revision (see
+/// the web-server's `review` route), before its try push's import (see
+/// `format_try`) or without one (see `format_review_missing`): its number,
+/// whether the push is its latest diff's (by the code review bot) or one the
+/// URL pins, the page of its commits if it landed, and when a previous
+/// index's web server last imported the push, and over the trunk of when (see
+/// `try_carry_over`), if it did.  (All of its fields are the template's.)
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ReviewRevision {
+    pub phab: u64,
+    pub pinned: bool,
+    pub landed_url: Option<String>,
+    pub last_imported: Option<String>,
+    pub last_base_date: Option<String>,
+}
+
 /// The page of a try push (`/{tree}/try/hg/{rev}`; see `try_import`): once the
 /// tree has imported it, the explore page of its commits, and before, its
 /// import's status (with `notice`, ex: why it couldn't be asked for), and a
 /// button asking for it (see `request_try_import`), and while it waits or
 /// runs, polling its status (see `format_try_status`).  A spec's pull
 /// request's page, either way, links to its changed specs' views with just
-/// its changes (see `spec_pr_views`).  Returns whether it's the imported
-/// push's page, which doesn't change (so it can be cached), rather than its
-/// import's status's.
+/// its changes (see `spec_pr_views`).  On a Phabricator revision's review
+/// URL, it says what of the revision (`revision`; see `ReviewRevision`).
+/// Returns whether it's the imported push's page, which doesn't change (so it
+/// can be cached), rather than its import's status's.
 pub fn format_try(
     cfg: &Config,
     server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
     rev: &str,
     notice: Option<&str>,
+    revision: Option<&ReviewRevision>,
     writer: &mut dyn Write,
 ) -> Result<bool, &'static str> {
     use crate::try_import::{ImportStatus, is_pull_request, normalize_push, push_title};
@@ -11625,6 +11661,7 @@ pub fn format_try(
         "status": status,
         "notice": notice,
         "views": views,
+        "revision": revision,
     }))
     .map_err(|_| "Template problems")?;
     crate::templating::builder::build_and_parse_try_import()
@@ -11632,6 +11669,157 @@ pub fn format_try(
         .map_err(|_| "Template problems")?;
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
     Ok(false)
+}
+
+/// The page of the commits of Phabricator revision `number` which landed,
+/// if any did (by the tree's commit index): an explore page (see
+/// `format_explore_keys`), of a tree whose try pushes the tree imports (ex:
+/// firefox-disco's, for firefox-try), or else its own.
+pub fn review_landed_url(cfg: &Config, tree_name: &str, number: u64) -> Option<String> {
+    let index = cfg
+        .trees
+        .get(tree_name)?
+        .git
+        .as_ref()?
+        .history
+        .as_ref()?
+        .commit_index()?;
+    if index.phab_commits(&format!("D{}", number)).is_empty() {
+        return None;
+    }
+    let explore_tree = cfg
+        .trees
+        .keys()
+        .find(|tree| {
+            tree.as_str() != tree_name
+                && crate::try_import::importing_tree(cfg, tree).as_deref() == Some(tree_name)
+        })
+        .map_or(tree_name, String::as_str);
+    Some(format!("/{}/explore/phab/D{}", explore_tree, number))
+}
+
+/// What a review URL's page says of Phabricator revision `number` (see
+/// `ReviewRevision`), with the try push `push` (pinned by the URL, or the
+/// code review bot's of its latest diff), if any: when a previous index's
+/// web server last imported it, by the inventory the indexer carried over
+/// (see `try_carry_over`).
+pub fn review_revision(
+    cfg: &Config,
+    tree_name: &str,
+    number: u64,
+    push: Option<&str>,
+    pinned: bool,
+) -> ReviewRevision {
+    let carried = push.and_then(|push| {
+        crate::try_carry_over::carried(cfg, tree_name)
+            .into_iter()
+            .find(|carried| carried.push == push)
+    });
+    ReviewRevision {
+        phab: number,
+        pinned,
+        landed_url: review_landed_url(cfg, tree_name, number),
+        last_imported: carried
+            .as_ref()
+            .and_then(|carried| carried.imported)
+            .and_then(|at| chrono::DateTime::from_timestamp(at as i64, 0))
+            .map(|at| at.format("%Y-%m-%d %H:%M UTC").to_string()),
+        last_base_date: carried
+            .and_then(|carried| carried.base_date)
+            .map(|date| date.chars().take(10).collect()),
+    }
+}
+
+/// A Phabricator revision's review URL's page (see the web-server's `review`
+/// route) when the code review bot has no try push of its diffs (or can't be
+/// asked): what `revision` says, and the pushes of the revision which a
+/// previous index's web server imported, by the inventory the indexer
+/// carried over (see `try_carry_over`), each with a button importing it.
+pub fn format_review_missing(
+    cfg: &Config,
+    tree_name: &str,
+    revision: &ReviewRevision,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let number = revision.phab;
+    let title = format!("D{} - mozsearch", number);
+    let opt = Options {
+        title: &title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "try-import-page",
+        search_rev: None,
+    };
+    output::generate_header(&opt, writer)?;
+    output::generate_panel(&opt, writer, &[], true)?;
+    let mut html = format!(
+        r#"<div class="try-import review-missing"><h2>Review of <a href="https://phabricator.services.mozilla.com/D{n}">D{n}</a></h2><p class="try-import-status">The code review bot has no try push of D{n}'s diffs (or couldn't be asked), so there's no review of it to show.</p>"#,
+        n = number
+    );
+    if let Some(url) = &revision.landed_url {
+        html.push_str(&format!(
+            r#"<p class="try-import-revision">D{} has landed: <a href="{}">its commits</a>.</p>"#,
+            number,
+            escape_html(url)
+        ));
+    }
+    let known: Vec<crate::try_carry_over::CarriedPush> =
+        crate::try_carry_over::carried(cfg, tree_name)
+            .into_iter()
+            .filter(|push| {
+                push.commits
+                    .iter()
+                    .any(|commit| commit.phab == Some(number))
+            })
+            .collect();
+    if !known.is_empty() {
+        html.push_str(&format!(
+            r#"<p class="try-import-note">A previous index's web server had imported these try pushes of D{}, which this one hasn't:</p><ul class="review-known-pushes">"#,
+            number
+        ));
+        for push in known {
+            let summary = push
+                .commits
+                .iter()
+                .find(|commit| commit.phab == Some(number))
+                .map(|commit| commit.summary.clone())
+                .unwrap_or_default();
+            let imported = push
+                .imported
+                .and_then(|at| chrono::DateTime::from_timestamp(at as i64, 0))
+                .map(|at| format!(", imported {}", at.format("%Y-%m-%d %H:%M UTC")))
+                .unwrap_or_default();
+            let base = push
+                .base_date
+                .as_ref()
+                .map(|date| {
+                    format!(
+                        " over the trunk of {}",
+                        date.chars().take(10).collect::<String>()
+                    )
+                })
+                .unwrap_or_default();
+            let path = crate::try_import::push_url_path(&push.push);
+            html.push_str(&format!(
+                r#"<li><a href="/{tree}/{path}">{short}</a> &ldquo;{summary}&rdquo;{imported}{base} <form method="post" action="/{tree}/{path}" class="review-known-import"><button type="submit" class="try-import-button">Import it</button></form></li>"#,
+                tree = escape_html(tree_name),
+                path = escape_html(&path),
+                short = escape_html(&push.push.chars().take(12).collect::<String>()),
+                summary = escape_html(&summary),
+                imported = escape_html(&imported),
+                base = escape_html(&base),
+            ));
+        }
+        html.push_str("</ul>");
+    }
+    html.push_str("</div>");
+    writer
+        .write_all(html.as_bytes())
+        .map_err(|_| "Write problems")?;
+    output::generate_footer(&opt, tree_name, "", writer).unwrap();
+    Ok(())
 }
 
 /// How many recently landed bugs a tree's landing page lists (see

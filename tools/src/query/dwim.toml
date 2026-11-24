@@ -21,7 +21,10 @@
 # what the search would find, ex: code citing the URL, isn't what one has the
 # URL for), and the page it goes to (if it's searchfox's) offers the search;
 # the others go there if the search finds nothing, else say where above its
-# results.
+# results.  (A rule with `lookup` needs `go = "always"`: only the web-server's
+# `search` route has the trees' configs for lookups, and it doesn't search,
+# while the pipeline-server, which knows whether the search finds anything,
+# has no lookups.)
 
 [[rule]]
 name = "wpt-sync-pr"
@@ -95,9 +98,16 @@ go = "always"
 
 [[rule]]
 name = "phabricator-revision"
-description = "A Phabricator revision: the commits which mention it, in this tree's history."
+description = "A Phabricator revision: its review (of the code review bot's try push of its latest diff, imported if it isn't), in the tree importing this tree's try pushes, unless it landed; or else the commits which mention it, in this tree's history."
 pattern = '^https?://phabricator\.services\.mozilla\.com/(?P<rev>D\d+)(?:[/?#]\S*)?$'
-lookup = "explore-phab"
+lookup = "review-phab"
+go = "always"
+
+[[rule]]
+name = "phabricator-revision-number"
+description = "A Phabricator revision's number (ex: D123456): its review, or its commits, as for its URL (at once, as code rarely has such a name, and the page offers the search)."
+pattern = '^(?P<rev>D\d{4,})$'
+lookup = "review-phab"
 go = "always"
 
 [[rule]]

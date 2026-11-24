@@ -1,0 +1,25 @@
+{
+ "count": 1,
+ "next": null,
+ "previous": null,
+ "results": [
+  {
+   "id": 90100,
+   "provider_id": "PHID-DIFF-trydeltawobble001",
+   "revision": {
+    "id": 90101,
+    "provider": "phabricator",
+    "provider_id": 9010,
+    "title": "Bug 9010 - Note how widgets wobble. r=reviewer",
+    "url": "https://phabricator.services.mozilla.com/D9010"
+   },
+   "repository": {
+    "id": 100,
+    "slug": "try",
+    "url": "https://hg.mozilla.org/try"
+   },
+   "mercurial_hash": "bead0bead0be",
+   "created": "2026-11-20T12:00:00.000000Z"
+  }
+ ]
+}

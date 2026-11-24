@@ -662,6 +662,13 @@ for repo in config['trees']:
         'proxy_pass http://127.0.0.1:8001;',
     ])
     location(f'/{repo}/try-status', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+    # A Phabricator revision's review, at a URL which stays its whichever try
+    # push its latest diff is (see the tools' web-server's `review_page`):
+    # cached as a try push's page is, but not while its push is imported.
+    location(f'/{repo}/review', [
+        'expires $no_store_expires;',
+        'proxy_pass http://127.0.0.1:8001;',
+    ])
     # A tree of specs' pull request summaries, which change when they're
     # synced, and their syncs' POSTs and status (see the tools' `spec_prs`).
     location(f'/{repo}/spec-prs', ['proxy_pass http://127.0.0.1:8001;'], cache=False)

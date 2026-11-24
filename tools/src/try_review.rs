@@ -3453,13 +3453,21 @@ fn patch_html(tree: &str, view: &ReviewView, i: usize) -> String {
     let refs = bugs
         .into_iter()
         .chain(patch.phab.map(|d| {
-            format!(r#"<a href="https://phabricator.services.mozilla.com/D{d}">D{d}</a>"#)
+            // (And its review's URL, which is its latest diff's, whichever
+            // push that is; see the web-server's `review` route.)
+            format!(
+                r#"<a href="https://phabricator.services.mozilla.com/D{d}">D{d}</a> (<a class="tr-review-link" href="/{tree}/review/phab/D{d}" title="The review of D{d}'s latest diff, at a URL which stays its, whichever try push that is">its review</a>)"#,
+                tree = escape(tree)
+            )
         }))
         .collect::<Vec<_>>()
         .join(", ");
     html.push_str(&format!(
-        r#"<section class="tr-patch{backout}" id="tr-patch-{n}" data-part="{id}"><h3 class="tr-patch-head">{strip} <span class="tr-patch-n">Patch {n} of {count}</span> <a class="tr-patch-rev" href="/{tree}/commit/{rev}">{short}</a> <span class="tr-patch-summary">{summary}</span><span class="tr-patch-meta">{author}{refs}</span></h3>"#,
+        r#"<section class="tr-patch{backout}" id="tr-patch-{n}" data-part="{id}"{phab}><h3 class="tr-patch-head">{strip} <span class="tr-patch-n">Patch {n} of {count}</span> <a class="tr-patch-rev" href="/{tree}/commit/{rev}">{short}</a> <span class="tr-patch-summary">{summary}</span><span class="tr-patch-meta">{author}{refs}</span></h3>"#,
         backout = if patch.backout { " tr-backout" } else { "" },
+        phab = patch
+            .phab
+            .map_or(String::new(), |d| format!(r#" data-phab="{}""#, d)),
         n = i + 1,
         count = view.patches.len(),
         id = escape(&patch.id),

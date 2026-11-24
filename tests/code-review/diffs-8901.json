@@ -1,0 +1,25 @@
+{
+ "count": 1,
+ "next": null,
+ "previous": null,
+ "results": [
+  {
+   "id": 89010,
+   "provider_id": "PHID-DIFF-trydeltameter0001",
+   "revision": {
+    "id": 89011,
+    "provider": "phabricator",
+    "provider_id": 8901,
+    "title": "Bug 4567 - Meter widgets. r=reviewer",
+    "url": "https://phabricator.services.mozilla.com/D8901"
+   },
+   "repository": {
+    "id": 100,
+    "slug": "try",
+    "url": "https://hg.mozilla.org/try"
+   },
+   "mercurial_hash": "abcdef012345",
+   "created": "2026-11-20T12:00:00.000000Z"
+  }
+ ]
+}

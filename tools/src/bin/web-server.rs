@@ -269,6 +269,97 @@ fn pipeline_server_addr() -> String {
         .replace("0.0.0.0", "127.0.0.1")
 }
 
+/// A Phabricator revision's review (`/{tree}/review/phab/D{number}`), at a URL
+/// which stays the revision's whichever try push its latest diff is (and
+/// whichever web server; see `tools::try_carry_over`), in the tree importing
+/// the tree's hg try pushes (see `format::hg_try_importing`): the review of
+/// the code review bot's try push of its latest diff (see
+/// `tools::code_review`), or of the push the URL pins
+/// (`/{tree}/review/phab/D{number}/{push}`), which starts at the revision's
+/// patch (see try-review.js's `focusRevision`).  A push which isn't imported
+/// is asked for, as a person's request (but a landed revision's, whose page
+/// offers it), and its page says how far its import is, until it's the
+/// review; without a push, a page says so (see `format::format_review_missing`).
+/// Both say whether the revision landed (linking to its commits) and when a
+/// previous index's web server imported its pushes.
+fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebResponse {
+    let number = match (path.get(2), path.get(3)) {
+        (Some(&"phab"), Some(revision)) if path.len() <= 5 => revision
+            .strip_prefix('D')
+            .and_then(|number| number.parse::<u64>().ok()),
+        _ => None,
+    };
+    let Some(number) = number else {
+        return WebResponse::not_found();
+    };
+    let pinned = match path.get(4) {
+        Some(push) => match tools::try_import::normalize_rev(push) {
+            Some(push) => Some(push),
+            None => return WebResponse::not_found(),
+        },
+        None => None,
+    };
+    let Some(importing) = format::hg_try_importing(cfg, tree_name) else {
+        return WebResponse::not_found();
+    };
+    if importing != tree_name {
+        return WebResponse::see_other(format!("/{}/{}", importing, path[1..].join("/")))
+            .uncached();
+    }
+    let push = pinned.clone().or_else(|| {
+        let base = cfg
+            .code_review_url
+            .clone()
+            .unwrap_or_else(|| tools::code_review::CODE_REVIEW_URL.to_string());
+        format::run_on_runtime(async move {
+            tools::code_review::cached_try_push_of_revision(&base, number).await
+        })
+        .map(|diff| diff.push)
+    });
+    let revision =
+        format::review_revision(cfg, tree_name, number, push.as_deref(), pinned.is_some());
+    let mut writer = Vec::new();
+    let Some(push) = push else {
+        return match format::format_review_missing(cfg, tree_name, &revision, &mut writer) {
+            Ok(()) => WebResponse {
+                status: StatusCode::NOT_FOUND,
+                ..WebResponse::html(String::from_utf8(writer).unwrap())
+            }
+            .uncached(),
+            Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+        };
+    };
+    if let Some(imported) = tools::try_import::try_push(cfg, tree_name, &push) {
+        tools::try_carry_over::note_viewed(cfg, tree_name, &push);
+        return try_review_page(tree_name, &push, imported.semantic_head.as_deref());
+    }
+    let Some(server) = tree_server(tree_name) else {
+        return WebResponse::not_found();
+    };
+    let notice = match revision.landed_url {
+        Some(_) => None,
+        None => format::request_try_import(server.as_ref(), &push).err(),
+    };
+    match format::format_try(
+        cfg,
+        server.as_ref(),
+        tree_name,
+        &push,
+        notice.as_deref(),
+        Some(&revision),
+        &mut writer,
+    ) {
+        // (Imported meanwhile.)
+        Ok(true) => try_review_page(
+            tree_name,
+            &push,
+            tools::try_import::semantic_head(cfg, tree_name, &push).as_deref(),
+        ),
+        Ok(false) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
+        Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+    }
+}
+
 /// An imported try push's page (but a spec pull request's): its review view,
 /// the `try-review:` query's (see `tools::try_review`), as the
 /// pipeline-server renders its query page, here at the push's URL; in the
@@ -1465,6 +1556,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 tree_name,
                 &push,
                 notice.as_deref(),
+                None,
                 &mut writer,
             ) {
                 // (The imported push's page doesn't change, but its import's
@@ -1511,6 +1603,9 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 Err(err) => WebResponse::internal_error(server_error_message(&err)),
             }
         }
+
+        // A Phabricator revision's review; see `review_page`.
+        "review" => review_page(cfg, tree_name, &path),
 
         // (`/{tree}/try-status/{kind}/{id}`, as for `try`.)
         "try-status" => {
