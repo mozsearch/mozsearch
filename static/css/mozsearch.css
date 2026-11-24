@@ -8209,7 +8209,7 @@ textarea.monospace {
 
 /* (A line a later patch changes: a bar beside its blame strip, outside it,
    and its change's popup above it, on hover; see try-review.js's
-   `addLaterChanges`.) */
+   `addLinePopups`.) */
 .tr-blame {
   box-sizing: content-box;
   padding-inline-end: 3px;
@@ -8217,6 +8217,45 @@ textarea.monospace {
 
 .tr-later > .tr-blame {
   background: linear-gradient(to left, #e8590c 3px, transparent 3px);
+}
+
+/* (A line its patch moved here (see try_review.rs's `add_moved_lines`): a
+   bar between its number and its code, as Phabricator has, and the popup
+   saying where it moved from, on hover.  Gold rather than Phabricator's
+   yellow, which has 2:1 on white, so that it keeps WCAG's 3:1 for non-text
+   contrast: 3.4:1 on the added lines' tint, 3:1 hovered over; the dark
+   theme's yellow, 7.4:1 there.) */
+.tr-moved > .tr-lno {
+  box-shadow: inset -3px 0 var(--tr-moved-color);
+}
+:root {
+  --tr-moved-color: #a67c00;
+}
+@supports (color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tr-moved-color: #e0b400;
+  }
+}
+}
+
+/* A hunk's moved lines again, as they were where they moved from and as
+   they are here (see try_review.rs's `moved_html`), only with both sides
+   (Now & Patched). */
+.tr-moved-groups {
+  margin-top: 0.4em;
+}
+.then-now-view:not([data-then-now="both"]) .tr-moved-groups {
+  display: none;
+}
+.tr-moved-group + .tr-moved-group {
+  margin-top: 0.4em;
+}
+.tr-moved-head {
+  padding: 0.2em 0.5em;
+  border-inline-start: 3px solid var(--tr-moved-color);
+  color: var(--page-subtle-foreground);
+  font-size: 0.9em;
 }
 
 .tr-later-popup {

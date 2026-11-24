@@ -399,6 +399,82 @@ add_task(async function test_TryReviewLineHover() {
   ok(!doc().querySelector(".tr-line.tr-hover"), "until it's left");
 });
 
+// (Moved lines: f00dfeedbeef's patch moves UseWidget's code (user.cpp) and
+// Unpoke's step (unpoke.cpp) to frobbed.cpp's FrobbedSize and Idle, changing
+// a few of their words; see the tools' `add_moved_lines`.)
+add_task(async function test_TryReviewMovedLines() {
+  await TestUtils.loadPath("/trydelta/try/hg/f00dfeedbeef");
+  if (!doc().querySelector("#try-review")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector("#try-review"),
+                           "The push is imported", 500, 240);
+  }
+  await waitForCondition(() => doc().querySelector("#try-review[data-review-ready]"),
+                         "The review is loaded");
+  const file = doc().querySelector('.tr-file[data-path="frobbed.cpp"]');
+  const rows = [...(file?.querySelectorAll(".now-code .tr-line") ?? [])];
+  const row = text => rows.find(each => each.textContent.includes(text));
+  ok(row("FrobTwice(widget)")?.classList.contains("tr-moved"),
+     "A line moved from another file is marked");
+  ok(row("Widget widget(aSize)")?.classList.contains("tr-moved"),
+     "as is one changed a little on the way");
+  ok(!row("int FrobbedSize(")?.classList.contains("tr-moved"), "but not a new one");
+  // (Unpoke's step's comment, whose tokens the history follows to Idle; but
+  // not its call's, whose `aWidget` stays in Unpoke's new call of Idle, and
+  // whose rest is too common to follow alone; see the history's
+  // `cross_file_min_len`.)
+  ok(row("Set widget's state")?.classList.contains("tr-moved"),
+     "A line moved from somewhere else is marked too");
+  const edited = [...doc().querySelectorAll('.tr-file[data-path="user.cpp"] .now-code .tr-line.tr-added')]
+    .find(each => each.textContent.includes("FrobbedSize(3, 2)"));
+  ok(edited && !edited.classList.contains("tr-moved"),
+     "but not a line edited where it was (UseWidget's new body)");
+
+  const moved = row("FrobTwice(widget)");
+  moved.querySelector(".tr-text").dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  const popup = doc().querySelector(".tr-later-popup");
+  await waitForCondition(() => popup && !popup.hidden, "Hovering over one shows where it moved from");
+  ok(popup.textContent.includes("Moved here from user.cpp") &&
+     popup.textContent.includes("UseWidget") && popup.textContent.includes("FrobTwice(widget)"),
+     `the file, its definition there, and its code (${popup.textContent})`);
+  const win = frame.contentWindow;
+  TestUtils.click(popup.querySelector(".tr-later-code"));
+  await waitForCondition(() => win.location.hash.length > 1, "Clicking it goes to where it moved from");
+  ok(doc().getElementById(win.location.hash.slice(1))?.closest('.tr-file[data-path="user.cpp"]'),
+     "user.cpp's hunk");
+
+  // (In Now & Patched, each place's lines again, against what they were.)
+  TestUtils.click(doc().querySelector('.tr-head .then-now-modes button[data-mode="both"]'));
+  const groups = [...file.querySelectorAll(".tr-moved-group")];
+  const heads = groups.map(group => group.querySelector(".tr-moved-head").textContent);
+  ok(heads.some(head => head.includes("user.cpp")) && heads.some(head => head.includes("unpoke.cpp")),
+     `Now & Patched has the moved lines again against where they moved from, each place's apart (${heads.join(" | ")})`);
+  const group = groups.find(each => each.textContent.includes("FrobTwice"));
+  ok(group.checkVisibility(), "shown");
+  ok([...group.querySelectorAll(".then-code mark.tr-word-removed")].some(mark => mark.textContent == "3") &&
+     [...group.querySelectorAll(".now-code mark.tr-word-added")].some(mark => mark.textContent == "aSize"),
+     "with their changed words marked against what they were there");
+  ok(group.querySelector(".then-code .tr-line.tr-removed .blame-strip[data-hb-ctx]"),
+     "and their blame there");
+
+  // (A moved line's rows, here and against what it was, are its rows, and
+  // what it was, user.cpp's.)
+  const again = [...group.querySelectorAll(".now-code .tr-line")]
+    .find(each => each.textContent.includes("FrobTwice(widget)"));
+  is(again?.dataset.line, moved.dataset.line, "A moved line's rows have its key");
+  again.querySelector(".tr-text").dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  ok(moved.classList.contains("tr-hover"), "Hovering over one highlights the other");
+  const was = [...group.querySelectorAll(".then-code .tr-line")]
+    .find(each => each.textContent.includes("FrobTwice(widget)"));
+  ok(/^0:o:user\.cpp:\d+$/.test(was?.dataset.line ?? ""), `and what it was, user.cpp's (${was?.dataset.line})`);
+  was.querySelector(".tr-text").dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  ok(doc().querySelector('.tr-file[data-path="user.cpp"] .then-code .tr-line.tr-hover'),
+     "whose row in user.cpp's hunk is highlighted with it");
+
+  TestUtils.click(doc().querySelector('.tr-head .then-now-modes button[data-mode="now"]'));
+  ok(!group.checkVisibility(), "Otherwise, they aren't shown again");
+});
+
 add_task(async function test_TryReviewFacets() {
   await importPush();
   await loadReview();

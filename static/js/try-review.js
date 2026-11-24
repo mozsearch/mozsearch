@@ -91,7 +91,7 @@ var TryReview = new (class TryReview {
       slot.replaceWith(ReviewState.stateButton(this.review, slot.dataset.part));
     }
     this.rememberLooking();
-    this.addLaterChanges();
+    this.addLinePopups();
     this.addLineHover();
     ReviewState.bind(this.review, this.root);
     this.drawSlicings();
@@ -504,13 +504,16 @@ var TryReview = new (class TryReview {
   }
 
   // The lines a later patch of the push changes (see the tools'
-  // `add_later_changes`), which are marked beside their blame strips: hovering
-  // over one shows, above it, that patch's change (the lines its hunk adds),
-  // and clicking that goes to the hunk (a history entry, so that Back returns
-  // to the line).
-  addLaterChanges() {
+  // `add_later_changes`), which are marked beside their blame strips, and
+  // those their patch moved there (see the tools' `add_moved_lines`), marked
+  // between their numbers and their code: hovering over one shows, above it,
+  // where it moved from (the lines it was, in their hunk), and that later
+  // patch's change (the lines its hunk adds); clicking one goes to its hunk
+  // (a history entry, so that Back returns to the line).
+  addLinePopups() {
     const changes = TRY_REVIEW.later || [];
-    if (!changes.length) {
+    const moves = TRY_REVIEW.moved || [];
+    if (!changes.length && !moves.length) {
       return;
     }
     const popup = document.createElement("div");
@@ -524,28 +527,21 @@ var TryReview = new (class TryReview {
       popup.hidden = true;
       shownFor = null;
     };
-    const show = row => {
-      clearTimeout(hideTimer);
-      if (shownFor == row) {
-        return;
-      }
-      const change = changes[Number(row.dataset.later)];
-      if (!change) {
-        return;
-      }
-      shownFor = row;
+    // (A section of the popup: its heading, and its lines' code, a link to
+    // the hunk whose element is `element`.)
+    const section = (headText, lines, empty, element, title) => {
       const head = document.createElement("div");
       head.className = "tr-later-head";
-      head.textContent = `Patch ${change.patch + 1} changes this line to:`;
+      head.textContent = headText;
       const code = document.createElement("a");
       code.className = "tr-later-code";
-      code.href = `#${change.element}`;
-      code.title = `Go to patch ${change.patch + 1}'s change`;
-      for (const html of change.lines.length ? change.lines : [""]) {
+      code.href = `#${element}`;
+      code.title = title;
+      for (const html of lines.length ? lines : [""]) {
         const line = document.createElement("code");
         line.className = "source-line";
         if (!html) {
-          line.textContent = "(it removes it)";
+          line.textContent = empty;
         } else {
           // (The tools' HTML, of the code's highlighting, escaped there.)
           TrustedHTML.set(line, html);
@@ -555,19 +551,45 @@ var TryReview = new (class TryReview {
       code.addEventListener("click", event => {
         event.preventDefault();
         hide();
-        const target = document.getElementById(change.element);
+        const target = document.getElementById(element);
         if (target) {
           this.goTo(target);
         }
       });
-      popup.replaceChildren(head, code);
+      return [head, code];
+    };
+    const show = row => {
+      clearTimeout(hideTimer);
+      if (shownFor == row) {
+        return;
+      }
+      const parts = [];
+      const move = row.dataset.moved !== undefined ? moves[Number(row.dataset.moved)] : null;
+      if (move) {
+        const lines = move.first == move.last ? `line ${move.first}` : `lines ${move.first}\u2013${move.last}`;
+        const where = move.def ? ` (in ${move.def})` : "";
+        parts.push(...section(`Moved here from ${move.path} ${lines}${where}:`, move.lines, "",
+                              move.element, "Go to where it moved from"));
+      }
+      const change = row.dataset.later !== undefined ? changes[Number(row.dataset.later)] : null;
+      if (change) {
+        parts.push(...section(`Patch ${change.patch + 1} changes this line to:`, change.lines,
+                              "(it removes it)", change.element,
+                              `Go to patch ${change.patch + 1}'s change`));
+      }
+      if (!parts.length) {
+        return;
+      }
+      shownFor = row;
+      popup.replaceChildren(...parts);
       popup.hidden = false;
       const rect = row.getBoundingClientRect();
       popup.style.left = `${Math.max(4, rect.left + window.scrollX + 24)}px`;
       popup.style.top = `${rect.top + window.scrollY - popup.offsetHeight - 2}px`;
     };
+    const ROWS = ".tr-line.tr-later, .tr-line.tr-moved";
     this.root.addEventListener("mouseover", event => {
-      const row = event.target.closest(".tr-line.tr-later");
+      const row = event.target.closest(ROWS);
       if (row) {
         show(row);
       }
@@ -577,7 +599,7 @@ var TryReview = new (class TryReview {
       hideTimer = setTimeout(hide, 300);
     };
     this.root.addEventListener("mouseout", event => {
-      if (event.target.closest(".tr-line.tr-later")) {
+      if (event.target.closest(ROWS)) {
         leave();
       }
     });

@@ -15,7 +15,7 @@
 //! (which the CDN's browser check could answer; see waf-notes.md), but for
 //! the review's marks, which are the browser's (IndexedDB).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -92,12 +92,70 @@ pub struct HunkLine {
     /// change, its index in the view's `later` (see `add_later_changes`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub later: Option<usize>,
+    /// If its patch moved it here (it's added, and most of its tokens were
+    /// lines the patch removes elsewhere; see `add_moved_lines`), where from:
+    /// its index in the view's `moved`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moved: Option<usize>,
+    /// Its tokens on each side, by who they are in the history (see
+    /// `TokenRun`), and its HTML on each side before `mark_word_changes`'s
+    /// marks, for `add_moved_lines` (see `add_line_html`; not kept).
+    #[serde(skip)]
+    pub then_tokens: Vec<TokenRun>,
+    #[serde(skip)]
+    pub now_tokens: Vec<TokenRun>,
+    #[serde(skip)]
+    pub then_plain: Option<String>,
+    #[serde(skip)]
+    pub now_plain: Option<String>,
+}
+
+/// A run of a line's tokens, by who they are in the history: the commit that
+/// introduced them, the path they had then, and their indices in the file
+/// then (see `hyperblame::page_blame::StripEntry`), which they keep wherever
+/// they go, ex: moved to another file (as the token-centric history follows
+/// them).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TokenRun {
+    pub commit: String,
+    pub path: String,
+    pub first: u32,
+    pub last: u32,
+}
+
+/// Where a patch moved lines from (see `add_moved_lines`): its removed lines
+/// (the first and last, in `path` as it was), in the hunk whose element is
+/// `element` (in the definition `def`, if any), and their code (the first
+/// `MOVED_LINES`), for the moved lines' popup (see try-review.js's
+/// `addLinePopups`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct MovedFrom {
+    pub path: String,
+    pub first: u32,
+    pub last: u32,
+    pub element: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub def: Option<String>,
+    pub lines: Vec<String>,
+}
+
+/// A hunk's lines its patch moved from one place (see `add_moved_lines`): as
+/// they were there (removed lines) and as they are here (added lines), with
+/// their words' changes marked (see `mark_word_changes`), for the hunk's code
+/// against where it moved from.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MovedGroup {
+    pub from: MovedFrom,
+    pub from_index: usize,
+    /// The path of the file it moved from, as it was, for its lines' keys.
+    pub then_path: String,
+    pub lines: Vec<HunkLine>,
 }
 
 /// A later patch's change of a line a patch adds or keeps (see
 /// `add_later_changes`): the patch (its index), the id of the element of its
 /// hunk changing it, and that hunk's lines it adds (their HTML, the first
-/// few), for the line's popup (see try-review.js's `addLaterChanges`).
+/// few), for the line's popup (see try-review.js's `addLinePopups`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LaterChange {
     pub patch: usize,
@@ -580,6 +638,10 @@ pub struct ReviewView {
     /// `add_later_changes`; not kept in the view's cache).
     #[serde(skip)]
     pub later: Vec<LaterChange>,
+    /// Where the patches moved lines from (see `add_moved_lines`; not kept
+    /// in the view's cache).
+    #[serde(skip)]
+    pub moved: Vec<MovedFrom>,
     /// The SYM_INFO of its block diagrams' nodes (see `GroupSlicing::block`),
     /// as the page's script's JSON (not kept in the view's cache).
     #[serde(skip)]
@@ -662,6 +724,13 @@ pub struct ReviewHunk {
     pub lines: Vec<HunkLine>,
     pub added: u32,
     pub removed: u32,
+    /// Its lines its patch moved, by where from (see `add_moved_lines`; not
+    /// kept in the view's cache).
+    #[serde(skip)]
+    pub moved: Vec<MovedGroup>,
+    /// The index of its file's diff hunk it's (part of; see `split_hunk`).
+    #[serde(default)]
+    pub diff_hunk: usize,
 }
 
 /// A stable hash (FNV-1a, 64 bits) of a hunk's changed lines, for its id.
@@ -734,22 +803,31 @@ fn looks_like_test(path: &str) -> bool {
 
 /// The innermost outline entry (an index into `entries`) whose lines (or,
 /// for a removed one, whose old lines) hold a hunk's changes, and its
-/// ancestors (by their pretty names' "::"), innermost first.
+/// ancestors (by their pretty names' "::"), innermost first.  (A hunk only
+/// removing lines is held by the entries whose old lines hold them, if any:
+/// its new-side position is only between lines, ex: a function's body which
+/// `split_hunk` parted from a declaration added before the function.)
 fn hunk_entries(entries: &[OutlineEntry], hunk: &Hunk) -> Vec<usize> {
     let new_range = hunk.new_range();
     let old_range = hunk.old_range();
+    let old_holds = |entry: &OutlineEntry| match (entry.from_lines, old_range) {
+        (Some((first, last)), Some((a, b))) => first <= a && b <= last,
+        _ => false,
+    };
+    let removed_only = hunk.count("+") == 0
+        && entries
+            .iter()
+            .any(|entry| def_level(&entry.kind).is_some() && old_holds(entry));
     let holds = |entry: &OutlineEntry| -> bool {
+        if removed_only {
+            return old_holds(entry);
+        }
         let new_holds = match (entry.lines, new_range) {
             (Some((first, last)), Some((a, b))) => first <= a && b <= last,
             _ => false,
         };
         // (A removed definition has only its old lines.)
-        let old_holds = entry.status == OutlineStatus::Removed
-            && match (entry.from_lines, old_range) {
-                (Some((first, last)), Some((a, b))) => first <= a && b <= last,
-                _ => false,
-            };
-        new_holds || old_holds
+        new_holds || (entry.status == OutlineStatus::Removed && old_holds(entry))
     };
     // (The innermost: the deepest holding it, then the shortest.)
     let mut holding: Vec<usize> = (0..entries.len())
@@ -781,29 +859,38 @@ fn split_hunk(entries: &[OutlineEntry], hunk: &Hunk) -> Vec<Hunk> {
         }
         next_new[i] = next;
     }
-    let innermost = |i: usize| -> Option<usize> {
-        let line = &hunk.lines[i];
-        let position = line.new.unwrap_or(next_new[i]);
+    let within = |range: Option<(u32, u32)>, n: u32| {
+        range.is_some_and(|(first, last)| first <= n && n <= last)
+    };
+    // (The innermost of the definitions which `range` says hold a line.)
+    let pick = |range: &dyn Fn(&OutlineEntry) -> Option<(u32, u32)>, n: u32| {
         (0..entries.len())
-            .filter(|e| {
-                let entry = &entries[*e];
-                def_level(&entry.kind).is_some()
-                    && match (entry.status, line.kind.as_str()) {
-                        (OutlineStatus::Removed, "-") => entry
-                            .from_lines
-                            .zip(line.old)
-                            .is_some_and(|((first, last), old)| first <= old && old <= last),
-                        (OutlineStatus::Removed, _) => false,
-                        _ => entry
-                            .lines
-                            .is_some_and(|(first, last)| first <= position && position <= last),
-                    }
-            })
+            .filter(|e| def_level(&entries[*e].kind).is_some() && within(range(&entries[*e]), n))
             .max_by_key(|e| {
                 let entry = &entries[*e];
-                let span = entry.lines.or(entry.from_lines).map_or(0, |(a, b)| b - a);
+                let span = range(entry).map_or(0, |(a, b)| b - a);
                 (entry.depth, std::cmp::Reverse(span))
             })
+    };
+    // (A removed line's is the one it was in, as the file was, if the outline
+    // has its lines then (ex: a function's body, replaced beside a
+    // declaration the hunk adds before the function), or else the one at its
+    // new-side position; another line's, the one it's in.)
+    let innermost = |i: usize| -> Option<usize> {
+        let line = &hunk.lines[i];
+        let was = match (line.kind.as_str(), line.old) {
+            ("-", Some(old)) => pick(&|entry| entry.from_lines, old),
+            _ => None,
+        };
+        was.or_else(|| {
+            pick(
+                &|entry| match entry.status {
+                    OutlineStatus::Removed => None,
+                    _ => entry.lines,
+                },
+                line.new.unwrap_or(next_new[i]),
+            )
+        })
     };
     // (The runs of changed lines with the same innermost definition, as
     // [definition, first changed line, last changed line].)
@@ -864,15 +951,20 @@ fn review_file(
     let mut hunks = vec![];
     let mut lines = 0;
     let mut truncated = false;
-    let split: Vec<Hunk> = file
+    let split: Vec<(usize, Hunk)> = file
         .hunks
         .iter()
-        .flat_map(|hunk| match outline {
-            Some(outline) => split_hunk(&outline.entries, hunk),
-            None => vec![hunk.clone()],
+        .enumerate()
+        .flat_map(|(index, hunk)| {
+            match outline {
+                Some(outline) => split_hunk(&outline.entries, hunk),
+                None => vec![hunk.clone()],
+            }
+            .into_iter()
+            .map(move |part| (index, part))
         })
         .collect();
-    for hunk in &split {
+    for (diff_hunk, hunk) in &split {
         if lines + hunk.lines.len() > MAX_FILE_LINES && !hunks.is_empty() {
             truncated = true;
             break;
@@ -966,6 +1058,8 @@ fn review_file(
             added: hunk.count("+"),
             removed: hunk.count("-"),
             lines,
+            moved: vec![],
+            diff_hunk: *diff_hunk,
         });
     }
     let mut defs: Vec<(usize, ReviewDef)> = defs.into_values().collect();
@@ -1126,6 +1220,7 @@ pub async fn review_view(
         sym_infos: None,
         blame_infos: vec![],
         later: vec![],
+        moved: vec![],
         block_sym_info: None,
     })
 }
@@ -1341,6 +1436,35 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
                     data,
                 })
             };
+            // (A line's tokens, by who they are in the history, for
+            // `add_moved_lines`.)
+            let tokens = |ctx: Option<usize>, line: Option<u32>| -> Vec<TokenRun> {
+                let found = (|| {
+                    let ctx = ctx?;
+                    let (_, page) = blames.values().flatten().find(|(index, _)| *index == ctx)?;
+                    let strip = page.lines.get((line? as usize).checked_sub(1)?)?;
+                    Some((page, strip))
+                })();
+                let Some((page, strip)) = found else {
+                    return vec![];
+                };
+                strip
+                    .entries
+                    .iter()
+                    .flat_map(|entry| {
+                        let commit = page.info.commits.get(entry.commit).map(|c| c.0.clone());
+                        let path = page.info.paths.get(entry.path).cloned();
+                        entry.tokens.iter().filter_map(move |range| {
+                            Some(TokenRun {
+                                commit: commit.clone()?,
+                                path: path.clone()?,
+                                first: *range.start(),
+                                last: *range.end(),
+                            })
+                        })
+                    })
+                    .collect()
+            };
             let at = |lines: &Option<Vec<String>>, n: Option<u32>| -> Option<String> {
                 lines.as_ref()?.get((n? as usize).checked_sub(1)?).cloned()
             };
@@ -1352,6 +1476,10 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
                             .and_then(|n| then_code.get(&n).cloned())
                             .or_else(|| at(&then_fmt, line.old));
                         line.then_blame = cell(then_ctx, line.old);
+                        if line.kind == "-" {
+                            line.then_tokens = tokens(then_ctx, line.old);
+                            line.then_plain = line.then_html.clone();
+                        }
                     }
                     if line.kind != "-" {
                         line.now_html = line
@@ -1359,12 +1487,19 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
                             .and_then(|n| now_code.get(&n).cloned())
                             .or_else(|| at(&now_fmt, line.new));
                         line.now_blame = cell(now_ctx, line.new);
+                        if line.kind == "+" {
+                            line.now_tokens = tokens(now_ctx, line.new);
+                            line.now_plain = line.now_html.clone();
+                        }
                     }
                 }
                 // (And the words its changes change.)
                 mark_word_changes(&mut hunk.lines);
             }
         }
+        // (And the lines it moved, now that its files' lines have their
+        // tokens.)
+        add_moved_lines(&mut view.moved, patch);
     }
     // (The symbols' SYM_INFO, now by the indexed revision's server, and
     // patched by the push's.)
@@ -1387,6 +1522,249 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
     }));
     view.blame_infos = blame_infos;
     add_later_changes(view, &texts);
+}
+
+/// How much of an added line's tokens must have been lines its patch removes
+/// elsewhere for it to have moved (see `add_moved_lines`).
+const MOVED_SHARE: f64 = 0.5;
+
+/// How many of their tokens a hunk's lines moved from one place must have
+/// been lines removed there, for them to be a move rather than a few lines
+/// of punctuation the history got from there (ex: a `}`, within a file, which
+/// the history takes from another hunk's removal as readily as not).
+const MOVED_MIN_TOKENS: u32 = 4;
+
+/// The most of a move's removed lines its popup shows.
+const MOVED_LINES: usize = 6;
+
+/// Marks the lines `patch` moved (see `HunkLine::moved`), into `moved`: its
+/// added lines most of whose tokens (`MOVED_SHARE`) were lines it removes in
+/// another hunk or file, by who the tokens are in the history (their commit,
+/// path then and indices; see `TokenRun`), as the token-centric history
+/// follows them where they go (rather than by their text, which the move may
+/// change); a removed line of the same diff hunk (see `ReviewHunk::diff_hunk`,
+/// which `split_hunk` may have split) is an edit, not a move.  Each
+/// hunk's moved lines are grouped by the hunk they came from (consecutive
+/// lines, but for blank ones between them), each group with its lines as
+/// they were there (the removed lines it got its tokens from, and those
+/// between them) and as they are here, their words' changes marked (see
+/// `mark_word_changes`), for the hunk's code against where it moved from
+/// (see `moved_html`).
+fn add_moved_lines(moved: &mut Vec<MovedFrom>, patch: &mut ReviewPatch) {
+    type At = (usize, usize, usize);
+    // The removed lines' tokens, by their commit and path: each run's first
+    // and last token, and its line.
+    let mut removed: HashMap<(&str, &str), Vec<(u32, u32, At)>> = HashMap::new();
+    for (f, file) in patch.files.iter().enumerate() {
+        for (h, hunk) in file.hunks.iter().enumerate() {
+            for (l, line) in hunk.lines.iter().enumerate() {
+                if line.kind != "-" {
+                    continue;
+                }
+                for run in &line.then_tokens {
+                    removed
+                        .entry((run.commit.as_str(), run.path.as_str()))
+                        .or_default()
+                        .push((run.first, run.last, (f, h, l)));
+                }
+            }
+        }
+    }
+    if removed.is_empty() {
+        return;
+    }
+    // Each moved line's lines it got its tokens from, and how many from each.
+    let mut sources: BTreeMap<At, BTreeMap<At, u32>> = BTreeMap::new();
+    for (f, file) in patch.files.iter().enumerate() {
+        for (h, hunk) in file.hunks.iter().enumerate() {
+            for (l, line) in hunk.lines.iter().enumerate() {
+                if line.kind != "+" || line.now_tokens.is_empty() {
+                    continue;
+                }
+                let total: u32 = line.now_tokens.iter().map(|r| r.last - r.first + 1).sum();
+                let mut found: BTreeMap<At, u32> = BTreeMap::new();
+                for run in &line.now_tokens {
+                    let Some(runs) = removed.get(&(run.commit.as_str(), run.path.as_str())) else {
+                        continue;
+                    };
+                    for &(first, last, at) in runs {
+                        // (Of its own diff hunk: an edit.)
+                        if at.0 == f && file.hunks[at.1].diff_hunk == hunk.diff_hunk {
+                            continue;
+                        }
+                        let (lo, hi) = (run.first.max(first), run.last.min(last));
+                        if lo <= hi {
+                            *found.entry(at).or_default() += hi - lo + 1;
+                        }
+                    }
+                }
+                let matched: u32 = found.values().sum();
+                if matched > 0 && f64::from(matched) >= MOVED_SHARE * f64::from(total) {
+                    sources.insert((f, h, l), found);
+                }
+            }
+        }
+    }
+    if sources.is_empty() {
+        return;
+    }
+    // The groups: each hunk's runs of moved lines from the same hunk.
+    struct Group {
+        at: (usize, usize),
+        from: (usize, usize),
+        first: usize,
+        last: usize,
+        sources: BTreeSet<usize>,
+        tokens: u32,
+    }
+    impl Group {
+        fn add(&mut self, l: usize, lines: &BTreeMap<At, u32>) {
+            self.last = l;
+            for (at, tokens) in lines {
+                if (at.0, at.1) == self.from {
+                    self.sources.insert(at.2);
+                    self.tokens += tokens;
+                }
+            }
+        }
+    }
+    let mut groups: Vec<Group> = vec![];
+    for (f, file) in patch.files.iter().enumerate() {
+        for (h, hunk) in file.hunks.iter().enumerate() {
+            let mut current: Option<Group> = None;
+            for (l, line) in hunk.lines.iter().enumerate() {
+                let from = sources.get(&(f, h, l)).map(|lines| {
+                    // (The hunk it got most of its tokens from, for one from
+                    // several, or the first such.)
+                    let (most, _) = lines
+                        .iter()
+                        .fold(
+                            BTreeMap::<(usize, usize), u32>::new(),
+                            |mut hunks, (at, n)| {
+                                *hunks.entry((at.0, at.1)).or_default() += n;
+                                hunks
+                            },
+                        )
+                        .into_iter()
+                        .rev()
+                        .max_by_key(|(_, n)| *n)
+                        .expect("a source");
+                    (most, lines)
+                });
+                match (from, current.as_mut()) {
+                    (Some((hunk_at, lines)), Some(group)) if group.from == hunk_at => {
+                        group.add(l, lines);
+                    }
+                    (Some((hunk_at, lines)), _) => {
+                        groups.extend(current.take());
+                        let mut group = Group {
+                            at: (f, h),
+                            from: hunk_at,
+                            first: l,
+                            last: l,
+                            sources: BTreeSet::new(),
+                            tokens: 0,
+                        };
+                        group.add(l, lines);
+                        current = Some(group);
+                    }
+                    // (Blank added lines between a group's lines are its.)
+                    (None, Some(_)) if line.kind == "+" && line.text.trim().is_empty() => {}
+                    (None, _) => groups.extend(current.take()),
+                }
+            }
+            groups.extend(current.take());
+        }
+    }
+    groups.retain(|group| group.tokens >= MOVED_MIN_TOKENS);
+    // Their lines, as they were and are, and where they moved from.
+    let mut added: Vec<((usize, usize), MovedGroup, Vec<usize>)> = vec![];
+    for group in groups {
+        let from_file = &patch.files[group.from.0];
+        let from_hunk = &from_file.hunks[group.from.1];
+        let (Some(&first), Some(&last)) = (group.sources.first(), group.sources.last()) else {
+            continue;
+        };
+        let was: Vec<HunkLine> = from_hunk.lines[first..=last]
+            .iter()
+            .filter(|line| line.kind == "-")
+            .map(|line| HunkLine {
+                kind: "-".to_string(),
+                old: line.old,
+                text: line.text.clone(),
+                then_html: line.then_plain.clone(),
+                then_blame: line.then_blame.clone(),
+                ..Default::default()
+            })
+            .collect();
+        // (Its moved lines say so here too, but not the blank ones between
+        // them.)
+        let index = moved.len();
+        let is_moved = |l: usize| sources.contains_key(&(group.at.0, group.at.1, l));
+        let hunk = &patch.files[group.at.0].hunks[group.at.1];
+        let is: Vec<HunkLine> = (group.first..=group.last)
+            .map(|l| {
+                let line = &hunk.lines[l];
+                HunkLine {
+                    kind: "+".to_string(),
+                    new: line.new,
+                    text: line.text.clone(),
+                    now_html: line.now_plain.clone(),
+                    now_blame: line.now_blame.clone(),
+                    moved: is_moved(l).then_some(index),
+                    ..Default::default()
+                }
+            })
+            .collect();
+        let then_path = from_file
+            .old_path
+            .clone()
+            .unwrap_or_else(|| from_file.path.clone());
+        let def = from_hunk.def.as_deref().and_then(|id| {
+            from_file
+                .defs
+                .iter()
+                .find(|def| def.id == id)
+                .map(|def| def.pretty.clone())
+        });
+        let from = MovedFrom {
+            path: then_path.clone(),
+            first: was.iter().filter_map(|line| line.old).min().unwrap_or(0),
+            last: was.iter().filter_map(|line| line.old).max().unwrap_or(0),
+            element: element_id(&from_hunk.id, from_hunk.section),
+            def,
+            lines: was
+                .iter()
+                .take(MOVED_LINES)
+                .map(|line| {
+                    line.then_html
+                        .clone()
+                        .unwrap_or_else(|| escape(&line.text).to_string())
+                })
+                .collect(),
+        };
+        let mut lines = was;
+        lines.extend(is);
+        mark_word_changes(&mut lines);
+        let moved_lines: Vec<usize> = (group.first..=group.last)
+            .filter(|l| is_moved(*l))
+            .collect();
+        moved.push(from.clone());
+        let group_lines = MovedGroup {
+            from,
+            from_index: index,
+            then_path,
+            lines,
+        };
+        added.push((group.at, group_lines, moved_lines));
+    }
+    for ((f, h), group, moved_lines) in added {
+        let hunk = &mut patch.files[f].hunks[h];
+        for l in moved_lines {
+            hunk.lines[l].moved = Some(group.from_index);
+        }
+        hunk.moved.push(group);
+    }
 }
 
 /// The most of a later change's added lines its popup shows.
@@ -2659,9 +3037,15 @@ fn side_html(lines: &[HunkLine], then: bool, key: &str) -> String {
             None => String::new(),
         };
         // (A line a later patch changes says so; see try-review.js's
-        // `addLaterChanges`.)
+        // `addLinePopups`.)
         let later = match (then, line.later) {
             (false, Some(index)) => format!(r#" tr-later" data-later="{}"#, index),
+            _ => String::new(),
+        };
+        // (And a line its patch moved here, where from; see
+        // `add_moved_lines`.)
+        let moved = match (then, line.moved) {
+            (false, Some(index)) => format!(r#" tr-moved" data-moved="{}"#, index),
             _ => String::new(),
         };
         let data_line = match number {
@@ -2669,9 +3053,10 @@ fn side_html(lines: &[HunkLine], then: bool, key: &str) -> String {
             None => String::new(),
         };
         html.push_str(&format!(
-            r#"<div role="row" class="source-line-with-number tr-line{}{}"{}><div role="cell" class="tr-blame">{}</div><span class="tr-lno">{}</span><code role="cell" class="source-line tr-text">{}</code></div>"#,
+            r#"<div role="row" class="source-line-with-number tr-line{}{}{}"{}><div role="cell" class="tr-blame">{}</div><span class="tr-lno">{}</span><code role="cell" class="source-line tr-text">{}</code></div>"#,
             class,
             later,
+            moved,
             data_line,
             strip,
             number.map_or(String::new(), |n| n.to_string()),
@@ -2697,7 +3082,9 @@ fn side_key(patch: usize, then: bool, path: &str) -> String {
 }
 
 /// A hunk's heading's lines, linked to the commit's file (with the push's
-/// stack; see stack-strip.js), and its added and removed lines' counts.
+/// stack; see stack-strip.js), and its added and removed lines' counts.  (A
+/// part of a hunk with no lines left in the file, which only removes lines
+/// (see `split_hunk`), has the lines they were, as the file was.)
 fn hunk_lines_html(
     tree: &str,
     rev: &str,
@@ -2705,20 +3092,28 @@ fn hunk_lines_html(
     file: &ReviewFile,
     hunk: &ReviewHunk,
 ) -> String {
-    let first = hunk.lines.iter().find_map(|line| line.new).unwrap_or(0);
-    let last = hunk
-        .lines
-        .iter()
-        .filter_map(|line| line.new)
-        .max()
-        .unwrap_or(first);
+    let range = |side: fn(&HunkLine) -> Option<u32>| {
+        let first = hunk.lines.iter().find_map(side)?;
+        Some((
+            first,
+            hunk.lines.iter().filter_map(side).max().unwrap_or(first),
+        ))
+    };
+    let (first, last, was) = match (range(|line| line.new), range(|line| line.old)) {
+        (Some((first, last)), _) => (first, last, false),
+        (None, Some((first, last))) => (first, last, true),
+        (None, None) => (0, 0, false),
+    };
     let link = format!(
-        "/{}/rev/{}/{}?stack={}#{}",
+        "/{}/rev/{}/{}?stack={}{}",
         escape(tree),
         escape(rev),
         crate::url_encode_path::url_encode_path(&file.path),
         escape(stack),
-        first
+        match was {
+            true => String::new(),
+            false => format!("#{}", first),
+        }
     );
     let delta = [
         (hunk.added > 0).then(|| format!("+{}", hunk.added)),
@@ -2731,6 +3126,10 @@ fn hunk_lines_html(
     let lines = match first == last {
         true => format!("line {}", first),
         false => format!("lines {}&ndash;{}", first, last),
+    };
+    let lines = match was {
+        true => format!("was {}", lines),
+        false => lines,
     };
     format!(
         r#"<a class="tr-hunk-lines" href="{}">{}</a> <span class="tr-delta">{}</span>"#,
@@ -2778,6 +3177,48 @@ fn hunk_code_html(tree: &str, patch: usize, file: &ReviewFile, hunk: &ReviewHunk
     }
 }
 
+/// A hunk's lines its patch moved (see `add_moved_lines`), again: each
+/// group's, as they were where they moved from (linked) and as they are
+/// here, their words' changes marked, beside each other (only shown with
+/// both sides; see mozsearch.css), their rows' keys their rows' elsewhere
+/// (see `side_html`), so that a line's are highlighted together.
+fn moved_html(tree: &str, patch: usize, file: &ReviewFile, hunk: &ReviewHunk) -> String {
+    if hunk.moved.is_empty() {
+        return String::new();
+    }
+    let then_attrs = format!(
+        r#"class="file then-code" role="table" data-sym-info="now" data-tree="{}" data-search="{}""#,
+        escape(tree),
+        escape(&crate::file_format::config::search_url(tree))
+    );
+    let now_key = side_key(patch, false, &file.path);
+    let mut html = String::from(r#"<div class="tr-moved-groups">"#);
+    for group in &hunk.moved {
+        let from = &group.from;
+        let lines = match from.first == from.last {
+            true => format!("line {}", from.first),
+            false => format!("lines {}&ndash;{}", from.first, from.last),
+        };
+        let def = from
+            .def
+            .as_deref()
+            .map(|def| format!(" (in <code>{}</code>)", escape(def)))
+            .unwrap_or_default();
+        html.push_str(&format!(
+            r##"<div class="tr-moved-group"><div class="tr-moved-head">Moved from <a href="#{element}">{path} {lines}</a>{def}, as it was there and as it is here:</div><div class="then-now"><div {then_attrs}>{then}</div><div class="file now-code" role="table" data-sym-info="patched">{now}</div></div></div>"##,
+            element = escape(&from.element),
+            path = escape(&from.path),
+            lines = lines,
+            def = def,
+            then_attrs = then_attrs,
+            then = side_html(&group.lines, true, &side_key(patch, true, &group.then_path)),
+            now = side_html(&group.lines, false, &now_key),
+        ));
+    }
+    html.push_str("</div>");
+    html
+}
+
 /// A hunk's card: its heading (its lines, then its strip), and its code; or,
 /// `folded` onto its definition's heading (its only hunk there), its code.
 fn hunk_html(
@@ -2798,12 +3239,13 @@ fn hunk_html(
         ),
     };
     format!(
-        r#"<div class="tr-hunk{folded}" data-part="{id}" id="{element}">{head}{code}</div>"#,
+        r#"<div class="tr-hunk{folded}" data-part="{id}" id="{element}">{head}{code}{moved}</div>"#,
         folded = if folded { " tr-hunk-folded" } else { "" },
         id = escape(&hunk.id),
         element = element_id(&hunk.id, hunk.section),
         head = head,
         code = hunk_code_html(tree, patch, file, hunk),
+        moved = moved_html(tree, patch, file, hunk),
     )
 }
 
@@ -3345,6 +3787,8 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             "slicing": view.slicing,
             // (The later patches' changes of lines; see `add_later_changes`.)
             "later": view.later,
+            // (Where the patches moved lines from; see `add_moved_lines`.)
+            "moved": view.moved,
         }),
     ));
     // (Its code's symbols' SYM_INFO by side, and its blames; see
@@ -3653,6 +4097,8 @@ Binary files img.png and img.png differ
                         // (The patch's lines, across its files.)
                         added: lines / files.len() as u32,
                         removed: 0,
+                        moved: vec![],
+                        diff_hunk: 0,
                     }],
                     truncated: false,
                 })
@@ -3692,6 +4138,7 @@ Binary files img.png and img.png differ
             sym_infos: None,
             blame_infos: vec![],
             later: vec![],
+            moved: vec![],
             block_sym_info: None,
         };
         // (The first's commit rebased is "rrrr"; what the push removes from
@@ -3820,6 +4267,8 @@ Binary files img.png and img.png differ
             lines,
             added: 1,
             removed: 0,
+            moved: vec![],
+            diff_hunk: 0,
         };
         let mut first = patch("r1", &["a.cpp"], 1, 1);
         first.parent = Some("p0".to_string());
@@ -3858,6 +4307,7 @@ Binary files img.png and img.png differ
             sym_infos: None,
             blame_infos: vec![],
             later: vec![],
+            moved: vec![],
             block_sym_info: None,
         };
         let texts: BTreeMap<(String, String), Option<String>> = [
@@ -3898,6 +4348,209 @@ Binary files img.png and img.png differ
         );
     }
 
+    /// A patch's added lines most of whose tokens were lines it removes in
+    /// another file are moved from there (as one group, with a blank line
+    /// between them, and their words' changes marked against where they were),
+    /// but not a same hunk's edit, a line with new tokens, nor a lone `}`.
+    #[test]
+    fn test_add_moved_lines() {
+        let run = |commit: &str, path: &str, first: u32, last: u32| TokenRun {
+            commit: commit.to_string(),
+            path: path.to_string(),
+            first,
+            last,
+        };
+        let line = |kind: &str, n: u32, text: &str, tokens: Vec<TokenRun>| HunkLine {
+            kind: kind.to_string(),
+            old: Some(n).filter(|_| kind != "+"),
+            new: Some(n).filter(|_| kind != "-"),
+            text: text.to_string(),
+            then_tokens: match kind {
+                "-" => tokens.clone(),
+                _ => vec![],
+            },
+            now_tokens: match kind {
+                "+" => tokens,
+                _ => vec![],
+            },
+            ..Default::default()
+        };
+        let hunk = |id: &str, def: Option<&str>, lines: Vec<HunkLine>| ReviewHunk {
+            id: id.to_string(),
+            def: def.map(str::to_string),
+            section: Section::Uses,
+            lines,
+            added: 0,
+            removed: 0,
+            moved: vec![],
+            diff_hunk: 0,
+        };
+        let mut moving = patch("r1", &["a.cpp", "b.cpp"], 1, 2);
+        moving.files[0].defs.push(ReviewDef {
+            id: "d:a".to_string(),
+            pretty: "A::f".to_string(),
+            name: "f".to_string(),
+            kind: "method".to_string(),
+            level: "function".to_string(),
+            parent: None,
+            status: "changed".to_string(),
+            decl: false,
+        });
+        moving.files[0].hunks = vec![
+            hunk(
+                "ha",
+                Some("d:a"),
+                vec![
+                    line(" ", 1, "void A::f() {", vec![]),
+                    line(
+                        "-",
+                        2,
+                        "  nsCOMPtr<nsIURI> uri = Make(aUrl);",
+                        vec![run("c0", "a.cpp", 10, 16)],
+                    ),
+                    line("-", 3, "  Use(uri);", vec![run("c0", "a.cpp", 17, 21)]),
+                    line("-", 4, "  Log();", vec![run("c1", "a.cpp", 5, 8)]),
+                    line(
+                        "+",
+                        2,
+                        "  Log(1);",
+                        vec![run("c1", "a.cpp", 5, 7), run("r1", "a.cpp", 0, 0)],
+                    ),
+                    line(" ", 5, "}", vec![]),
+                ],
+            ),
+            hunk(
+                "ha2",
+                None,
+                vec![line("-", 9, "  }", vec![run("c2", "a.cpp", 30, 30)])],
+            ),
+        ];
+        moving.files[0].hunks[1].diff_hunk = 1;
+        moving.files[1].hunks = vec![
+            hunk(
+                "hb",
+                None,
+                vec![
+                    line(" ", 1, "void B::g() {", vec![]),
+                    line(
+                        "+",
+                        2,
+                        "  nsCOMPtr<nsIURI> uri = Make(aSpec);",
+                        vec![
+                            run("c0", "a.cpp", 10, 14),
+                            run("r1", "b.cpp", 0, 0),
+                            run("c0", "a.cpp", 16, 16),
+                        ],
+                    ),
+                    line("+", 3, "", vec![]),
+                    line("+", 4, "  Use(uri);", vec![run("c0", "a.cpp", 17, 21)]),
+                    line("+", 5, "  return;", vec![run("r1", "b.cpp", 1, 3)]),
+                    line(" ", 6, "}", vec![]),
+                ],
+            ),
+            hunk(
+                "hb2",
+                None,
+                vec![line("+", 9, "  }", vec![run("c2", "a.cpp", 30, 30)])],
+            ),
+            // (A part of a diff hunk split by definitions, whose line is
+            // an edit of a removed line of another part.)
+            hunk(
+                "hb3",
+                None,
+                vec![line(
+                    "+",
+                    20,
+                    "  Shrink(a, b);",
+                    vec![run("c3", "b.cpp", 40, 46)],
+                )],
+            ),
+            hunk(
+                "hb4",
+                None,
+                vec![line(
+                    "-",
+                    20,
+                    "  Shrink(a);",
+                    vec![run("c3", "b.cpp", 40, 45)],
+                )],
+            ),
+        ];
+        moving.files[1].hunks[1].diff_hunk = 1;
+        moving.files[1].hunks[2].diff_hunk = 2;
+        moving.files[1].hunks[3].diff_hunk = 2;
+        let mut moved = vec![];
+        add_moved_lines(&mut moved, &mut moving);
+        let lines = |f: usize, h: usize| -> Vec<Option<usize>> {
+            moving.files[f].hunks[h]
+                .lines
+                .iter()
+                .map(|line| line.moved)
+                .collect()
+        };
+        assert_eq!(
+            lines(1, 0),
+            vec![None, Some(0), None, Some(0), None, None],
+            "b.cpp's lines from A::f moved, but not its blank and new lines"
+        );
+        assert_eq!(lines(1, 1), vec![None], "a lone `}}` isn't a move");
+        assert_eq!(
+            lines(1, 2),
+            vec![None],
+            "an edit of a diff hunk's other part isn't a move"
+        );
+        assert!(
+            lines(0, 0).iter().all(Option::is_none),
+            "a same hunk's edit isn't a move"
+        );
+        assert_eq!(
+            moved,
+            vec![MovedFrom {
+                path: "a.cpp".to_string(),
+                first: 2,
+                last: 3,
+                element: element_id("ha", Section::Uses),
+                def: Some("A::f".to_string()),
+                lines: vec![
+                    "  nsCOMPtr&lt;nsIURI&gt; uri = Make(aUrl);".to_string(),
+                    "  Use(uri);".to_string(),
+                ],
+            }]
+        );
+        let groups = &moving.files[1].hunks[0].moved;
+        assert_eq!(groups.len(), 1);
+        let group = &groups[0];
+        assert_eq!((group.from_index, group.then_path.as_str()), (0, "a.cpp"));
+        assert_eq!(
+            group
+                .lines
+                .iter()
+                .map(|line| (line.kind.as_str(), line.old, line.new, line.moved))
+                .collect::<Vec<_>>(),
+            vec![
+                ("-", Some(2), None, None),
+                ("-", Some(3), None, None),
+                ("+", None, Some(2), Some(0)),
+                ("+", None, Some(3), None),
+                ("+", None, Some(4), Some(0)),
+            ],
+            "as they were there, and as they are here"
+        );
+        assert_eq!(
+            group.lines[0].then_html.as_deref(),
+            Some(
+                r#"  nsCOMPtr&lt;nsIURI&gt; uri = Make(<mark class="tr-word-removed">aUrl</mark>);"#
+            )
+        );
+        assert_eq!(
+            group.lines[2].now_html.as_deref(),
+            Some(
+                r#"  nsCOMPtr&lt;nsIURI&gt; uri = Make(<mark class="tr-word-added">aSpec</mark>);"#
+            )
+        );
+        assert_eq!(group.lines[4].now_html, None, "(Use(uri) is as it was)");
+    }
+
     #[test]
     fn test_split_hunk() {
         // (A hunk changing f's signature, and adding g after it.)
@@ -3932,6 +4585,49 @@ Binary files img.png and img.png differ
         );
         assert_eq!(hunk_entries(&entries, &parts[0]), vec![0]);
         assert_eq!(hunk_entries(&entries, &parts[1]), vec![1]);
+
+        // (A hunk declaring f before g, whose body it replaces with a call
+        // of f: g's removed lines are g's, as the file was, rather than f's
+        // declaration's, at their new-side position; its part before f's
+        // declaration, and g's new line after it.)
+        let diff = "diff --git b.cpp b.cpp
+--- b.cpp
++++ b.cpp
+@@ -1,6 +1,4 @@
+-int g() {
+-  int x = 3;
+-  return x;
+-}
++int f(int x);
++
++int g() { return f(3); }
+ 
+ }
+";
+        let hunk = &parse_diff(diff)[0].hunks[0];
+        let entries: Vec<OutlineEntry> = serde_json::from_value(json!([
+            {"pretty": "f", "name": "f", "kind": "function", "decl": true, "depth": 0, "status": "added", "lines": [1, 1]},
+            {"pretty": "g", "name": "g", "kind": "function", "depth": 0, "status": "changed", "lines": [3, 3], "from_lines": [1, 4]},
+        ]))
+        .unwrap();
+        let parts = split_hunk(&entries, hunk);
+        let changed = |part: &Hunk| -> Vec<String> {
+            part.lines
+                .iter()
+                .filter(|line| line.kind != " ")
+                .map(|line| format!("{}{}", line.kind, line.text))
+                .collect()
+        };
+        assert_eq!(
+            parts.iter().map(changed).collect::<Vec<_>>(),
+            vec![
+                vec!["-int g() {", "-  int x = 3;", "-  return x;", "-}"],
+                vec!["+int f(int x);", "+"],
+                vec!["+int g() { return f(3); }"],
+            ]
+        );
+        assert_eq!(hunk_entries(&entries, &parts[0]), vec![1]);
+        assert_eq!(hunk_entries(&entries, &parts[2]), vec![1]);
     }
 
     #[test]
