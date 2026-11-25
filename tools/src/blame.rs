@@ -101,7 +101,8 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
         let mut obj = Map::new();
 
         obj.insert("header".to_owned(), json!(msg));
-        // The commit's own hash: clients asking about HEAD otherwise only learn its parent.
+        // External tools can query HEAD to learn which revision was indexed;
+        // the blame UI itself only needs the parent.
         obj.insert("rev".to_owned(), json!(commit.id().to_string()));
 
         let parents = commit.parent_ids().collect::<Vec<_>>();
