@@ -508,6 +508,35 @@ add_task(async function test_TryReviewExpand() {
   ok(row(now)?.querySelector(".blame-strip[data-hb-ctx]"), "with their blame");
 });
 
+// (A review's links stay its push's as new indexes rebase it again: its
+// hunks' to their files by the push's own commits, which the web-server's
+// `/try/.../source/` route sends to their rebased commits' files, and its
+// slicing's page's by the push's name (`push=`); see the tools'
+// `hunk_lines_html` and `slicing_url`.)
+add_task(async function test_TryReviewDurableLinks() {
+  await importPush();
+  await loadReview();
+  const link = doc().querySelector('.tr-file[data-path="widget.h"] .tr-hunk-lines')?.getAttribute("href");
+  ok(link?.startsWith(`/trydelta/try/hg/${PUSH}/source/`) && link.includes("/widget.h#"),
+     `A hunk's heading links to its file by the push's own commit (${link})`);
+  const response = await fetch(link, { cache: "no-store" });
+  const reached = new URL(response.url);
+  ok(response.ok && /^\/trydelta\/rev\/[0-9a-f]{40}\/widget\.h$/.test(reached.pathname) &&
+     reached.searchParams.get("stack") == `try/hg/${PUSH}`,
+     `which goes to its rebased commit's file (${response.url})`);
+  is((await fetch(`/trydelta/try/hg/${PUSH}/source/${"0".repeat(40)}/widget.h`, { cache: "no-store" })).status,
+     404, "but not a commit which isn't the push's");
+
+  const slicing = doc().querySelector(".tr-slicing a")?.getAttribute("href");
+  ok(slicing?.endsWith(`&push=${PUSH}`), `The slicing's page is in the push's context by its name (${slicing})`);
+  await TestUtils.loadPath(slicing);
+  ok(doc().querySelector(".query-try-context"), "which the page is");
+  is(doc().querySelector('#search-box input[name="push"]')?.value, PUSH,
+     "and searching again stays in it, by the push's name");
+  is((await fetch("/trydelta/query/default?q=Widget&push=fedcbafedcba", { cache: "no-store" })).status, 404,
+     "A push which isn't imported has no context");
+});
+
 add_task(async function test_TryReviewFacets() {
   await importPush();
   await loadReview();

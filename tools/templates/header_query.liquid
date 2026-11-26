@@ -56,7 +56,11 @@
   <input type="hidden" name="preset" value="{{ preset | escape }}" />
   {%- endif %}
   {%- endif %}
-  {%- if search_rev != empty %}
+  {%- if search_push != empty %}
+  <!-- (Searching again stays in the try push's context, by its name if the
+  page's URL had it, which stays the push's on later indexes.) -->
+  <input type="hidden" name="push" value="{{ search_push | escape }}" />
+  {%- elsif search_rev != empty %}
   <!-- (Searching again stays in the try push's context.) -->
   <input type="hidden" name="rev" value="{{ search_rev | escape }}" />
   {%- endif %}

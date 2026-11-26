@@ -534,8 +534,38 @@ async fn handle_query(
 
     // A query in a try push's context, `rev` being the head of its stack
     // rebased onto the indexed revision, is of the tree as the push changes
-    // it (see `try_delta`).
-    let rev = params.get("rev").filter(|rev| !rev.is_empty());
+    // it (see `try_delta`); or `push` naming the push, whose head that is on
+    // this server (a URL which stays the push's as new indexes rebase it
+    // again, ex: a try review's links; see try_review.rs's `slicing_url`).
+    let push_head = match params.get("push").filter(|push| !push.is_empty()) {
+        Some(push) => match server.try_push(push).await.ok().flatten() {
+            Some(imported) => match imported.semantic_head {
+                Some(head) => Some(head),
+                None => {
+                    return Ok((
+                        StatusCode::NOT_FOUND,
+                        format!("The try push {} has no semantic analysis here", push),
+                    )
+                        .into_response());
+                }
+            },
+            None => {
+                return Ok((
+                    StatusCode::NOT_FOUND,
+                    format!(
+                        "The try push {} isn't imported here (its page, /{}/try/hg/{}, imports it)",
+                        push, tree, push
+                    ),
+                )
+                    .into_response());
+            }
+        },
+        None => None,
+    };
+    let rev = params
+        .get("rev")
+        .filter(|rev| !rev.is_empty())
+        .or(push_head.as_ref());
     let server: Box<dyn AbstractServer + Send + Sync> = match rev {
         Some(rev) => match server.try_overlay(rev) {
             Some(overlay) => overlay,
@@ -809,8 +839,13 @@ async fn handle_query(
             "search_tree": tree.clone(),
             "search_url": config::search_url(&tree),
             "query_search": config::search_endpoint(&tree) == SearchEndpoint::Query,
-            // The try push whose context the query is in, if any.
+            // The try push whose context the query is in, if any (and the
+            // push, if it was named, for searching again by it).
             "search_rev": rev.cloned().unwrap_or_default(),
+            "search_push": match push_head {
+                Some(_) => params.get("push").cloned().unwrap_or_default(),
+                None => String::new(),
+            },
             "try_push": try_meta.as_ref().map(|meta| meta.push.clone()).unwrap_or_default(),
             "try_push_path": try_meta
                 .as_ref()

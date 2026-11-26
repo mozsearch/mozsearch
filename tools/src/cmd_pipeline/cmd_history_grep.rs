@@ -368,6 +368,7 @@ mod tests {
             "search_url": "/tests/search",
             "query_search": true,
             "search_rev": "",
+            "search_push": "",
             "try_push": "",
             "try_base": "",
             "logs": null.clone(),

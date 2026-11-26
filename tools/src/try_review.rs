@@ -1197,6 +1197,25 @@ async fn rebased_commits(
         .collect()
 }
 
+/// The commit whose code a try push's review shows for its stack's commit
+/// `commit` (see `ReviewPatch::shown`): its rebased commit, if it has one,
+/// else itself; if it's one of the push's stack's.
+pub async fn shown_commit(
+    server: &(dyn AbstractServer + Send + Sync),
+    push: &str,
+    commit: &str,
+) -> Option<String> {
+    let try_push = server.try_push(push).await.ok()??;
+    let commit = try_push
+        .stack
+        .iter()
+        .find(|own| own.rev == commit)?
+        .rev
+        .clone();
+    let rebased = rebased_commits(server, push, std::slice::from_ref(&commit)).await;
+    Some(rebased.get(&commit).cloned().unwrap_or(commit))
+}
+
 pub async fn review_view(
     server: &(dyn AbstractServer + Send + Sync),
     push: &str,
@@ -3317,7 +3336,10 @@ fn side_key(patch: usize, then: bool, path: &str) -> String {
 }
 
 /// A hunk's heading's lines, linked to the commit's file (with the push's
-/// stack; see stack-strip.js), and its added and removed lines' counts.  (A
+/// stack; see stack-strip.js), by the push's own commit (`rev`), whose code
+/// the web-server's `/try/.../source/` route goes to (its rebased commit's, if
+/// it has one; see `shown_commit`), so that the link stays the commit's as new
+/// indexes rebase the push again, and its added and removed lines' counts.  (A
 /// part of a hunk with no lines left in the file, which only removes lines
 /// (see `split_hunk`), has the lines they were, as the file was.)
 fn hunk_lines_html(
@@ -3340,11 +3362,11 @@ fn hunk_lines_html(
         (None, None) => (0, 0, false),
     };
     let link = format!(
-        "/{}/rev/{}/{}?stack={}{}",
+        "/{}/{}/source/{}/{}{}",
         escape(tree),
+        escape(stack),
         escape(rev),
         crate::url_encode_path::url_encode_path(&file.path),
-        escape(stack),
         match was {
             true => String::new(),
             false => format!("#{}", first),
@@ -3491,7 +3513,7 @@ fn expander_html(
         row(
             "tr-expand-rest",
             format!(
-                r#"<a href="/{tree}/rev/{rev}/{path}?stack={stack}#{at}">{beyond} more line{s} {where_}, in the file</a>"#,
+                r#"<a href="/{tree}/{stack}/source/{rev}/{path}#{at}">{beyond} more line{s} {where_}, in the file</a>"#,
                 tree = escape(tree),
                 rev = escape(rev),
                 path = crate::url_encode_path::url_encode_path(&file.path),
@@ -3756,10 +3778,12 @@ fn file_html(
         link = crate::url_encode_path::url_encode_path(&file.path),
         stack = escape(&stack),
         status = status,
-        // (Its hunks' lines link to the commit whose code they are.)
+        // (Its hunks' lines link to the commit whose code they are, by the
+        // push's own commit, which stays the same as new indexes rebase it
+        // again; see the web-server's `/try/.../source/` route.)
         children = children_html(
             tree,
-            patch.shown.as_deref().unwrap_or(&patch.rev),
+            &patch.rev,
             &stack,
             patch_index,
             file,
@@ -3880,13 +3904,15 @@ fn patch_html(tree: &str, view: &ReviewView, i: usize) -> String {
     html
 }
 
-/// The URL of the page of the push's slicing.
-fn slicing_url(tree: &str, slicing: &ReviewSlicing) -> String {
+/// The URL of the page of the push's slicing, in its context by its name
+/// (`push=`, whose rebased head the pipeline-server finds), which stays the
+/// push's as new indexes rebase it again.
+fn slicing_url(tree: &str, push: &str, slicing: &ReviewSlicing) -> String {
     format!(
-        "/{}/query/default?q={}&rev={}",
+        "/{}/query/default?q={}&push={}",
         tree,
         urlencoding::encode(&slicing.query),
-        urlencoding::encode(&slicing.rev)
+        urlencoding::encode(push)
     )
 }
 
@@ -3917,10 +3943,10 @@ fn block_html(tree: &str, view: &ReviewView, g: usize) -> String {
             }
         )),
         url = escape(&format!(
-            "/{}/query/default?q={}&rev={}",
+            "/{}/query/default?q={}&push={}",
             tree,
             urlencoding::encode(&query),
-            urlencoding::encode(&slicing.rev)
+            urlencoding::encode(&view.push)
         )),
         svg = svg,
     )
@@ -3968,7 +3994,7 @@ fn slicing_html(tree: &str, view: &ReviewView, g: usize) -> String {
         r#"<figure class="tr-slicing" data-group="{g}"><figcaption><span class="tr-slicing-title">Their dataflow</span> <span class="tr-slicing-about">{about} (<a href="{url}">the push's slicing</a>)</span> <button type="button" class="tr-slicing-code" aria-pressed="false">Show their code</button></figcaption><div class="tr-slicing-canvas crash-graph-canvas"></div></figure>"#,
         g = g,
         about = escape(&about),
-        url = escape(&slicing_url(tree, slicing)),
+        url = escape(&slicing_url(tree, &view.push, slicing)),
     )
 }
 
@@ -4218,7 +4244,7 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         html.push_str(&format!(
             r#"<p class="tr-note">Its changes' dataflow couldn't be sliced, for its diagrams ({}); <a href="{}">its slicing's page</a> says more.</p>"#,
             escape(note),
-            escape(&slicing_url(tree, view.slicing.as_ref().unwrap())),
+            escape(&slicing_url(tree, &view.push, view.slicing.as_ref().unwrap())),
         ));
     }
     for (g, group) in view.groups.iter().enumerate() {

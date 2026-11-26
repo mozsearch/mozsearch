@@ -364,14 +364,19 @@ fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebRespo
 /// the `try-review:` query's (see `tools::try_review`), as the
 /// pipeline-server renders its query page, here at the push's URL; in the
 /// context of its stack rebased onto the indexed revision, if that has its
-/// semantic analysis (`head`), so that the page's searches are of the push.
+/// semantic analysis (`head`), by the push's name (`push=`, whose head the
+/// pipeline-server finds), so that the page's searches are of the push, at
+/// URLs which stay the push's as new indexes rebase it again.
 fn try_review_page(tree_name: &str, push: &str, head: Option<&str>) -> WebResponse {
     let url = format!(
         "http://{}/{}/query/default?q={}{}",
         pipeline_server_addr(),
         tree_name,
         urlencoding::encode(&format!("try-review:{}", push)),
-        head.map_or(String::new(), |head| format!("&rev={}", head))
+        head.map_or(String::new(), |_| format!(
+            "&push={}",
+            urlencoding::encode(push)
+        ))
     );
     let result = format::run_on_runtime(async move {
         let response = reqwest::Client::new()
@@ -721,9 +726,10 @@ fn query_params(query: &str) -> HashMap<String, String> {
 
 /// The tree's query page for the query (ex: normalized), and what it was
 /// before, if it's different (which the page shows; see pipeline-server.rs),
-/// in a try push's context (`rev`).
-fn query_url(tree_name: &str, query: &str, input: &str, rev: Option<&str>) -> String {
-    preset_query_url(tree_name, "default", query, input, rev)
+/// in a try push's context (`context`: `rev`, its rebased head, or `push`,
+/// the push, whose head the pipeline-server finds; see `try_context`).
+fn query_url(tree_name: &str, query: &str, input: &str, context: Option<(&str, &str)>) -> String {
+    preset_query_url(tree_name, "default", query, input, context)
 }
 
 /// `query_url`, of the query preset `preset` (ex: "default").
@@ -732,17 +738,27 @@ fn preset_query_url(
     preset: &str,
     query: &str,
     input: &str,
-    rev: Option<&str>,
+    context: Option<(&str, &str)>,
 ) -> String {
     let mut url = url::form_urlencoded::Serializer::new(String::new());
     url.append_pair("q", query);
     if input.trim() != query {
         url.append_pair("input", input);
     }
-    if let Some(rev) = rev.filter(|rev| !rev.is_empty()) {
-        url.append_pair("rev", rev);
+    if let Some((name, value)) = context.filter(|(_, value)| !value.is_empty()) {
+        url.append_pair(name, value);
     }
     format!("/{}/query/{}?{}", tree_name, preset, url.finish())
+}
+
+/// A search's try push context, if any (see `query_url`): its `push`, if it
+/// has one, which stays the push's as new indexes rebase it again, else its
+/// `rev`.
+fn try_context<'a>(param: impl Fn(&str) -> Option<&'a str>) -> Option<(&'static str, &'a str)> {
+    match param("push").filter(|push| !push.is_empty()) {
+        Some(push) => Some(("push", push)),
+        None => param("rev").map(|rev| ("rev", rev)),
+    }
 }
 
 /// The trees' servers for the data API's routes the web-server serves (see
@@ -854,6 +870,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         ("rev-hyperblame" | "rev-rendered" | "rev-canvas" | "rev-algorithm" | "history", _) => 2..3,
         ("rev-outline" | "outline-diff" | "interdiff", _) => 2..4,
         ("explore" | "try", Some(&"stack-strip")) => 5..6,
+        ("try", Some(&"source")) => 5..6,
         ("explore" | "try", Some(&"excerpts")) => 5..7,
         _ => 0..0,
     };
@@ -1473,6 +1490,36 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         // stack strips, as `.../stack-strip/{rev}/{path}`; see
         // `format::stack_strip_json`.
         "try" => {
+            // (A file of one of a try push's own commits, as its review
+            // shows it, at a URL which stays the commit's as new indexes
+            // rebase the push again: `/{tree}/try/hg/{push}/source/{commit}/
+            // {path}`, which goes to the file of the commit rebased onto the
+            // indexed revision, if it is, else of the commit; see
+            // `tools::try_review::shown_commit`, and its review's links.)
+            if path.len() >= 7 && path[4] == "source" {
+                let Some(push) = tools::try_import::url_push(cfg, tree_name, path[2], path[3])
+                else {
+                    return WebResponse::not_found();
+                };
+                let Some(server) = tree_server(tree_name) else {
+                    return WebResponse::not_found();
+                };
+                let file_path = path[6..].join("/");
+                let (server, push_, commit) = (server.clonify(), push.clone(), path[5].to_string());
+                return match format::run_on_runtime(async move {
+                    tools::try_review::shown_commit(server.as_ref(), &push_, &commit).await
+                }) {
+                    Some(rev) => WebResponse::see_other(format!(
+                        "/{}/rev/{}/{}?stack={}",
+                        tree_name,
+                        rev,
+                        tools::url_encode_path::url_encode_path(&file_path),
+                        tools::try_import::push_url_path(&push)
+                    ))
+                    .uncached(),
+                    None => WebResponse::not_found().uncached(),
+                };
+            }
             if path.len() >= 7 && path[4] == "stack-strip" {
                 let stack = path[1..4].join("/");
                 let file_path = path[6..].join("/");
@@ -2022,7 +2069,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     tree_name,
                     &normalization.query,
                     &normalization.query,
-                    param("rev"),
+                    try_context(param),
                 );
                 return WebResponse::found(tools::query::dwim::searched_url(
                     &target.url,
@@ -2035,7 +2082,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 preset,
                 &normalization.query,
                 input,
-                param("rev"),
+                try_context(param),
             ))
         }
 
