@@ -8046,10 +8046,14 @@ textarea.monospace {
 /* A try push's review view (see try_review.rs and try-review.js): its
    patches, whose headings stick under the breadcrumbs, and their sections
    (interfaces, definitions, uses, tests), whose headings stick under the
-   patch's, each with its files, their definitions and their hunks' code
-   before and after. */
+   patch's, each with its files, whose headings stick under the section's,
+   their definitions and their hunks' code before and after.  (The headings'
+   heights are at least these; try-review.js's `measureHeads` sets them to
+   what they are, if more, ex: a section's heading wrapping.) */
 .try-review {
   --tr-patch-head-height: 2.2em;
+  --tr-section-head-height: 1.9em;
+  --tr-file-head-height: 1.7em;
   margin: 0 1rem 2rem;
 }
 
@@ -8104,6 +8108,8 @@ textarea.monospace {
   position: sticky;
   top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height));
   z-index: 19;
+  min-height: var(--tr-section-head-height);
+  box-sizing: border-box;
   margin: 0.75em 0 0.25em;
   padding: 0.2em 0.5em;
   background: var(--page-background);
@@ -8129,15 +8135,24 @@ textarea.monospace {
 
 .tr-anchor {
   display: block;
-  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + 2em);
+  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + var(--tr-section-head-height));
 }
 
 .tr-file {
   margin: 0.5em 0 1em 0.5em;
 }
 
+/* (The file of the code under the section's heading, as it's scrolled
+   through, under it.) */
 .tr-file-head {
+  position: sticky;
+  top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + var(--tr-section-head-height));
+  z-index: 18;
+  min-height: var(--tr-file-head-height);
+  box-sizing: border-box;
   margin: 0.25em 0;
+  padding: 0.15em 0;
+  background: var(--page-background);
   font-size: 1em;
 }
 
@@ -8178,9 +8193,9 @@ textarea.monospace {
   min-width: 0;
 }
 
+/* (Without borders, which ran into the last line's marks' underlines.) */
 .try-review .then-code,
 .try-review .now-code {
-  border: 1px solid var(--page-border-color);
   overflow-x: auto;
 }
 
@@ -8208,15 +8223,19 @@ textarea.monospace {
 }
 
 /* (A line a later patch changes: a bar beside its blame strip, outside it,
-   and its change's popup above it, on hover; see try-review.js's
-   `addLinePopups`.) */
+   whose popup says so; see try-review.js's `addLineNotes`.  Orange, 3.6:1 on
+   white, and 3.2:1 on the added lines' tint, for WCAG's 3:1.) */
 .tr-blame {
   box-sizing: content-box;
   padding-inline-end: 3px;
 }
 
+:root {
+  --tr-later-color: #e8590c;
+}
+
 .tr-later > .tr-blame {
-  background: linear-gradient(to left, #e8590c 3px, transparent 3px);
+  background: linear-gradient(to left, var(--tr-later-color) 3px, transparent 3px);
 }
 
 /* (A line its patch moved here (see try_review.rs's `add_moved_lines`): a
@@ -8258,36 +8277,69 @@ textarea.monospace {
   font-size: 0.9em;
 }
 
-.tr-later-popup {
-  position: absolute;
-  z-index: 250;
-  max-width: 60em;
-  padding: 3px 6px;
-  border: 1px solid var(--tooltip-border);
-  border-radius: 4px;
-  background: var(--tooltip-background);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+/* A hunk's lines which later patches change, again, as each changes them
+   (see try_review.rs's `later_html`), headed beside the later lines' bar's
+   color, in each of the view's modes. */
+.tr-later-groups {
+  margin-top: 0.4em;
 }
-
+.tr-later-group + .tr-later-group {
+  margin-top: 0.4em;
+}
 .tr-later-head {
-  margin-bottom: 2px;
+  padding: 0.2em 0.5em;
+  border-inline-start: 3px solid var(--tr-later-color);
   color: var(--page-subtle-foreground);
-  font-size: 0.85em;
+  font-size: 0.9em;
 }
 
-.tr-later-code {
+/* A review's line's notes, at the top of its blame strip's popup (see
+   try-review.js's `addLineNotes`), above its commits: where it moved from,
+   and a later patch's change of it, each beside its bar's color. */
+.hb-line-notes {
+  max-width: 60em;
+  padding: 6px 10px 0;
+}
+
+.tr-line-note {
+  padding-inline-start: 6px;
+  border-inline-start: 3px solid var(--tr-later-color);
+}
+.tr-line-note + .tr-line-note {
+  margin-top: 4px;
+}
+.tr-line-note-moved {
+  border-inline-start-color: var(--tr-moved-color);
+}
+
+/* (On the popup's background, as its commits' are, and their code one block,
+   as the popup's code is.) */
+.tr-line-note-head {
+  margin-bottom: 2px;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+.blame-popup a.tr-line-note-code {
   display: block;
-  color: inherit;
+  padding: 0.3em 0.5em;
+  background-color: var(--page-background);
+  color: var(--page-foreground);
   text-decoration: none;
 }
 
-.tr-later-code:hover {
-  background: var(--list-hover-background);
+.blame-popup a.tr-line-note-code:hover {
+  background-color: var(--list-hover-background);
 }
 
-.tr-later-code .source-line {
+.blame-popup .tr-line-note-code code.source-line {
   display: block;
+  overflow: hidden;
+  padding: 0;
+  background-color: transparent;
   font-size: 0.9em;
+  white-space: pre;
+  text-overflow: ellipsis;
 }
 
 .tr-lno {
@@ -8308,7 +8360,12 @@ textarea.monospace {
    theme's changed lines have darker ones (6.8, 7.4 and 6.5 on white; 4.8 or
    more on the words' tint).  The underlines (3.5:1 or more on their words'
    tint) mark the words, as WCAG's non-text contrast asks (3:1), rather than
-   a darker tint. */
+   a darker tint: a pixel thick (as text decorations are drawn on whole
+   pixels, each line's is as thick, whereas a 1 or 2px inset shadow's edge
+   fell between pixels on alternate lines, drawn twice as thick), and not on
+   lines whose words are all marked (`tr-all-marked`), where they'd only
+   underline the whole line, or a run of such lines, which the line's tint
+   says as well. */
 .tr-added {
   background: rgba(46, 160, 67, 0.1);
 }
@@ -8329,14 +8386,22 @@ mark.tr-word-added {
   padding: 0;
   color: inherit;
   border-radius: 2px;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-position: under;
+  text-decoration-skip-ink: none;
+}
+.tr-all-marked mark.tr-word-removed,
+.tr-all-marked mark.tr-word-added {
+  text-decoration-line: none;
 }
 mark.tr-word-removed {
   background: rgba(248, 81, 73, 0.16);
-  box-shadow: inset 0 -2px #cf222e;
+  text-decoration-color: #cf222e;
 }
 mark.tr-word-added {
   background: rgba(46, 160, 67, 0.16);
-  box-shadow: inset 0 -2px #238636;
+  text-decoration-color: #238636;
 }
 
 /* (The dark theme's tints are a little more, and its words' a little less
@@ -8358,11 +8423,11 @@ mark.tr-word-added {
   }
   mark.tr-word-removed {
     background: rgba(248, 81, 73, 0.1);
-    box-shadow: inset 0 -2px rgb(248, 81, 73);
+    text-decoration-color: rgb(248, 81, 73);
   }
   mark.tr-word-added {
     background: rgba(46, 160, 67, 0.1);
-    box-shadow: inset 0 -2px rgb(46, 160, 67);
+    text-decoration-color: rgb(46, 160, 67);
   }
 }
 }
@@ -8470,10 +8535,12 @@ mark.tr-word-added {
   outline: 2px solid var(--link-color);
 }
 
-.tr-file,
+.tr-file {
+  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + var(--tr-section-head-height) + 0.5em);
+}
 .tr-def,
 .tr-hunk {
-  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + 2.5em);
+  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + var(--tr-section-head-height) + var(--tr-file-head-height) + 0.5em);
 }
 
 .tr-flash {

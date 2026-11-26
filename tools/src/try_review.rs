@@ -97,6 +97,11 @@ pub struct HunkLine {
     /// its index in the view's `moved`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub moved: Option<usize>,
+    /// Whether all of its words (but whitespace) are marked as changed (see
+    /// `mark_word_changes`), whose marks then aren't underlined, as the
+    /// line's tint says as much (see mozsearch.css's `tr-all-marked`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub all_marked: bool,
     /// Its tokens on each side, by who they are in the history (see
     /// `TokenRun`), and its HTML on each side before `mark_word_changes`'s
     /// marks, for `add_moved_lines` (see `add_line_html`; not kept).
@@ -126,8 +131,8 @@ pub struct TokenRun {
 /// Where a patch moved lines from (see `add_moved_lines`): its removed lines
 /// (the first and last, in `path` as it was), in the hunk whose element is
 /// `element` (in the definition `def`, if any), and their code (the first
-/// `MOVED_LINES`), for the moved lines' popup (see try-review.js's
-/// `addLinePopups`).
+/// `MOVED_LINES`), for the moved lines' notes in their blame popups (see
+/// try-review.js's `addLineNotes`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MovedFrom {
     pub path: String,
@@ -155,12 +160,32 @@ pub struct MovedGroup {
 /// A later patch's change of a line a patch adds or keeps (see
 /// `add_later_changes`): the patch (its index), the id of the element of its
 /// hunk changing it, and that hunk's lines it adds (their HTML, the first
-/// few), for the line's popup (see try-review.js's `addLinePopups`).
+/// few), for the line's note in its blame popup (see try-review.js's
+/// `addLineNotes`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LaterChange {
     pub patch: usize,
     pub element: String,
     pub lines: Vec<String>,
+}
+
+/// A later patch's change of a hunk's lines (see `add_later_changes`), shown
+/// below the hunk (see `later_html`): the patch (its index, and its
+/// summary), its hunk changing them (its element), the file as it was and as
+/// that patch has it (for its rows' keys), the hunk's lines it changes (the
+/// first and last, as the hunk has them), and that hunk's lines changing
+/// them, with their change blocks' other lines and a little context (see
+/// `later_window`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LaterGroup {
+    pub patch: usize,
+    pub summary: String,
+    pub element: String,
+    pub then_path: String,
+    pub path: String,
+    pub first: u32,
+    pub last: u32,
+    pub lines: Vec<HunkLine>,
 }
 
 /// A line's blame strip (see `hyperblame::page_blame::StripLine`): its
@@ -747,6 +772,10 @@ pub struct ReviewHunk {
     pub beyond_before: u32,
     #[serde(skip)]
     pub beyond_after: u32,
+    /// The later patches' changes of its lines, each by its hunk changing
+    /// them (see `add_later_changes`; not kept in the view's cache).
+    #[serde(skip)]
+    pub changed_later: Vec<LaterGroup>,
 }
 
 /// A stable hash (FNV-1a, 64 bits) of a hunk's changed lines, for its id.
@@ -1135,6 +1164,7 @@ fn review_file(
             expand_after: vec![],
             beyond_before: 0,
             beyond_after: 0,
+            changed_later: vec![],
         });
     }
     let mut defs: Vec<(usize, ReviewDef)> = defs.into_values().collect();
@@ -1896,11 +1926,7 @@ fn add_moved_lines(moved: &mut Vec<MovedFrom>, patch: &mut ReviewPatch) {
             lines: was
                 .iter()
                 .take(MOVED_LINES)
-                .map(|line| {
-                    line.then_html
-                        .clone()
-                        .unwrap_or_else(|| escape(&line.text).to_string())
-                })
+                .map(|line| note_line_html(line.then_html.as_ref(), line))
                 .collect(),
         };
         let mut lines = was;
@@ -2026,12 +2052,64 @@ pub fn expansions(
 /// The most of a later change's added lines its popup shows.
 const LATER_LINES: usize = 6;
 
+/// A line's HTML (`html`, a side's, else its text) for a note about another
+/// line (see try-review.js's `addLineNotes`): in a `tr-all-marked` span if all
+/// of its words are marked, whose marks then aren't underlined, as its row's
+/// aren't (see `side_html`).
+fn note_line_html(html: Option<&String>, line: &HunkLine) -> String {
+    let html = html
+        .cloned()
+        .unwrap_or_else(|| escape(&line.text).to_string());
+    match line.all_marked {
+        true => format!(r#"<span class="tr-all-marked">{}</span>"#, html),
+        false => html,
+    }
+}
+
+/// How many of a later hunk's kept lines its window of a change shows around
+/// its change blocks (see `later_window`), and the most lines it shows.
+const LATER_CONTEXT: usize = 2;
+const LATER_WINDOW_LINES: usize = 60;
+
+/// The lines of a later patch's hunk (`lines`) changing lines at `positions`
+/// (in its patch's parent's file) to show below the hunk they're of: from
+/// the first such line's change block to the last's (each a run of removed
+/// and added lines), with `LATER_CONTEXT` kept lines around them, and at most
+/// `LATER_WINDOW_LINES` of them.
+fn later_window(lines: &[HunkLine], positions: &BTreeSet<u32>) -> Vec<HunkLine> {
+    let changed = |line: &HunkLine| line.kind != " ";
+    let matched: Vec<usize> = lines
+        .iter()
+        .enumerate()
+        .filter(|(_, line)| {
+            line.kind == "-" && line.old.is_some_and(|old| positions.contains(&old))
+        })
+        .map(|(i, _)| i)
+        .collect();
+    let (Some(&first), Some(&last)) = (matched.first(), matched.last()) else {
+        return vec![];
+    };
+    let mut start = first;
+    while start > 0 && changed(&lines[start - 1]) {
+        start -= 1;
+    }
+    let mut end = last + 1;
+    while end < lines.len() && changed(&lines[end]) {
+        end += 1;
+    }
+    let start = start.saturating_sub(LATER_CONTEXT);
+    let end = (end + LATER_CONTEXT).min(lines.len());
+    lines[start..end.min(start + LATER_WINDOW_LINES)].to_vec()
+}
+
 /// Marks the lines patches add or keep which later patches change (see
 /// `HunkLine::later`): each such line (as it is with its patch) is followed
 /// through the next patches changing its file, by their line diffs (with
 /// `texts`, the files' texts by revision and path, as `add_line_html` had
 /// them), to the first one removing it, whose hunk doing so is its change.
-/// (The patches in between leave the file as it was.)
+/// (The patches in between leave the file as it was.)  Each hunk's lines
+/// changed by the same later hunk are a group of it, below it (see
+/// `ReviewHunk::changed_later`).
 fn add_later_changes(view: &mut ReviewView, texts: &BTreeMap<(String, String), Option<String>>) {
     let text = |rev: &Option<String>, path: &str| -> Option<&String> {
         texts.get(&(rev.clone()?, path.to_string()))?.as_ref()
@@ -2045,6 +2123,11 @@ fn add_later_changes(view: &mut ReviewView, texts: &BTreeMap<(String, String), O
         |patch: &ReviewPatch| Some(patch.shown.clone().unwrap_or_else(|| patch.rev.clone()));
     let mut later: Vec<LaterChange> = vec![];
     let mut marks: Vec<(usize, usize, usize, usize, usize)> = vec![];
+    // (Each hunk's lines changed by each later hunk: the hunk, the later
+    // hunk (its patch, file and index), and the lines, by their numbers in
+    // the hunk and in the later patch's parent.)
+    let mut groups: BTreeMap<(usize, usize, usize, usize, usize, usize), Vec<(u32, u32)>> =
+        BTreeMap::new();
     for (k, patch) in view.patches.iter().enumerate() {
         for (f, file) in patch.files.iter().enumerate() {
             if file.status == "removed" || file.status == "binary" {
@@ -2096,22 +2179,20 @@ fn add_later_changes(view: &mut ReviewView, texts: &BTreeMap<(String, String), O
                     for (change, map) in changes.iter().zip(&maps) {
                         let other_file = &view.patches[change.patch].files[change.file];
                         // (Its hunk removing the line, if any.)
-                        if let Some(other_hunk) = other_file.hunks.iter().find(|other_hunk| {
-                            other_hunk
-                                .lines
-                                .iter()
-                                .any(|o| o.kind == "-" && o.old == Some(position))
-                        }) {
+                        if let Some((other_index, other_hunk)) =
+                            other_file.hunks.iter().enumerate().find(|(_, other_hunk)| {
+                                other_hunk
+                                    .lines
+                                    .iter()
+                                    .any(|o| o.kind == "-" && o.old == Some(position))
+                            })
+                        {
                             let lines = other_hunk
                                 .lines
                                 .iter()
                                 .filter(|o| o.kind == "+")
                                 .take(LATER_LINES)
-                                .map(|o| {
-                                    o.now_html
-                                        .clone()
-                                        .unwrap_or_else(|| escape(&o.text).to_string())
-                                })
+                                .map(|o| note_line_html(o.now_html.as_ref(), o))
                                 .collect();
                             later.push(LaterChange {
                                 patch: change.patch,
@@ -2119,6 +2200,10 @@ fn add_later_changes(view: &mut ReviewView, texts: &BTreeMap<(String, String), O
                                 lines,
                             });
                             marks.push((k, f, h, l, later.len() - 1));
+                            groups
+                                .entry((k, f, h, change.patch, change.file, other_index))
+                                .or_default()
+                                .push((line.new.unwrap_or(position), position));
                             break;
                         }
                         match map
@@ -2137,6 +2222,25 @@ fn add_later_changes(view: &mut ReviewView, texts: &BTreeMap<(String, String), O
     }
     for (k, f, h, l, index) in marks {
         view.patches[k].files[f].hunks[h].lines[l].later = Some(index);
+    }
+    for ((k, f, h, j, g, o), lines) in groups {
+        let other_file = &view.patches[j].files[g];
+        let other_hunk = &other_file.hunks[o];
+        let positions: BTreeSet<u32> = lines.iter().map(|&(_, position)| position).collect();
+        let group = LaterGroup {
+            patch: j,
+            summary: view.patches[j].summary.clone(),
+            element: element_id(&other_hunk.id, other_hunk.section),
+            then_path: other_file
+                .old_path
+                .clone()
+                .unwrap_or_else(|| other_file.path.clone()),
+            path: other_file.path.clone(),
+            first: lines.iter().map(|&(n, _)| n).min().unwrap_or(0),
+            last: lines.iter().map(|&(n, _)| n).max().unwrap_or(0),
+            lines: later_window(&other_hunk.lines, &positions),
+        };
+        view.patches[k].files[f].hunks[h].changed_later.push(group);
     }
     view.later = later;
 }
@@ -3060,6 +3164,9 @@ const WORD_DIFF_MIN_SHARED: f64 = 1.0 / 3.0;
 /// `WORD_ADDED_CLASS`.  But not those of a change whose sides share less than
 /// `WORD_DIFF_MIN_SHARED` of their words, nor of one with a long line (whose
 /// row has a note instead of its code; see `chunked_gzip::LONG_LINE_CHARS`).
+/// What the diff matched between the changes of rewritten text, but no more
+/// of it than of them, is marked too (see `absorbed_changes`), and a line all
+/// of whose words are marked says so (`HunkLine::all_marked`).
 pub fn mark_word_changes(lines: &mut [HunkLine]) {
     let mut i = 0;
     while i < lines.len() {
@@ -3143,6 +3250,7 @@ fn mark_change(lines: &mut [HunkLine], removed: usize) {
         .map(|word| word_of(&new_texts, word))
         .collect();
     let ops = similar::capture_diff_slices(similar::Algorithm::Patience, &old, &new);
+    let is_changed = absorbed_changes(&ops, &old, &new);
 
     // (Whether they share enough to be marked.)
     let count_words = |words: &[&str]| words.iter().filter(|word| !word.trim().is_empty()).count();
@@ -3179,8 +3287,9 @@ fn mark_change(lines: &mut [HunkLine], removed: usize) {
     let changed =
         |side: fn(&similar::DiffOp) -> std::ops::Range<usize>| -> Vec<std::ops::Range<usize>> {
             ops.iter()
-                .filter(|op| op.tag() != similar::DiffTag::Equal)
-                .map(side)
+                .zip(&is_changed)
+                .filter(|(_, changed)| **changed)
+                .map(|(op, _)| side(op))
                 .collect()
         };
     let old_marks = marks(
@@ -3216,9 +3325,113 @@ fn mark_change(lines: &mut [HunkLine], removed: usize) {
         } else {
             index - removed
         };
+        // (Not of its indentation, which a mark would only underline.)
+        let text = &texts[index].1;
+        let indent = text.len() - text.trim_start().len();
+        let marks: Vec<std::ops::Range<usize>> = marks
+            .iter()
+            .map(|range| range.start.max(indent.min(range.end))..range.end)
+            .filter(|range| !range.is_empty())
+            .collect();
+        if marks.is_empty() {
+            continue;
+        }
+        // (Whether its marks have all of its words but whitespace.)
+        let mut unmarked = 0;
+        for range in &marks {
+            if !text[unmarked..range.start].trim().is_empty() {
+                break;
+            }
+            unmarked = range.end;
+        }
+        let all_marked = text[unmarked..].trim().is_empty();
         let marks: Vec<(std::ops::Range<usize>, &str)> =
-            marks.iter().map(|range| (range.clone(), class)).collect();
+            marks.into_iter().map(|range| (range, class)).collect();
         *html = Some(mark_html(&texts[index].0, &marks));
+        line.all_marked = all_marked;
+    }
+}
+
+/// Which of a word diff's `ops` (of the words `old` and `new`) are changes
+/// to mark: those which aren't equal, and those which are, between two
+/// changes on their line (on either side), but no longer than either
+/// change's part on their line, in their words' characters but whitespace
+/// (or only whitespace, between any changes), much as diff-match-patch's
+/// semantic cleanup has it (`diff_cleanupSemantic`): ex: a space, or a word,
+/// which the diff matched in rewritten text, which would be a gap in its
+/// marks, or an island of the old text amid the new; but not what a line
+/// keeps of the line it replaces before or after its changes (ex: its
+/// declaration's type and name, or a call's first arguments), whichever
+/// lines change around it.  (Until no more are.)
+fn absorbed_changes(ops: &[similar::DiffOp], old: &[&str], new: &[&str]) -> Vec<bool> {
+    let weight = |words: &[&str]| -> usize {
+        words
+            .iter()
+            .map(|word| word.chars().filter(|c| !c.is_whitespace()).count())
+            .sum()
+    };
+    // (A run's words on each side.)
+    let words = |&(start, end, _): &(usize, usize, bool)| -> [Vec<&str>; 2] {
+        [
+            ops[start..end]
+                .iter()
+                .flat_map(|op| old[op.old_range()].iter().copied())
+                .collect(),
+            ops[start..end]
+                .iter()
+                .flat_map(|op| new[op.new_range()].iter().copied())
+                .collect(),
+        ]
+    };
+    let mut changed: Vec<bool> = ops
+        .iter()
+        .map(|op| op.tag() != similar::DiffTag::Equal)
+        .collect();
+    loop {
+        // (Its runs of ops alike: their first, their end, and whether
+        // they're changes.)
+        let mut runs: Vec<(usize, usize, bool)> = vec![];
+        for (i, &is) in changed.iter().enumerate() {
+            match runs.last_mut() {
+                Some(run) if run.2 == is => run.1 = i + 1,
+                _ => runs.push((i, i + 1, is)),
+            }
+        }
+        let mut absorbed = false;
+        for k in 1..runs.len().saturating_sub(1) {
+            let run = runs[k];
+            if run.2 {
+                continue;
+            }
+            let [equal, _] = words(&run);
+            let size = weight(&equal);
+            // (The changes' parts on its line: the one before's after its
+            // last line's end, and the one after's before its first.)
+            let before = words(&runs[k - 1]).map(|side| {
+                let from = side
+                    .iter()
+                    .rposition(|word| *word == "\n")
+                    .map_or(0, |i| i + 1);
+                weight(&side[from..])
+            });
+            let after = words(&runs[k + 1]).map(|side| {
+                let to = side
+                    .iter()
+                    .position(|word| *word == "\n")
+                    .unwrap_or(side.len());
+                weight(&side[..to])
+            });
+            let within = !equal.contains(&"\n")
+                && size <= before[0].max(before[1])
+                && size <= after[0].max(after[1]);
+            if size == 0 || within {
+                changed[run.0..run.1].fill(true);
+                absorbed = true;
+            }
+        }
+        if !absorbed {
+            return changed;
+        }
     }
 }
 
@@ -3259,11 +3472,13 @@ fn side_html(lines: &[HunkLine], then: bool, key: &str) -> String {
             html.push_str(&marker(other));
             other = 0;
         }
-        let (number, class) = match (then, line.kind.as_str()) {
-            (true, "-") => (line.old, " tr-removed"),
-            (false, "+") => (line.new, " tr-added"),
-            (true, _) => (line.old, ""),
-            (false, _) => (line.new, ""),
+        let (number, class) = match (then, line.kind.as_str(), line.all_marked) {
+            (true, "-", false) => (line.old, " tr-removed"),
+            (true, "-", true) => (line.old, " tr-removed tr-all-marked"),
+            (false, "+", false) => (line.new, " tr-added"),
+            (false, "+", true) => (line.new, " tr-added tr-all-marked"),
+            (true, _, _) => (line.old, ""),
+            (false, _, _) => (line.new, ""),
         };
         let code = match then {
             true => line.then_html.as_deref(),
@@ -3293,7 +3508,7 @@ fn side_html(lines: &[HunkLine], then: bool, key: &str) -> String {
             None => String::new(),
         };
         // (A line a later patch changes says so; see try-review.js's
-        // `addLinePopups`.)
+        // `addLineNotes`.)
         let later = match (then, line.later) {
             (false, Some(index)) => format!(r#" tr-later" data-later="{}"#, index),
             _ => String::new(),
@@ -3580,6 +3795,44 @@ fn moved_html(tree: &str, patch: usize, file: &ReviewFile, hunk: &ReviewHunk) ->
     html
 }
 
+/// A hunk's lines which later patches change (see `add_later_changes`),
+/// again, as each later hunk changes them: its lines changing them, as the
+/// file was before it and as it has it, each group headed by a link to the
+/// later hunk, beside the later lines' bar's color, as `moved_html`'s are
+/// beside the moved lines'; their rows' keys the later patch's (see
+/// `side_html`), so that a line's are highlighted with its rows there.
+/// Shown in each of the view's modes (whose Now has the later patch's
+/// lines).
+fn later_html(tree: &str, hunk: &ReviewHunk) -> String {
+    if hunk.changed_later.is_empty() {
+        return String::new();
+    }
+    let then_attrs = format!(
+        r#"class="file then-code" role="table" data-sym-info="now" data-tree="{}" data-search="{}""#,
+        escape(tree),
+        escape(&crate::file_format::config::search_url(tree))
+    );
+    let mut html = String::from(r#"<div class="tr-later-groups">"#);
+    for group in &hunk.changed_later {
+        let lines = match group.first == group.last {
+            true => format!("line {}", group.first),
+            false => format!("lines {}&ndash;{}", group.first, group.last),
+        };
+        html.push_str(&format!(
+            r##"<div class="tr-later-group"><div class="tr-later-head">Changed in <a href="#{element}" title="{summary}">patch {n}</a>, {lines} here:</div><div class="then-now"><div {then_attrs}>{then}</div><div class="file now-code" role="table" data-sym-info="patched">{now}</div></div></div>"##,
+            element = escape(&group.element),
+            summary = escape(&group.summary),
+            n = group.patch + 1,
+            lines = lines,
+            then_attrs = then_attrs,
+            then = side_html(&group.lines, true, &side_key(group.patch, true, &group.then_path)),
+            now = side_html(&group.lines, false, &side_key(group.patch, false, &group.path)),
+        ));
+    }
+    html.push_str("</div>");
+    html
+}
+
 /// A hunk's card: its heading (its lines, then its strip), and its code; or,
 /// `folded` onto its definition's heading (its only hunk there), its code.
 fn hunk_html(
@@ -3600,13 +3853,14 @@ fn hunk_html(
         ),
     };
     format!(
-        r#"<div class="tr-hunk{folded}" data-part="{id}" id="{element}">{head}{code}{moved}</div>"#,
+        r#"<div class="tr-hunk{folded}" data-part="{id}" id="{element}">{head}{code}{moved}{later}</div>"#,
         folded = if folded { " tr-hunk-folded" } else { "" },
         id = escape(&hunk.id),
         element = element_id(&hunk.id, hunk.section),
         head = head,
         code = hunk_code_html(tree, rev, stack, patch, file, hunk),
         moved = moved_html(tree, patch, file, hunk),
+        later = later_html(tree, hunk),
     )
 }
 
@@ -4382,6 +4636,87 @@ mod tests {
         ];
         mark_word_changes(&mut long);
         assert_eq!(long[1].now_html, None);
+
+        // Rewritten text's matches between its changes, but no more than the
+        // changes on either side (a space, a word), are marked with them,
+        // rather than being gaps in its marks (as in 3a8929b00d5e's
+        // Client::Navigate), and a line all of whose words are marked says
+        // so; but an edit's own words, amid more that it keeps, are islands.
+        let mut rewritten = vec![
+            hunk_line("-", "  nsCString baseURL;", None),
+            hunk_line("-", "  nsresult rv = GetSpec(baseURL);", None),
+            hunk_line(
+                "+",
+                "  // There is an edge case for view-source urls here,",
+                None,
+            ),
+            hunk_line(
+                "+",
+                "  // since the baseURL is involved while creating them.",
+                None,
+            ),
+            hunk_line("+", "  nsresult rv = GetSpec(spec);", None),
+        ];
+        mark_word_changes(&mut rewritten);
+        assert_eq!(
+            rewritten[3].now_html.as_deref(),
+            Some(
+                r#"  <mark class="tr-word-added">// since the baseURL is involved while creating them.</mark>"#
+            ),
+            "the word it shares with the removed lines too (but not its indentation)"
+        );
+        assert_eq!(
+            rewritten[2].now_html.as_deref(),
+            Some(
+                r#"  <mark class="tr-word-added">// There is an edge case for view-source urls here,</mark>"#
+            ),
+            "and the spaces between its marks"
+        );
+        assert!(rewritten[2].all_marked && rewritten[3].all_marked && rewritten[0].all_marked);
+        assert_eq!(
+            rewritten[4].now_html.as_deref(),
+            Some(r#"  nsresult rv = GetSpec(<mark class="tr-word-added">spec</mark>);"#),
+            "An edit's word is an island"
+        );
+        assert_eq!(
+            rewritten[1].then_html.as_deref(),
+            Some(r#"  nsresult rv = GetSpec(<mark class="tr-word-removed">baseURL</mark>);"#)
+        );
+        assert!(!rewritten[4].all_marked && !rewritten[1].all_marked);
+        assert!(
+            side_html(&rewritten, false, "0:n:a.cpp").contains("tr-added tr-all-marked"),
+            "(as its row says)"
+        );
+
+        // But what a line keeps before its changes isn't marked, though more
+        // changes after it than it keeps, and the lines before it change.
+        let mut kept = vec![
+            hunk_line("-", "  nsCString baseURL;", None),
+            hunk_line("-", "  nsresult rv = GetSpec(baseURL);", None),
+            hunk_line(
+                "+",
+                "  // There is an edge case for view-source urls here,",
+                None,
+            ),
+            hunk_line(
+                "+",
+                "  // since the baseURL is involved while creating them.",
+                None,
+            ),
+            hunk_line(
+                "+",
+                "  nsresult rv = NS_NewURI(getter_AddRefs(uri), spec);",
+                None,
+            ),
+        ];
+        mark_word_changes(&mut kept);
+        let html = kept[4].now_html.clone().unwrap_or_default();
+        assert!(
+            html.starts_with("  nsresult rv = <mark") && !kept[4].all_marked,
+            "{}",
+            html
+        );
+        assert!(kept[3].all_marked, "{:?}", kept[3].now_html);
     }
 
     const DIFF: &str = "diff --git a.cpp a.cpp
@@ -4481,6 +4816,7 @@ Binary files img.png and img.png differ
                         expand_after: vec![],
                         beyond_before: 0,
                         beyond_after: 0,
+                        changed_later: vec![],
                     }],
                     truncated: false,
                 })
@@ -4655,6 +4991,7 @@ Binary files img.png and img.png differ
             expand_after: vec![],
             beyond_before: 0,
             beyond_after: 0,
+            changed_later: vec![],
         };
         let mut first = patch("r1", &["a.cpp"], 1, 1);
         first.parent = Some("p0".to_string());
@@ -4732,6 +5069,64 @@ Binary files img.png and img.png differ
                 .iter()
                 .all(|l| l.later.is_none())
         );
+        // (Below patch 1's hunk, patch 2's change of its line, as patch 2's
+        // hunk has it, with its context.)
+        let groups = &view.patches[0].files[0].hunks[0].changed_later;
+        assert_eq!(groups.len(), 1, "{:?}", groups);
+        let group = &groups[0];
+        assert_eq!(
+            (group.patch, group.element.clone(), group.first, group.last),
+            (1, element_id("h2", Section::Uses), 2, 2)
+        );
+        assert_eq!(
+            group
+                .lines
+                .iter()
+                .map(|l| l.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "x = 1;", "x = 2;", "b"]
+        );
+        assert!(view.patches[1].files[0].hunks[0].changed_later.is_empty());
+    }
+
+    /// A later hunk's lines changing some lines: their change blocks, with a
+    /// little context.
+    #[test]
+    fn test_later_window() {
+        let line = |kind: &str, old: Option<u32>, text: &str| HunkLine {
+            kind: kind.to_string(),
+            old,
+            text: text.to_string(),
+            ..Default::default()
+        };
+        let lines = vec![
+            line(" ", Some(1), "1"),
+            line(" ", Some(2), "2"),
+            line(" ", Some(3), "3"),
+            line("-", Some(4), "4"),
+            line("+", None, "4'"),
+            line(" ", Some(5), "5"),
+            line(" ", Some(6), "6"),
+            line(" ", Some(7), "7"),
+            line("-", Some(8), "8"),
+            line("-", Some(9), "9"),
+            line("+", None, "9'"),
+            line(" ", Some(10), "10"),
+        ];
+        let texts = |positions: &[u32]| -> Vec<String> {
+            later_window(&lines, &positions.iter().copied().collect())
+                .iter()
+                .map(|l| l.text.clone())
+                .collect()
+        };
+        assert_eq!(texts(&[9]), vec!["6", "7", "8", "9", "9'", "10"]);
+        assert_eq!(texts(&[4]), vec!["2", "3", "4", "4'", "5", "6"]);
+        assert_eq!(
+            texts(&[4, 8]),
+            vec!["2", "3", "4", "4'", "5", "6", "7", "8", "9", "9'", "10"],
+            "from the first's block to the last's"
+        );
+        assert!(texts(&[5]).is_empty(), "(a kept line isn't changed)");
     }
 
     /// A patch's added lines most of whose tokens were lines it removes in
@@ -4774,6 +5169,7 @@ Binary files img.png and img.png differ
             expand_after: vec![],
             beyond_before: 0,
             beyond_after: 0,
+            changed_later: vec![],
         };
         let mut moving = patch("r1", &["a.cpp", "b.cpp"], 1, 2);
         moving.files[0].defs.push(ReviewDef {

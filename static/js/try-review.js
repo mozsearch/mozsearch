@@ -91,7 +91,8 @@ var TryReview = new (class TryReview {
       slot.replaceWith(ReviewState.stateButton(this.review, slot.dataset.part));
     }
     this.rememberLooking();
-    this.addLinePopups();
+    this.addLineNotes();
+    this.measureHeads();
     this.addLineHover();
     this.addExpanders();
     ReviewState.bind(this.review, this.root);
@@ -548,42 +549,36 @@ var TryReview = new (class TryReview {
   // The lines a later patch of the push changes (see the tools'
   // `add_later_changes`), which are marked beside their blame strips, and
   // those their patch moved there (see the tools' `add_moved_lines`), marked
-  // between their numbers and their code: hovering over one shows, above it,
-  // where it moved from (the lines it was, in their hunk), and that later
-  // patch's change (the lines its hunk adds); clicking one goes to its hunk
-  // (a history entry, so that Back returns to the line).
-  addLinePopups() {
+  // between their numbers and their code: their blame strips' popups say, at
+  // their tops (see hyperblame.js's `TokenBlamePopup.lineNotes`), where they
+  // moved from (the lines they were, in their hunk), and that later patch's
+  // change (the lines its hunk adds), each a link to its hunk (a history
+  // entry, so that Back returns to the line).  (Their hunks have them again
+  // below them; see the tools' `moved_html` and `later_html`.)
+  addLineNotes() {
     const changes = TRY_REVIEW.later || [];
     const moves = TRY_REVIEW.moved || [];
-    if (!changes.length && !moves.length) {
+    if ((!changes.length && !moves.length) || typeof TokenBlamePopup == "undefined") {
       return;
     }
-    const popup = document.createElement("div");
-    popup.className = "tr-later-popup";
-    popup.hidden = true;
-    popup.setAttribute("role", "tooltip");
-    document.body.append(popup);
-    let shownFor = null;
-    let hideTimer = null;
-    const hide = () => {
-      popup.hidden = true;
-      shownFor = null;
-    };
-    // (A section of the popup: its heading, and its lines' code, a link to
-    // the hunk whose element is `element`.)
-    const section = (headText, lines, empty, element, title) => {
+    // (A note of a `kind`, "moved" or "later": its heading, and its lines'
+    // code, a link to the hunk whose element is `element`.)
+    const note = (kind, headText, lines, empty, element, title) => {
       const head = document.createElement("div");
-      head.className = "tr-later-head";
+      head.className = "tr-line-note-head";
       head.textContent = headText;
       const code = document.createElement("a");
-      code.className = "tr-later-code";
+      code.className = "tr-line-note-code";
       code.href = `#${element}`;
       code.title = title;
-      for (const html of lines.length ? lines : [""]) {
+      // (Its lines, a blank one a space, or else what `empty` says.)
+      for (const html of lines.length ? lines : [null]) {
         const line = document.createElement("code");
         line.className = "source-line";
-        if (!html) {
+        if (html === null) {
           line.textContent = empty;
+        } else if (!html) {
+          line.textContent = " ";
         } else {
           // (The tools' HTML, of the code's highlighting, escaped there.)
           TrustedHTML.set(line, html);
@@ -592,61 +587,73 @@ var TryReview = new (class TryReview {
       }
       code.addEventListener("click", event => {
         event.preventDefault();
-        hide();
+        BlameStripHoverHandler.keepVisible = false;
+        BlamePopup.hide();
         const target = document.getElementById(element);
         if (target) {
           this.goTo(target);
         }
       });
-      return [head, code];
+      const section = document.createElement("div");
+      section.className = `tr-line-note tr-line-note-${kind}`;
+      section.append(head, code);
+      return section;
     };
-    const show = row => {
-      clearTimeout(hideTimer);
-      if (shownFor == row) {
-        return;
+    TokenBlamePopup.lineNotes = row => {
+      if (!row.classList.contains("tr-line") || !this.root.contains(row)) {
+        return null;
       }
-      const parts = [];
+      const notes = [];
       const move = row.dataset.moved !== undefined ? moves[Number(row.dataset.moved)] : null;
       if (move) {
         const lines = move.first == move.last ? `line ${move.first}` : `lines ${move.first}\u2013${move.last}`;
         const where = move.def ? ` (in ${move.def})` : "";
-        parts.push(...section(`Moved here from ${move.path} ${lines}${where}:`, move.lines, "",
-                              move.element, "Go to where it moved from"));
+        notes.push(note("moved", `Moved here from ${move.path} ${lines}${where}:`, move.lines, "",
+                        move.element, "Go to where it moved from"));
       }
       const change = row.dataset.later !== undefined ? changes[Number(row.dataset.later)] : null;
       if (change) {
-        parts.push(...section(`Patch ${change.patch + 1} changes this line to:`, change.lines,
-                              "(it removes it)", change.element,
-                              `Go to patch ${change.patch + 1}'s change`));
+        notes.push(note("later", `Patch ${change.patch + 1} changes this line to:`, change.lines,
+                        "(it removes it)", change.element,
+                        `Go to patch ${change.patch + 1}'s change`));
       }
-      if (!parts.length) {
-        return;
+      if (!notes.length) {
+        return null;
       }
-      shownFor = row;
-      popup.replaceChildren(...parts);
-      popup.hidden = false;
-      const rect = row.getBoundingClientRect();
-      popup.style.left = `${Math.max(4, rect.left + window.scrollX + 24)}px`;
-      popup.style.top = `${rect.top + window.scrollY - popup.offsetHeight - 2}px`;
+      const box = document.createElement("div");
+      box.append(...notes);
+      return box;
     };
-    const ROWS = ".tr-line.tr-later, .tr-line.tr-moved";
-    this.root.addEventListener("mouseover", event => {
-      const row = event.target.closest(ROWS);
-      if (row) {
-        show(row);
+  }
+
+  // The sticky headings' heights (the patches', the sections' and the
+  // files'), each the tallest's, as the next kind's sticks under them (see
+  // mozsearch.css's `.try-review`, whose heights are in ems, and least),
+  // again when the window's resized (ex: a section's heading wrapping).
+  measureHeads() {
+    const heads = [
+      [".tr-patch-head", "--tr-patch-head-height"],
+      [".tr-section-head", "--tr-section-head-height"],
+      [".tr-file-head", "--tr-file-head-height"],
+    ];
+    const measure = () => {
+      for (const [, name] of heads) {
+        this.root.style.removeProperty(name);
       }
-    });
-    const leave = () => {
-      clearTimeout(hideTimer);
-      hideTimer = setTimeout(hide, 300);
+      const heights = heads.map(([selector]) =>
+        Math.max(0, ...[...this.root.querySelectorAll(selector)].map(head => head.offsetHeight)));
+      heads.forEach(([, name], i) => {
+        if (heights[i]) {
+          this.root.style.setProperty(name, `${heights[i]}px`);
+        }
+      });
     };
-    this.root.addEventListener("mouseout", event => {
-      if (event.target.closest(ROWS)) {
-        leave();
-      }
+    measure();
+    let timer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(timer);
+      timer = setTimeout(measure, 200);
     });
-    popup.addEventListener("mouseenter", () => clearTimeout(hideTimer));
-    popup.addEventListener("mouseleave", leave);
   }
 
   // A line's rows (its hunk's, and its others on the page, ex: a moved

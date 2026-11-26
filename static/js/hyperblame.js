@@ -668,6 +668,8 @@ var RenderedBlocks = new (class RenderedBlocks {
 /**
  * Renders the token-centric blame popup for a line into `BlamePopup.popup`:
  *
+ * - At the top, the page's notes about the line, if it has some (see
+ *   `lineNotes`; ex: a try review's, of a later patch changing the line).
  * - A replica of the line, positioned over the line itself, with a span for
  *   each token.
  * - Above it, a row for each commit which introduced some of the line's
@@ -680,6 +682,13 @@ var RenderedBlocks = new (class RenderedBlocks {
  * tokens, lanes, row, and details.  Clicking on a token shows links for it.
  */
 var TokenBlamePopup = new (class TokenBlamePopup {
+  /**
+   * A page's notes about a line, for the top of its popup: a function of the
+   * line's row (its `.source-line-with-number`), returning an element, or
+   * null for none (ex: try-review.js's `addLineNotes`).
+   */
+  lineNotes = null;
+
   get tree() {
     return document.getElementById("data").getAttribute("data-tree");
   }
@@ -787,7 +796,11 @@ var TokenBlamePopup = new (class TokenBlamePopup {
 
     const lanes = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     lanes.classList.add("hb-lanes");
-    root.append(lanes, upper, replica, details);
+    const notes = lineElt && this.lineNotes ? this.lineNotes(lineElt) : null;
+    if (notes) {
+      notes.classList.add("hb-line-notes");
+    }
+    root.append(lanes, ...(notes ? [notes] : []), upper, replica, details);
 
     popup.replaceChildren();
     popup.classList.add("hb-popup-host");

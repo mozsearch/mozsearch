@@ -133,6 +133,29 @@ add_task(async function test_TryReview() {
   const fileHead = definitions.querySelector('.tr-file[data-path="widget.h"] .tr-file-head');
   ok(fileHead.lastElementChild?.classList.contains("review-strip"),
      "A file's card has its strip after its heading");
+
+  // (A file's heading sticks under its section's, which sticks under its
+  // patch's; see try-review.js's `measureHeads`.)
+  const sectionHead = definitions.querySelector(".tr-section-head");
+  const patchHead = patches[0].querySelector(".tr-patch-head");
+  const top = element => parseFloat(win.getComputedStyle(element).top);
+  is(win.getComputedStyle(fileHead).position, "sticky", "A file's heading sticks");
+  ok(Math.abs(top(fileHead) - (top(sectionHead) + sectionHead.offsetHeight)) < 1 &&
+     Math.abs(top(sectionHead) - (top(patchHead) + patchHead.offsetHeight)) < 1,
+     `under its section's, which sticks under its patch's (${top(patchHead)}, ${top(sectionHead)}, ${top(fileHead)})`);
+
+  // (Changed words' marks are underlined, a pixel thick, but not on a line
+  // all of whose words are marked; see try_review.rs's `mark_word_changes`.)
+  const mark = doc().querySelector(".tr-line:not(.tr-all-marked) mark.tr-word-added");
+  const markStyle = mark && win.getComputedStyle(mark);
+  ok(markStyle?.textDecorationLine == "underline" && markStyle.textDecorationThickness == "1px",
+     `Changed words are underlined (${markStyle?.textDecorationLine} ${markStyle?.textDecorationThickness})`);
+  const whole = doc().querySelector(".tr-line.tr-all-marked mark");
+  if (whole) {
+    is(win.getComputedStyle(whole).textDecorationLine, "none", "but not on a line all of whose words are");
+  }
+  is(win.getComputedStyle(doc().querySelector(".try-review .now-code")).borderTopStyle, "none",
+     "(The code has no border)");
   ok(doc().querySelector(".tr-def > .tr-hunk-folded") &&
      doc().querySelector(".tr-def-head > .tr-hunk-lines"),
      "and a definition with one hunk has its lines on its heading");
@@ -351,6 +374,20 @@ add_task(async function test_TryReviewPatches() {
      "true", "as the view's own does");
 });
 
+// (A row's blame strip's popup, with the review's notes about its line at
+// its top, if any; see try-review.js's `addLineNotes`.)
+async function blamePopupNotes(row) {
+  const win = frame.contentWindow;
+  const strip = row.querySelector(".blame-strip");
+  win.BlamePopup.triggerElement = null;
+  TestUtils.dispatchMouseEvent("mouseenter", strip);
+  const popup = doc().querySelector("#blame-popup");
+  await waitForCondition(() => popup.style.display != "none" && win.BlamePopup.popupOwner == strip &&
+                         popup.querySelector(".hb-popup"),
+                         "Its blame strip's popup is shown");
+  return popup.querySelector(".hb-popup > .hb-line-notes");
+}
+
 // (A later patch's change of a line: 3579ace13579's first patch adds
 // stacked.cpp's Stacked, returning 1, and its second makes it return 2.)
 add_task(async function test_TryReviewLaterChanges() {
@@ -366,19 +403,36 @@ add_task(async function test_TryReviewLaterChanges() {
   const row = [...(first?.querySelectorAll(".now-code .tr-line.tr-later") ?? [])]
     .find(each => each.textContent.includes("return 1"));
   ok(row, "A line a later patch changes is marked");
-  row.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-  const popup = doc().querySelector(".tr-later-popup");
-  await waitForCondition(() => popup && !popup.hidden, "Hovering over it shows the later change");
-  ok(popup.textContent.includes("Patch 2") && popup.textContent.includes("return 2"),
-     "that patch's, and the line it makes of it");
+  row.querySelector(".tr-text").dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  ok(!doc().querySelector(".tr-later-popup"), "Hovering over it shows no popup of its own");
+  const notes = await blamePopupNotes(row);
+  ok(notes?.textContent.includes("Patch 2") && notes.textContent.includes("return 2"),
+     "but its blame strip's popup says which patch changes it, and the line it makes of it, at its top");
+  ok(notes.compareDocumentPosition(notes.parentNode.querySelector(".hb-upper")) & Node.DOCUMENT_POSITION_FOLLOWING,
+     "above its commits");
 
   const win = frame.contentWindow;
   const length = win.history.length;
-  TestUtils.click(popup.querySelector(".tr-later-code"));
+  TestUtils.click(notes.querySelector(".tr-line-note-code"));
   await waitForCondition(() => win.location.hash.length > 1, "Clicking it goes to that patch's hunk");
   ok(doc().querySelector("#tr-patch-2")?.contains(doc().getElementById(win.location.hash.slice(1))),
      "in the later patch");
   is(win.history.length, length + 1, "as a history entry");
+  is(doc().querySelector("#blame-popup").style.display, "none", "and closes the popup");
+
+  // (Below the line's hunk, the later patch's change again, linked.)
+  const group = row.closest(".tr-hunk").querySelector(".tr-later-group");
+  ok(group?.querySelector(".tr-later-head")?.textContent.startsWith("Changed in patch 2"),
+     `Its hunk has the later change below it (${group?.textContent})`);
+  ok([...group.querySelectorAll(".now-code .tr-line.tr-added")].some(each => each.textContent.includes("return 2")) &&
+     [...group.querySelectorAll(".then-code .tr-line.tr-removed")].some(each => each.textContent.includes("return 1")),
+     "as that patch changes it");
+  ok(group.checkVisibility(), "shown in the view's mode");
+  const link = group.querySelector(".tr-later-head a");
+  ok(doc().querySelector("#tr-patch-2")?.contains(doc().getElementById(link.getAttribute("href").slice(1))),
+     "linked to that patch's hunk");
+  const again = [...group.querySelectorAll(".now-code .tr-line")].find(each => each.textContent.includes("return 2"));
+  ok(/^1:n:stacked\.cpp:\d+$/.test(again?.dataset.line ?? ""), `whose rows are that patch's lines (${again?.dataset.line})`);
 });
 
 // (A line's rows, by their keys: hovering over one highlights them; see
@@ -431,14 +485,12 @@ add_task(async function test_TryReviewMovedLines() {
      "but not a line edited where it was (UseWidget's new body)");
 
   const moved = row("FrobTwice(widget)");
-  moved.querySelector(".tr-text").dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-  const popup = doc().querySelector(".tr-later-popup");
-  await waitForCondition(() => popup && !popup.hidden, "Hovering over one shows where it moved from");
-  ok(popup.textContent.includes("Moved here from user.cpp") &&
-     popup.textContent.includes("UseWidget") && popup.textContent.includes("FrobTwice(widget)"),
-     `the file, its definition there, and its code (${popup.textContent})`);
+  const notes = await blamePopupNotes(moved);
+  ok(notes?.textContent.includes("Moved here from user.cpp") &&
+     notes.textContent.includes("UseWidget") && notes.textContent.includes("FrobTwice(widget)"),
+     `Its blame strip's popup says where it moved from: the file, its definition there, and its code (${notes?.textContent})`);
   const win = frame.contentWindow;
-  TestUtils.click(popup.querySelector(".tr-later-code"));
+  TestUtils.click(notes.querySelector(".tr-line-note-code"));
   await waitForCondition(() => win.location.hash.length > 1, "Clicking it goes to where it moved from");
   ok(doc().getElementById(win.location.hash.slice(1))?.closest('.tr-file[data-path="user.cpp"]'),
      "user.cpp's hunk");
