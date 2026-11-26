@@ -113,6 +113,8 @@ pub mod git_notes;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod git_ops;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod github_pulls;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod html_escape;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod glob_helper;

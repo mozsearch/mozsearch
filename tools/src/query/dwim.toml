@@ -35,7 +35,7 @@ go = "always"
 
 [[rule]]
 name = "spec-pr"
-description = "A spec repository's pull request on GitHub: its page as a try push (its import), in the tree of specs which has the spec."
+description = "A spec repository's pull request on GitHub: its page as a try push (its import), in the tree of specs which has the spec; or another repository's pull request: its review, in the tree importing its pull requests."
 pattern = '^https?://github\.com/(?P<repo>[^/\s]+/[^/\s]+)/pull/(?P<number>\d+)(?:[/?#]\S*)?$'
 lookup = "spec-pr"
 go = "always"

@@ -29,7 +29,14 @@ set -o pipefail # Check all commands in a pipeline
 # those revisions' changes too.
 
 NAME=$1
-PUSH="$CONFIG_REPO/$TREE_NAME/try/$NAME"
+# (Or a pull request of the tree's GitHub repository, `github/NUMBER`, as the
+# config says it imports them (`github_pull_requests`), whose commits are
+# pulls/NUMBER's, as a push's are; see tests/github-api, its fixtures of
+# GitHub's API.)
+case "$NAME" in
+    github/*) PUSH="$CONFIG_REPO/$TREE_NAME/pulls/${NAME#github/}" ;;
+    *) PUSH="$CONFIG_REPO/$TREE_NAME/try/$NAME" ;;
+esac
 if [ ! -d "$PUSH" ]; then
     echo "ERROR: there's no try push $NAME."
     exit 1

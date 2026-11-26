@@ -1,0 +1,15 @@
+{
+ "number": 7,
+ "title": "Bug 9011 - Note that widgets wiggle too. r=reviewer",
+ "state": "open",
+ "merged": false,
+ "merged_at": null,
+ "head": {
+  "sha": "7889b1d99165d769994cf9f385ce0c5e8787eeeb",
+  "ref": "wiggle"
+ },
+ "base": {
+  "ref": "main"
+ },
+ "html_url": "https://github.com/searchfox-tests/trydelta/pull/7"
+}

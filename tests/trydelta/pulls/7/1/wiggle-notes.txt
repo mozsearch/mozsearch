@@ -1,0 +1,1 @@
+Widgets wiggle when shrunk.

@@ -269,6 +269,80 @@ fn pipeline_server_addr() -> String {
         .replace("0.0.0.0", "127.0.0.1")
 }
 
+/// A pull request of the tree's GitHub repository's review
+/// (`/{tree}/review/github/{number}`), in a tree importing them (see
+/// `tools::try_import::github_pull_requests`): the review of its import
+/// (`github/{number}`), if its head is the pull request's, by GitHub's API
+/// (see `tools::github_pulls`; or if the API doesn't answer); else its
+/// import, again for its newer commits, as a person's request, whose page
+/// says how far it is, until it's the review (see `format::format_try`).  A
+/// pull request the API doesn't know, and which isn't imported, isn't found.
+fn github_review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebResponse {
+    let number = match path.get(3) {
+        Some(number) if path.len() == 4 => number
+            .parse::<u64>()
+            .ok()
+            .filter(|n| *n > 0 && !number.starts_with('0')),
+        _ => None,
+    };
+    let (Some(number), Some(repo)) = (
+        number,
+        tools::try_import::github_pull_requests(cfg, tree_name),
+    ) else {
+        return WebResponse::not_found();
+    };
+    let push = format!("github/{}", number);
+    let base = cfg
+        .github_api_url
+        .clone()
+        .unwrap_or_else(|| tools::github_pulls::GITHUB_API_URL.to_string());
+    let repo_ = repo.clone();
+    let current = format::run_on_runtime(async move {
+        tools::github_pulls::cached_pull_request(&base, &repo_, number).await
+    });
+    let imported = tools::try_import::imported_head(cfg, tree_name, &push);
+    let up_to_date = match (&imported, &current) {
+        (Some(head), Some(current)) => head.to_string() == current.head,
+        (Some(_), None) => true,
+        (None, _) => false,
+    };
+    if up_to_date {
+        tools::try_carry_over::note_viewed(cfg, tree_name, &push);
+        let head = tools::try_import::semantic_head(cfg, tree_name, &push);
+        return try_review_page(tree_name, &push, head.as_deref());
+    }
+    if imported.is_none() && current.is_none() {
+        return WebResponse {
+            status: StatusCode::NOT_FOUND,
+            output: format!("{} has no pull request #{}", repo, number),
+            ..WebResponse::default()
+        }
+        .uncached();
+    }
+    let Some(server) = tree_server(tree_name) else {
+        return WebResponse::not_found();
+    };
+    let notice = format::request_try_import(server.as_ref(), &push).err();
+    let mut writer = Vec::new();
+    match format::format_try(
+        cfg,
+        server.as_ref(),
+        tree_name,
+        &push,
+        notice.as_deref(),
+        None,
+        &mut writer,
+    ) {
+        Ok(true) => try_review_page(
+            tree_name,
+            &push,
+            tools::try_import::semantic_head(cfg, tree_name, &push).as_deref(),
+        ),
+        Ok(false) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
+        Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+    }
+}
+
 /// A Phabricator revision's review (`/{tree}/review/phab/D{number}`), at a URL
 /// which stays the revision's whichever try push its latest diff is (and
 /// whichever web server; see `tools::try_carry_over`), in the tree importing
@@ -283,6 +357,9 @@ fn pipeline_server_addr() -> String {
 /// Both say whether the revision landed (linking to its commits) and when a
 /// previous index's web server imported its pushes.
 fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebResponse {
+    if path.get(2) == Some(&"github") {
+        return github_review_page(cfg, tree_name, path);
+    }
     let number = match (path.get(2), path.get(3)) {
         (Some(&"phab"), Some(revision)) if path.len() <= 5 => revision
             .strip_prefix('D')
@@ -427,7 +504,7 @@ fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
     };
     // (Its review, its page, whether or not it has a semantic analysis; see
     // `try_review_page`.)
-    if !tools::try_import::is_pull_request(rev) {
+    if !tools::try_import::is_spec_pull_request(rev) {
         let review_started = Instant::now();
         let head = tools::try_import::try_push(cfg, tree_name, rev).and_then(|p| p.semantic_head);
         let response = try_review_page(tree_name, rev, head.as_deref());
@@ -1590,7 +1667,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             // (Once it's imported, its review; see `try_review_page`.  Its
             // look is noted, for the next index's web server to import it
             // again; see `tools::try_carry_over`.)
-            if notice.is_none() && !tools::try_import::is_pull_request(&push) {
+            if notice.is_none() && !tools::try_import::is_spec_pull_request(&push) {
                 if let Some(imported) = tools::try_import::try_push(cfg, tree_name, &push) {
                     tools::try_carry_over::note_viewed(cfg, tree_name, &push);
                     return try_review_page(tree_name, &push, imported.semantic_head.as_deref());

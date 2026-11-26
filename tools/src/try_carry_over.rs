@@ -1,5 +1,6 @@
-//! The carry-over of a tree's imported try pushes (but spec pull requests',
-//! see `spec_prs::start`) from its web server to the next index's, so that a
+//! The carry-over of a tree's imported try pushes (and its GitHub
+//! repository's pull requests, but not spec pull requests, see
+//! `spec_prs::start`) from its web server to the next index's, so that a
 //! review in progress needn't wait for its push's import again (see the
 //! review continuity plan's phase 1).  Imports are on the web server's index
 //! volume, which the next index replaces, so:
@@ -216,7 +217,7 @@ pub fn note_viewed(cfg: &Config, tree_name: &str, push: &str) {
 }
 
 fn note(cfg: &Config, tree_name: &str, push: &str, field: fn(&mut Activity) -> &mut Option<u64>) {
-    if try_import::is_pull_request(push) || try_import::hook(cfg, tree_name).is_none() {
+    if try_import::is_spec_pull_request(push) || try_import::hook(cfg, tree_name).is_none() {
         return;
     }
     let now = now();
@@ -235,7 +236,7 @@ fn note(cfg: &Config, tree_name: &str, push: &str, field: fn(&mut Activity) -> &
 /// Note a review dashboard's hint of whether the try push `push`'s revisions
 /// are accepted, as it asks for it (see `Activity::accepted`).
 pub fn note_review(cfg: &Config, tree_name: &str, push: &str, accepted: bool) {
-    if try_import::is_pull_request(push) || try_import::hook(cfg, tree_name).is_none() {
+    if try_import::is_spec_pull_request(push) || try_import::hook(cfg, tree_name).is_none() {
         return;
     }
     with_activity(cfg, tree_name, |pushes| {
@@ -492,7 +493,7 @@ pub fn restore(cfg: &Config, tree_name: &str, newer: Vec<CarriedPush>) -> Restor
     let newer: Vec<CarriedPush> = newer
         .into_iter()
         .filter(|push| {
-            !try_import::is_pull_request(&push.push)
+            !try_import::is_spec_pull_request(&push.push)
                 && try_import::normalize_push(&push.push).as_deref() == Some(push.push.as_str())
         })
         .collect();

@@ -195,7 +195,10 @@ impl PipelineCommand for TryReviewCommand {
     /// `review_slicing`).
     fn estimate(&self, server: &(dyn AbstractServer + Send + Sync)) -> u64 {
         let push = self.args.push.trim().to_lowercase();
-        if crate::step_cache::is_cached(server.cache_identity(), "try-review-html", &push) {
+        // (A pull request's is cached by its head too; see `execute`.)
+        if !crate::try_import::is_pull_request(&push)
+            && crate::step_cache::is_cached(server.cache_identity(), "try-review-html", &push)
+        {
             return 0;
         }
         slicing_spec(server)
@@ -209,19 +212,35 @@ impl PipelineCommand for TryReviewCommand {
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let push = self.args.push.trim().to_lowercase();
-        if push.len() < 12 || !push.chars().all(|c| c.is_ascii_hexdigit()) {
+        // (An hg push's revision, or a pull request of the tree's GitHub
+        // repository, `github/NUMBER` (see `try_import::github_pull_requests`),
+        // but not a spec's, whose page is its spec's views.)
+        let valid = crate::try_import::normalize_push(&push).as_deref() == Some(push.as_str())
+            && !crate::try_import::is_spec_pull_request(&push);
+        if !valid {
             return Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::BadInput,
                 message: format!(
-                    "try-review: needs a try push's revision (12 to 40 hexadecimal digits), not {:?}",
+                    "try-review: needs a try push's revision (12 to 40 hexadecimal digits), or a GitHub pull request's github/NUMBER, not {:?}",
                     self.args.push
                 ),
             }));
         }
         // (Cached by the push; the server's identity covers the index's and
-        // the code's.  A push imported again has the same commits.)
+        // the code's.  A push imported again has the same commits, but a pull
+        // request imported again for its newer commits doesn't, so its is
+        // cached by its head too.)
+        let key = match crate::try_import::is_pull_request(&push) {
+            true => match server.try_import_status(&push).await {
+                Ok(crate::try_import::ImportStatus::Imported { head }) => {
+                    format!("{}@{}", push, head)
+                }
+                _ => push.clone(),
+            },
+            false => push.clone(),
+        };
         let value =
-            crate::step_cache::cached(server.cache_identity(), "try-review", &push, || async {
+            crate::step_cache::cached(server.cache_identity(), "try-review", &key, || async {
                 Ok::<_, ServerError>(serde_json::to_value(review_view(server, &push).await?)?)
             })
             .await?;
@@ -234,14 +253,14 @@ impl PipelineCommand for TryReviewCommand {
         // (Its HTML, with its lines highlighted, cached too, by whether its
         // slicing could be had, which it may be later.)
         let identity = server.cache_identity();
-        let mut key = push.clone();
+        let mut key = key;
         if !crate::step_cache::is_cached(identity, "try-review-html", &key) {
             view.slicing = review_slicing(server, &view).await;
             if let Some(slicing) = view.slicing.as_mut() {
                 view.block_sym_info = block_diagrams(server, slicing).await;
             }
             if view.slicing.as_ref().is_some_and(|s| s.note.is_some()) {
-                key = format!("{} unsliced", push);
+                key = format!("{} unsliced", key);
             }
         }
         let contents =

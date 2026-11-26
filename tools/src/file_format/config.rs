@@ -153,6 +153,13 @@ pub struct ConfigJson {
     #[serde(default)]
     pub code_review_url: Option<String>,
 
+    /// Where GitHub's API is, if not api.github.com
+    /// (`github_pulls::GITHUB_API_URL`), for the pull requests of trees
+    /// importing their repositories' (see `try_import::github_pull_requests`):
+    /// ex: tests' fixtures, `file://...`.
+    #[serde(default)]
+    pub github_api_url: Option<String>,
+
     /// Where the crash sets' store is (see `crash_sets`), if not
     /// `crash-sets/` beside the trees' index directories.
     #[serde(default)]
@@ -300,6 +307,12 @@ pub struct TreeConfigPaths {
     /// (see `try_carry_over::live_set`): 14 if it isn't set.
     #[serde(default)]
     pub try_restore_days: Option<u64>,
+    /// Whether the tree imports its GitHub repository's (`github_repo`'s)
+    /// pull requests, as try pushes named `github/NUMBER`, which its
+    /// import-try hook takes (see `try_import::github_pull_requests`), and
+    /// whose reviews are at `/{tree}/review/github/NUMBER`.
+    #[serde(default)]
+    pub github_pull_requests: bool,
     /// Where the tree's pages send searches: router.py's `/search` (the
     /// default), or the pipeline-server's `/query/default` (`"query"`); see
     /// `SearchEndpoint` and `search_url`.
@@ -640,6 +653,8 @@ pub struct Config {
     pub bugzilla_url: Option<String>,
     /// See `ConfigJson::code_review_url`.
     pub code_review_url: Option<String>,
+    /// See `ConfigJson::github_api_url`.
+    pub github_api_url: Option<String>,
     /// See `ConfigJson::crash_sets_path`.
     pub crash_sets_path: Option<String>,
     /// See `ConfigJson::crash_sets_seed`.
@@ -962,6 +977,7 @@ pub fn load(
         crash_reports_url: config.crash_reports_url,
         bugzilla_url: config.bugzilla_url,
         code_review_url: config.code_review_url,
+        github_api_url: config.github_api_url,
         crash_sets_path: config.crash_sets_path,
         crash_sets_seed: config.crash_sets_seed,
         crash_stats_api: config.crash_stats_api,

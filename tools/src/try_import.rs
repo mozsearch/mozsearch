@@ -190,10 +190,54 @@ pub fn normalize_push(name: &str) -> Option<String> {
     (spec_ok && number_ok).then(|| name.to_string())
 }
 
-/// Whether a try push (see `normalize_push`) is a spec's pull request, which
-/// can be imported again (for its newer commits), rather than an hg push.
+/// Whether a try push (see `normalize_push`) is a pull request, which can be
+/// imported again (for its newer commits), rather than an hg push: a spec's
+/// (see `is_spec_pull_request`), or a tree's GitHub repository's (see
+/// `is_github_pull_request`).
 pub fn is_pull_request(name: &str) -> bool {
     name.contains('/')
+}
+
+/// Whether a try push is a pull request of the tree's own GitHub repository
+/// (`github/NUMBER`; see `github_pull_requests`), whose page is its review,
+/// as an hg push's is, and which is carried over to the next index's web
+/// server as they are (see `try_carry_over`), rather than a spec's.
+pub fn is_github_pull_request(name: &str) -> bool {
+    name.starts_with("github/")
+}
+
+/// Whether a try push is a spec repository's pull request (`SPEC/NUMBER`; see
+/// `spec_repos`), whose page is its spec's views (see `spec_prs`).
+pub fn is_spec_pull_request(name: &str) -> bool {
+    is_pull_request(name) && !is_github_pull_request(name)
+}
+
+/// The GitHub repository whose pull requests the tree imports, as
+/// `OWNER/REPO` (its `github_repo`'s, if it has `github_pull_requests` and an
+/// import-try hook taking them, and isn't a tree of specs).
+pub fn github_pull_requests(cfg: &Config, tree_name: &str) -> Option<String> {
+    let tree = cfg.trees.get(tree_name)?;
+    if !tree.paths.github_pull_requests || hook(cfg, tree_name).is_none() {
+        return None;
+    }
+    if !spec_repos(cfg, tree_name).is_empty() {
+        return None;
+    }
+    let repo = tree
+        .paths
+        .github_repo
+        .as_deref()?
+        .strip_prefix("https://github.com/")?
+        .trim_end_matches('/')
+        .trim_end_matches(".git");
+    let (owner, name) = repo.split_once('/')?;
+    let ok = |part: &str| {
+        !part.is_empty()
+            && part
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    };
+    (ok(owner) && ok(name) && !name.contains('/')).then(|| repo.to_string())
 }
 
 /// The spec repositories of a tree of specs (its index's specs.toml's specs
@@ -226,11 +270,19 @@ pub fn spec_repos(
 /// page's URL's kind and id (`/{tree}/try/{kind}/{id}`; see `push_url_path`),
 /// if they're one's: in a tree of specs, a spec repository's pull request
 /// (`try/SPEC/NUMBER`, ex: `try/dom/1512`), and in other trees, an hg revision
-/// on try (`try/hg/REV`).
+/// on try (`try/hg/REV`), or, in a tree importing its GitHub repository's
+/// pull requests, one of them (`try/github/NUMBER`; see
+/// `github_pull_requests`).
 pub fn url_push(cfg: &Config, tree_name: &str, kind: &str, id: &str) -> Option<String> {
     let repos = spec_repos(cfg, tree_name);
     if repos.is_empty() {
-        return (kind == "hg").then(|| normalize_rev(id)).flatten();
+        return match kind {
+            "hg" => normalize_rev(id),
+            "github" if github_pull_requests(cfg, tree_name).is_some() => {
+                normalize_push(&format!("github/{}", id)).filter(|name| is_pull_request(name))
+            }
+            _ => None,
+        };
     }
     if !repos.iter().any(|spec| spec.name == kind) {
         return None;
@@ -292,6 +344,15 @@ pub fn push_title(cfg: &Config, tree_name: &str, push: &str) -> (String, Option<
     else {
         return (format!("Try push {}", push), None);
     };
+    // (The tree's GitHub repository's own; see `github_pull_requests`.)
+    if is_github_pull_request(push)
+        && let Some(repo) = github_pull_requests(cfg, tree_name)
+    {
+        return (
+            format!("Pull request #{} of {}", number, repo),
+            Some(format!("https://github.com/{}/pull/{}", repo, number)),
+        );
+    }
     let repos = spec_repos(cfg, tree_name);
     let config = repos.iter().find(|config| config.name == spec);
     let link = config.and_then(|config| config.pull_request_url(number));
@@ -326,15 +387,16 @@ pub fn imported_pull_requests(cfg: &Config, tree_name: &str) -> Vec<String> {
 }
 
 /// The try pushes imported into the tree, but spec pull requests (their hg
-/// revisions; see `imported_head`), for importing them again into the next
-/// index's (see `try_carry_over`).
+/// revisions, and its GitHub repository's pull requests; see
+/// `imported_head`), for importing them again into the next index's (see
+/// `try_carry_over`).
 pub fn imported_try_pushes(cfg: &Config, tree_name: &str) -> Vec<String> {
     imported_pushes(cfg, tree_name, false)
 }
 
 /// The spec pull requests imported into the tree, or (unless
-/// `pull_requests`) its other try pushes.
-fn imported_pushes(cfg: &Config, tree_name: &str, pull_requests: bool) -> Vec<String> {
+/// `spec_pull_requests`) its other try pushes.
+fn imported_pushes(cfg: &Config, tree_name: &str, spec_pull_requests: bool) -> Vec<String> {
     let Some(git) = cfg.trees.get(tree_name).and_then(|tree| tree.git.as_ref()) else {
         return vec![];
     };
@@ -349,7 +411,7 @@ fn imported_pushes(cfg: &Config, tree_name: &str, pull_requests: bool) -> Vec<St
                 .ok()?
                 .strip_prefix("refs/try/")?
                 .to_string();
-            (is_pull_request(&push) == pull_requests
+            (is_spec_pull_request(&push) == spec_pull_requests
                 && normalize_push(&push).as_deref() == Some(push.as_str()))
             .then_some(push)
         })

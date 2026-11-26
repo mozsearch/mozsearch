@@ -2234,7 +2234,9 @@ pub fn spec_url_target(
 ///   `review_page`), in a tree importing hg try pushes (or whose sibling
 ///   does), unless it landed, or else its explore page;
 /// - "spec-pr": a spec repository's pull request's try push's page, in the
-///   tree (or its `SPEC_` linked tree) whose specs' repositories it's of;
+///   tree (or its `SPEC_` linked tree) whose specs' repositories it's of, or
+///   another GitHub repository's pull request's review, in a tree importing
+///   its pull requests (see `try_import::github_pull_requests`);
 /// - "treeherder-try": a try push's page (from Treeherder's `repo=try` and
 ///   `revision=` parameters), in a tree importing them (or whose sibling
 ///   does; see `try_import::importing_tree`).
@@ -2342,7 +2344,17 @@ pub fn dwim_lookup(
                     return Some(format!("/{}/try/{}/{}", tree, spec.name, number));
                 }
             }
-            None
+            // (Or a tree importing its GitHub repository's pull requests: the
+            // pull request's review; see the web-server's `review_page`.)
+            let mut trees: Vec<&String> = cfg.trees.keys().collect();
+            trees.sort_by_key(|tree| tree.as_str() != tree_name);
+            trees
+                .into_iter()
+                .find(|tree| {
+                    crate::try_import::github_pull_requests(cfg, tree)
+                        .is_some_and(|own| own.to_ascii_lowercase() == repo)
+                })
+                .map(|tree| format!("/{}/review/github/{}", tree, number))
         }
         "treeherder-try" => {
             let params: HashMap<String, String> =
@@ -12861,6 +12873,7 @@ mod tests {
             crash_stats_api: None,
             bugzilla_url: None,
             code_review_url: None,
+            github_api_url: None,
         };
         let lookup = |tree: &str, kind: &str, captures: &[(&str, &str)]| {
             let capture = |name: &str| {
