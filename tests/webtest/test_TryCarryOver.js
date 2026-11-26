@@ -43,6 +43,17 @@ add_task(async function test_TryCarryOverInventory() {
   const forwarded = await json("/trydelta/try-imports/inventory",
                                { headers: { "X-Forwarded-For": "192.0.2.1" } });
   is(forwarded.status, 403, "It's only for requests from inside, not through the load balancer");
+
+  // (A review dashboard's hint, as it asks for a push, of whether its
+  // revisions are accepted, which the live set's order has.)
+  const hinted = await json(`/trydelta/api/v1/try-import?push=${IMPORTED}&review=accepted`,
+                            { method: "POST" });
+  is(hinted.status, 200, "A request for an import can say its revisions are accepted");
+  const again = (await json("/trydelta/try-imports/inventory")).body;
+  is(again.pushes.find(each => each.push == IMPORTED)?.accepted, true, "which the inventory has");
+  is((await json(`/trydelta/api/v1/try-import?push=${IMPORTED}&review=maybe`, { method: "POST" })).status,
+     422, "but nothing else");
+  await json(`/trydelta/api/v1/try-import?push=${IMPORTED}&review=open`, { method: "POST" });
 });
 
 add_task(async function test_TryCarryOverRestore() {

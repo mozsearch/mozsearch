@@ -321,6 +321,13 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn note_try_review(&self, push: &str, accepted: bool) -> Result<()> {
+        let push = normalized_push(push)?;
+        let cfg = self.tree_config_loaded();
+        crate::try_carry_over::note_review(&cfg, &self.tree_name, &push, accepted);
+        Ok(())
+    }
+
     async fn try_push(&self, push: &str) -> Result<Option<crate::try_import::TryPush>> {
         let push = normalized_push(push)?;
         let cfg = self.tree_config_loaded();

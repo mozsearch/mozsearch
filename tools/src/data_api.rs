@@ -84,8 +84,11 @@
 //!   an old git repository's (`null` if it has none).
 //! - `stack-strip?stack=&commit=&path=`: a file's stack strip for a stack
 //!   page (see `format::stack_strip_json`).
-//! - `try-status?push=` and POST `try-import?push=`: a try push's import's
-//!   status, and asking for its import; served by the web-server, which
+//! - `try-status?push=` and POST `try-import?push=[&review=]`: a try push's
+//!   import's status, and asking for its import (with a review dashboard's
+//!   hint of whether its revisions are `accepted` or `open`, for the next
+//!   index's web server's order of importing it again; see
+//!   `try_carry_over::Activity::accepted`); served by the web-server, which
 //!   performs imports (see `Host`).
 //! - `phab-try?revision=`: the latest try push the code review bot made of a
 //!   Phabricator revision's diffs (`{push, diff_phid, created}`, or `null`;
@@ -338,7 +341,7 @@ const ROUTES: &[Route] = &[
     Route {
         name: "try-import",
         takes_path: false,
-        params: &["push"],
+        params: &["push", "review"],
         host: Host::WebServer,
         post: true,
     },
@@ -1098,7 +1101,22 @@ async fn route_body(
         }
         "try-import" => {
             let push = push_param(params)?;
+            // (A review dashboard's hint of whether its revisions are
+            // accepted, for the next index's web server's order of importing
+            // it again; see `try_carry_over::Activity::accepted`.)
+            let accepted = match params.get("review") {
+                None => None,
+                Some("accepted") => Some(true),
+                Some("open") => Some(false),
+                Some(_) => return Err(bad("review must be accepted or open")),
+            };
             server.request_try_import(&push).await.map_err(error)?;
+            if let Some(accepted) = accepted {
+                server
+                    .note_try_review(&push, accepted)
+                    .await
+                    .map_err(error)?;
+            }
             let status = server.try_import_status(&push).await.map_err(error)?;
             Ok(Body::json(
                 &serde_json::to_value(status).unwrap_or_default(),

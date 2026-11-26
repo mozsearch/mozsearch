@@ -61,13 +61,21 @@ pub fn now() -> u64 {
         .unwrap_or(0)
 }
 
-/// When a push was last asked for and looked at, in seconds since the epoch.
+/// When a push was last asked for and looked at, in seconds since the epoch,
+/// and, if a review dashboard asking for it said (see `note_review`), whether
+/// its revisions were accepted then: a hint, per the dashboard, which only
+/// puts the push after the others in the live set's order (see `live_set`),
+/// as an accepted revision may still have a second look before it lands
+/// (asuth's decision 2 of the review continuity plan), and never decides what
+/// a page says.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Activity {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requested: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewed: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted: Option<bool>,
 }
 
 impl Activity {
@@ -76,7 +84,11 @@ impl Activity {
         self.requested.max(self.viewed)
     }
 
+    /// (The hint of whichever was asked for last.)
     fn merge(&mut self, other: &Activity) {
+        if other.requested > self.requested || self.accepted.is_none() {
+            self.accepted = other.accepted.or(self.accepted);
+        }
         self.requested = self.requested.max(other.requested);
         self.viewed = self.viewed.max(other.viewed);
     }
@@ -217,6 +229,20 @@ fn note(cfg: &Config, tree_name: &str, push: &str, field: fn(&mut Activity) -> &
                 ((), true)
             }
         }
+    });
+}
+
+/// Note a review dashboard's hint of whether the try push `push`'s revisions
+/// are accepted, as it asks for it (see `Activity::accepted`).
+pub fn note_review(cfg: &Config, tree_name: &str, push: &str, accepted: bool) {
+    if try_import::is_pull_request(push) || try_import::hook(cfg, tree_name).is_none() {
+        return;
+    }
+    with_activity(cfg, tree_name, |pushes| {
+        let activity = pushes.entry(push.to_string()).or_default();
+        let changed = activity.accepted != Some(accepted);
+        activity.accepted = Some(accepted);
+        ((), changed)
     });
 }
 
@@ -405,21 +431,31 @@ fn restore_days(cfg: &Config, tree_name: &str) -> u64 {
 
 /// The live set of `pushes` (see the module's comment): those which haven't
 /// all landed, and were asked for or looked at (or, if neither was noted,
-/// imported) in the last `days` days, the most recent first.
+/// imported) in the last `days` days, the most recent first, but those whose
+/// revisions a review dashboard said were accepted after the others (see
+/// `Activity::accepted`).
 pub fn live_set(pushes: &[CarriedPush], now: u64, days: u64) -> Vec<String> {
-    let mut live: Vec<(u64, &str)> = pushes
+    let mut live: Vec<(bool, u64, &str)> = pushes
         .iter()
         .filter(|push| !push.landed)
         .filter_map(|push| {
             let last = push.last()?;
-            (now.saturating_sub(last) <= days * DAY).then_some((last, push.push.as_str()))
+            (now.saturating_sub(last) <= days * DAY).then_some((
+                push.activity.accepted == Some(true),
+                last,
+                push.push.as_str(),
+            ))
         })
         .collect();
-    live.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(b.1)));
+    live.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| b.1.cmp(&a.1))
+            .then_with(|| a.2.cmp(b.2))
+    });
     let mut seen = std::collections::HashSet::new();
     live.into_iter()
-        .filter(|(_, push)| seen.insert(*push))
-        .map(|(_, push)| push.to_string())
+        .filter(|(_, _, push)| seen.insert(*push))
+        .map(|(_, _, push)| push.to_string())
         .collect()
 }
 
@@ -588,6 +624,7 @@ mod tests {
             activity: Activity {
                 requested: last,
                 viewed: None,
+                accepted: None,
             },
             landed,
             ..Default::default()
@@ -612,6 +649,15 @@ mod tests {
             vec!["latest", "recent", "unnoted"]
         );
         assert_eq!(live_set(&pushes, now, 30).len(), 4, "with old");
+
+        // (Those a dashboard said were accepted after the others.)
+        let mut pushes = pushes;
+        pushes[3].activity.accepted = Some(true);
+        pushes[1].activity.accepted = Some(false);
+        assert_eq!(
+            live_set(&pushes, now, 14),
+            vec!["recent", "unnoted", "latest"]
+        );
     }
 
     /// A newer inventory's push replaces the carried-over one's metadata,
@@ -628,9 +674,28 @@ mod tests {
             pushes[0].activity,
             Activity {
                 requested: Some(20),
-                viewed: Some(30)
+                viewed: Some(30),
+                accepted: None,
             }
         );
+        // (The hint of whichever was asked for last.)
+        let mut activity = Activity {
+            requested: Some(10),
+            viewed: None,
+            accepted: Some(false),
+        };
+        activity.merge(&Activity {
+            requested: Some(5),
+            viewed: None,
+            accepted: Some(true),
+        });
+        assert_eq!(activity.accepted, Some(false));
+        activity.merge(&Activity {
+            requested: Some(15),
+            viewed: None,
+            accepted: Some(true),
+        });
+        assert_eq!(activity.accepted, Some(true));
         assert!(pushes[0].landed && pushes[0].semantic == "analyzed");
         assert_eq!(pushes[1].push, "b");
     }

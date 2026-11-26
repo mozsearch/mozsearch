@@ -692,6 +692,13 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// Note a review dashboard's hint, as it asks for the try push `push`,
+    /// of whether its revisions are accepted (see
+    /// `try_carry_over::Activity::accepted`); nothing if it can't.
+    async fn note_try_review(&self, _push: &str, _accepted: bool) -> Result<()> {
+        Ok(())
+    }
+
     /// The try push `push`, if the tree imported it (see
     /// `try_import::TryPush`).
     async fn try_push(&self, _push: &str) -> Result<Option<crate::try_import::TryPush>> {
