@@ -398,6 +398,25 @@ mod tests {
                 "https://github.com/mozilla-firefox/firefox/commit/7af81fe47ac81825fa31f451dddfaeb736e109ba",
                 "lookup:commit:7af81fe47ac81825fa31f451dddfaeb736e109ba",
             ),
+            // (The code review bot's pushes of Phabricator revisions' diffs to
+            // firefox-crb, as to try: a commit is its git push's page, as
+            // firefox-dev's are, and a revision's branch its review.)
+            (
+                "https://github.com/mozilla-firefox/firefox-crb/commit/be487b4d6cb585aab1a8fd7b6667ecaf36ca7951",
+                "lookup:try-git:be487b4d6cb585aab1a8fd7b6667ecaf36ca7951",
+            ),
+            (
+                "try https://github.com/mozilla-firefox/firefox-dev/tree/be487b4d6cb585aab1a8fd7b6667ecaf36ca7951",
+                "lookup:try-git:be487b4d6cb585aab1a8fd7b6667ecaf36ca7951",
+            ),
+            (
+                "https://github.com/mozilla-firefox/firefox-crb/tree/development/code-review/D346215-1394984",
+                "lookup:review-phab:D346215",
+            ),
+            (
+                "https://github.com/mozilla-firefox/firefox-crb/commits/development/code-review/D346215",
+                "lookup:review-phab:D346215",
+            ),
             (
                 "https://hg.mozilla.org/mozilla-central/rev/0123456789ab",
                 "lookup:hg-commit:0123456789ab",

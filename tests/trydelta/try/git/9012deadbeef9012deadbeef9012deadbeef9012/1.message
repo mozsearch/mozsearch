@@ -1,0 +1,3 @@
+Bug 9012 - Wobble widgets in both directions. r=reviewer
+
+Differential Revision: https://phabricator.services.mozilla.com/D9012

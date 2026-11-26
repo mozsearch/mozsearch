@@ -62,6 +62,20 @@ lookup = "try-phabricator"
 go = "always"
 
 [[rule]]
+name = "try-git-commit"
+description = "A commit of one of firefox's GitHub repositories for try pushes (firefox-crb, the code review bot's for Phabricator revisions' diffs, which it pushes them to as it does to hg's try, and firefox-dev's branches): its git try push's page (its import), in the tree importing this tree's try pushes, unless a tree has it (a landed commit, ex: firefox-dev's tags')."
+pattern = '^(?:try\s+)?https?://github\.com/mozilla-firefox/firefox-(?:crb|dev)/(?:commit|tree)/(?P<rev>[0-9a-f]{40})(?:[/?#]\S*)?$'
+lookup = "try-git"
+go = "always"
+
+[[rule]]
+name = "try-crb-branch"
+description = "A branch of the code review bot's GitHub repository for firefox's Phabricator revisions' diffs (firefox-crb: development/code-review/D123, or D123-456 for one of its diffs): the revision's review (as for its Phabricator URL)."
+pattern = '^(?:try\s+)?https?://github\.com/mozilla-firefox/firefox-crb/(?:tree|commits)/development/code-review/(?P<rev>D\d+)(?:-\d+)?/?(?:[?#]\S*)?$'
+lookup = "review-phab"
+go = "always"
+
+[[rule]]
 name = "commit"
 description = "A commit on GitHub: its page, in this tree (or another which has it)."
 pattern = '^https?://github\.com/[^/\s]+/[^/\s]+/commit/(?P<rev>[0-9a-f]{7,40})(?:[/?#]\S*)?$'

@@ -2238,8 +2238,12 @@ pub fn spec_url_target(
 ///   another GitHub repository's pull request's review, in a tree importing
 ///   its pull requests (see `try_import::github_pull_requests`);
 /// - "treeherder-try": a try push's page (from Treeherder's `repo=try` and
-///   `revision=` parameters), in a tree importing them (or whose sibling
-///   does; see `try_import::importing_tree`).
+///   `revision=` parameters, or a git try push's, from firefox-crb's and
+///   firefox-dev's), in a tree importing them (or whose sibling does; see
+///   `try_import::importing_tree`);
+/// - "try-git": a git try push's page (see `try_import::is_git_push`), as
+///   "treeherder-try", unless a tree has the commit (as "commit": ex: a
+///   landed commit of firefox-dev's).
 pub fn dwim_lookup(
     cfg: &Config,
     tree_name: &str,
@@ -2257,6 +2261,32 @@ pub fn dwim_lookup(
                 .cloned(),
         )
     };
+    // (A commit's page, in the tree, or its `SPEC_` linked tree, or another
+    // tree whose repository has it.)
+    let commit_page = |rev: &str| {
+        let has = |tree: &str| {
+            let in_repo = cfg
+                .trees
+                .get(tree)
+                .and_then(|tree| tree.get_git().ok())
+                .is_some_and(|git| {
+                    git.repo
+                        .revparse_single(rev)
+                        .and_then(|o| o.peel_to_commit())
+                        .is_ok()
+                });
+            in_repo || forest_rev(cfg, tree, rev).is_some()
+        };
+        let others = cfg
+            .trees
+            .keys()
+            .filter(|name| name.as_str() != tree_name)
+            .cloned();
+        with_specs()
+            .chain(others)
+            .find(|tree| has(tree))
+            .map(|tree| format!("/{}/commit/{}", tree, rev))
+    };
     match kind {
         "spec" => spec_url_target(
             cfg,
@@ -2264,30 +2294,10 @@ pub fn dwim_lookup(
             &capture("url")?,
             capture("anchor").as_deref(),
         ),
-        "commit" => {
+        "commit" => commit_page(&capture("rev")?),
+        "try-git" => {
             let rev = capture("rev")?;
-            let has = |tree: &str| {
-                let in_repo = cfg
-                    .trees
-                    .get(tree)
-                    .and_then(|tree| tree.get_git().ok())
-                    .is_some_and(|git| {
-                        git.repo
-                            .revparse_single(&rev)
-                            .and_then(|o| o.peel_to_commit())
-                            .is_ok()
-                    });
-                in_repo || forest_rev(cfg, tree, &rev).is_some()
-            };
-            let others = cfg
-                .trees
-                .keys()
-                .filter(|name| name.as_str() != tree_name)
-                .cloned();
-            with_specs()
-                .chain(others)
-                .find(|tree| has(tree))
-                .map(|tree| format!("/{}/commit/{}", tree, rev))
+            commit_page(&rev).or_else(|| push_page(cfg, tree_name, &format!("git/{}", rev)))
         }
         "hg-commit" => {
             let rev = capture("rev")?;
@@ -2361,10 +2371,18 @@ pub fn dwim_lookup(
                 url::form_urlencoded::parse(capture("params")?.as_bytes())
                     .into_owned()
                     .collect();
-            if params.get("repo").map(String::as_str) != Some("try") {
-                return None;
+            let revision = params.get("revision")?;
+            match params.get("repo").map(String::as_str)? {
+                "try" => try_push_page(cfg, tree_name, revision),
+                // (Git try pushes: the code review bot's, and firefox-dev's
+                // branches'.)
+                "firefox-crb" | "firefox-dev" => push_page(
+                    cfg,
+                    tree_name,
+                    &format!("git/{}", crate::try_import::normalize_git_rev(revision)?),
+                ),
+                _ => None,
             }
-            try_push_page(cfg, tree_name, params.get("revision")?)
         }
         "try-rev" => try_push_page(cfg, tree_name, &capture("rev")?),
         // (The latest of the revision's diffs' try pushes, by the code review
@@ -2377,10 +2395,10 @@ pub fn dwim_lookup(
                 .code_review_url
                 .clone()
                 .unwrap_or_else(|| crate::code_review::CODE_REVIEW_URL.to_string());
-            let rev = run_on_runtime(async move {
+            let push = run_on_runtime(async move {
                 crate::code_review::try_push_of_revision(&base, number).await
             })?;
-            try_push_page(cfg, tree_name, &rev)
+            push_page(cfg, tree_name, &push)
         }
         _ => None,
     }
@@ -2398,12 +2416,23 @@ pub fn hg_try_importing(cfg: &Config, tree_name: &str) -> Option<String> {
         .then_some(importing)
 }
 
-/// The page of a try push (its revision on try) in the tree, if a tree imports
-/// its try pushes (see `hg_try_importing`).
+/// The page of a try push (its revision on hg's try) in the tree, if a tree
+/// imports its try pushes (see `hg_try_importing`).
 fn try_push_page(cfg: &Config, tree_name: &str, rev: &str) -> Option<String> {
-    let rev = crate::try_import::normalize_rev(rev)?;
+    push_page(cfg, tree_name, &crate::try_import::normalize_rev(rev)?)
+}
+
+/// The page of try push `push` (by its name, ex: `git/REV`; see
+/// `try_import::normalize_push`) in the tree, if a tree imports its try
+/// pushes (see `hg_try_importing`).
+fn push_page(cfg: &Config, tree_name: &str, push: &str) -> Option<String> {
+    let push = crate::try_import::normalize_push(push)?;
     hg_try_importing(cfg, tree_name)?;
-    Some(format!("/{}/try/hg/{}", tree_name, rev))
+    Some(format!(
+        "/{}/{}",
+        tree_name,
+        crate::try_import::push_url_path(&push)
+    ))
 }
 
 /// Where the view of an algorithm (see `format_algorithm`) is if the tree
@@ -12926,6 +12955,14 @@ mod tests {
         );
         assert_eq!(
             lookup("dwim-specs", "try-phabricator", &[("number", "333833")]),
+            None
+        );
+        assert_eq!(
+            lookup(
+                "dwim-specs",
+                "try-git",
+                &[("rev", "be487b4d6cb585aab1a8fd7b6667ecaf36ca7951")]
+            ),
             None
         );
         std::fs::remove_dir_all(&dir).ok();

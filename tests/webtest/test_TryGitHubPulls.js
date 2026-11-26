@@ -34,6 +34,10 @@ add_task(async function test_GitHubPullRequestReview() {
   const status = await (await fetch("/trydelta/api/v1/try-status?push=github/7", { cache: "no-store" })).json();
   is(status.head, HEAD, "which is of its head, as GitHub's API has it");
 
+  const heading = doc().querySelector(".tr-head h2");
+  is(heading?.textContent, "Review of the pull request #7", "which says what it's of");
+  is(heading?.querySelector("a")?.getAttribute("href"), "/trydelta/try/github/7", "and links to its try page");
+
   await TestUtils.loadPath("/trydelta/try/github/7");
   ok(doc().querySelector("#try-review"), "Its try page is its review too");
 

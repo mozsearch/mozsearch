@@ -1,0 +1,61 @@
+{
+ "count": 3,
+ "next": null,
+ "previous": null,
+ "results": [
+  {
+   "id": 90120,
+   "provider_id": "PHID-DIFF-trydeltawobblers1",
+   "revision": {
+    "id": 90121,
+    "provider": "phabricator",
+    "provider_id": 9012,
+    "title": "Bug 9012 - Wobble widgets in both directions. r=reviewer",
+    "url": "https://phabricator.services.mozilla.com/D9012"
+   },
+   "repository": {
+    "id": 100,
+    "slug": "try",
+    "url": "https://hg.mozilla.org/try"
+   },
+   "mercurial_hash": "0123456789ab0123456789ab0123456789ab0123",
+   "created": "2026-11-23T18:28:00.000000Z"
+  },
+  {
+   "id": 90121,
+   "provider_id": "PHID-DIFF-trydeltawobblers2",
+   "revision": {
+    "id": 90122,
+    "provider": "phabricator",
+    "provider_id": 9012,
+    "title": "Bug 9012 - Wobble widgets in both directions. r=reviewer",
+    "url": "https://phabricator.services.mozilla.com/D9012"
+   },
+   "repository": {
+    "id": 1046,
+    "slug": "mozilla-firefox_firefox-crb",
+    "url": "https://github.com/mozilla-firefox/firefox-crb"
+   },
+   "mercurial_hash": "9012deadbeef9012deadbeef9012deadbeef9012",
+   "created": "2026-11-25T07:40:00.000000Z"
+  },
+  {
+   "id": 90122,
+   "provider_id": "PR",
+   "revision": {
+    "id": 90123,
+    "provider": "github",
+    "provider_id": 9012,
+    "title": "A pull request",
+    "url": "https://github.com/mozilla-firefox/firefox/issues/9012"
+   },
+   "repository": {
+    "id": 1003,
+    "slug": "mozilla-firefox_firefox",
+    "url": "https://github.com/mozilla-firefox/firefox"
+   },
+   "mercurial_hash": "21c859f38ce08cfc5d576ce96bbef3f82a6182c0",
+   "created": "2026-11-26T00:00:00.000000Z"
+  }
+ ]
+}

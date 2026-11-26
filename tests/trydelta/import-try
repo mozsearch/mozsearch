@@ -6,7 +6,8 @@ set -o pipefail # Check all commands in a pipeline
 
 # The trydelta tree's try imports (see tools/src/try_import.rs), with semantic
 # analysis (see tools/src/try_delta.rs): like spechist's, a push is one of
-# try/'s, try/NAME/N being the files its Nth commit changes and
+# try/'s (a git push's, git/REV, try/git/REV's, whose commits aren't REV, as
+# an hg push's aren't its revision), try/NAME/N being the files its Nth commit changes and
 # try/NAME/N.message its message, committed on top of the tree's head, or of
 # the revision try/NAME/base names, if any (ex: HEAD~1, for a push based on an
 # older revision), with forged authors and dates, for stable SHAs, and

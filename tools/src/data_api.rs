@@ -717,7 +717,7 @@ const MAX_EXPLORE_REVS: usize = 200;
 /// parameter.
 fn push_param(params: &Params) -> Result<String, ApiError> {
     crate::try_import::normalize_push(params.required("push")?).ok_or_else(|| {
-        bad("push must be a try push's revision (12 to 40 hexadecimal digits), or a spec's pull request (SPEC/NUMBER)")
+        bad("push must be a try push's revision (12 to 40 hexadecimal digits), a git try push's git/REVISION (40), or a pull request (SPEC/NUMBER, or github/NUMBER)")
     })
 }
 

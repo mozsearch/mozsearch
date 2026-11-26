@@ -10,8 +10,9 @@
 // or after "try" (which Firefox's address bar searches for, rather than going
 // to a pasted URL), its Treeherder URL, its revision, its hg URL, or a
 // Phabricator revision, whose try push is the code review bot's of its latest
-// diff (by its API, tests/code-review's fixture); and the route an hg commit
-// goes to.
+// diff (by its API, tests/code-review's fixture); a git try push's page from
+// its commit's URL in firefox-crb (or firefox-dev, unless a tree has it) or
+// Treeherder's; and the route an hg commit goes to.
 
 function doc() {
   return frame.contentDocument;
@@ -49,6 +50,21 @@ add_task(async function test_DwimLinks() {
        `"${input}" goes to the code review bot's try push of the revision's latest diff`);
   }
   is(await search("try D1"), "/trydelta/query/default", "but a revision it didn't push is searched for");
+
+  // (Git try pushes, `git/REV`: the code review bot's pushes to firefox-crb,
+  // and firefox-dev's branches'.)
+  const git = "9012deadbeef9012deadbeef9012deadbeef9012";
+  is(await search("try D9012"), `/trydelta/try/git/${git}`,
+     "The code review bot's latest push of a revision can be a git push, to firefox-crb");
+  for (const input of [`https://github.com/mozilla-firefox/firefox-crb/commit/${git}`,
+                       `try https://github.com/mozilla-firefox/firefox-dev/tree/${git}`,
+                       `https://treeherder.mozilla.org/jobs?repo=firefox-crb&revision=${git}`]) {
+    is(await search(input), `/trydelta/try/git/${git}`, `"${input}" goes to the git push's page`);
+  }
+  is(await search(`https://github.com/mozilla-firefox/firefox-dev/commit/${rev}`), `/searchfox/commit/${rev}`,
+     "but a commit a tree has goes to its page");
+  is(await search("https://github.com/mozilla-firefox/firefox-crb/tree/development/code-review/D123456-654321"),
+     "/trydelta/review/phab/D123456", "and a revision's branch in firefox-crb to its review");
 
   // (After ". ", which Firefox's address bar searches for too, every rule
   // applies, and the rest is what's searched for.)

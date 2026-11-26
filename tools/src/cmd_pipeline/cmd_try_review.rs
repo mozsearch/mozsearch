@@ -221,7 +221,7 @@ impl PipelineCommand for TryReviewCommand {
             return Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::BadInput,
                 message: format!(
-                    "try-review: needs a try push's revision (12 to 40 hexadecimal digits), or a GitHub pull request's github/NUMBER, not {:?}",
+                    "try-review: needs a try push's revision (12 to 40 hexadecimal digits), a git try push's git/REVISION (40), or a GitHub pull request's github/NUMBER, not {:?}",
                     self.args.push
                 ),
             }));

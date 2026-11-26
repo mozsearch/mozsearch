@@ -6,8 +6,11 @@
 // web-server's `review_page`), which stays the revision's whichever try push
 // its latest diff is: the review of the code review bot's try push of its
 // latest diff (by tests/code-review's fixtures: D8901's is abcdef012345,
-// D9010's bead0bead0be), starting at the revision's patch; imported if it
-// isn't, by the URL itself; or one push of it, which the URL pins.
+// D9010's bead0bead0be, and D9012's the git push GIT_PUSH, as the bot's
+// pushes to firefox-crb are), starting at the revision's patch; imported if
+// it isn't, by the URL itself; or one push of it, which the URL pins.
+
+const GIT_PUSH = "git/9012deadbeef9012deadbeef9012deadbeef9012";
 
 function doc() {
   return frame.contentDocument;
@@ -48,6 +51,32 @@ add_task(async function test_TryReviewUrlImports() {
                          "until it's the review, at the same URL", 500, 240);
   is(doc().location.pathname, "/trydelta/review/phab/D9010", "(still)");
   ok(doc().querySelector("#query")?.value.includes("bead0bead0be"), "of the push");
+});
+
+// (A git push, `git/REV`, at `/{tree}/try/git/REV`, whose commits are
+// tests/trydelta's try/git/REV's; see its import-try.)
+add_task(async function test_TryReviewUrlGit() {
+  await review("/trydelta/review/phab/D9012");
+  is(doc().location.pathname, "/trydelta/review/phab/D9012", "A revision whose latest push is a git push");
+  is(doc().querySelector("#query")?.value, `try-review:${GIT_PUSH}`, "has its review");
+  ok(doc().querySelector('.tr-file[data-path="wobble-directions.txt"]'), "with its changes");
+  const heading = doc().querySelector(".tr-head h2");
+  is(heading?.textContent, "Review of the try push 9012deadbeef", "named by its revision");
+  is(heading?.querySelector("a")?.getAttribute("href"), `/trydelta/try/${GIT_PUSH}`,
+     "and linking to its try page, a git push's");
+
+  await review(`/trydelta/try/${GIT_PUSH}`);
+  is(doc().querySelector("#query")?.value, `try-review:${GIT_PUSH}`, "Its try page is its review too");
+  await review(`/trydelta/review/phab/D9012/${GIT_PUSH}`);
+  is(doc().location.pathname, `/trydelta/review/phab/D9012/${GIT_PUSH}`, "as is the review URL pinning it");
+
+  for (const path of ["/trydelta/try/git/9012deadbeef", "/trydelta/review/phab/D9012/git/9012deadbeef",
+                      `/trydelta/review/phab/D9012/hg/${GIT_PUSH.slice(4)}`]) {
+    is((await fetch(path, { cache: "no-store" })).status, 404, `${path} isn't a push's (by its whole revision)`);
+  }
+
+  const inventory = await (await fetch("/trydelta/try-imports/inventory", { cache: "no-store" })).json();
+  ok(inventory.pushes.some(push => push.push == GIT_PUSH), "It's carried over to the next index's web server");
 });
 
 add_task(async function test_TryReviewUrlMissing() {

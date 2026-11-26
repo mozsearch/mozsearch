@@ -1225,8 +1225,10 @@ pub async fn review_view(
         return Err(ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::DataLayer,
             message: format!(
-                "The try push {} isn't imported (its page, /{}/try/hg/{}, can import it).",
-                push, tree, push
+                "The try push {} isn't imported (its page, /{}/{}, can import it).",
+                push,
+                tree,
+                crate::try_import::push_url_path(push)
             ),
         }));
     };
@@ -4129,7 +4131,6 @@ fn semantic_notes_html(tree: &str, view: &ReviewView) -> String {
 /// The view's HTML, for the query page.
 pub fn render_review(tree: &str, view: &ReviewView) -> String {
     let mut html = String::new();
-    let short = |rev: &str| rev.chars().take(12).collect::<String>();
     let files: BTreeSet<&str> = view
         .patches
         .iter()
@@ -4179,18 +4180,24 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             "SYM_INFO", sym_info,
         ));
     }
+    // (The push's page, and how it's named, ex: "try push abcdef012345" or
+    // "pull request #7"; see `try_import::push_label`.)
+    let path = crate::try_import::push_url_path(&view.push);
+    let (what, label) = crate::try_import::push_label(&view.push);
     // (The breadcrumbs' trail, which try-review.js puts in the page's.)
     html.push_str(&format!(
-        r##"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/try/hg/{push}">try push {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span><span class="path-separator">/</span><span class="tr-crumb-patch"><a class="tr-crumb-patch-link" href="#tr-patch-1">Patch 1</a><button type="button" class="crash-crumb-button" id="tr-patch-picker" title="Pick a patch" aria-expanded="false" aria-haspopup="true" aria-controls="tr-patch-menu"></button><div id="tr-patch-menu" title="The patches" role="menu" class="context-menu initially-hidden"></div></span><span class="tr-crumb-then-now" hidden></span></span><div id="tr-jump-menu" title="The patch's files, classes and functions" role="menu" class="context-menu initially-hidden"></div>"##,
+        r##"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/{path}">{what} {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span><span class="path-separator">/</span><span class="tr-crumb-patch"><a class="tr-crumb-patch-link" href="#tr-patch-1">Patch 1</a><button type="button" class="crash-crumb-button" id="tr-patch-picker" title="Pick a patch" aria-expanded="false" aria-haspopup="true" aria-controls="tr-patch-menu"></button><div id="tr-patch-menu" title="The patches" role="menu" class="context-menu initially-hidden"></div></span><span class="tr-crumb-then-now" hidden></span></span><div id="tr-jump-menu" title="The patch's files, classes and functions" role="menu" class="context-menu initially-hidden"></div>"##,
         tree = escape(tree),
-        push = escape(&view.push),
-        short = escape(&short(&view.push)),
+        path = escape(&path),
+        what = what,
+        short = escape(&label),
     ));
     html.push_str(&format!(
-        r#"<div class="tr-head"><h2>Review of the try push <a href="/{tree}/try/hg/{push}">{short}</a></h2><p class="tr-summary">{patches} {patch_word}, changing {files} {file_word}. Each patch's changes are in the order to read them: {order}. Your marks and notes on its parts are kept in this browser, and shown in its other tabs of it.</p>{modes}</div>"#,
+        r#"<div class="tr-head"><h2>Review of the {what} <a href="/{tree}/{path}">{short}</a></h2><p class="tr-summary">{patches} {patch_word}, changing {files} {file_word}. Each patch's changes are in the order to read them: {order}. Your marks and notes on its parts are kept in this browser, and shown in its other tabs of it.</p>{modes}</div>"#,
         tree = escape(tree),
-        push = escape(&view.push),
-        short = escape(&short(&view.push)),
+        path = escape(&path),
+        what = what,
+        short = escape(&label),
         patches = view.patches.len(),
         patch_word = if view.patches.len() == 1 { "patch" } else { "patches" },
         files = files.len(),

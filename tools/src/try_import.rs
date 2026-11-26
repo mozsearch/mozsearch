@@ -13,8 +13,11 @@
 //! A tree can import try pushes if it has a history and its directory in the
 //! config repo has an executable `import-try` hook (like `upload-after-index`
 //! and others).  The hook gets the push's name as its argument (see
-//! `normalize_push`): its hg revision on try (`/{tree}/try/hg/{rev}`), or in a
-//! tree of specs (see `spec_repos`), a spec repository's pull request,
+//! `normalize_push`): its hg revision on try (`/{tree}/try/hg/{rev}`), or a
+//! git commit, `git/REV` (`/{tree}/try/git/{rev}`, all 40 hex digits, which
+//! the hook fetches wherever it can, ex: the code review bot's pushes to
+//! firefox-crb), or in a tree of specs (see `spec_repos`), a spec
+//! repository's pull request,
 //! `SPEC/NUMBER` (`/{tree}/try/{spec}/{number}`, which the hook makes into
 //! forest commits with build-spec-pr, and which can be imported again for its
 //! newer commits), and these
@@ -167,14 +170,26 @@ pub fn normalize_rev(rev: &str) -> Option<String> {
         .then(|| rev.to_ascii_lowercase())
 }
 
+/// A git try push's commit (see `is_git_push`), as its name has it: a full
+/// revision (40 hex digits, lowercased; a fetch by revision needs all of it,
+/// and an abbreviation could be ambiguous before it's fetched), if it's one.
+pub fn normalize_git_rev(rev: &str) -> Option<String> {
+    let rev = rev.trim();
+    (rev.len() == 40 && rev.bytes().all(|b| b.is_ascii_hexdigit()))
+        .then(|| rev.to_ascii_lowercase())
+}
+
 /// A try push's name, as the hook takes it and as its import's refs and files
 /// are named (`refs/try/NAME`, `try-pushes/NAME`; see the module's comment),
 /// if `name` is one's (which keeps those paths in their directories): an hg
-/// revision on try (see `normalize_rev`), or a spec's pull request,
-/// `SPEC/NUMBER` (see `url_push`).
+/// revision on try (see `normalize_rev`), a git commit, `git/REV` (see
+/// `is_git_push`), or a spec's pull request, `SPEC/NUMBER` (see `url_push`).
 pub fn normalize_push(name: &str) -> Option<String> {
     if let Some(rev) = normalize_rev(name) {
         return Some(rev);
+    }
+    if let Some(rev) = name.strip_prefix("git/") {
+        return normalize_git_rev(rev).map(|rev| format!("git/{}", rev));
     }
     let (spec, number) = name.split_once('/')?;
     let spec_ok = !spec.is_empty()
@@ -191,11 +206,23 @@ pub fn normalize_push(name: &str) -> Option<String> {
 }
 
 /// Whether a try push (see `normalize_push`) is a pull request, which can be
-/// imported again (for its newer commits), rather than an hg push: a spec's
-/// (see `is_spec_pull_request`), or a tree's GitHub repository's (see
+/// imported again (for its newer commits), rather than a push of commits (an
+/// hg push, or a git one; see `is_git_push`): a spec's (see
+/// `is_spec_pull_request`), or a tree's GitHub repository's (see
 /// `is_github_pull_request`).
 pub fn is_pull_request(name: &str) -> bool {
-    name.contains('/')
+    name.contains('/') && !is_git_push(name)
+}
+
+/// Whether a try push is a git commit (`git/REV`), as hg pushes are hg
+/// revisions (ex: the code review bot's pushes of Phabricator revisions'
+/// diffs to firefox-crb, the GitHub repository it pushes them to as well as
+/// to hg's try, and pushes to firefox-dev's branches), which is the same push
+/// whenever it's imported, as an hg push is, and whose import the hook
+/// fetches from wherever it can (ex: GitHub's firefox repository, which has
+/// the commits of those of its network).
+pub fn is_git_push(name: &str) -> bool {
+    name.starts_with("git/")
 }
 
 /// Whether a try push is a pull request of the tree's own GitHub repository
@@ -270,14 +297,15 @@ pub fn spec_repos(
 /// page's URL's kind and id (`/{tree}/try/{kind}/{id}`; see `push_url_path`),
 /// if they're one's: in a tree of specs, a spec repository's pull request
 /// (`try/SPEC/NUMBER`, ex: `try/dom/1512`), and in other trees, an hg revision
-/// on try (`try/hg/REV`), or, in a tree importing its GitHub repository's
-/// pull requests, one of them (`try/github/NUMBER`; see
-/// `github_pull_requests`).
+/// on try (`try/hg/REV`), a git commit (`try/git/REV`; see `is_git_push`),
+/// or, in a tree importing its GitHub repository's pull requests, one of them
+/// (`try/github/NUMBER`; see `github_pull_requests`).
 pub fn url_push(cfg: &Config, tree_name: &str, kind: &str, id: &str) -> Option<String> {
     let repos = spec_repos(cfg, tree_name);
     if repos.is_empty() {
         return match kind {
             "hg" => normalize_rev(id),
+            "git" => normalize_git_rev(id).map(|rev| format!("git/{}", rev)),
             "github" if github_pull_requests(cfg, tree_name).is_some() => {
                 normalize_push(&format!("github/{}", id)).filter(|name| is_pull_request(name))
             }
@@ -291,24 +319,36 @@ pub fn url_push(cfg: &Config, tree_name: &str, kind: &str, id: &str) -> Option<S
 }
 
 /// The try push of a stack context, the path of its page in the tree (ex:
-/// "try/hg/abcdef012345" or "try/dom/1512"; see `url_push`), if it's a try
-/// push's (by its form; see `normalize_push`).
+/// "try/hg/abcdef012345", "try/git/{40 hex digits}" or "try/dom/1512"; see
+/// `url_push`), if it's a try push's (by its form; see `normalize_push`).
 pub fn stack_push(stack: &str) -> Option<String> {
     let (kind, id) = stack.strip_prefix("try/")?.split_once('/')?;
     match kind {
         "hg" => normalize_rev(id),
+        "git" => normalize_git_rev(id).map(|rev| format!("git/{}", rev)),
         _ => normalize_push(&format!("{}/{}", kind, id)).filter(|name| is_pull_request(name)),
     }
 }
 
 /// The path of a try push's page in its tree (`/{tree}/{path}`), which is also
-/// its stack context (see `stack_push`), ex: "try/hg/abcdef012345" or
-/// "try/dom/1512".
+/// its stack context (see `stack_push`), ex: "try/hg/abcdef012345",
+/// "try/git/{40 hex digits}" or "try/dom/1512".
 pub fn push_url_path(push: &str) -> String {
-    if is_pull_request(push) {
+    if push.contains('/') {
         format!("try/{}", push)
     } else {
         format!("try/hg/{}", push)
+    }
+}
+
+/// How a try push's review and its page's links name it, briefly: what it is
+/// and its name, ex: ("try push", "abcdef012345"), an hg or git push's
+/// revision, abbreviated, or ("pull request", "#1512").
+pub fn push_label(push: &str) -> (&'static str, String) {
+    match push.split_once('/') {
+        Some(("git", rev)) => ("try push", rev.chars().take(12).collect()),
+        Some((_, number)) => ("pull request", format!("#{}", number)),
+        None => ("try push", push.chars().take(12).collect()),
     }
 }
 
@@ -336,8 +376,24 @@ pub fn rebased_head_push(repo: &git2::Repository, head: &str) -> Option<String> 
 
 /// How a try push's pages name it: their title (ex: "Try push abcdef012345",
 /// or "Pull request #1512 of whatwg/dom"), and its upstream page, if any (ex:
-/// the pull request's on GitHub).
+/// the pull request's on GitHub, or a git push's commit's, in the tree's
+/// GitHub repository, `github_repo`, which shows those of its network).
 pub fn push_title(cfg: &Config, tree_name: &str, push: &str) -> (String, Option<String>) {
+    if let Some(rev) = push.strip_prefix("git/") {
+        let link = cfg
+            .trees
+            .get(tree_name)
+            .and_then(|tree| tree.paths.github_repo.as_deref())
+            .filter(|repo| repo.starts_with("https://github.com/"))
+            .map(|repo| {
+                format!(
+                    "{}/commit/{}",
+                    repo.trim_end_matches('/').trim_end_matches(".git"),
+                    rev
+                )
+            });
+        return (format!("Try push {}", rev), link);
+    }
     let Some((spec, number)) = push
         .split_once('/')
         .and_then(|(spec, number)| Some((spec, number.parse::<u32>().ok()?)))
@@ -1679,6 +1735,27 @@ mod tests {
         assert_eq!(stack_push("try/dom/01512"), None);
         assert_eq!(stack_push("try/hg/1512"), None);
         assert_eq!(stack_push("explore/bug/123"), None);
+
+        // (A git push's, by its whole revision.)
+        let rev = "be487b4d6cb585aab1a8fd7b6667ecaf36ca7951";
+        assert_eq!(
+            push_url_path(&format!("git/{}", rev)),
+            format!("try/git/{}", rev)
+        );
+        assert_eq!(
+            stack_push(&format!("try/git/{}", rev.to_ascii_uppercase())),
+            Some(format!("git/{}", rev))
+        );
+        assert_eq!(stack_push("try/git/be487b4d6cb5"), None);
+        assert_eq!(
+            push_label(&format!("git/{}", rev)),
+            ("try push", "be487b4d6cb5".to_string())
+        );
+        assert_eq!(
+            push_label("abcdef0123456789"),
+            ("try push", "abcdef012345".to_string())
+        );
+        assert_eq!(push_label("github/7"), ("pull request", "#7".to_string()));
     }
 
     #[test]
@@ -1693,7 +1770,18 @@ mod tests {
         );
         assert!(is_pull_request("csswg-drafts/1234"));
         assert!(!is_pull_request("abcdef012345"));
+        // (A git push, by its whole revision, which isn't a pull request.)
+        let rev = "be487b4d6cb585aab1a8fd7b6667ecaf36ca7951";
+        let git = format!("git/{}", rev);
+        assert_eq!(
+            normalize_push(&format!("git/{}", rev.to_ascii_uppercase())),
+            Some(git.clone())
+        );
+        assert!(is_git_push(&git) && !is_pull_request(&git) && !is_spec_pull_request(&git));
         for bad in [
+            "git/1",
+            "git/be487b4d6cb5",
+            "git/../be487b4d6cb585aab1a8fd7b6667ecaf36ca79",
             "dom/0",
             "dom/1a",
             "dom/",

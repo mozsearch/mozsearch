@@ -2,7 +2,10 @@
 //! of Phabricator revisions' diffs (which their "CI (Treeherder) Jobs" links
 //! are), for DWIM's `try D123456` (see `format::dwim_lookup`), and for review
 //! dashboards (the data API's `phab-try`), which can't ask the API themselves,
-//! as it has no CORS headers.
+//! as it has no CORS headers.  The bot pushes a diff to hg's try repository,
+//! or, since November 2026, to the GitHub repository mozilla-firefox/firefox-crb
+//! (see `push_name`), as git commits of the same history as the trunk's,
+//! which are git try pushes (`git/REV`; see `try_import::is_git_push`).
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -14,20 +17,39 @@ use serde_json::Value;
 /// Where the bot's API is, if the config doesn't say (`code_review_url`).
 pub const CODE_REVIEW_URL: &str = "https://api.code-review.moz.tools";
 
+/// The try push (its name; see `try_import::normalize_push`) of a diff the bot
+/// pushed to repository `slug` (the API's) as `revision` (the API's
+/// `mercurial_hash`, whichever kind of revision it is), if it's one of the
+/// repositories it pushes Phabricator revisions' diffs to for firefox: hg's
+/// try (an hg push), or its GitHub repository for them, firefox-crb (a git
+/// push, `git/REV`; see `try_import::is_git_push`).
+pub fn push_name(slug: &str, revision: &str) -> Option<String> {
+    match slug {
+        "try" => crate::try_import::normalize_rev(revision),
+        "mozilla-firefox_firefox-crb" => {
+            crate::try_import::normalize_git_rev(revision).map(|rev| format!("git/{}", rev))
+        }
+        _ => None,
+    }
+}
+
 /// The latest of a Phabricator revision's diffs which the bot pushed to try:
-/// its try push (its revision on try, 40 hexadecimal digits), the diff's PHID
-/// (Phabricator's, the bot's `provider_id`, so that a dashboard can tell
-/// whether the push is of the revision's current diff; the bot's own ids of
-/// diffs aren't Phabricator's), and when the bot made it.
+/// its try push (its name, ex: its revision on hg's try, 40 hexadecimal
+/// digits, or `git/REV`; see `push_name`), the diff's PHID (Phabricator's,
+/// the bot's `provider_id`, so that a dashboard can tell whether the push is
+/// of the revision's current diff; the bot's own ids of diffs aren't
+/// Phabricator's), when the bot made it, and which repository it's in (the
+/// API's slug).
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RevisionTryPush {
     pub push: String,
     pub diff_phid: Option<String>,
     pub created: String,
+    pub repository: String,
 }
 
-/// The try push (its revision on try) of the latest of Phabricator revision
-/// `number`'s diffs which the bot pushed to try, by the API at `base` (or,
+/// The try push (its name; see `push_name`) of the latest of Phabricator
+/// revision `number`'s diffs which the bot pushed to try, by the API at `base` (or,
 /// for a `file://` base, its `diffs-NUMBER.json`, ex: tests' fixtures), if
 /// any.
 pub async fn try_push_of_revision(base: &str, number: u64) -> Option<String> {
@@ -120,13 +142,16 @@ pub fn latest_try_diff(response: &Value, number: u64) -> Option<RevisionTryPush>
         .filter(|diff| {
             diff["revision"]["provider"] == "phabricator"
                 && diff["revision"]["provider_id"].as_u64() == Some(number)
-                && diff["repository"]["slug"] == "try"
         })
         .filter_map(|diff| {
             Some(RevisionTryPush {
-                push: crate::try_import::normalize_rev(diff["mercurial_hash"].as_str()?)?,
+                push: push_name(
+                    diff["repository"]["slug"].as_str()?,
+                    diff["mercurial_hash"].as_str()?,
+                )?,
                 diff_phid: diff["provider_id"].as_str().map(str::to_string),
                 created: diff["created"].as_str()?.to_string(),
+                repository: diff["repository"]["slug"].as_str()?.to_string(),
             })
         })
         .max_by(|a, b| a.created.cmp(&b.created))
@@ -173,7 +198,46 @@ mod tests {
                 push: "eb82baaeebe8569e0a6c37fa9f12289a9fe7e850".to_string(),
                 diff_phid: Some("PHID-DIFF-pwvkmz6doimuhqweswq4".to_string()),
                 created: "2026-11-03T21:55:52.781404Z".to_string(),
+                repository: "try".to_string(),
             })
+        );
+
+        // (A diff the bot pushed to firefox-crb, the GitHub repository it
+        // pushes diffs to as well, after one it pushed to try, as the API
+        // answered for D345222; and a GitHub pull request's, which isn't a
+        // Phabricator revision's, of the same number.)
+        let response = serde_json::json!({ "results": [
+            diff(345222, "try", "c5d7e4f2c2a8f7ad3a8a0fa5f4c53a0d7d0f2a11", "2026-11-23T18:28:00.000000Z",
+                 "PHID-DIFF-a"),
+            diff(345222, "mozilla-firefox_firefox-crb", "22a315f4d8d5e2b0a6f4c1d2e3f4a5b6c7d8e9f0",
+                 "2026-11-25T07:40:00.000000Z", "PHID-DIFF-b"),
+            serde_json::json!({
+                "provider_id": "PR",
+                "revision": { "provider": "github", "provider_id": 345222 },
+                "repository": { "slug": "mozilla-firefox_firefox" },
+                "mercurial_hash": "21c859f38ce08cfc5d576ce96bbef3f82a6182c0",
+                "created": "2026-11-26T00:00:00.000000Z",
+            }),
+        ]});
+        let latest = latest_try_diff(&response, 345222).unwrap();
+        assert_eq!(
+            (latest.push.as_str(), latest.repository.as_str()),
+            (
+                "git/22a315f4d8d5e2b0a6f4c1d2e3f4a5b6c7d8e9f0",
+                "mozilla-firefox_firefox-crb"
+            ),
+            "the latest, on firefox-crb, a git push"
+        );
+        assert_eq!(
+            push_name("mozilla-firefox_firefox-crb", "22a315f4d8d5"),
+            None
+        );
+        assert_eq!(
+            push_name(
+                "mozilla-firefox_firefox",
+                "22a315f4d8d5e2b0a6f4c1d2e3f4a5b6c7d8e9f0"
+            ),
+            None
         );
     }
 }

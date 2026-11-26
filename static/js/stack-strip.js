@@ -119,7 +119,8 @@
     note.className = "stack-strip-note";
     const link = document.createElement("a");
     link.href = `/${tree}/${stack}`;
-    const of = stack.startsWith("try/hg/") ? "the try push" : stack.startsWith("try/") ? "the pull request" : "the stack";
+    // (An hg or git try push's, or a pull request's.)
+    const of = /^try\/(?:hg|git)\//.test(stack) ? "the try push" : stack.startsWith("try/") ? "the pull request" : "the stack";
     link.textContent = `the ${count} commit${count == 1 ? "" : "s"} of ${of}`;
     note.append("Beside the blame, which of ", link,
                 " changed each line (hover over a slot to see which).");

@@ -73,7 +73,7 @@ var OutlineSection = new (class OutlineSection {
       if (strip?.base) {
         // (A try push's, or a spec's pull request's.)
         const tryPush = stack.startsWith("try/");
-        const what = stack.startsWith("try/hg/") ? "try push" : "pull request";
+        const what = /^try\/(?:hg|git)\//.test(stack) ? "try push" : "pull request";
         return {
           from: strip.base,
           label: tryPush ? `the ${what}'s base` : "the stack's base",

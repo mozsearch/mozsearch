@@ -349,7 +349,8 @@ fn github_review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> W
 /// the tree's hg try pushes (see `format::hg_try_importing`): the review of
 /// the code review bot's try push of its latest diff (see
 /// `tools::code_review`), or of the push the URL pins
-/// (`/{tree}/review/phab/D{number}/{push}`), which starts at the revision's
+/// (`/{tree}/review/phab/D{number}/{push}`, or `.../git/{rev}` for a git
+/// push; see `tools::try_import::is_git_push`), which starts at the revision's
 /// patch (see try-review.js's `focusRevision`).  A push which isn't imported
 /// is asked for, as a person's request (but a landed revision's, whose page
 /// offers it), and its page says how far its import is, until it's the
@@ -361,7 +362,7 @@ fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebRespo
         return github_review_page(cfg, tree_name, path);
     }
     let number = match (path.get(2), path.get(3)) {
-        (Some(&"phab"), Some(revision)) if path.len() <= 5 => revision
+        (Some(&"phab"), Some(revision)) if path.len() <= 6 => revision
             .strip_prefix('D')
             .and_then(|number| number.parse::<u64>().ok()),
         _ => None,
@@ -369,12 +370,18 @@ fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebRespo
     let Some(number) = number else {
         return WebResponse::not_found();
     };
-    let pinned = match path.get(4) {
-        Some(push) => match tools::try_import::normalize_rev(push) {
+    // (An hg push, by its revision, or a git push, `git/REV`.)
+    let pinned = match (path.get(4), path.get(5)) {
+        (Some(push), None) => match tools::try_import::normalize_rev(push) {
             Some(push) => Some(push),
             None => return WebResponse::not_found(),
         },
-        None => None,
+        (Some(&"git"), Some(rev)) => match tools::try_import::normalize_git_rev(rev) {
+            Some(rev) => Some(format!("git/{}", rev)),
+            None => return WebResponse::not_found(),
+        },
+        (Some(_), Some(_)) => return WebResponse::not_found(),
+        _ => None,
     };
     let Some(importing) = format::hg_try_importing(cfg, tree_name) else {
         return WebResponse::not_found();

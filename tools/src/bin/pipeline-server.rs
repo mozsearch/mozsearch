@@ -553,8 +553,10 @@ async fn handle_query(
                 return Ok((
                     StatusCode::NOT_FOUND,
                     format!(
-                        "The try push {} isn't imported here (its page, /{}/try/hg/{}, imports it)",
-                        push, tree, push
+                        "The try push {} isn't imported here (its page, /{}/{}, imports it)",
+                        push,
+                        tree,
+                        tools::try_import::push_url_path(&push)
                     ),
                 )
                     .into_response());
