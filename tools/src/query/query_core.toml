@@ -758,6 +758,21 @@ args.positional = "$0"
 command = "try-review"
 args.positional = "$0"
 
+# The tree's recent landings (the last DAYS days' up to its last landing), by
+# stack (each bug's commits), each linked to its review (see the tools'
+# cmd_landings.rs), which the tree's /explore/ page is; and, weighed by how
+# much more their reviews show than a line diff does, the interesting ones.
+[term.landings]
+[[term.landings.group.landings]]
+command = "landings"
+args.positional = "$0"
+
+[term.interesting-landings]
+[[term.interesting-landings.group.landings]]
+command = "landings"
+args.positional = "$0"
+args.interesting = true
+
 [term.crash-threads]
 [[term.crash-threads.group.crash]]
 command = "crash-stack"
@@ -972,6 +987,9 @@ output = "result"
 output = "result"
 
 [group.try-review]
+output = "result"
+
+[group.landings]
 output = "result"
 
 [group.bug-comment]

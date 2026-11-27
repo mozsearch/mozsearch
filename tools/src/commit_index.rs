@@ -274,7 +274,9 @@ pub fn message_phab_revs(message: &str) -> Vec<String> {
         .collect()
 }
 
-fn is_backout(message: &str) -> bool {
+/// Whether a commit message's summary line says it's a backout (or a
+/// revert).
+pub fn is_backout(message: &str) -> bool {
     lazy_static! {
         static ref BACKOUT_REGEX: Regex = Regex::new(r"^(?i)(back(ed|ing)? ?out|revert)").unwrap();
     }
@@ -349,6 +351,52 @@ impl SortedLines {
             let end = line_end(start);
             let line = String::from_utf8_lossy(&data[start + prefix.len()..end]);
             found.push(line.split('\t').map(str::to_string).collect());
+            start = end + 1;
+        }
+        found
+    }
+
+    /// The fields of the lines which sort at or after `probe`, in order.
+    pub(crate) fn from(&self, probe: &str) -> Vec<Vec<String>> {
+        let Some(mmap) = &self.mmap else {
+            return vec![];
+        };
+        let data = &mmap[..];
+        let probe = probe.as_bytes();
+        let line_end = |start: usize| {
+            data[start..]
+                .iter()
+                .position(|&b| b == b'\n')
+                .map_or(data.len(), |i| start + i)
+        };
+        // (As `find`'s bisection.)
+        let mut low = 0;
+        let mut high = data.len();
+        while low < high {
+            let mid = low + (high - low) / 2;
+            let start = data[low..mid]
+                .iter()
+                .rposition(|&b| b == b'\n')
+                .map_or(low, |i| low + i + 1);
+            let end = line_end(start);
+            if &data[start..end] < probe {
+                low = end + 1;
+            } else {
+                high = start;
+            }
+        }
+        let mut found = vec![];
+        let mut start = low;
+        while start < data.len() {
+            let end = line_end(start);
+            if start < end {
+                found.push(
+                    String::from_utf8_lossy(&data[start..end])
+                        .split('\t')
+                        .map(str::to_string)
+                        .collect(),
+                );
+            }
             start = end + 1;
         }
         found
@@ -851,6 +899,36 @@ impl CommitIndex {
             .max_by(|a, b| a.landed.cmp(&b.landed))
     }
 
+    /// The main line's commits (this branch's own, not those it reads
+    /// through to) which landed at or after `time` (as `by-landed` has them;
+    /// see `parse_time`), oldest first, each with when it landed: ex: for
+    /// the explore page's recent landings (see `format::landings_data`).
+    pub fn landed_since(&self, time: &str) -> Vec<RevAt> {
+        SortedLines::open(&self.dir.join("by-landed"))
+            .from(time)
+            .into_iter()
+            .filter_map(|fields| match fields.as_slice() {
+                [landed, _, rev] => Some(RevAt {
+                    rev: rev.clone(),
+                    landed: landed.clone(),
+                }),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The main line's last landed commit (this branch's own), if any.
+    pub fn last_landed(&self) -> Option<RevAt> {
+        let fields = SortedLines::open(&self.dir.join("by-landed")).last_before("~")?;
+        match fields.as_slice() {
+            [landed, _, rev] => Some(RevAt {
+                rev: rev.clone(),
+                landed: landed.clone(),
+            }),
+            _ => None,
+        }
+    }
+
     /// The other branches' indexes under the same `commit-index/` as this
     /// branch's (not the ones it reads through to), by branch name, for
     /// finding a bug's commits on other branches (ex: uplifts).
@@ -1302,6 +1380,21 @@ mod tests {
                 landed: "1970-01-01T00:50:00Z".to_string()
             })
         );
+        // (The main line's commits landed since a time, oldest first, and
+        // its last.)
+        let since: Vec<String> = index
+            .landed_since("1970-01-01T00:45:00Z")
+            .into_iter()
+            .map(|at| at.rev)
+            .collect();
+        assert_eq!(since.first(), Some(&out.to_string()), "{:?}", since);
+        assert_eq!(since.last(), Some(&merge.to_string()));
+        assert!(!since.contains(&land.to_string()), "(it landed before)");
+        assert_eq!(
+            index.last_landed().map(|at| at.rev),
+            Some(merge.to_string())
+        );
+        assert!(index.landed_since("1970-01-02T00:00:00Z").is_empty());
         assert_eq!(
             at(&try_index, "1970-01-02T00:00:00Z"),
             Some(merge.to_string())

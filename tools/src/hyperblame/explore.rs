@@ -165,6 +165,69 @@ pub fn commit_symbol_moves(history: &TreeHistory, rev: &str) -> Vec<SymbolMove> 
     moves
 }
 
+/// How a commit changed tokens, by its rev-summary (see `commit_stats`), for
+/// weighing what a token-centric review shows of it that a line diff
+/// doesn't (see `format::landings_data`): its tokens added and removed, those
+/// moved (within or between files) and evolved (ex: renamed), counted on
+/// their new side; and its symbols which moved from other files (see
+/// `SymbolSyntaxDelta::evolved_from_path`), with how many of their tokens
+/// moved, and how many it added on the way.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, serde::Deserialize)]
+pub struct CommitStats {
+    pub added: u32,
+    pub removed: u32,
+    pub moved: u32,
+    pub evolved: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub moves: Vec<StatsMove>,
+}
+
+/// A symbol a commit moved from another file (see `CommitStats`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, serde::Deserialize)]
+pub struct StatsMove {
+    pub from_path: String,
+    pub from: String,
+    pub to_path: String,
+    pub to: String,
+    pub moved: u32,
+    pub added: u32,
+}
+
+/// `CommitStats` of the commit `rev`, if the history has its rev-summary (of
+/// its files' totals, if it changed too many files to have each's).
+pub fn commit_stats(history: &TreeHistory, rev: &str) -> Option<CommitStats> {
+    let summary = rev_summary(history, rev)?;
+    let mut stats = CommitStats::default();
+    let mut add = |totals: &crate::file_format::history::timeline_common::TokenDeltaDetails| {
+        stats.added += totals.added;
+        stats.removed += totals.removed;
+        stats.moved += totals.moved;
+        stats.evolved += totals.evolved_from;
+    };
+    if let Some(totals) = &summary.file_totals {
+        add(&totals.token_totals);
+    }
+    let mut moves = vec![];
+    for (path, file) in summary.file_deltas {
+        for (pretty, delta) in file.delta.symbol_group.symbol_deltas {
+            let totals = &delta.token_totals;
+            add(totals);
+            if let (Some(from_path), Some(from)) = (delta.evolved_from_path, delta.evolved_from) {
+                moves.push(StatsMove {
+                    from_path,
+                    from,
+                    to_path: path.clone(),
+                    to: pretty,
+                    moved: totals.moved + totals.evolved_from,
+                    added: totals.added,
+                });
+            }
+        }
+    }
+    stats.moves = moves;
+    Some(stats)
+}
+
 /// What the commit `rev` changed.
 pub fn commit_changes(
     history: Option<&TreeHistory>,

@@ -466,11 +466,18 @@ fn review_query_page(tree_name: &str, name: &str, push: Option<&str>) -> WebResp
         Some(_) => "review",
         None => "try-review",
     };
+    query_page(tree_name, &format!("{}:{}", term, name), push)
+}
+
+/// The query page of `query` (ex: `landings:7`), as the pipeline-server
+/// renders it, here at another URL (ex: a review's), in the context of the
+/// try push `push` (`push=`), if any.
+fn query_page(tree_name: &str, query: &str, push: Option<&str>) -> WebResponse {
     let url = format!(
         "http://{}/{}/query/default?q={}{}",
         pipeline_server_addr(),
         tree_name,
-        urlencoding::encode(&format!("{}:{}", term, name)),
+        urlencoding::encode(query),
         push.map_or(String::new(), |push| format!(
             "&push={}",
             urlencoding::encode(push)
@@ -1514,15 +1521,29 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     path[1..4].join("/")
                 ));
             }
-            if path.len() != 4 {
-                return WebResponse::not_found();
-            }
-
-            // (Its review, unless the outline view is asked for, ex: by the
-            // review's link to it; see `landed_review_page`.)
             let params: HashMap<String, String> = url::form_urlencoded::parse(req.query.as_bytes())
                 .into_owned()
                 .collect();
+            // (`/{tree}/explore/`: the tree's recent landings, the last
+            // `days=` days' (a week's), or the interesting ones
+            // (`interesting=1`); see `tools::cmd_pipeline::cmd_landings`.)
+            if path.len() == 2 || (path.len() == 3 && path[2].is_empty()) {
+                let days = params
+                    .get("days")
+                    .and_then(|days| days.parse::<u32>().ok())
+                    .unwrap_or(format::LANDINGS_DAYS)
+                    .clamp(1, format::MAX_LANDINGS_DAYS);
+                let term = match params.get("interesting").map(String::as_str) {
+                    Some("1" | "true") => "interesting-landings",
+                    _ => "landings",
+                };
+                return query_page(tree_name, &format!("{}:{}", term, days), None);
+            }
+            if path.len() != 4 {
+                return WebResponse::not_found();
+            }
+            // (Its review, unless the outline view is asked for, ex: by the
+            // review's link to it; see `review_query_page`.)
             if params.get("view").map(String::as_str) != Some("outline") {
                 if let Some(name) =
                     tools::try_review::landed_review_name(&format!("{}/{}", path[2], path[3]))

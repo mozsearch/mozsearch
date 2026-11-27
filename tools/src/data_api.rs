@@ -80,6 +80,9 @@
 //!   `format::outline_diff_data`).
 //! - `explore-keys?kind=bug|phab&keys=`: the data of the explore page of bugs
 //!   or Phabricator revisions (see `format::explore_page_data`).
+//! - `landings?[days=][&interesting=true]`: the tree's recent landings (the
+//!   last `days` days' up to its last landing, 7 by default), and with
+//!   `interesting`, how they changed tokens (see `format::landings_data`).
 //! - `map-rev?kind=hg|old&from=`: the tree's revision for an hg revision or
 //!   an old git repository's (`null` if it has none).
 //! - `stack-strip?stack=&commit=&path=`: a file's stack strip for a stack
@@ -477,6 +480,13 @@ const ROUTES: &[Route] = &[
         name: "explore-keys",
         takes_path: false,
         params: &["kind", "keys"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "landings",
+        takes_path: false,
+        params: &["days", "interesting"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -1293,6 +1303,25 @@ async fn route_body(
             }
             Ok(Body::json(
                 &server.explore_keys(kind, keys).await.map_err(error)?,
+            ))
+        }
+        "landings" => {
+            let days = match params.get("days") {
+                Some(days) => days
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|days| (1..=crate::format::MAX_LANDINGS_DAYS).contains(days))
+                    .ok_or_else(|| {
+                        bad(format!(
+                            "days must be 1 to {}",
+                            crate::format::MAX_LANDINGS_DAYS
+                        ))
+                    })?,
+                None => crate::format::LANDINGS_DAYS,
+            };
+            let interesting = params.flag("interesting")?;
+            Ok(Body::json(
+                &server.landings(days, interesting).await.map_err(error)?,
             ))
         }
         "interdiff" | "interdiff-file" => {

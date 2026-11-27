@@ -8445,6 +8445,54 @@ mark.tr-word-added {
 }
 }
 
+/* A tree's recent landings, by stack (see cmd_landings.rs), each linked to
+   its review, with its badges (how much more its review shows than a line
+   diff does, if they're weighed; backouts). */
+.landings {
+  margin: 0 1rem 2rem;
+}
+.landings-about,
+.landings-days {
+  color: var(--page-subtle-foreground);
+}
+.landing {
+  padding: 0.4em 0 0.5em;
+  border-bottom: 1px solid var(--page-border-color);
+}
+.landing-head {
+  margin: 0;
+  font-size: 1em;
+}
+.landing-summary {
+  font-weight: normal;
+}
+.landing-meta {
+  margin: 0.1em 0;
+  color: var(--page-subtle-foreground);
+  font-size: 0.85em;
+}
+.landing-badges {
+  margin: 0.2em 0;
+}
+.landing-badge {
+  display: inline-block;
+  margin-inline-end: 0.4em;
+  padding: 0 0.5em;
+  border: 1px solid var(--tr-moved-color);
+  border-radius: 1em;
+  font-size: 0.85em;
+}
+.landing-commits {
+  margin: 0.1em 0;
+  padding-inline-start: 1.5em;
+  font-size: 0.85em;
+}
+.landing-more > summary {
+  color: var(--page-subtle-foreground);
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
 .tr-crumbs .tr-crumb-review {
   color: var(--page-subtle-foreground);
 }

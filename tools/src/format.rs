@@ -9977,6 +9977,97 @@ pub fn explore_page_data(
     }))
 }
 
+/// How many days of landings the `/explore/` page lists (see
+/// `landings_data`), unless it asks for others, and the most it can.
+pub const LANDINGS_DAYS: u32 = 7;
+pub const MAX_LANDINGS_DAYS: u32 = 90;
+
+/// The most commits `landings_data` has (the newest).
+const MAX_LANDINGS: usize = 3000;
+
+/// The tree's recent landings, for its `/explore/` page (see
+/// `cmd_landings`): its branch's main line's commits which landed in the
+/// `days` up to its last landing (by the commit index's `by-landed`, so that
+/// they're the indexed revision's, whenever it's asked), oldest first, at
+/// most `MAX_LANDINGS` (the newest; `truncated` if there were more), each
+/// with its summary, author (mail-mapped), bugs (its summary's) and
+/// Phabricator revision, whether it's a backout, its files, and, if
+/// `interesting`, how it changed tokens (see `explore::commit_stats`), for
+/// weighing what its review shows that a line diff doesn't.
+pub fn landings_data(
+    cfg: &Config,
+    tree_name: &str,
+    days: u32,
+    interesting: bool,
+) -> Result<serde_json::Value, &'static str> {
+    use crate::commit_index::{is_backout, message_bugs, message_phab_revision};
+
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref();
+    let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
+    let index = history
+        .and_then(|history| {
+            CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
+        })
+        .ok_or("This tree has no commit index")?;
+    let days = days.clamp(1, MAX_LANDINGS_DAYS);
+    let Some(last) = index.last_landed() else {
+        return Ok(json!({ "days": days, "commits": [], "truncated": false }));
+    };
+    let until = chrono::DateTime::parse_from_rfc3339(&last.landed)
+        .map_err(|_| "The commit index's landing dates aren't dates")?;
+    let since = (until - chrono::Duration::days(days as i64))
+        .with_timezone(&chrono::Utc)
+        .format("%Y-%m-%dT%H:%M:%SZ")
+        .to_string();
+    let mut landed = index.landed_since(&since);
+    let truncated = landed.len() > MAX_LANDINGS;
+    if truncated {
+        landed.drain(..landed.len() - MAX_LANDINGS);
+    }
+    let mut commits = vec![];
+    for at in landed {
+        let Some(commit) = Oid::from_str(&at.rev)
+            .ok()
+            .and_then(|oid| git.repo.find_commit(oid).ok())
+        else {
+            continue;
+        };
+        let message = String::from_utf8_lossy(commit.message_bytes()).into_owned();
+        let author = commit.author();
+        let (name, _) = git
+            .mailmap
+            .lookup(author.name().unwrap_or(""), author.email().unwrap_or(""));
+        let files: Vec<String> = commit_changes(history, &git.repo, &at.rev)
+            .into_keys()
+            .collect();
+        let stats = match (interesting, history) {
+            (true, Some(history)) => explore::commit_stats(history, &at.rev),
+            _ => None,
+        };
+        commits.push(json!({
+            "rev": at.rev,
+            "landed": at.landed,
+            "summary": message.lines().next().unwrap_or(""),
+            "author": name,
+            "bugs": message_bugs(&message),
+            "phab": message_phab_revision(&message),
+            "backout": is_backout(&message),
+            "files": files,
+            "stats": stats,
+        }));
+    }
+    Ok(json!({
+        "days": days,
+        "since": since,
+        "until": last.landed,
+        "truncated": truncated,
+        "interesting": interesting,
+        "commits": commits,
+    }))
+}
+
 /// An `/explore/bug/BUGS` or `/explore/phab/REVS` page, with its `data` (see
 /// `explore_page_data`), and its files' outline diffs from `server`.
 pub fn render_explore_page(

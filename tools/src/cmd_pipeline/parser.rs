@@ -19,6 +19,7 @@ use super::cmd_history_grep::HistoryGrepCommandArgs;
 use super::cmd_history_journal::HistoryJournal;
 use super::cmd_jq::JQ;
 use super::cmd_jumpref_lookup::JumprefLookup;
+use super::cmd_landings::Landings;
 use super::cmd_lock_held::LockHeld;
 use super::cmd_lock_regions::LockRegions;
 use super::cmd_merge_analyses::MergeAnalyses;
@@ -112,6 +113,7 @@ pub enum Command {
     TryReview(TryReview),
     LockRegions(LockRegions),
     BugComment(BugComment),
+    Landings(Landings),
     RevAt(RevAt),
     HistoryGrep(HistoryGrepCommandArgs),
     TokenHistory(TokenHistoryArgs),

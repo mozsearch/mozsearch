@@ -995,6 +995,20 @@ impl AbstractServer for RemoteServer {
         )
     }
 
+    async fn landings(&self, days: u32, interesting: bool) -> Result<Value> {
+        let days = days.to_string();
+        let interesting = if interesting { "true" } else { "false" };
+        parse(
+            &self
+                .api(
+                    "landings",
+                    None,
+                    &[("days", days.as_str()), ("interesting", interesting)],
+                )
+                .await?,
+        )
+    }
+
     async fn map_rev(&self, kind: &str, rev: &str) -> Result<Option<String>> {
         parse(
             &self

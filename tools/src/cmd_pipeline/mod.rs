@@ -22,6 +22,7 @@ pub mod cmd_lock_held;
 pub mod cmd_try_review;
 pub mod cmd_lock_regions;
 pub mod cmd_crash_stack;
+pub mod cmd_landings;
 pub mod cmd_rev_at;
 mod cmd_crossref_expand;
 mod cmd_crossref_lookup;

@@ -25,11 +25,12 @@ use super::{
     cmd_dataflow::DataflowCommand, cmd_format_symbols::FormatSymbolsCommand,
     cmd_fuse_crossrefs::FuseCrossrefsCommand, cmd_history_grep::HistoryGrepCommand,
     cmd_history_journal::HistoryJournalCommand, cmd_jq::JQCommand,
-    cmd_jumpref_lookup::JumprefLookupCommand, cmd_lock_held::LockHeldCommand,
-    cmd_lock_regions::LockRegionsCommand, cmd_render::RenderCommand, cmd_rev_at::RevAtCommand,
-    cmd_token_history::TokenHistoryCommand, cmd_token_names::TokenNamesCommand,
-    cmd_token_timeline::TokenTimelineCommand, cmd_tokenize_source::TokenizeSourceCommand,
-    cmd_traverse::TraverseCommand, cmd_try_review::TryReviewCommand, cmd_webtest::WebtestCommand,
+    cmd_jumpref_lookup::JumprefLookupCommand, cmd_landings::LandingsCommand,
+    cmd_lock_held::LockHeldCommand, cmd_lock_regions::LockRegionsCommand,
+    cmd_render::RenderCommand, cmd_rev_at::RevAtCommand, cmd_token_history::TokenHistoryCommand,
+    cmd_token_names::TokenNamesCommand, cmd_token_timeline::TokenTimelineCommand,
+    cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand,
+    cmd_try_review::TryReviewCommand, cmd_webtest::WebtestCommand,
 };
 use super::{
     cmd_cat_html::CatHtmlCommand,
@@ -112,6 +113,7 @@ pub fn fab_command_from_opts(
         (Command::TryReview(c), _) => Ok(Box::new(TryReviewCommand { args: c })),
         (Command::LockRegions(c), _) => Ok(Box::new(LockRegionsCommand { args: c })),
         (Command::BugComment(c), _) => Ok(Box::new(BugCommentCommand { args: c })),
+        (Command::Landings(l), _) => Ok(Box::new(LandingsCommand { args: l })),
         (Command::RevAt(r), _) => Ok(Box::new(RevAtCommand { args: r })),
 
         (Command::HistoryGrep(h), _) => Ok(Box::new(HistoryGrepCommand::new(h))),

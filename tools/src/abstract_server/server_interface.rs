@@ -888,6 +888,14 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The tree's recent landings: its main line's commits which landed in
+    /// the `days` up to its last landing, and, if `interesting`, how they
+    /// changed tokens (see `format::landings_data`), for its `/explore/`
+    /// page (see `cmd_landings`).
+    async fn landings(&self, _days: u32, _interesting: bool) -> Result<Value> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The crash report `id` (crash-stats' processed crash; see
     /// `crash_stack::crash_report_stack`), from crash-stats, unless the
     /// config says where (`Config::crash_reports_url`).

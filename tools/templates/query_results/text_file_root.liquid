@@ -36,6 +36,9 @@
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.bug-comment+html" %}
 {%- comment %}(A Bugzilla comment's view; see bug_comment.rs.){% endcomment %}
     {{ results.TextFile.contents }}
+{% elsif results.TextFile.mime_type == "application/vnd.searchfox.landings+html" %}
+{%- comment %}(The tree's recent landings; see cmd_landings.rs.){% endcomment %}
+    {{ results.TextFile.contents }}
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.rev-at+html" %}
 {%- comment %}(The head a tree's branch had at a time; see cmd_rev_at.rs.){% endcomment %}
     {{ results.TextFile.contents }}

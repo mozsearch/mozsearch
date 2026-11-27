@@ -509,6 +509,12 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn landings(&self, days: u32, interesting: bool) -> Result<Value> {
+        let cfg = self.tree_config_loaded();
+        crate::format::landings_data(&cfg, &self.tree_name, days, interesting)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn crash_report(&self, id: &str) -> Result<std::sync::Arc<Value>> {
         // (A crash set's crash, from the store, even once crash-stats has
         // dropped it; see `crash_sets`.)
