@@ -205,9 +205,15 @@ fn parse_semantic_tus(state: &str) -> Option<u64> {
 /// predict, before the analysis's base was prepared, as after a new index,
 /// which the first analysis prepares), it found another cheaper.  It's then
 /// queued again, as it was, with its tree's waiting analyses' costs read
-/// again, so that the cheapest runs first.  Only an analysis whose cost
-/// wasn't known when it started can defer itself (once, then); another's
-/// deferral fails it.
+/// again, so that the cheapest runs first.  Or having found, once its build
+/// knew, that it compiles more than predicted (ex: headers its stack's
+/// changes to IDL, IPDL or YAML files regenerate, which many translation
+/// units include, and which its prediction, from its stack's files, couldn't
+/// know), more than the small lane takes, in the small lane (see `Lane`,
+/// `TRY_SEMANTIC_SMALL_TUS`), so that the main lane builds it.  An analysis
+/// can only defer itself if its cost wasn't known when it started, or if its
+/// state now says it's higher; another's deferral fails it (so that none
+/// defers forever).
 pub const DEFERRED: &str = "DEFERRED=1";
 
 /// A deferred semantic analysis's state without its `DEFERRED` line, if it
@@ -224,6 +230,30 @@ fn undeferred_state(state: &str) -> Option<String> {
             .map(|line| format!("{}\n", line))
             .collect(),
     )
+}
+
+/// Whether a semantic analysis whose cost was `predicted` when it started can
+/// defer itself (see `DEFERRED`), its state's cost now being `revised`: if
+/// its cost wasn't known, or is higher now.
+fn may_defer(predicted: Option<u64>, revised: Option<u64>) -> bool {
+    match (predicted, revised) {
+        (None, _) => true,
+        (Some(predicted), Some(revised)) => revised > predicted,
+        (Some(_), None) => false,
+    }
+}
+
+/// A running semantic analysis's time limit (see `semantic_time_limit`), by
+/// the higher of its `predicted` cost and its state's (at `path`), which its
+/// hook revises once its build knows (see `DEFERRED`).
+fn revised_time_limit(predicted: Option<u64>, path: Option<&Path>) -> Duration {
+    let revised = path
+        .and_then(|path| fs::read_to_string(path).ok())
+        .and_then(|state| parse_semantic_tus(&state));
+    semantic_time_limit(match (predicted, revised) {
+        (Some(predicted), Some(revised)) => Some(predicted.max(revised)),
+        (predicted, revised) => predicted.or(revised),
+    })
 }
 
 /// How long after an import failed it can be asked for again.
@@ -1638,7 +1668,7 @@ impl TryImports {
         if let Some(path) = semantic_state_path(cfg, &job.tree, &job.rev) {
             let _ = fs::remove_file(path);
         }
-        self.run_phase(cfg, job, Phase::History, TIME_LIMIT, Lane::Main)?;
+        self.run_phase(cfg, job, Phase::History, &|| TIME_LIMIT, Lane::Main)?;
         if imported_head(cfg, &job.tree, &job.rev).is_none() {
             return Err("The import finished, but the history doesn't have the push".to_string());
         }
@@ -1652,24 +1682,28 @@ impl TryImports {
     /// or, if it deferred itself (see `DEFERRED`), true, its state kept.
     fn analyze(&self, cfg: &Config, semantic: &SemanticJob) -> Result<bool, String> {
         let job = &semantic.job;
+        let state_path = semantic_state_path(cfg, &job.tree, &job.rev);
         let result = self.run_phase(
             cfg,
             job,
             Phase::Semantic,
-            semantic_time_limit(semantic.tus),
+            &|| revised_time_limit(semantic.tus, state_path.as_deref()),
             semantic.lane,
         );
         if let Some(path) = semantic_state_path(cfg, &job.tree, &job.rev) {
             // (Kept, without its `DEFERRED=`, if it deferred itself, which
-            // only one whose cost wasn't known can, once.)
+            // only one whose cost wasn't known, or is higher now, can.)
             if let (Ok(()), Ok(state)) = (&result, fs::read_to_string(&path)) {
                 if let Some(kept) = undeferred_state(&state) {
-                    if semantic.tus.is_none() && fs::write(&path, &kept).is_ok() {
+                    if may_defer(semantic.tus, parse_semantic_tus(&kept))
+                        && fs::write(&path, &kept).is_ok()
+                    {
                         return Ok(true);
                     }
                     let _ = fs::remove_file(&path);
                     let message =
-                        "It deferred its semantic analysis, whose cost was known".to_string();
+                        "It deferred its semantic analysis, whose cost was known and no higher"
+                            .to_string();
                     if let Some(log_path) = import_log_path(cfg, &job.tree, &job.rev) {
                         append_to_log(&log_path, &format!("ERROR: {}", message));
                     }
@@ -1692,7 +1726,7 @@ impl TryImports {
         cfg: &Config,
         job: &Job,
         phase: Phase,
-        time_limit: Duration,
+        time_limit: &dyn Fn() -> Duration,
         lane: Lane,
     ) -> Result<(), String> {
         let tree_config = cfg.trees.get(&job.tree).ok_or("No such tree")?;
@@ -1719,6 +1753,10 @@ impl TryImports {
         let lock_path = Path::new(history_root)
             .join("try-imports")
             .join("history.lock");
+        let small_tus = SMALL_SEMANTIC_TUS.to_string();
+        let state_path = semantic_state_path(cfg, &job.tree, &job.rev)
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_default();
         let envs: Vec<(&str, &str)> = vec![
             ("MOZSEARCH_PATH", &cfg.mozsearch_path),
             ("CONFIG_REPO", &cfg.config_repo_path),
@@ -1746,8 +1784,12 @@ impl TryImports {
             ("TRY_IMPORT_WORKERS", &workers),
             // (Which phase; see `Phase`.)
             ("TRY_IMPORT_PHASE", phase.name()),
-            // (And a semantic analysis's lane; see `Lane`.)
+            // (And a semantic analysis's lane, the most a small one compiles,
+            // and its state, which its hook revises its cost in; see
+            // `Lane` and `DEFERRED`.)
             ("TRY_SEMANTIC_LANE", lane.name()),
+            ("TRY_SEMANTIC_SMALL_TUS", &small_tus),
+            ("TRY_SEMANTIC_STATE", &state_path),
         ];
         run_hook(
             &hook,
@@ -1773,7 +1815,7 @@ pub fn run_hook(
     args: &[&str],
     envs: &[(&str, &str)],
     log_path: &Path,
-    time_limit: Duration,
+    time_limit: &dyn Fn() -> Duration,
     append: bool,
     step: &mut dyn FnMut(String),
 ) -> Result<(), String> {
@@ -1807,7 +1849,10 @@ pub fn run_hook(
         if let Some(exited) = try_wait_with_usage(&child).map_err(|e| e.to_string())? {
             break exited;
         }
-        if started.elapsed() > time_limit {
+        // (Asked each time: a semantic analysis's grows with its revised
+        // cost; see `revised_time_limit`.)
+        let limit = time_limit();
+        if started.elapsed() > limit {
             // (The hook's process group, with what it runs.)
             let _ = Command::new("kill")
                 .args(["-TERM", "--", &format!("-{}", child.id())])
@@ -1815,7 +1860,7 @@ pub fn run_hook(
             let _ = child.wait();
             return Err(format!(
                 "It took longer than {} minutes",
-                time_limit.as_secs() / 60
+                limit.as_secs() / 60
             ));
         }
         step(follower.update(log_path));
@@ -2159,7 +2204,15 @@ mod tests {
         .unwrap();
         fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
         for code in ["0", "1"] {
-            let result = run_hook(&hook, &[code], &[], &log, TIME_LIMIT, false, &mut |_| {});
+            let result = run_hook(
+                &hook,
+                &[code],
+                &[],
+                &log,
+                &|| TIME_LIMIT,
+                false,
+                &mut |_| {},
+            );
             let text = fs::read_to_string(&log).unwrap();
             let last = text.lines().last().unwrap();
             assert!(last.starts_with("try-import: the hook took "), "{}", last);
@@ -2321,6 +2374,30 @@ mod tests {
             Some("REBASED=abc\nTUS=12\n")
         );
         assert_eq!(undeferred_state("REBASED=abc\nTUS=12\n"), None);
+        // (Only if its cost wasn't known, or is higher now.)
+        assert!(may_defer(None, Some(12)));
+        assert!(may_defer(None, None));
+        assert!(may_defer(Some(345), Some(3365)));
+        assert!(!may_defer(Some(345), Some(345)));
+        assert!(!may_defer(Some(345), None));
+        // (A running analysis's limit grows with its revised cost.)
+        let dir = std::env::temp_dir().join(format!("try-import-limit-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let state = dir.join("push.semantic");
+        fs::write(&state, "REBASED=abc\nALSO_REBASED=''\nTUS=3365\n").unwrap();
+        assert_eq!(
+            revised_time_limit(Some(345), Some(&state)),
+            semantic_time_limit(Some(3365))
+        );
+        assert_eq!(
+            revised_time_limit(Some(345), None),
+            semantic_time_limit(Some(345))
+        );
+        assert_eq!(
+            revised_time_limit(None, Some(&state)),
+            semantic_time_limit(Some(3365))
+        );
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
