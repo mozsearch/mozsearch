@@ -749,6 +749,15 @@ args.positional = "$0"
 command = "try-review"
 args.positional = "$0"
 
+# A review view (see `try-review`) of a try push, or of a landed stack: the
+# commits mentioning bugs or Phabricator revisions, as their explore pages
+# have them ("bug/1975601", "phab/D123456"; see the tools'
+# `landed_review_name`), which those pages are.
+[term.review]
+[[term.review.group.try-review]]
+command = "try-review"
+args.positional = "$0"
+
 [term.crash-threads]
 [[term.crash-threads.group.crash]]
 command = "crash-stack"

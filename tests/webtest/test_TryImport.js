@@ -62,7 +62,7 @@ add_task(async function test_TryImport() {
 
   // Its Phabricator revision's explore page has its commit, from the try
   // pushes' commit index.
-  await TestUtils.loadPath("/spechist/explore/phab/D5678");
+  await TestUtils.loadPath("/spechist/explore/phab/D5678?view=outline");
   ok(doc().querySelector(`.explore-other-branches a[href="/spechist/commit/${rev}"]`),
      "The push's Phabricator revision's explore page has its commit");
 });

@@ -6,7 +6,7 @@
 // parts landed together, so they share a commit time and are ordered by
 // ancestry.
 add_task(async function test_ExploreBug() {
-  await TestUtils.loadPath("/searchfox/explore/bug/1975601");
+  await TestUtils.loadPath("/searchfox/explore/bug/1975601?view=outline");
 
   const doc = frame.contentDocument;
   const crumbs = [...doc.querySelectorAll(".breadcrumbs a")].map(a => a.textContent);
@@ -52,7 +52,7 @@ add_task(async function test_ExploreBug() {
 // outline diffs' pages), which are shown unchanged, and the files' sparklines
 // are faded.
 add_task(async function test_ExploreOutlines() {
-  await TestUtils.loadPath("/searchfox/explore/bug/2002694");
+  await TestUtils.loadPath("/searchfox/explore/bug/2002694?view=outline");
 
   const doc = frame.contentDocument;
   const file = doc.querySelector('.explore-file[data-path="clang-plugin/MozsearchIndexer.cpp"]');
@@ -76,7 +76,7 @@ add_task(async function test_ExploreOutlines() {
 });
 
 add_task(async function test_ExploreMissingBug() {
-  await TestUtils.loadPath("/searchfox/explore/bug/9999999");
+  await TestUtils.loadPath("/searchfox/explore/bug/9999999?view=outline");
   ok(frame.contentDocument.querySelector(".explore-note").textContent.includes("No commits mention 9999999"),
      "The page says when a bug has no commits");
 });
@@ -85,7 +85,7 @@ add_task(async function test_ExploreMissingBug() {
 // facets filter them by path kind, subsystem, and directory, or group them by
 // another facet.  Bug 2018468 changed the diagram code and its webtests.
 add_task(async function test_ExploreFacets() {
-  await TestUtils.loadPath("/searchfox/explore/bug/2018468");
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468?view=outline");
 
   const doc = frame.contentDocument;
   const headers = () => [...doc.querySelectorAll(".facet-group")]
@@ -123,7 +123,7 @@ add_task(async function test_ExploreFacets() {
 });
 
 add_task(async function test_ExploreFacetsFromURL() {
-  await TestUtils.loadPath("/searchfox/explore/bug/2018468?facet-kind=test&group-by=dir");
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468?view=outline&facet-kind=test&group-by=dir");
 
   const doc = frame.contentDocument;
   const shown = [...doc.querySelectorAll(".explore-file")].filter(file => !file.hidden);
@@ -139,7 +139,7 @@ add_task(async function test_ExploreFacetsFromURL() {
 // with gaps, and the stack strip of the commits which changed them; clicking
 // keeps it there until Escape.
 add_task(async function test_ExploreExcerpts() {
-  await TestUtils.loadPath("/searchfox/explore/bug/2002694");
+  await TestUtils.loadPath("/searchfox/explore/bug/2002694?view=outline");
 
   const doc = frame.contentDocument;
   const row = name => [...doc.querySelectorAll(".explore-outline-rows tr[data-range]")]
@@ -177,7 +177,7 @@ add_task(async function test_ExploreExcerpts() {
 // and the groups (but path kinds, whose order is their own) by their biggest
 // files'.
 add_task(async function test_ExploreSortBy() {
-  await TestUtils.loadPath("/searchfox/explore/bug/2018468");
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468?view=outline");
 
   const doc = frame.contentDocument;
   const headers = () => [...doc.querySelectorAll(".facet-group-header")]
@@ -207,7 +207,7 @@ add_task(async function test_ExploreSortBy() {
 
 // The groups' headers' context menu chooses the grouping and the sorting too.
 add_task(async function test_ExploreGroupHeaderMenu() {
-  await TestUtils.loadPath("/searchfox/explore/bug/2018468");
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468?view=outline");
 
   const doc = frame.contentDocument;
   const header = doc.querySelector(".facet-group-header");
@@ -235,7 +235,7 @@ add_task(async function test_ExploreGroupHeaderMenu() {
 // The facets are in a collapsible box, which stays collapsed.
 add_task(async function test_ExploreFacetsCollapse() {
   registerCleanupFunction(() => frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("facets-collapsed")));
-  await TestUtils.loadPath("/searchfox/explore/bug/2018468?facet-kind=test");
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468?view=outline&facet-kind=test");
 
   const doc = frame.contentDocument;
   const toggle = doc.querySelector(".facet-toggle");
@@ -245,6 +245,6 @@ add_task(async function test_ExploreFacetsCollapse() {
   is(toggle.getAttribute("aria-expanded"), "false", "and says so");
   ok(TestUtils.isShown(doc.querySelector(".facet-status")), "The status still says that files are hidden");
 
-  await TestUtils.loadPath("/searchfox/explore/bug/2018468");
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468?view=outline");
   ok(frame.contentDocument.querySelector(".facet-bar").hidden, "The facets stay hidden");
 });

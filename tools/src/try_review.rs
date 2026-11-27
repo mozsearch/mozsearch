@@ -620,11 +620,114 @@ impl Section {
     }
 }
 
-/// A try push's review view.
+/// What a landed stack's review is of (see `landed_review_name`): the bugs or
+/// Phabricator revisions (`kind`, "bug" or "phab", and their `keys`, ex:
+/// "1975601" or "D123456") whose commits it has, as their explore page has
+/// them (see `format::explore_page_data`), and what else that page says: the
+/// keys no commit mentions, and their commits on other branches (ex: uplifts
+/// to beta), each with its tree's link.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct LandedOf {
+    pub kind: String,
+    pub keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub other_branches: Vec<OtherBranch>,
+}
+
+/// A landed stack's commits on another branch (see `LandedOf`): the branch,
+/// the tree whose pages have it, and its commits (their revisions and
+/// summaries).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct OtherBranch {
+    pub branch: String,
+    pub tree: String,
+    pub commits: Vec<(String, String)>,
+}
+
+/// The most bugs or Phabricator revisions a landed stack's review is of, as
+/// their explore page has (see `format::explore_page_data`).
+const MAX_LANDED_KEYS: usize = 10;
+
+/// A landed stack's review's name, if `name` is one's: `bug/` and bugs'
+/// numbers, or `phab/` and Phabricator revisions' (`D` and their numbers),
+/// comma-separated (ex: `bug/1975601`, `phab/D123,D124`), at most
+/// `MAX_LANDED_KEYS` of them, whose commits it has (as their explore page,
+/// `/{tree}/explore/{kind}/{keys}`, has them).  Its keys' case is theirs
+/// (`D`), whatever the name's is (ex: a query's, lowercased).
+pub fn landed_review_name(name: &str) -> Option<String> {
+    let (kind, keys) = name.trim().split_once('/')?;
+    let number = |key: &str| {
+        (1..=9).contains(&key.len())
+            && key.bytes().all(|b| b.is_ascii_digit())
+            && !key.starts_with('0')
+    };
+    let keys: Vec<String> = match kind.to_ascii_lowercase().as_str() {
+        "bug" => keys
+            .split(',')
+            .map(|key| number(key).then(|| key.to_string()))
+            .collect::<Option<_>>()?,
+        "phab" => keys
+            .split(',')
+            .map(|key| {
+                let number_part = key.strip_prefix('D').or_else(|| key.strip_prefix('d'))?;
+                number(number_part).then(|| format!("D{}", number_part))
+            })
+            .collect::<Option<_>>()?,
+        _ => return None,
+    };
+    if keys.is_empty() || keys.len() > MAX_LANDED_KEYS {
+        return None;
+    }
+    Some(format!("{}/{}", kind.to_ascii_lowercase(), keys.join(",")))
+}
+
+/// The path of a review's page in its tree, which is also its stack context
+/// (ex: for its hunks' links; see `try_import::stack_push`): a try push's
+/// (`try/hg/{push}`; see `try_import::push_url_path`), or a landed stack's,
+/// its explore page's (`explore/{kind}/{keys}`).
+pub fn review_stack_path(name: &str) -> String {
+    match landed_review_name(name) {
+        Some(landed) => format!("explore/{}", landed),
+        None => crate::try_import::push_url_path(name),
+    }
+}
+
+/// How a review's page names what it's of, as `try_import::push_label` does
+/// a try push: ex: ("try push", "abcdef012345"), ("bug", "1975601"), or
+/// ("revisions", "D123, D124").
+pub fn review_label(name: &str) -> (String, String) {
+    match landed_review_name(name)
+        .as_deref()
+        .and_then(|name| name.split_once('/'))
+    {
+        Some((kind, keys)) => {
+            let many = keys.contains(',');
+            let what = match (kind, many) {
+                ("bug", false) => "bug",
+                ("bug", true) => "bugs",
+                (_, false) => "revision",
+                (_, true) => "revisions",
+            };
+            (what.to_string(), keys.replace(',', ", "))
+        }
+        None => {
+            let (what, short) = crate::try_import::push_label(name);
+            (what.to_string(), short)
+        }
+    }
+}
+
+/// A try push's review view, or a landed stack's (see `landed_review_name`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReviewView {
+    /// What it's of: the try push (its name; see `try_import::normalize_push`)
+    /// or the landed stack (`bug/123`, `phab/D123`; see
+    /// `landed_review_name`).
     pub push: String,
-    /// The review's key (see review-state.js): `{tree}/try/{push}`.
+    /// The review's key (see review-state.js): `{tree}/try/{push}`, or a
+    /// landed stack's `{tree}/explore/{kind}/{keys}`.
     pub key: String,
     /// What the review is of, for finding it later: `["rev", hash]`,
     /// `["bug", n]`, `["phab", n]`.
@@ -650,6 +753,10 @@ pub struct ReviewView {
     pub semantic_trunk: Option<crate::try_import::SemanticTrunk>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub landed: Vec<crate::try_import::LandedCommit>,
+    /// If it's a landed stack's: of which bugs or Phabricator revisions, and
+    /// what of them its explore page says (see `LandedOf`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub landed_of: Option<LandedOf>,
     /// Its groups' parts of the push's slicing, for their diagrams (see
     /// `add_slicing`; not kept in the view's cache).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1251,21 +1358,45 @@ pub async fn review_view(
     push: &str,
 ) -> Result<ReviewView> {
     let tree = server.tree_info()?.name;
-    let Some(try_push) = server.try_push(push).await? else {
-        return Err(ServerError::StickyProblem(ErrorDetails {
-            layer: ErrorLayer::DataLayer,
-            message: format!(
-                "The try push {} isn't imported (its page, /{}/{}, can import it).",
-                push,
-                tree,
-                crate::try_import::push_url_path(push)
-            ),
-        }));
+    // (A landed stack's commits are its explore page's; see `landed_stack`.)
+    let (try_push, landed_of) = match landed_review_name(push) {
+        Some(name) => {
+            let (stack, landed_of) = landed_stack(server, &name).await?;
+            (stack, Some(landed_of))
+        }
+        None => match server.try_push(push).await? {
+            Some(try_push) => (try_push, None),
+            None => {
+                return Err(ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::DataLayer,
+                    message: format!(
+                        "The try push {} isn't imported (its page, /{}/{}, can import it).",
+                        push,
+                        tree,
+                        crate::try_import::push_url_path(push)
+                    ),
+                }));
+            }
+        },
     };
-    let mut indices: Vec<Value> = vec![json!(["rev", push])];
+    let mut indices: Vec<Value> = match &landed_of {
+        Some(of) => of
+            .keys
+            .iter()
+            .filter_map(|key| {
+                let number: u64 = key.trim_start_matches('D').parse().ok()?;
+                Some(json!([of.kind, number]))
+            })
+            .collect(),
+        None => vec![json!(["rev", push])],
+    };
     let mut patches = vec![];
     let revs: Vec<String> = try_push.stack.iter().map(|c| c.rev.clone()).collect();
-    let rebased = rebased_commits(server, push, &revs).await;
+    // (Landed commits aren't rebased.)
+    let rebased = match landed_of {
+        Some(_) => BTreeMap::new(),
+        None => rebased_commits(server, push, &revs).await,
+    };
     for commit in &try_push.stack {
         // (Its code is its rebased commit's, if it has one, whose parent's
         // analysis, for its stack's first commit changing a file, is the
@@ -1332,7 +1463,10 @@ pub async fn review_view(
     let groups = group_patches(&patches);
     Ok(ReviewView {
         push: push.to_string(),
-        key: format!("{}/try/{}", tree, push),
+        key: match landed_of {
+            Some(_) => format!("{}/{}", tree, review_stack_path(push)),
+            None => format!("{}/try/{}", tree, push),
+        },
         indices,
         patches,
         groups,
@@ -1348,7 +1482,93 @@ pub async fn review_view(
         later: vec![],
         moved: vec![],
         block_sym_info: None,
+        landed_of,
     })
+}
+
+/// A landed stack's commits (see `landed_review_name`), as a try push's stack
+/// (see `try_import::TryPush`, without its parts only try pushes have), and
+/// what else its explore page says of them (see `LandedOf`), by the tree's
+/// explore data (`AbstractServer::explore_keys`, the commits which mention
+/// its bugs or revisions, oldest first, backouts marked).
+async fn landed_stack(
+    server: &(dyn AbstractServer + Send + Sync),
+    name: &str,
+) -> Result<(crate::try_import::TryPush, LandedOf)> {
+    let (kind, keys) = name.split_once('/').unwrap_or((name, ""));
+    let data = server.explore_keys(kind, keys).await?;
+    let text = |value: &Value| value.as_str().unwrap_or_default().to_string();
+    let stack: Vec<crate::commit_index::CommitRef> = data["explore"]["commits"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|commit| {
+            Some(crate::commit_index::CommitRef {
+                rev: commit["rev"].as_str()?.to_string(),
+                iso_date: text(&commit["isoDate"]),
+                backout: commit["backout"].as_bool().unwrap_or(false),
+                phabricator_revision: None,
+            })
+        })
+        .collect();
+    let missing: Vec<String> = data["missing"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(text)
+        .collect();
+    let other_branches: Vec<OtherBranch> = data["other_branches"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|branch| OtherBranch {
+            branch: text(&branch["branch"]),
+            tree: text(&branch["link_tree"]),
+            commits: branch["commits"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|commit| (text(&commit["rev"]), text(&commit["summary"])))
+                .collect(),
+        })
+        .collect();
+    // (None on the tree's branch: maybe on others', which its outline view
+    // lists.)
+    if stack.is_empty() {
+        let message = match other_branches.as_slice() {
+            [] => format!("No commit of this tree's mentions {}.", missing.join(", ")),
+            branches => format!(
+                "No commit on this tree's branch mentions {}, but some on {} do: see its explore page's outline view (?view=outline).",
+                keys.replace(',', ", "),
+                branches
+                    .iter()
+                    .map(|branch| branch.branch.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        };
+        return Err(ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::BadInput,
+            message,
+        }));
+    }
+    Ok((
+        crate::try_import::TryPush {
+            stack,
+            truncated: data["truncated"].as_bool().unwrap_or(false),
+            task_selections: 0,
+            semantic_head: None,
+            semantic_failure: None,
+            landed: vec![],
+            semantic_trunk: None,
+        },
+        LandedOf {
+            kind: kind.to_string(),
+            keys: keys.split(',').map(str::to_string).collect(),
+            missing,
+            other_branches,
+        },
+    ))
 }
 
 // ## Syntax highlighting
@@ -3874,7 +4094,7 @@ fn file_html(
     file: &ReviewFile,
     section: Section,
 ) -> String {
-    let stack = crate::try_import::push_url_path(&view.push);
+    let stack = review_stack_path(&view.push);
     let hunks: Vec<&ReviewHunk> = file.hunks.iter().filter(|h| h.section == section).collect();
     // (The definitions of the section's hunks, and their ancestors.)
     let by_id: BTreeMap<&str, &ReviewDef> = file.defs.iter().map(|d| (d.id.as_str(), d)).collect();
@@ -4301,6 +4521,66 @@ fn group_head_html(view: &ReviewView, g: usize) -> String {
     )
 }
 
+/// A landed stack's review's notes (see `LandedOf`): what it's of, with their
+/// pages on Bugzilla or Phabricator (where they were reviewed), and their
+/// overview (the explore page's outline view: each file's commits and its
+/// definitions' changes); the keys no commit mentions; and their commits on
+/// other branches (ex: uplifts).
+fn landed_notes_html(tree: &str, view: &ReviewView) -> String {
+    let Some(of) = &view.landed_of else {
+        return String::new();
+    };
+    let links: Vec<String> = of
+        .keys
+        .iter()
+        .filter(|key| !of.missing.contains(key))
+        .map(|key| match of.kind.as_str() {
+            "bug" => format!(
+                r#"<a class="tr-landed-key" href="https://bugzilla.mozilla.org/show_bug.cgi?id={key}">bug {key}</a>"#,
+                key = escape(key)
+            ),
+            _ => format!(
+                r#"<a class="tr-landed-key" href="https://phabricator.services.mozilla.com/{key}">{key}</a>"#,
+                key = escape(key)
+            ),
+        })
+        .collect();
+    let mut html = format!(
+        r#"<p class="tr-note tr-landed-of">The commits which mention {links}, oldest first, each as it changed the files when it landed{compare}.  See also <a class="tr-outline-view" href="/{tree}/explore/{kind}/{keys}?view=outline">their overview</a>: each file's commits, and the definitions they changed.</p>"#,
+        links = links.join(", "),
+        compare = match (of.kind.as_str(), links.len()) {
+            ("phab", 1) => " (to compare with how Phabricator shows it)",
+            ("phab", _) => " (to compare with how Phabricator shows them)",
+            _ => "",
+        },
+        tree = escape(tree),
+        kind = escape(&of.kind),
+        keys = escape(&of.keys.join(",")),
+    );
+    if !of.missing.is_empty() {
+        html.push_str(&format!(
+            r#"<p class="tr-note tr-landed-missing">No commit mentions {}.</p>"#,
+            escape(&of.missing.join(", "))
+        ));
+    }
+    for branch in &of.other_branches {
+        html.push_str(&format!(
+            r#"<div class="tr-note tr-landed-branch">On {branch}, too:<ul>"#,
+            branch = escape(&branch.branch)
+        ));
+        for (rev, summary) in &branch.commits {
+            html.push_str(&format!(
+                r#"<li><a href="/{tree}/commit/{rev}">{summary}</a></li>"#,
+                tree = escape(&branch.tree),
+                rev = escape(rev),
+                summary = escape(summary),
+            ));
+        }
+        html.push_str("</ul></div>");
+    }
+    html
+}
+
 /// What the push's page said of its semantic analysis (see
 /// `ReviewView::semantic_head`), as the view's notes.
 fn semantic_notes_html(tree: &str, view: &ReviewView) -> String {
@@ -4434,10 +4714,15 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             "SYM_INFO", sym_info,
         ));
     }
-    // (The push's page, and how it's named, ex: "try push abcdef012345" or
-    // "pull request #7"; see `try_import::push_label`.)
-    let path = crate::try_import::push_url_path(&view.push);
-    let (what, label) = crate::try_import::push_label(&view.push);
+    // (The push's page, and how it's named, ex: "try push abcdef012345",
+    // "pull request #7", or a landed stack's "bug 1975601"; see
+    // `review_label`.)
+    let path = review_stack_path(&view.push);
+    let (what, label) = review_label(&view.push);
+    let the = match view.landed_of {
+        Some(_) => "",
+        None => "the ",
+    };
     // (The breadcrumbs' trail, which try-review.js puts in the page's.)
     html.push_str(&format!(
         r##"<span class="tr-crumbs" hidden><span class="path-separator">/</span><a href="/{tree}/{path}">{what} {short}</a><span class="path-separator">/</span><span class="tr-crumb-review">review</span><span class="path-separator">/</span><span class="tr-crumb-patch"><a class="tr-crumb-patch-link" href="#tr-patch-1">Patch 1</a><button type="button" class="crash-crumb-button" id="tr-patch-picker" title="Pick a patch" aria-expanded="false" aria-haspopup="true" aria-controls="tr-patch-menu"></button><div id="tr-patch-menu" title="The patches" role="menu" class="context-menu initially-hidden"></div></span><span class="tr-crumb-then-now" hidden></span></span><div id="tr-jump-menu" title="The patch's files, classes and functions" role="menu" class="context-menu initially-hidden"></div>"##,
@@ -4447,9 +4732,10 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         short = escape(&label),
     ));
     html.push_str(&format!(
-        r#"<div class="tr-head"><h2>Review of the {what} <a href="/{tree}/{path}">{short}</a></h2><p class="tr-summary">{patches} {patch_word}, changing {files} {file_word}. Each patch's changes are in the order to read them: {order}. Your marks and notes on its parts are kept in this browser, and shown in its other tabs of it.</p>{modes}</div>"#,
+        r#"<div class="tr-head"><h2>Review of {the}{what} <a href="/{tree}/{path}">{short}</a></h2><p class="tr-summary">{patches} {patch_word}, changing {files} {file_word}. Each patch's changes are in the order to read them: {order}. Your marks and notes on its parts are kept in this browser, and shown in its other tabs of it.</p>{modes}</div>"#,
         tree = escape(tree),
         path = escape(&path),
+        the = the,
         what = what,
         short = escape(&label),
         patches = view.patches.len(),
@@ -4459,13 +4745,22 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         order = "interfaces, then definitions, then their uses, then tests",
         // (Its code is its stack rebased onto the indexed revision's, if it
         // has one; see `review_view`.)
-        modes = match view.patches.iter().any(|patch| patch.shown.is_some()) {
-            true => crate::crash_stack::then_now_modes_labeled_html(
+        modes = match (
+            view.landed_of.is_some(),
+            view.patches.iter().any(|patch| patch.shown.is_some()),
+        ) {
+            // (A landed stack's commits, as they landed.)
+            (true, _) => crate::crash_stack::then_now_modes_labeled_html(
+                ["Before", "After", "Before &amp; After"],
+                "The code before each commit.",
+                "The code after each commit."
+            ),
+            (false, true) => crate::crash_stack::then_now_modes_labeled_html(
                 ["Now", "Patched", "Now &amp; Patched"],
                 "The code before each patch, with the push's stack rebased onto the indexed revision: that revision's, before the stack's first patch changing a file.",
                 "The code with each patch, with the push's stack rebased onto the indexed revision."
             ),
-            false => crate::crash_stack::then_now_modes_labeled_html(
+            (false, false) => crate::crash_stack::then_now_modes_labeled_html(
                 ["Now", "Patched", "Now &amp; Patched"],
                 "The code before each patch.",
                 "The code with each patch."
@@ -4473,6 +4768,7 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
         },
     ));
     html.push_str(&semantic_notes_html(tree, view));
+    html.push_str(&landed_notes_html(tree, view));
     if view.task_selections > 0 || view.truncated {
         html.push_str(&format!(
             r#"<p class="tr-note">{}</p>"#,
@@ -4487,8 +4783,10 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
                         "are"
                     }
                 )),
-                view.truncated
-                    .then(|| "Its stack has more commits than the review shows.".to_string()),
+                view.truncated.then(|| match view.landed_of {
+                    Some(_) => "They have more commits than the review shows.".to_string(),
+                    None => "Its stack has more commits than the review shows.".to_string(),
+                }),
             ]
             .into_iter()
             .flatten()
@@ -4858,6 +5156,7 @@ Binary files img.png and img.png differ
             later: vec![],
             moved: vec![],
             block_sym_info: None,
+            landed_of: None,
         };
         // (The first's commit rebased is "rrrr"; what the push removes from
         // a.cpp has no commits.)
@@ -5032,6 +5331,7 @@ Binary files img.png and img.png differ
             later: vec![],
             moved: vec![],
             block_sym_info: None,
+            landed_of: None,
         };
         let texts: BTreeMap<(String, String), Option<String>> = [
             ("p0", "a\nb\n"),
@@ -5087,6 +5387,51 @@ Binary files img.png and img.png differ
             vec!["a", "x = 1;", "x = 2;", "b"]
         );
         assert!(view.patches[1].files[0].hunks[0].changed_later.is_empty());
+    }
+
+    /// Landed stacks' reviews' names: bugs' and Phabricator revisions', their
+    /// pages' paths, and how they're named.
+    #[test]
+    fn test_landed_review_name() {
+        assert_eq!(
+            landed_review_name("bug/1975601").as_deref(),
+            Some("bug/1975601")
+        );
+        assert_eq!(
+            landed_review_name("phab/d123,D456").as_deref(),
+            Some("phab/D123,D456")
+        );
+        assert_eq!(
+            landed_review_name("PHAB/D123").as_deref(),
+            Some("phab/D123")
+        );
+        for bad in [
+            "bug/",
+            "bug/12a",
+            "bug/0",
+            "phab/123",
+            "phab/D",
+            "github/7",
+            "abcdef012345",
+            "bug/1,2,3,4,5,6,7,8,9,10,11",
+        ] {
+            assert_eq!(landed_review_name(bad), None, "{}", bad);
+        }
+        assert_eq!(review_stack_path("bug/1975601"), "explore/bug/1975601");
+        assert_eq!(review_stack_path("abcdef012345"), "try/hg/abcdef012345");
+        assert_eq!(review_stack_path("github/7"), "try/github/7");
+        assert_eq!(
+            review_label("phab/D123,D456"),
+            ("revisions".to_string(), "D123, D456".to_string())
+        );
+        assert_eq!(
+            review_label("bug/1975601"),
+            ("bug".to_string(), "1975601".to_string())
+        );
+        assert_eq!(
+            review_label("abcdef0123456789"),
+            ("try push".to_string(), "abcdef012345".to_string())
+        );
     }
 
     /// A later hunk's lines changing some lines: their change blocks, with a

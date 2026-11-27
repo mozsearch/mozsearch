@@ -452,12 +452,26 @@ fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebRespo
 /// pipeline-server finds), so that the page's searches are of the push, at
 /// URLs which stay the push's as new indexes rebase it again.
 fn try_review_page(tree_name: &str, push: &str, head: Option<&str>) -> WebResponse {
+    review_query_page(tree_name, push, head.map(|_| push))
+}
+
+/// A review's page (see `tools::try_review`): its query's (`review:NAME`, a
+/// try push's or a landed stack's, ex: `bug/1975601`; see
+/// `tools::try_review::landed_review_name`), as the pipeline-server renders
+/// it, in the context of the try push `push` (`push=`, whose rebased head's
+/// analysis it has), if any.  (A landed stack's explore page is its review;
+/// see the `explore` route.)
+fn review_query_page(tree_name: &str, name: &str, push: Option<&str>) -> WebResponse {
+    let term = match tools::try_review::landed_review_name(name) {
+        Some(_) => "review",
+        None => "try-review",
+    };
     let url = format!(
         "http://{}/{}/query/default?q={}{}",
         pipeline_server_addr(),
         tree_name,
-        urlencoding::encode(&format!("try-review:{}", push)),
-        head.map_or(String::new(), |_| format!(
+        urlencoding::encode(&format!("{}:{}", term, name)),
+        push.map_or(String::new(), |push| format!(
             "&push={}",
             urlencoding::encode(push)
         ))
@@ -1485,8 +1499,36 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     Err(err) => WebResponse::internal_error(err.to_owned()),
                 };
             }
+            // (A file of one of its commits, as its review shows it:
+            // `.../source/{commit}/{path}`, the commit's file, in the page's
+            // stack context; see `tools::try_review::hunk_lines_html`.)
+            if path.len() >= 7 && path[4] == "source" {
+                if !git_ops::is_hex_rev(path[5]) {
+                    return WebResponse::not_found();
+                }
+                return WebResponse::see_other(format!(
+                    "/{}/rev/{}/{}?stack={}",
+                    tree_name,
+                    path[5],
+                    tools::url_encode_path::url_encode_path(&path[6..].join("/")),
+                    path[1..4].join("/")
+                ));
+            }
             if path.len() != 4 {
                 return WebResponse::not_found();
+            }
+
+            // (Its review, unless the outline view is asked for, ex: by the
+            // review's link to it; see `landed_review_page`.)
+            let params: HashMap<String, String> = url::form_urlencoded::parse(req.query.as_bytes())
+                .into_owned()
+                .collect();
+            if params.get("view").map(String::as_str) != Some("outline") {
+                if let Some(name) =
+                    tools::try_review::landed_review_name(&format!("{}/{}", path[2], path[3]))
+                {
+                    return review_query_page(tree_name, &name, None);
+                }
             }
 
             let (server_, kind, keys) =

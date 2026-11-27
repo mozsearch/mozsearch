@@ -59,7 +59,7 @@ add_task(async function test_InterdiffFilesSame() {
 });
 
 add_task(async function test_ExploreRelandLink() {
-  await TestUtils.loadPath("/searchfox/explore/bug/2016448");
+  await TestUtils.loadPath("/searchfox/explore/bug/2016448?view=outline");
 
   const link = frame.contentDocument.querySelector(".explore-interdiff");
   ok(link, "The backout links to the interdiff of its reland");

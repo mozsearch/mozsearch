@@ -12,7 +12,7 @@ function doc() {
 
 add_task(async function test_StackStripExplore() {
   // Bug 1975601's Part 1 added find_phab_rev to blame.rs.
-  await TestUtils.loadPath("/searchfox/explore/bug/1975601");
+  await TestUtils.loadPath("/searchfox/explore/bug/1975601?view=outline");
   const link = [...doc().querySelectorAll(".explore-file-header a")].find(
     a => a.textContent == "tools/src/blame.rs");
   ok(link?.getAttribute("href").endsWith("?stack=explore/bug/1975601"),

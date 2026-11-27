@@ -23,10 +23,13 @@ pub enum TryReviewFormat {
 }
 
 /// A try push's review view (see `try_review`): the `try-review:` query
-/// term's.
+/// term's, and the `review:` term's, which is also a landed stack's (the
+/// commits mentioning bugs or Phabricator revisions, `bug/123` or
+/// `phab/D123`, as their explore pages have them; see
+/// `try_review::landed_review_name`).
 #[derive(Debug, Args)]
 pub struct TryReview {
-    /// The push's head (its `try/hg/<push>` page's).
+    /// The push's name (its `try/hg/<push>` page's), or a landed stack's.
     #[clap(value_parser)]
     push: String,
 
@@ -195,6 +198,10 @@ impl PipelineCommand for TryReviewCommand {
     /// `review_slicing`).
     fn estimate(&self, server: &(dyn AbstractServer + Send + Sync)) -> u64 {
         let push = self.args.push.trim().to_lowercase();
+        // (A landed stack's has no slicing.)
+        if crate::try_review::landed_review_name(&push).is_some() {
+            return 0;
+        }
         // (A pull request's is cached by its head too; see `execute`.)
         if !crate::try_import::is_pull_request(&push)
             && crate::step_cache::is_cached(server.cache_identity(), "try-review-html", &push)
@@ -211,17 +218,22 @@ impl PipelineCommand for TryReviewCommand {
         server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let push = self.args.push.trim().to_lowercase();
-        // (An hg push's revision, or a pull request of the tree's GitHub
-        // repository, `github/NUMBER` (see `try_import::github_pull_requests`),
-        // but not a spec's, whose page is its spec's views.)
-        let valid = crate::try_import::normalize_push(&push).as_deref() == Some(push.as_str())
-            && !crate::try_import::is_spec_pull_request(&push);
+        // (An hg push's revision, a git push's, or a pull request of the
+        // tree's GitHub repository, `github/NUMBER` (see
+        // `try_import::github_pull_requests`), but not a spec's, whose page is
+        // its spec's views; or a landed stack, as its keys are named.)
+        let landed = crate::try_review::landed_review_name(&self.args.push);
+        let push = landed
+            .clone()
+            .unwrap_or_else(|| self.args.push.trim().to_lowercase());
+        let valid = landed.is_some()
+            || (crate::try_import::normalize_push(&push).as_deref() == Some(push.as_str())
+                && !crate::try_import::is_spec_pull_request(&push));
         if !valid {
             return Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::BadInput,
                 message: format!(
-                    "try-review: needs a try push's revision (12 to 40 hexadecimal digits), a git try push's git/REVISION (40), or a GitHub pull request's github/NUMBER, not {:?}",
+                    "try-review: needs a try push's revision (12 to 40 hexadecimal digits), a git try push's git/REVISION (40), a GitHub pull request's github/NUMBER, or (review:) a landed stack's bug/NUMBER or phab/DNUMBER, not {:?}",
                     self.args.push
                 ),
             }));
@@ -230,7 +242,7 @@ impl PipelineCommand for TryReviewCommand {
         // the code's.  A push imported again has the same commits, but a pull
         // request imported again for its newer commits doesn't, so its is
         // cached by its head too.)
-        let key = match crate::try_import::is_pull_request(&push) {
+        let key = match landed.is_none() && crate::try_import::is_pull_request(&push) {
             true => match server.try_import_status(&push).await {
                 Ok(crate::try_import::ImportStatus::Imported { head }) => {
                     format!("{}@{}", push, head)
@@ -254,7 +266,7 @@ impl PipelineCommand for TryReviewCommand {
         // slicing could be had, which it may be later.)
         let identity = server.cache_identity();
         let mut key = key;
-        if !crate::step_cache::is_cached(identity, "try-review-html", &key) {
+        if !crate::step_cache::is_cached(identity, "try-review-html", &key) && landed.is_none() {
             view.slicing = review_slicing(server, &view).await;
             if let Some(slicing) = view.slicing.as_mut() {
                 view.block_sym_info = block_diagrams(server, slicing).await;

@@ -136,7 +136,7 @@ add_task(async function test_OutlineDiffLinks() {
        .test(section.querySelector(".outline-compare").getAttribute("href")),
      "The outline section links to the outline diff since its baseline");
 
-  await TestUtils.loadPath("/searchfox/explore/bug/1975601");
+  await TestUtils.loadPath("/searchfox/explore/bug/1975601?view=outline");
   const file = frame.contentDocument.querySelector(".explore-file .explore-outline");
   ok(/^\/searchfox\/outline-diff\/[0-9a-f]{40}\/[0-9a-f]{40}\//.test(file?.getAttribute("href")),
      "An explore page's files link to their outline diffs across its commits");
