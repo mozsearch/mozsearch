@@ -144,16 +144,13 @@ add_task(async function test_TryReview() {
      Math.abs(top(sectionHead) - (top(patchHead) + patchHead.offsetHeight)) < 1,
      `under its section's, which sticks under its patch's (${top(patchHead)}, ${top(sectionHead)}, ${top(fileHead)})`);
 
-  // (Changed words' marks are underlined, a pixel thick, but not on a line
-  // all of whose words are marked; see try_review.rs's `mark_word_changes`.)
+  // (Changed words' marks are underlined, a pixel thick, and fainter on a
+  // line all of whose words are marked, as test_TryReviewMovedLines checks;
+  // see try_review.rs's `mark_word_changes`.)
   const mark = doc().querySelector(".tr-line:not(.tr-all-marked) mark.tr-word-added");
   const markStyle = mark && win.getComputedStyle(mark);
   ok(markStyle?.textDecorationLine == "underline" && markStyle.textDecorationThickness == "1px",
      `Changed words are underlined (${markStyle?.textDecorationLine} ${markStyle?.textDecorationThickness})`);
-  const whole = doc().querySelector(".tr-line.tr-all-marked mark");
-  if (whole) {
-    is(win.getComputedStyle(whole).textDecorationLine, "none", "but not on a line all of whose words are");
-  }
   is(win.getComputedStyle(doc().querySelector(".try-review .now-code")).borderTopStyle, "none",
      "(The code has no border)");
   ok(parseFloat(win.getComputedStyle(doc().querySelector(".try-review .now-code")).paddingBottom) >= 2,
@@ -467,6 +464,22 @@ add_task(async function test_TryReviewMovedLines() {
   }
   await waitForCondition(() => doc().querySelector("#try-review[data-review-ready]"),
                          "The review is loaded");
+  // (A line all of whose words are marked has its marks' underlines, but
+  // fainter than a partly marked line's; see mozsearch.css's
+  // `tr-all-marked`.)
+  const whole = doc().querySelector(".tr-line.tr-all-marked mark");
+  const partly = doc().querySelector(".tr-line:not(.tr-all-marked) mark");
+  ok(whole && partly, "f00dfeedbeef's review has a wholly marked line and a partly marked one");
+  {
+    const win = frame.contentWindow;
+    // (rgba()'s fourth part, or 1 for rgb().)
+    const alpha = color => Number(color.match(/^rgba\((?:\s*[\d.]+\s*,){3}\s*([\d.]+)\s*\)$/)?.[1] ?? 1);
+    const wholeStyle = win.getComputedStyle(whole);
+    const partlyStyle = win.getComputedStyle(partly);
+    ok(wholeStyle.textDecorationLine == "underline" &&
+       alpha(wholeStyle.textDecorationColor) < 0.75 && alpha(partlyStyle.textDecorationColor) == 1,
+       `A wholly marked line's marks are underlined more faintly (${wholeStyle.textDecorationColor}, ${partlyStyle.textDecorationColor})`);
+  }
   const file = doc().querySelector('.tr-file[data-path="frobbed.cpp"]');
   const rows = [...(file?.querySelectorAll(".now-code .tr-line") ?? [])];
   const row = text => rows.find(each => each.textContent.includes(text));

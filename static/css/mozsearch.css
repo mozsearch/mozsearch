@@ -8378,10 +8378,12 @@ textarea.monospace {
    tint) mark the words, as WCAG's non-text contrast asks (3:1), rather than
    a darker tint: a pixel thick (as text decorations are drawn on whole
    pixels, each line's is as thick, whereas a 1 or 2px inset shadow's edge
-   fell between pixels on alternate lines, drawn twice as thick), and not on
-   lines whose words are all marked (`tr-all-marked`), where they'd only
-   underline the whole line, or a run of such lines, which the line's tint
-   says as well. */
+   fell between pixels on alternate lines, drawn twice as thick), and
+   fainter, at about half their alpha, on lines whose words are all marked
+   (`tr-all-marked`; ex: a rewritten comment's), where they underline the
+   whole line, or a run of such lines, which the line's tint says as well:
+   rather than none, which left the change from a partly marked line to a
+   wholly marked one looking like a gap in the marks. */
 .tr-added {
   background: rgba(46, 160, 67, 0.1);
 }
@@ -8407,10 +8409,6 @@ mark.tr-word-added {
   text-underline-position: under;
   text-decoration-skip-ink: none;
 }
-.tr-all-marked mark.tr-word-removed,
-.tr-all-marked mark.tr-word-added {
-  text-decoration-line: none;
-}
 mark.tr-word-removed {
   background: rgba(248, 81, 73, 0.16);
   text-decoration-color: #cf222e;
@@ -8418,6 +8416,12 @@ mark.tr-word-removed {
 mark.tr-word-added {
   background: rgba(46, 160, 67, 0.16);
   text-decoration-color: #238636;
+}
+.tr-all-marked mark.tr-word-removed {
+  text-decoration-color: #cf222e88;
+}
+.tr-all-marked mark.tr-word-added {
+  text-decoration-color: #23863688;
 }
 
 /* (The dark theme's tints are a little more, and its words' a little less
@@ -8444,6 +8448,12 @@ mark.tr-word-added {
   mark.tr-word-added {
     background: rgba(46, 160, 67, 0.1);
     text-decoration-color: rgb(46, 160, 67);
+  }
+  .tr-all-marked mark.tr-word-removed {
+    text-decoration-color: rgba(248, 81, 73, 0.53);
+  }
+  .tr-all-marked mark.tr-word-added {
+    text-decoration-color: rgba(46, 160, 67, 0.53);
   }
 }
 }

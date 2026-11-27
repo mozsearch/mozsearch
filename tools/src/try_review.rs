@@ -103,8 +103,8 @@ pub struct HunkLine {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub moved_to: Option<usize>,
     /// Whether all of its words (but whitespace) are marked as changed (see
-    /// `mark_word_changes`), whose marks then aren't underlined, as the
-    /// line's tint says as much (see mozsearch.css's `tr-all-marked`).
+    /// `mark_word_changes`), whose marks' underlines are then fainter, as
+    /// the line's tint says as much (see mozsearch.css's `tr-all-marked`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub all_marked: bool,
     /// Its tokens on each side, by who they are in the history (see
@@ -2362,8 +2362,8 @@ const LATER_LINES: usize = 6;
 
 /// A line's HTML (`html`, a side's, else its text) for a note about another
 /// line (see try-review.js's `addLineNotes`): in a `tr-all-marked` span if all
-/// of its words are marked, whose marks then aren't underlined, as its row's
-/// aren't (see `side_html`).
+/// of its words are marked, whose marks' underlines are then fainter, as its
+/// row's are (see `side_html`).
 fn note_line_html(html: Option<&String>, line: &HunkLine) -> String {
     let html = html
         .cloned()
