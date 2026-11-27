@@ -34,7 +34,8 @@
       // semantic analysis, which is waiting or running; the page reloads
       // once that's done too.)
       const cost = status.tus ? ` of ${status.tus} translation unit${status.tus == 1 ? "" : "s"}` : "";
-      const state = status.seconds !== undefined ? `is running (${status.seconds}s so far)`
+      const state = status.seconds !== undefined
+        ? `is running (${status.seconds}s so far${status.step ? `, at ${status.step}` : ""})`
         : status.ahead > 0 ? `is waiting, after ${status.ahead} other${status.ahead == 1 ? "" : "s"}`
         : "is next";
       const link = document.createElement("a");

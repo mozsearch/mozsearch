@@ -42,7 +42,10 @@ semantic_phase() {
     echo "Performing try-import::semantic step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     # (A push whose try/NAME/slow-semantic says so waits that many seconds
     # first, for a test to see it analyzing; see test_TrySemanticPhase.js.)
+    # (And says so, as progress, for its import's status; see
+    # tools/src/try_import.rs's `StepFollower`.)
     if [ -f "$CONFIG_REPO/$TREE_NAME/try/$NAME/slow-semantic" ]; then
+        echo "Progress: waiting $(cat "$CONFIG_REPO/$TREE_NAME/try/$NAME/slow-semantic") s, as its slow-semantic says"
         sleep "$(cat "$CONFIG_REPO/$TREE_NAME/try/$NAME/slow-semantic")"
     fi
     if "$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$REBASED"; then

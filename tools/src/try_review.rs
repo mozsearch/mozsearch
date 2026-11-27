@@ -4616,6 +4616,7 @@ pub fn semantic_pending_note(status: &crate::try_import::ImportStatus) -> Option
         tus,
         ahead,
         seconds,
+        step,
         ..
     } = status
     else {
@@ -4630,10 +4631,15 @@ pub fn semantic_pending_note(status: &crate::try_import::ImportStatus) -> Option
     };
     let state = match (seconds, ahead) {
         (Some(seconds), _) => format!(
-            "is running ({} so far)",
+            "is running ({} so far{})",
             match seconds / 60 {
                 0 => format!("{} s", seconds),
                 minutes => format!("{} min", minutes),
+            },
+            // (Its step, and its progress; see `try_import::StepFollower`.)
+            match step.as_deref().filter(|step| !step.is_empty()) {
+                Some(step) => format!(", at {}", step),
+                None => String::new(),
             }
         ),
         (None, Some(0)) => "is next".to_string(),
@@ -4652,10 +4658,16 @@ pub fn semantic_pending_note(status: &crate::try_import::ImportStatus) -> Option
 fn semantic_notes_html(tree: &str, view: &ReviewView) -> String {
     let short = |rev: &str| rev.chars().take(12).collect::<String>();
     let mut html = String::new();
+    // (Which the page keeps up to date, by the web server's import status,
+    // which only it knows, where this note is the state file's, which the
+    // pipeline-server, rendering it, reads; see try-review.js's
+    // `watchSemanticPhase`.)
     if let Some(note) = &view.semantic_pending {
         html.push_str(&format!(
-            r#"<p class="tr-note tr-semantic-pending">{}</p>"#,
-            escape(note)
+            r#"<p class="tr-note tr-semantic-pending" data-status-url="/{tree}/api/v1/try-status?push={push}">{note}</p>"#,
+            tree = escape(tree),
+            push = escape(&urlencoding::encode(&view.push)),
+            note = escape(note)
         ));
     }
     if let Some(head) = &view.semantic_head {

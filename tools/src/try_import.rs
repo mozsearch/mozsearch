@@ -859,7 +859,38 @@ struct SemanticJob {
     job: Job,
     tus: Option<u64>,
     queued: Instant,
+    /// Its lane, once it's started (see `next_semantic`).
+    lane: Lane,
 }
+
+/// The lane a semantic analysis runs in (see `next_semantic`): its tree's
+/// (`semantic_workers` at a time), or, while those are all busy (ex: with a
+/// push of thousands of translation units, which can take most of an hour),
+/// the small lane beside them, for one cheap analysis at a time (of
+/// `SMALL_SEMANTIC_TUS` translation units at most), so that a small push's
+/// review needn't wait for a big one's; its hook builds it with fewer jobs
+/// (`TRY_SEMANTIC_LANE=small`), so that the cores aren't oversubscribed (ex:
+/// firefox-try's analyze.sh, 4 rather than all but 8).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum Lane {
+    #[default]
+    Main,
+    Small,
+}
+
+impl Lane {
+    fn name(self) -> &'static str {
+        match self {
+            Lane::Main => "main",
+            Lane::Small => "small",
+        }
+    }
+}
+
+/// The most translation units an analysis in the small lane compiles (see
+/// `Lane`).  (On 2026-11-27, on config8, pushes of 14 translation units built
+/// in 74-91 s with 24 jobs, using 233-333 CPU seconds.)
+pub const SMALL_SEMANTIC_TUS: u64 = 100;
 
 #[derive(Default)]
 struct State {
@@ -908,16 +939,31 @@ fn semantic_order(queue: &[SemanticJob]) -> Vec<usize> {
 }
 
 /// Which of `queue`'s semantic analyses starts next beside the `running`
-/// ones (their trees': fewer than `workers_of` theirs): the first, in
-/// `semantic_order`'s order, whose tree has room.
+/// ones, and in which lane (see `Lane`): the first, in `semantic_order`'s
+/// order, whose tree has room in its lane (fewer than `workers_of` its
+/// running in the main lane), or, if it's small enough, in the small lane
+/// (none running there).
 fn next_semantic(
     queue: &[SemanticJob],
     running: &[&SemanticJob],
     workers_of: &dyn Fn(&str) -> usize,
-) -> Option<usize> {
-    semantic_order(queue).into_iter().find(|&index| {
-        let tree = &queue[index].job.tree;
-        running.iter().filter(|job| &job.job.tree == tree).count() < workers_of(tree)
+) -> Option<(usize, Lane)> {
+    semantic_order(queue).into_iter().find_map(|index| {
+        let job = &queue[index];
+        let in_lane = |lane: Lane| {
+            running
+                .iter()
+                .filter(|running| running.job.tree == job.job.tree && running.lane == lane)
+                .count()
+        };
+        if in_lane(Lane::Main) < workers_of(&job.job.tree) {
+            Some((index, Lane::Main))
+        } else if job.tus.is_some_and(|tus| tus <= SMALL_SEMANTIC_TUS) && in_lane(Lane::Small) == 0
+        {
+            Some((index, Lane::Small))
+        } else {
+            None
+        }
     })
 }
 
@@ -980,8 +1026,9 @@ pub fn threads(cfg: &Config) -> usize {
             .max()
             .unwrap_or(1)
     };
-    // (And as many as the most semantic analyses a tree runs at a time.)
-    WORKERS + most(try_workers) + most(semantic_workers)
+    // (And as many as the most semantic analyses a tree runs at a time,
+    // with its small lane's; see `Lane`.)
+    WORKERS + most(try_workers) + most(semantic_workers) + 1
 }
 
 /// The history the imports into the tree `tree_name` write (its history
@@ -1393,6 +1440,7 @@ impl TryImports {
                             .ok()
                             .and_then(|state| parse_semantic_tus(&state)),
                         queued: Instant::now(),
+                        lane: Lane::Main,
                     });
                 }
             }
@@ -1471,8 +1519,9 @@ impl TryImports {
                             semantic_workers(cfg, tree)
                         })
                     };
-                    if let Some(index) = next {
-                        let semantic = state.semantic_queue.remove(index);
+                    if let Some((index, lane)) = next {
+                        let mut semantic = state.semantic_queue.remove(index);
+                        semantic.lane = lane;
                         state.semantic_running.push((
                             semantic.clone(),
                             Instant::now(),
@@ -1530,6 +1579,7 @@ impl TryImports {
                     job: job.clone(),
                     tus,
                     queued: Instant::now(),
+                    lane: Lane::Main,
                 });
                 drop(state);
                 self.queued.notify_all();
@@ -1588,7 +1638,7 @@ impl TryImports {
         if let Some(path) = semantic_state_path(cfg, &job.tree, &job.rev) {
             let _ = fs::remove_file(path);
         }
-        self.run_phase(cfg, job, Phase::History, TIME_LIMIT)?;
+        self.run_phase(cfg, job, Phase::History, TIME_LIMIT, Lane::Main)?;
         if imported_head(cfg, &job.tree, &job.rev).is_none() {
             return Err("The import finished, but the history doesn't have the push".to_string());
         }
@@ -1602,7 +1652,13 @@ impl TryImports {
     /// or, if it deferred itself (see `DEFERRED`), true, its state kept.
     fn analyze(&self, cfg: &Config, semantic: &SemanticJob) -> Result<bool, String> {
         let job = &semantic.job;
-        let result = self.run_phase(cfg, job, Phase::Semantic, semantic_time_limit(semantic.tus));
+        let result = self.run_phase(
+            cfg,
+            job,
+            Phase::Semantic,
+            semantic_time_limit(semantic.tus),
+            semantic.lane,
+        );
         if let Some(path) = semantic_state_path(cfg, &job.tree, &job.rev) {
             // (Kept, without its `DEFERRED=`, if it deferred itself, which
             // only one whose cost wasn't known can, once.)
@@ -1637,6 +1693,7 @@ impl TryImports {
         job: &Job,
         phase: Phase,
         time_limit: Duration,
+        lane: Lane,
     ) -> Result<(), String> {
         let tree_config = cfg.trees.get(&job.tree).ok_or("No such tree")?;
         let hook = hook(cfg, &job.tree).ok_or("The tree can't import try pushes")?;
@@ -1653,9 +1710,10 @@ impl TryImports {
         let max_revisions = MAX_REVISIONS.to_string();
         // (As many workspaces for semantic analyses as run at a time: the
         // semantic queue's, or whole imports' for hooks without phases.)
+        // (And the small lane's; see `Lane`.)
         let workers = match phase {
             Phase::History => try_workers(cfg, &job.tree),
-            Phase::Semantic => semantic_workers(cfg, &job.tree),
+            Phase::Semantic => semantic_workers(cfg, &job.tree) + 1,
         }
         .to_string();
         let lock_path = Path::new(history_root)
@@ -1688,6 +1746,8 @@ impl TryImports {
             ("TRY_IMPORT_WORKERS", &workers),
             // (Which phase; see `Phase`.)
             ("TRY_IMPORT_PHASE", phase.name()),
+            // (And a semantic analysis's lane; see `Lane`.)
+            ("TRY_SEMANTIC_LANE", lane.name()),
         ];
         run_hook(
             &hook,
@@ -1725,6 +1785,11 @@ pub fn run_hook(
         false => fs::File::create(log_path),
     }
     .map_err(|e| e.to_string())?;
+    // (From what it writes, not what the log has before it.)
+    let mut follower = StepFollower {
+        offset: log.metadata().map(|meta| meta.len()).unwrap_or(0),
+        ..StepFollower::default()
+    };
     let mut command = Command::new("nice");
     command.arg("-n10").arg(hook).args(args);
     for (name, value) in envs {
@@ -1753,7 +1818,7 @@ pub fn run_hook(
                 time_limit.as_secs() / 60
             ));
         }
-        step(last_lines(log_path, 1));
+        step(follower.update(log_path));
         std::thread::sleep(Duration::from_secs(1));
     };
     // (Its error is from before the usage line.)
@@ -1763,6 +1828,86 @@ pub fn run_hook(
     };
     append_to_log(log_path, &usage.describe(started.elapsed()));
     result
+}
+
+/// What a running hook is doing, for its import's status (see `run_hook`):
+/// by its log's lines, as they're written, its last step (the hooks' and
+/// the scripts' they run say when each starts: `Performing NAME step ...`;
+/// ex: `semantic::build-analysis`), with its latest progress since (lines
+/// `Progress: ...`; ex: compile.py's translation units compiled), or else
+/// its last line, rather than its last line, whatever wrote it (ex: a
+/// compiler's error, which a build of thousands of translation units has
+/// some of).
+#[derive(Default)]
+struct StepFollower {
+    /// How much of the log it has read.
+    offset: u64,
+    /// The last line's start, if it isn't whole yet.
+    partial: String,
+    step: Option<String>,
+    progress: Option<String>,
+    last: String,
+}
+
+/// How much of a log `StepFollower` reads at a time, at most: beyond it, it
+/// reads the latest (missing the steps before).
+const STEP_FOLLOWER_READ: u64 = 1 << 20;
+
+impl StepFollower {
+    /// Read what was written to `path` since, and say what the hook's doing.
+    fn update(&mut self, path: &Path) -> String {
+        if let Ok(mut file) = fs::File::open(path) {
+            let len = file.metadata().map(|meta| meta.len()).unwrap_or(0);
+            if len < self.offset {
+                // (Written anew.)
+                self.offset = 0;
+                self.partial.clear();
+            }
+            if len - self.offset > STEP_FOLLOWER_READ {
+                self.offset = len - STEP_FOLLOWER_READ;
+                self.partial.clear();
+            }
+            let mut bytes = vec![];
+            if file.seek(SeekFrom::Start(self.offset)).is_ok()
+                && file.read_to_end(&mut bytes).is_ok()
+            {
+                self.offset += bytes.len() as u64;
+                let text = std::mem::take(&mut self.partial) + &String::from_utf8_lossy(&bytes);
+                let mut lines: Vec<&str> = text.split('\n').collect();
+                self.partial = lines.pop().unwrap_or("").to_string();
+                for line in lines {
+                    self.line(line);
+                }
+            }
+        }
+        self.describe()
+    }
+
+    fn line(&mut self, line: &str) {
+        let line = line.trim_end();
+        if line.trim().is_empty() {
+            return;
+        }
+        if let Some(rest) = line.strip_prefix("Performing ") {
+            if let Some((name, after)) = rest.split_once(' ') {
+                if after.starts_with("step") {
+                    self.step = Some(name.to_string());
+                    self.progress = None;
+                }
+            }
+        } else if let Some(progress) = line.strip_prefix("Progress: ") {
+            self.progress = Some(progress.to_string());
+        }
+        self.last = line.to_string();
+    }
+
+    fn describe(&self) -> String {
+        match (&self.step, &self.progress) {
+            (Some(step), Some(progress)) => format!("{}: {}", step, progress),
+            (Some(step), None) => step.clone(),
+            (None, _) => self.last.clone(),
+        }
+    }
 }
 
 /// What a hook's processes used (from wait4, which counts the processes it
@@ -2095,6 +2240,7 @@ mod tests {
             },
             tus,
             queued: now - Duration::from_secs(waited),
+            lane: Lane::Main,
         };
         let queue = vec![
             semantic("try", "big", Some(3300), 60),
@@ -2108,12 +2254,32 @@ mod tests {
             .collect();
         assert_eq!(order, vec!["small", "mid", "big", "unknown"]);
         let one = |_: &str| 1;
-        assert_eq!(next_semantic(&queue, &[], &one), Some(2));
-        // (One at a time in a tree, by default.)
-        let running = semantic("try", "running", Some(1), 0);
-        assert_eq!(next_semantic(&queue, &[&running], &one), None);
+        assert_eq!(next_semantic(&queue, &[], &one), Some((2, Lane::Main)));
+        // (One at a time in a tree, by default, and beside it, a small one in
+        // the small lane; see `Lane`.)
+        let running = semantic("try", "running", Some(3300), 0);
+        assert_eq!(
+            next_semantic(&queue, &[&running], &one),
+            Some((2, Lane::Small))
+        );
+        let small = SemanticJob {
+            lane: Lane::Small,
+            ..semantic("try", "small-running", Some(5), 0)
+        };
+        assert_eq!(next_semantic(&queue, &[&running, &small], &one), None);
+        // (Not a big one, nor one whose cost isn't known.)
+        let big = vec![
+            semantic("try", "big", Some(3300), 60),
+            semantic("try", "unknown", None, 120),
+        ];
+        assert_eq!(next_semantic(&big, &[&running], &one), None);
+        // (The main lane, once the small lane's is the only one running.)
+        assert_eq!(next_semantic(&big, &[&small], &one), Some((0, Lane::Main)));
         let other = semantic("other", "running", Some(1), 0);
-        assert_eq!(next_semantic(&queue, &[&other], &one), Some(2));
+        assert_eq!(
+            next_semantic(&queue, &[&other], &one),
+            Some((2, Lane::Main))
+        );
         // (One which has waited `SEMANTIC_AGING` goes first, the
         // longest-waiting first.)
         let aged = vec![
@@ -2524,6 +2690,49 @@ mod tests {
             Some("Its stack's changes conflict.")
         );
         assert_eq!(failure.conflicts, vec!["a.h".to_string()]);
+    }
+
+    #[test]
+    fn test_step_follower() {
+        let dir = std::env::temp_dir().join(format!("try-import-steps-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("import.log");
+        fs::write(&path, "the history phase's lines\n").unwrap();
+        let mut follower = StepFollower {
+            offset: fs::metadata(&path).unwrap().len(),
+            ..StepFollower::default()
+        };
+        let append = |text: &str| {
+            let mut file = fs::OpenOptions::new().append(true).open(&path).unwrap();
+            file.write_all(text.as_bytes()).unwrap();
+        };
+        // (Its last line, until a step starts.)
+        append("+ set -x\nsomething\n");
+        assert_eq!(follower.update(&path), "something");
+        append(
+            "+ echo 'Performing semantic::build-analysis step for 0123 : now'\nPerforming semantic::build-analysis step for 0123 : now\n",
+        );
+        assert_eq!(follower.update(&path), "semantic::build-analysis");
+        // (Its progress, not a compiler's errors, nor a line not yet whole.)
+        append(
+            "Progress: 120 of 3300 translation units compiled (0 failed)\n1 error generated.\nProg",
+        );
+        assert_eq!(
+            follower.update(&path),
+            "semantic::build-analysis: 120 of 3300 translation units compiled (0 failed)"
+        );
+        append("ress: 240 of 3300 translation units compiled (1 failed)\n");
+        assert_eq!(
+            follower.update(&path),
+            "semantic::build-analysis: 240 of 3300 translation units compiled (1 failed)"
+        );
+        // (A step without "for", ex: the scripts', and progress is its own.)
+        append("Performing try-analyze-web::js step : now\n");
+        assert_eq!(follower.update(&path), "try-analyze-web::js");
+        // ("Performing" lines which aren't steps' don't count.)
+        append("Performing a search\n");
+        assert_eq!(follower.update(&path), "try-analyze-web::js");
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

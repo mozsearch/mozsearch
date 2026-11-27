@@ -34,6 +34,15 @@ add_task(async function test_TrySemanticPhase() {
   const status = await statusOf(PUSH);
   is(status.state, "analyzing", "while its semantic analysis is waiting or running");
   is(status.tus, 1, "of the one C++ file it changes");
+  // (Once it's running, its status says its step and its progress, rather
+  // than its log's last line; see the tools' `StepFollower`.)
+  let running = status;
+  for (let i = 0; i < 120 && running.state == "analyzing" && !running.step?.startsWith("try-import::semantic"); i++) {
+    await TestUtils.sleep(250);
+    running = await statusOf(PUSH);
+  }
+  is(running.step, "try-import::semantic: waiting 15 s, as its slow-semantic says",
+     "Running, its status says its step, and its progress");
   ok(doc().querySelector(".try-import-status").textContent.includes("semantic analysis of 1 translation unit"),
      "which the page says");
 
@@ -44,6 +53,11 @@ add_task(async function test_TrySemanticPhase() {
   ok(pending.includes("Its semantic analysis of 1 translation unit") &&
      /is (running|next|waiting)/.test(pending),
      "saying that its semantic analysis is still to come");
+  // (Which the page keeps up to date, by the web server's import status; see
+  // try-review.js's `watchSemanticPhase`.)
+  await waitForCondition(
+    () => doc().querySelector(".tr-semantic-pending")?.textContent.includes(", at try-import::semantic: waiting 15 s"),
+    "and what it's doing, as the page keeps it up to date", 250, 60);
   // (Its semantic analysis's delta may be there already: the container's
   // index keeps the deltas of earlier runs, whose rebased heads are this
   // one's, which the fixtures' forged dates make the same.)
@@ -58,6 +72,8 @@ add_task(async function test_TrySemanticPhase() {
     await TestUtils.sleep(500);
   }
   is(state, "imported", "Its semantic analysis finishes");
+  await waitForCondition(() => doc().querySelector(".tr-semantic-pending[data-done]"),
+                         "and the page says a reload has it", 250, 40);
   await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
   ok(!doc().querySelector(".tr-semantic-pending"), "Its review no longer says it's to come");
   ok(doc().querySelector(".tr-semantic-head"), "and has its semantic analysis");

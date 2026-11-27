@@ -76,7 +76,51 @@ var TryReview = new (class TryReview {
     this.addThenNowCrumb();
     this.addPanelSection();
     this.root.addEventListener("facetschange", () => this.hideEmpty());
+    this.watchSemanticPhase();
     this.ready = this.start();
+  }
+
+  // While the push's semantic analysis is waiting or running (see the tools'
+  // `semantic_pending_note`), its note says so as the web server's import
+  // status does (how many are ahead of it, or how long it's run, at which
+  // step), which the pipeline-server rendering the page doesn't know; and
+  // once it's done, that a reload has it.
+  watchSemanticPhase() {
+    const note = this.root.querySelector(".tr-semantic-pending[data-status-url]");
+    if (!note) {
+      return;
+    }
+    const poll = async () => {
+      let status;
+      try {
+        status = await (await fetch(note.dataset.statusUrl, { cache: "no-store" })).json();
+      } catch (e) {
+        setTimeout(poll, 5000);
+        return;
+      }
+      if (status.state == "analyzing") {
+        const cost = status.tus ? ` of ${status.tus} translation unit${status.tus == 1 ? "" : "s"}` : "";
+        const time = status.seconds >= 60 ? `${Math.floor(status.seconds / 60)} min` : `${status.seconds} s`;
+        const state = status.seconds !== undefined ? `is running (${time} so far${status.step ? `, at ${status.step}` : ""})`
+          : status.ahead > 1 ? `is waiting, after ${status.ahead} others`
+          : status.ahead == 1 ? "is waiting, after 1 other"
+          : status.ahead == 0 ? "is next"
+          : "is waiting";
+        note.textContent = `Its semantic analysis${cost} ${state}: its jumps, references and diagrams are here once it's done (reload the page then).`;
+        setTimeout(poll, 3000);
+      } else if (status.state == "imported") {
+        const reload = document.createElement("a");
+        reload.href = location.href;
+        reload.textContent = "reload the page";
+        reload.addEventListener("click", event => {
+          event.preventDefault();
+          location.reload();
+        });
+        note.replaceChildren("Its semantic analysis is done: ", reload, " for its jumps, references and diagrams.");
+        note.dataset.done = "";
+      }
+    };
+    setTimeout(poll, 1000);
   }
 
   async start() {
