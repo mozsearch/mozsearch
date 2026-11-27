@@ -80,8 +80,9 @@
 //!   `format::outline_diff_data`).
 //! - `explore-keys?kind=bug|phab&keys=`: the data of the explore page of bugs
 //!   or Phabricator revisions (see `format::explore_page_data`).
-//! - `landings?[days=][&interesting=true]`: the tree's recent landings (the
-//!   last `days` days' up to its last landing, 7 by default), and with
+//! - `landings?[days=][&interesting=true][&pushes=true]`: the tree's recent
+//!   landings (the last `days` days' up to its last landing, 7 by default),
+//!   or with `pushes`, its imported try pushes' commits, and with
 //!   `interesting`, how they changed tokens (see `format::landings_data`).
 //! - `map-rev?kind=hg|old&from=`: the tree's revision for an hg revision or
 //!   an old git repository's (`null` if it has none).
@@ -486,7 +487,7 @@ const ROUTES: &[Route] = &[
     Route {
         name: "landings",
         takes_path: false,
-        params: &["days", "interesting"],
+        params: &["days", "interesting", "pushes"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -1320,8 +1321,12 @@ async fn route_body(
                 None => crate::format::LANDINGS_DAYS,
             };
             let interesting = params.flag("interesting")?;
+            let pushes = params.flag("pushes")?;
             Ok(Body::json(
-                &server.landings(days, interesting).await.map_err(error)?,
+                &server
+                    .landings(days, interesting, pushes)
+                    .await
+                    .map_err(error)?,
             ))
         }
         "interdiff" | "interdiff-file" => {

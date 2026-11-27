@@ -509,9 +509,9 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
-    async fn landings(&self, days: u32, interesting: bool) -> Result<Value> {
+    async fn landings(&self, days: u32, interesting: bool, pushes: bool) -> Result<Value> {
         let cfg = self.tree_config_loaded();
-        crate::format::landings_data(&cfg, &self.tree_name, days, interesting)
+        crate::format::landings_data(&cfg, &self.tree_name, days, interesting, pushes)
             .map_err(|message| bad_input(message.to_string()))
     }
 

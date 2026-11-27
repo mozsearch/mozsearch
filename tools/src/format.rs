@@ -9993,42 +9993,108 @@ const MAX_LANDINGS: usize = 3000;
 /// with its summary, author (mail-mapped), bugs (its summary's) and
 /// Phabricator revision, whether it's a backout, its files, and, if
 /// `interesting`, how it changed tokens (see `explore::commit_stats`), for
-/// weighing what its review shows that a line diff doesn't.
+/// weighing what its review shows that a line diff doesn't.  Or, if
+/// `pushes`, in a tree importing try pushes (see `hg_try_importing`), its
+/// imported try pushes' stacks' commits (each with its `push`), of the pushes
+/// whose newest commit is from the `days` up to the newest's: the reviews
+/// someone could do now.  (`imports_try_pushes` says whether the tree does.)
 pub fn landings_data(
     cfg: &Config,
     tree_name: &str,
     days: u32,
     interesting: bool,
+    pushes: bool,
 ) -> Result<serde_json::Value, &'static str> {
     use crate::commit_index::{is_backout, message_bugs, message_phab_revision};
 
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let history = git.history.as_ref();
-    let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
-    let index = history
-        .and_then(|history| {
-            CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
-        })
-        .ok_or("This tree has no commit index")?;
     let days = days.clamp(1, MAX_LANDINGS_DAYS);
-    let Some(last) = index.last_landed() else {
-        return Ok(json!({ "days": days, "commits": [], "truncated": false }));
+    let imports_try_pushes = hg_try_importing(cfg, tree_name).as_deref() == Some(tree_name);
+    let time = |time: chrono::DateTime<chrono::FixedOffset>| {
+        time.with_timezone(&chrono::Utc)
+            .format("%Y-%m-%dT%H:%M:%SZ")
+            .to_string()
     };
-    let until = chrono::DateTime::parse_from_rfc3339(&last.landed)
-        .map_err(|_| "The commit index's landing dates aren't dates")?;
-    let since = (until - chrono::Duration::days(days as i64))
-        .with_timezone(&chrono::Utc)
-        .format("%Y-%m-%dT%H:%M:%SZ")
-        .to_string();
-    let mut landed = index.landed_since(&since);
+    // (The commits, oldest first, each with when it landed, and its push.)
+    let mut landed: Vec<(String, String, Option<String>)> = vec![];
+    let until;
+    let since;
+    if pushes {
+        if !imports_try_pushes {
+            return Err("This tree doesn't import try pushes");
+        }
+        let mut stacks: Vec<(String, Vec<(String, String)>)> = vec![];
+        for push in crate::try_import::imported_try_pushes(cfg, tree_name) {
+            let (oids, _) = crate::try_import::push_commits(cfg, tree_name, &push);
+            let commits: Vec<(String, String)> = oids
+                .into_iter()
+                .filter_map(|oid| git.repo.find_commit(oid).ok())
+                .map(|commit| {
+                    let commit_ref = crate::commit_index::commit_ref(&commit);
+                    (commit_ref.rev, commit_ref.iso_date)
+                })
+                .collect();
+            if !commits.is_empty() {
+                stacks.push((push, commits));
+            }
+        }
+        let newest = |commits: &[(String, String)]| {
+            commits
+                .iter()
+                .map(|(_, date)| date.clone())
+                .max()
+                .unwrap_or_default()
+        };
+        until = stacks
+            .iter()
+            .map(|(_, commits)| newest(commits))
+            .max()
+            .unwrap_or_default();
+        since = chrono::DateTime::parse_from_rfc3339(&until)
+            .map(|until| time(until - chrono::Duration::days(days as i64)))
+            .unwrap_or_default();
+        stacks.retain(|(_, commits)| newest(commits) >= since);
+        stacks.sort_by_key(|(_, commits)| newest(commits));
+        for (push, commits) in stacks {
+            for (rev, date) in commits {
+                landed.push((rev, date, Some(push.clone())));
+            }
+        }
+    } else {
+        let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
+        let index = history
+            .and_then(|history| {
+                CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
+            })
+            .ok_or("This tree has no commit index")?;
+        let Some(last) = index.last_landed() else {
+            return Ok(json!({
+                "days": days,
+                "commits": [],
+                "truncated": false,
+                "pushes": pushes,
+                "imports_try_pushes": imports_try_pushes,
+            }));
+        };
+        let last_time = chrono::DateTime::parse_from_rfc3339(&last.landed)
+            .map_err(|_| "The commit index's landing dates aren't dates")?;
+        since = time(last_time - chrono::Duration::days(days as i64));
+        until = last.landed;
+        landed = index
+            .landed_since(&since)
+            .into_iter()
+            .map(|at| (at.rev, at.landed, None))
+            .collect();
+    }
     let truncated = landed.len() > MAX_LANDINGS;
     if truncated {
         landed.drain(..landed.len() - MAX_LANDINGS);
     }
     let mut commits = vec![];
-    for at in landed {
-        let Some(commit) = Oid::from_str(&at.rev)
+    for (rev, date, push) in landed {
+        let Some(commit) = Oid::from_str(&rev)
             .ok()
             .and_then(|oid| git.repo.find_commit(oid).ok())
         else {
@@ -10039,16 +10105,17 @@ pub fn landings_data(
         let (name, _) = git
             .mailmap
             .lookup(author.name().unwrap_or(""), author.email().unwrap_or(""));
-        let files: Vec<String> = commit_changes(history, &git.repo, &at.rev)
+        let files: Vec<String> = commit_changes(history, &git.repo, &rev)
             .into_keys()
             .collect();
         let stats = match (interesting, history) {
-            (true, Some(history)) => explore::commit_stats(history, &at.rev),
+            (true, Some(history)) => explore::commit_stats(history, &rev),
             _ => None,
         };
         commits.push(json!({
-            "rev": at.rev,
-            "landed": at.landed,
+            "rev": rev,
+            "landed": date,
+            "push": push,
             "summary": message.lines().next().unwrap_or(""),
             "author": name,
             "bugs": message_bugs(&message),
@@ -10061,9 +10128,11 @@ pub fn landings_data(
     Ok(json!({
         "days": days,
         "since": since,
-        "until": last.landed,
+        "until": until,
         "truncated": truncated,
         "interesting": interesting,
+        "pushes": pushes,
+        "imports_try_pushes": imports_try_pushes,
         "commits": commits,
     }))
 }

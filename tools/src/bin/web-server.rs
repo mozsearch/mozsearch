@@ -1526,16 +1526,27 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 .collect();
             // (`/{tree}/explore/`: the tree's recent landings, the last
             // `days=` days' (a week's), or the interesting ones
-            // (`interesting=1`); see `tools::cmd_pipeline::cmd_landings`.)
+            // (`interesting=1`); in a tree importing try pushes, its imported
+            // pushes, unless `landed=1`; see
+            // `tools::cmd_pipeline::cmd_landings`.)
             if path.len() == 2 || (path.len() == 3 && path[2].is_empty()) {
                 let days = params
                     .get("days")
                     .and_then(|days| days.parse::<u32>().ok())
                     .unwrap_or(format::LANDINGS_DAYS)
                     .clamp(1, format::MAX_LANDINGS_DAYS);
-                let term = match params.get("interesting").map(String::as_str) {
-                    Some("1" | "true") => "interesting-landings",
-                    _ => "landings",
+                let interesting = matches!(
+                    params.get("interesting").map(String::as_str),
+                    Some("1" | "true")
+                );
+                let pushes = format::hg_try_importing(cfg, tree_name).as_deref()
+                    == Some(*tree_name)
+                    && !matches!(params.get("landed").map(String::as_str), Some("1" | "true"));
+                let term = match (pushes, interesting) {
+                    (true, true) => "interesting-try-pushes",
+                    (true, false) => "try-pushes",
+                    (false, true) => "interesting-landings",
+                    (false, false) => "landings",
                 };
                 return query_page(tree_name, &format!("{}:{}", term, days), None);
             }

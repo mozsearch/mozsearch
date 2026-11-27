@@ -8463,6 +8463,13 @@ mark.tr-word-added {
   margin: 0;
   font-size: 1em;
 }
+/* (Two lines of it at most, as some trees' summaries are paragraphs.) */
+.landing-head {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 .landing-summary {
   font-weight: normal;
 }

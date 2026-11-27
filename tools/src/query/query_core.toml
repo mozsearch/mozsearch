@@ -773,6 +773,22 @@ command = "landings"
 args.positional = "$0"
 args.interesting = true
 
+# A tree importing try pushes' imported pushes (those of the last DAYS days'
+# up to its newest), each linked to its review: the reviews someone could do
+# now, which its /explore/ page is (see `landings`).
+[term.try-pushes]
+[[term.try-pushes.group.landings]]
+command = "landings"
+args.positional = "$0"
+args.pushes = true
+
+[term.interesting-try-pushes]
+[[term.interesting-try-pushes.group.landings]]
+command = "landings"
+args.positional = "$0"
+args.interesting = true
+args.pushes = true
+
 [term.crash-threads]
 [[term.crash-threads.group.crash]]
 command = "crash-stack"

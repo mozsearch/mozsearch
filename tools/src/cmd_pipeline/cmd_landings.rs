@@ -20,7 +20,10 @@ pub const LANDINGS_MIME: &str = "application/vnd.searchfox.landings+html";
 /// token-centric review shows of each than a line diff does (see
 /// `landing_score`), by which they're sorted instead: ex: code moved to
 /// another file and changed on the way, which a line diff shows as removed
-/// and added, but a review as moved, with its changes marked.
+/// and added, but a review as moved, with its changes marked.  And with
+/// `--pushes` (`try-pushes:DAYS`, `interesting-try-pushes:DAYS`), in a tree
+/// importing try pushes, its imported pushes, each linked to its review: the
+/// reviews someone could do now.
 #[derive(Debug, Args)]
 pub struct Landings {
     /// How many days of landings, up to the tree's last.
@@ -30,6 +33,10 @@ pub struct Landings {
     /// Weigh their changes (slower: each commit's rev-summary).
     #[clap(long, value_parser)]
     interesting: bool,
+
+    /// The imported try pushes, rather than the landings.
+    #[clap(long, value_parser)]
+    pushes: bool,
 }
 
 #[derive(Debug)]
@@ -38,8 +45,9 @@ pub struct LandingsCommand {
 }
 
 /// A stack of landed commits (see `Landings`): its key (`bug/123`, or
-/// `rev/<rev>` for a commit without a bug), its commits (the data's, oldest
-/// first), and its score (see `landing_score`).
+/// `rev/<rev>` for a commit without a bug, or a try push's `push/<name>`),
+/// its commits (the data's, oldest first), and its score (see
+/// `landing_score`).
 struct Stack<'a> {
     key: String,
     commits: Vec<&'a Value>,
@@ -160,15 +168,35 @@ impl PipelineCommand for LandingsCommand {
         let tree = server.tree_info()?.name;
         let days = self.args.days.clamp(1, crate::format::MAX_LANDINGS_DAYS);
         let interesting = self.args.interesting;
+        let pushes = self.args.pushes;
         // (Cached by the index's identity: a tree's landings are its
-        // index's.)
-        let data = crate::step_cache::cached(
-            server.cache_identity(),
-            "landings",
-            &format!("{}{}", days, if interesting { "i" } else { "" }),
-            || async { server.landings(days, interesting).await },
-        )
-        .await?;
+        // index's.  Not its imported pushes, which come and go.)
+        let data = match pushes {
+            true => server.landings(days, interesting, true).await?,
+            false => {
+                crate::step_cache::cached(
+                    server.cache_identity(),
+                    "landings",
+                    &format!("{}{}", days, if interesting { "i" } else { "" }),
+                    || async { server.landings(days, interesting, false).await },
+                )
+                .await?
+            }
+        };
+        let imports_try_pushes = data["imports_try_pushes"].as_bool().unwrap_or(false);
+        // (A page of the listing: its days, whether it weighs them, and
+        // which listing, in a tree importing try pushes, whose page is its
+        // pushes' unless `landed=1`.)
+        let page = |days: u32, interesting: bool| {
+            let mut params = vec![format!("days={}", days)];
+            if interesting {
+                params.push("interesting=1".to_string());
+            }
+            if imports_try_pushes && !pushes {
+                params.push("landed=1".to_string());
+            }
+            format!("/{}/explore/?{}", tree, params.join("&"))
+        };
         let commits: Vec<&Value> = data["commits"].as_array().into_iter().flatten().collect();
 
         // (Its stacks: each bug's commits, by its first bug, and each other
@@ -176,9 +204,13 @@ impl PipelineCommand for LandingsCommand {
         let mut by_key: BTreeMap<String, Vec<&Value>> = BTreeMap::new();
         let mut order: Vec<String> = vec![];
         for commit in &commits {
-            let key = match commit["bugs"].as_array().and_then(|bugs| bugs.first()) {
-                Some(bug) => format!("bug/{}", bug.as_str().unwrap_or_default()),
-                None => format!("rev/{}", commit["rev"].as_str().unwrap_or_default()),
+            let key = match (
+                commit["push"].as_str(),
+                commit["bugs"].as_array().and_then(|bugs| bugs.first()),
+            ) {
+                (Some(push), _) => format!("push/{}", push),
+                (None, Some(bug)) => format!("bug/{}", bug.as_str().unwrap_or_default()),
+                (None, None) => format!("rev/{}", commit["rev"].as_str().unwrap_or_default()),
             };
             if !by_key.contains_key(&key) {
                 order.push(key.clone());
@@ -307,41 +339,69 @@ impl PipelineCommand for LandingsCommand {
             .map(|n| match *n == days {
                 true => format!("<b>{} day{}</b>", n, if *n == 1 { "" } else { "s" }),
                 false => format!(
-                    r#"<a href="/{tree}/explore/?days={n}{interesting}">{n} day{s}</a>"#,
-                    tree = escape(&tree),
+                    r#"<a href="{href}">{n} day{s}</a>"#,
+                    href = escape(&page(*n, interesting)),
                     n = n,
                     s = if *n == 1 { "" } else { "s" },
-                    interesting = if interesting {
-                        "&amp;interesting=1"
-                    } else {
-                        ""
-                    },
                 ),
             })
             .collect();
         let mode = match interesting {
             true => format!(
-                r#"Sorted by how much more their reviews show than a line diff (ex: Phabricator's) does: the tokens they moved or renamed, which a line diff shows as removed and added, and more for code moved from other files and changed on the way, which a review shows against where it was.  <a href="/{tree}/explore/?days={days}">Newest first instead</a>."#,
+                r#"Sorted by how much more their reviews show than a line diff (ex: Phabricator's) does: the tokens they moved or renamed, which a line diff shows as removed and added, and more for code moved from other files and changed on the way, which a review shows against where it was.  <a href="{href}">Newest first instead</a>."#,
+                href = escape(&page(days, false)),
+            ),
+            false => format!(
+                r#"Newest first.  <a class="landings-interesting" href="{href}">Find the interesting ones</a>: which their reviews show the most of that a line diff (ex: Phabricator's) doesn't, ex: code moved and changed on the way (slower)."#,
+                href = escape(&page(days, true)),
+            ),
+        };
+        // (In a tree importing try pushes, a link to the other listing.)
+        let other = match (imports_try_pushes, pushes) {
+            (true, true) => format!(
+                r#"  Or <a class="landings-other" href="/{tree}/explore/?days={days}&amp;landed=1">its branch's recent landings</a>."#,
                 tree = escape(&tree),
                 days = days,
             ),
-            false => format!(
-                r#"Newest first.  <a class="landings-interesting" href="/{tree}/explore/?days={days}&amp;interesting=1">Find the interesting ones</a>: which their reviews show the most of that a line diff (ex: Phabricator's) doesn't, ex: code moved and changed on the way (slower)."#,
+            (true, false) => format!(
+                r#"  Or <a class="landings-other" href="/{tree}/explore/?days={days}">its try pushes to review</a>."#,
                 tree = escape(&tree),
                 days = days,
+            ),
+            _ => String::new(),
+        };
+        let (title, about) = match pushes {
+            true => (
+                "Try pushes to review",
+                format!(
+                    "The {stacks} try pushes {tree} has imported whose newest commits are from {range}, with their {commits} commits, each linked to its review.",
+                    stacks = stacks.len(),
+                    tree = escape(&tree),
+                    range = landed_range,
+                    commits = commits.len(),
+                ),
+            ),
+            false => (
+                "Recent landings",
+                format!(
+                    "The {stacks} stacks (each bug's commits, or a commit without one) of the {commits} commits {tree}'s branch landed from {range}{truncated}, each linked to its review.",
+                    stacks = stacks.len(),
+                    commits = commits.len(),
+                    tree = escape(&tree),
+                    range = landed_range,
+                    truncated = match data["truncated"].as_bool().unwrap_or(false) {
+                        true => " (its newest ones, as there were more)",
+                        false => "",
+                    },
+                ),
             ),
         };
         let html = format!(
-            r#"<div class="landings" id="landings"><h2>Recent landings</h2><p class="landings-about">The {stacks} stacks (each bug's commits, or a commit without one) of the {commits} commits {tree}'s branch landed from {range}{truncated}, each linked to its review.  {mode}</p><p class="landings-days">Over the last {days_links}.</p><div class="facet-items landings-items">{items}</div></div>"#,
-            stacks = stacks.len(),
-            commits = commits.len(),
-            tree = escape(&tree),
-            range = landed_range,
-            truncated = match data["truncated"].as_bool().unwrap_or(false) {
-                true => " (its newest ones, as there were more)",
-                false => "",
-            },
+            r#"<div class="landings" id="landings"><h2>{title}</h2><p class="landings-about">{about}  {mode}{other}</p><p class="landings-days">Over the last {days_links}.</p><div class="facet-items landings-items">{items}</div></div>"#,
+            title = title,
+            about = about,
             mode = mode,
+            other = other,
             days_links = days_links.join(" · "),
             items = items,
         );
@@ -371,6 +431,14 @@ fn stack_html(
             format!("/{}/explore/bug/{}", tree, bug),
             format!("Bug {}", bug),
         ),
+        // (A try push's page, its review.)
+        Some(("push", push)) => {
+            let (what, short) = crate::try_import::push_label(push);
+            (
+                format!("/{}/{}", tree, crate::try_import::push_url_path(push)),
+                format!("{}{} {}", what[..1].to_uppercase(), &what[1..], short),
+            )
+        }
         _ => {
             let rev = text(&first["rev"]);
             (
@@ -424,7 +492,7 @@ fn stack_html(
         })
         .collect();
     format!(
-        r#"<section class="landing" data-path="{key}" data-size="{score}" data-facets="{facets}"><h4 class="landing-head"><a class="landing-link" href="{link}">{name}</a> <span class="landing-summary">{summary}</span></h4><p class="landing-meta">{count} · {authors} · landed {last}{phabs}</p>{badges}{commits}</section>"#,
+        r#"<section class="landing" data-path="{key}" data-size="{score}" data-facets="{facets}"><h4 class="landing-head"><a class="landing-link" href="{link}">{name}</a> <span class="landing-summary">{summary}</span></h4><p class="landing-meta">{count} · {authors} · {when} {last}{phabs}</p>{badges}{commits}</section>"#,
         key = escape(&stack.key),
         score = stack.score,
         facets = escape(&serde_json::to_string(facets).unwrap_or_default()),
@@ -436,6 +504,11 @@ fn stack_html(
             n => format!("{} commits", n),
         },
         authors = escape(&authors.into_iter().collect::<Vec<_>>().join(", ")),
+        // (A try push's commits haven't landed.)
+        when = match stack.key.starts_with("push/") {
+            true => "committed",
+            false => "landed",
+        },
         last = escape(&last.replace('T', " ").replace('Z', " UTC")),
         phabs = match phabs.is_empty() {
             true => String::new(),

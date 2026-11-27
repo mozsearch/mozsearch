@@ -889,10 +889,11 @@ pub trait AbstractServer {
     }
 
     /// The tree's recent landings: its main line's commits which landed in
-    /// the `days` up to its last landing, and, if `interesting`, how they
-    /// changed tokens (see `format::landings_data`), for its `/explore/`
-    /// page (see `cmd_landings`).
-    async fn landings(&self, _days: u32, _interesting: bool) -> Result<Value> {
+    /// the `days` up to its last landing (or, if `pushes`, its imported try
+    /// pushes' commits), and, if `interesting`, how they changed tokens (see
+    /// `format::landings_data`), for its `/explore/` page (see
+    /// `cmd_landings`).
+    async fn landings(&self, _days: u32, _interesting: bool, _pushes: bool) -> Result<Value> {
         Err(ServerError::Unsupported)
     }
 
