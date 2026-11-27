@@ -30,6 +30,42 @@ set -o pipefail # Check all commands in a pipeline
 # those revisions' changes too.
 
 NAME=$1
+# (In phases, as the server asks (TRY_IMPORT_PHASE; see
+# tools/src/try_import.rs's `Phase`): with "history", up to the push's
+# history's import, leaving its semantic analysis's state, and how many
+# translation units it compiles (its changed C and C++ files), in
+# SEMANTIC_STATE, for its semantic phase, "semantic", which runs only
+# semantic_phase; without it, both.)
+PHASE=${TRY_IMPORT_PHASE:-}
+SEMANTIC_STATE=$HISTORY_ROOT/try-imports/$NAME.semantic
+semantic_phase() {
+    echo "Performing try-import::semantic step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+    # (A push whose try/NAME/slow-semantic says so waits that many seconds
+    # first, for a test to see it analyzing; see test_TrySemanticPhase.js.)
+    if [ -f "$CONFIG_REPO/$TREE_NAME/try/$NAME/slow-semantic" ]; then
+        sleep "$(cat "$CONFIG_REPO/$TREE_NAME/try/$NAME/slow-semantic")"
+    fi
+    if "$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$REBASED"; then
+        if [ -n "$ALSO_REBASED" ]; then
+            echo "Performing try-import::rebased step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+            "$MOZSEARCH_PATH/scripts/import-try-rebased.sh" \
+                "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$MAX_REVISIONS" ||
+                echo "WARNING: The push's rebased stack's import failed."
+        fi
+    else
+        echo "WARNING: The push's semantic analysis failed."
+    fi
+}
+if [ "$PHASE" = semantic ]; then
+    if [ ! -f "$SEMANTIC_STATE" ]; then
+        echo "ERROR: $NAME has no semantic analysis waiting."
+        exit 1
+    fi
+    . "$SEMANTIC_STATE"
+    semantic_phase
+    rm -f "$SEMANTIC_STATE"
+    exit 0
+fi
 # (Or a pull request of the tree's GitHub repository, `github/NUMBER`, as the
 # config says it imports them (`github_pull_requests`), whose commits are
 # pulls/NUMBER's, as a push's are; see tests/github-api, its fixtures of
@@ -100,15 +136,11 @@ PUSH_REVS="$IMPORT_REVS" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
     "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$IMPORT_REV" "$MAX_REVISIONS"
 
 if [ -n "$REBASED" ]; then
-    echo "Performing try-import::semantic step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
-    if "$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$REBASED"; then
-        if [ -n "$ALSO_REBASED" ]; then
-            echo "Performing try-import::rebased step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
-            "$MOZSEARCH_PATH/scripts/import-try-rebased.sh" \
-                "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$MAX_REVISIONS" ||
-                echo "WARNING: The push's rebased stack's import failed."
-        fi
+    if [ "$PHASE" = history ]; then
+        TUS=$(git -C "$GIT_ROOT" diff --name-only HEAD "$REBASED" | grep -cE '\.(c|cc|cpp|h|hpp)$' || true)
+        printf 'REBASED=%q\nALSO_REBASED=%q\nTUS=%q\n' "$REBASED" "$ALSO_REBASED" "$TUS" > "$SEMANTIC_STATE"
+        echo "Its semantic analysis is left for its semantic phase: $TUS translation units."
     else
-        echo "WARNING: The push's semantic analysis failed."
+        semantic_phase
     fi
 fi

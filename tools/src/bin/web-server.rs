@@ -309,7 +309,7 @@ fn github_review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> W
     if up_to_date {
         tools::try_carry_over::note_viewed(cfg, tree_name, &push);
         let head = tools::try_import::semantic_head(cfg, tree_name, &push);
-        return try_review_page(tree_name, &push, head.as_deref());
+        return try_review_page(cfg, tree_name, &push, head.as_deref());
     }
     if imported.is_none() && current.is_none() {
         return WebResponse {
@@ -334,6 +334,7 @@ fn github_review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> W
         &mut writer,
     ) {
         Ok(true) => try_review_page(
+            cfg,
             tree_name,
             &push,
             tools::try_import::semantic_head(cfg, tree_name, &push).as_deref(),
@@ -415,7 +416,7 @@ fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebRespo
     };
     if let Some(imported) = tools::try_import::try_push(cfg, tree_name, &push) {
         tools::try_carry_over::note_viewed(cfg, tree_name, &push);
-        return try_review_page(tree_name, &push, imported.semantic_head.as_deref());
+        return try_review_page(cfg, tree_name, &push, imported.semantic_head.as_deref());
     }
     let Some(server) = tree_server(tree_name) else {
         return WebResponse::not_found();
@@ -435,6 +436,7 @@ fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebRespo
     ) {
         // (Imported meanwhile.)
         Ok(true) => try_review_page(
+            cfg,
             tree_name,
             &push,
             tools::try_import::semantic_head(cfg, tree_name, &push).as_deref(),
@@ -451,8 +453,19 @@ fn review_page(cfg: &config::Config, tree_name: &str, path: &[&str]) -> WebRespo
 /// semantic analysis (`head`), by the push's name (`push=`, whose head the
 /// pipeline-server finds), so that the page's searches are of the push, at
 /// URLs which stay the push's as new indexes rebase it again.
-fn try_review_page(tree_name: &str, push: &str, head: Option<&str>) -> WebResponse {
-    review_query_page(tree_name, push, head.map(|_| push))
+fn try_review_page(
+    cfg: &config::Config,
+    tree_name: &str,
+    push: &str,
+    head: Option<&str>,
+) -> WebResponse {
+    let response = review_query_page(tree_name, push, head.map(|_| push));
+    // (Not cached while its semantic analysis is waiting or running, as the
+    // review with it replaces it; see `tools::try_import::Phase`.)
+    match tools::try_import::IMPORTS.status(cfg, tree_name, push) {
+        tools::try_import::ImportStatus::Analyzing { .. } => response.uncached(),
+        _ => response,
+    }
 }
 
 /// A review's page (see `tools::try_review`): its query's (`review:NAME`, a
@@ -535,7 +548,7 @@ fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
     if !tools::try_import::is_spec_pull_request(rev) {
         let review_started = Instant::now();
         let head = tools::try_import::try_push(cfg, tree_name, rev).and_then(|p| p.semantic_head);
-        let response = try_review_page(tree_name, rev, head.as_deref());
+        let response = try_review_page(cfg, tree_name, rev, head.as_deref());
         eprintln!(
             "Precomputed try push {}'s review in {:.1} s: {}",
             rev,
@@ -1751,7 +1764,12 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             if notice.is_none() && !tools::try_import::is_spec_pull_request(&push) {
                 if let Some(imported) = tools::try_import::try_push(cfg, tree_name, &push) {
                     tools::try_carry_over::note_viewed(cfg, tree_name, &push);
-                    return try_review_page(tree_name, &push, imported.semantic_head.as_deref());
+                    return try_review_page(
+                        cfg,
+                        tree_name,
+                        &push,
+                        imported.semantic_head.as_deref(),
+                    );
                 }
             }
             let mut writer = Vec::new();

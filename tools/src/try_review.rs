@@ -757,6 +757,11 @@ pub struct ReviewView {
     /// what of them its explore page says (see `LandedOf`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub landed_of: Option<LandedOf>,
+    /// If the push's semantic analysis is still waiting or running (see
+    /// `try_import::Phase`), what its page says of it (see
+    /// `semantic_pending_note`; such a view isn't cached).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_pending: Option<String>,
     /// Its groups' parts of the push's slicing, for their diagrams (see
     /// `add_slicing`; not kept in the view's cache).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1483,6 +1488,7 @@ pub async fn review_view(
         moved: vec![],
         block_sym_info: None,
         landed_of,
+        semantic_pending: None,
     })
 }
 
@@ -4581,11 +4587,57 @@ fn landed_notes_html(tree: &str, view: &ReviewView) -> String {
     html
 }
 
+/// What a review says of its push's semantic analysis while it's waiting or
+/// running (`try_import::ImportStatus::Analyzing`), if it is: how many
+/// translation units it compiles, how many analyses are ahead of it or how
+/// long it's run, and that its jumps, references and diagrams come with it.
+pub fn semantic_pending_note(status: &crate::try_import::ImportStatus) -> Option<String> {
+    let crate::try_import::ImportStatus::Analyzing {
+        tus,
+        ahead,
+        seconds,
+        ..
+    } = status
+    else {
+        return None;
+    };
+    // (Nothing for an analysis compiling no C or C++, ex: a push changing only
+    // Rust, whose cost isn't counted.)
+    let cost = match tus {
+        Some(0) | None => String::new(),
+        Some(1) => " of 1 translation unit".to_string(),
+        Some(tus) => format!(" of {} translation units", tus),
+    };
+    let state = match (seconds, ahead) {
+        (Some(seconds), _) => format!(
+            "is running ({} so far)",
+            match seconds / 60 {
+                0 => format!("{} s", seconds),
+                minutes => format!("{} min", minutes),
+            }
+        ),
+        (None, Some(0)) => "is next".to_string(),
+        (None, Some(1)) => "is waiting, after 1 other".to_string(),
+        (None, Some(ahead)) => format!("is waiting, after {} others", ahead),
+        (None, None) => "is waiting".to_string(),
+    };
+    Some(format!(
+        "Its semantic analysis{} {}: its jumps, references and diagrams are here once it's done (reload the page then).",
+        cost, state
+    ))
+}
+
 /// What the push's page said of its semantic analysis (see
 /// `ReviewView::semantic_head`), as the view's notes.
 fn semantic_notes_html(tree: &str, view: &ReviewView) -> String {
     let short = |rev: &str| rev.chars().take(12).collect::<String>();
     let mut html = String::new();
+    if let Some(note) = &view.semantic_pending {
+        html.push_str(&format!(
+            r#"<p class="tr-note tr-semantic-pending">{}</p>"#,
+            escape(note)
+        ));
+    }
     if let Some(head) = &view.semantic_head {
         html.push_str(&format!(
             r#"<p class="tr-note tr-semantic-head">Its stack rebased onto the indexed revision has semantic analysis: <a class="tr-browse" href="/{tree}/rev/{head}/">browse it</a>, with jumps and references, or see <a class="tr-canvas" href="/{tree}/rev-canvas/{head}">the functions it adds or changes and their calls on a canvas</a>.</p>"#,
@@ -5157,6 +5209,7 @@ Binary files img.png and img.png differ
             moved: vec![],
             block_sym_info: None,
             landed_of: None,
+            semantic_pending: None,
         };
         // (The first's commit rebased is "rrrr"; what the push removes from
         // a.cpp has no commits.)
@@ -5332,6 +5385,7 @@ Binary files img.png and img.png differ
             moved: vec![],
             block_sym_info: None,
             landed_of: None,
+            semantic_pending: None,
         };
         let texts: BTreeMap<(String, String), Option<String>> = [
             ("p0", "a\nb\n"),

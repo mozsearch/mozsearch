@@ -12,7 +12,9 @@
 # the indexer carried over to it; see carry-over-imports.py), at first and
 # every --refresh-minutes (5), for what the old one imported since, and polls
 # its progress (`try-imports/restore-status`) every 30 seconds, until none of
-# its live set's imports wait or run (imported or failed), or for at most
+# its live set's imports wait or run (imported or failed; those whose
+# histories are imported, but whose semantic analyses wait or run, are done:
+# see try_import.rs's `Phase`), or for at most
 # --minutes (the config's `cutover_wait_minutes`, 90 if it has none; what's
 # left then goes on after the switch), and then posts the old ones'
 # inventory once more.  At best effort: what goes wrong is a warning (ex: an
@@ -95,7 +97,8 @@ def post_inventories(new, olds, trees):
 
 def summary(status):
     return ", ".join(f"{key} {status.get(key, 0)}"
-                     for key in ("live", "done", "failed", "running", "queued", "notImported"))
+                     for key in ("live", "done", "analyzing", "failed", "running", "queued",
+                                 "notImported"))
 
 
 def main():

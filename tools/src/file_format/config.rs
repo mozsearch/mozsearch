@@ -302,6 +302,13 @@ pub struct TreeConfigPaths {
     /// alone.
     #[serde(default)]
     pub try_import_workers: Option<usize>,
+    /// How many of the tree's try pushes' semantic analyses can run at a
+    /// time, for a hook which imports them in phases (its history, then its
+    /// semantic analysis; see `try_import::Phase`): 1 if it isn't set, each
+    /// alone, with all of the cores but a few (fewer at a time, to finish
+    /// each sooner, rather than more, sharing the cores and memory).
+    #[serde(default)]
+    pub try_semantic_workers: Option<usize>,
     /// How recently a try push the tree imported must have been asked for or
     /// looked at, in days, for the next index's web server to import it again
     /// (see `try_carry_over::live_set`): 14 if it isn't set.

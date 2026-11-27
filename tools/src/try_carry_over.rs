@@ -568,6 +568,10 @@ pub struct RestoreStatus {
     pub running: usize,
     pub queued: usize,
     pub not_imported: usize,
+    /// Of `done`, those whose semantic analyses are waiting or running (see
+    /// `try_import::Phase`), which the cut-over doesn't wait for.
+    #[serde(default)]
+    pub analyzing: usize,
     pub pushes: Vec<RestoreState>,
 }
 
@@ -588,6 +592,12 @@ pub fn status(cfg: &Config, tree_name: &str) -> RestoreStatus {
             ImportStatus::Imported { .. } => {
                 status.done += 1;
                 "imported"
+            }
+            // (Its review is there, its semantic analysis later.)
+            ImportStatus::Analyzing { .. } => {
+                status.done += 1;
+                status.analyzing += 1;
+                "analyzing"
             }
             ImportStatus::Failed { .. } => {
                 status.failed += 1;

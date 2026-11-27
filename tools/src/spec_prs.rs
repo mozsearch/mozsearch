@@ -1093,6 +1093,7 @@ impl SpecPrSyncs {
             &envs,
             &dir.join("sync.log"),
             TIME_LIMIT,
+            false,
             &mut |step| {
                 if let Some((_, _, running)) = &mut self.state.lock().unwrap().running {
                     *running = step;

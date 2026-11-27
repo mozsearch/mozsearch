@@ -238,28 +238,47 @@ impl PipelineCommand for TryReviewCommand {
                 ),
             }));
         }
+        // (Its import's status: ex: its semantic analysis still waiting or
+        // running, whose view isn't cached, as it's replaced by the one with
+        // it; see `try_import::Phase`.)
+        let status = match landed {
+            Some(_) => None,
+            None => server.try_import_status(&push).await.ok(),
+        };
+        let pending = status
+            .as_ref()
+            .and_then(crate::try_review::semantic_pending_note);
         // (Cached by the push; the server's identity covers the index's and
         // the code's.  A push imported again has the same commits, but a pull
         // request imported again for its newer commits doesn't, so its is
         // cached by its head too.)
-        let key = match landed.is_none() && crate::try_import::is_pull_request(&push) {
-            true => match server.try_import_status(&push).await {
-                Ok(crate::try_import::ImportStatus::Imported { head }) => {
-                    format!("{}@{}", push, head)
-                }
-                _ => push.clone(),
-            },
-            false => push.clone(),
+        let key = match (
+            landed.is_none() && crate::try_import::is_pull_request(&push),
+            &status,
+        ) {
+            (
+                true,
+                Some(
+                    crate::try_import::ImportStatus::Imported { head }
+                    | crate::try_import::ImportStatus::Analyzing { head, .. },
+                ),
+            ) => format!("{}@{}", push, head),
+            _ => push.clone(),
         };
-        let value =
-            crate::step_cache::cached(server.cache_identity(), "try-review", &key, || async {
-                Ok::<_, ServerError>(serde_json::to_value(review_view(server, &push).await?)?)
-            })
-            .await?;
+        let value = match pending {
+            Some(_) => serde_json::to_value(review_view(server, &push).await?)?,
+            None => {
+                crate::step_cache::cached(server.cache_identity(), "try-review", &key, || async {
+                    Ok::<_, ServerError>(serde_json::to_value(review_view(server, &push).await?)?)
+                })
+                .await?
+            }
+        };
         if self.args.format == TryReviewFormat::Json {
             return Ok(PipelineValues::JsonValue(JsonValue { value }));
         }
         let mut view: ReviewView = serde_json::from_value(value)?;
+        view.semantic_pending = pending.clone();
         let tree = server.tree_info()?.name;
         let facets = view_facets(&view);
         // (Its HTML, with its lines highlighted, cached too, by whether its
@@ -275,13 +294,18 @@ impl PipelineCommand for TryReviewCommand {
                 key = format!("{} unsliced", key);
             }
         }
-        let contents =
-            crate::step_cache::cached(server.cache_identity(), "try-review-html", &key, || async {
-                let mut view = view;
-                add_line_html(server, &mut view).await;
-                Ok::<_, ServerError>(serde_json::Value::String(render_review(&tree, &view)))
-            })
-            .await?;
+        let render = || async {
+            let mut view = view;
+            add_line_html(server, &mut view).await;
+            Ok::<_, ServerError>(serde_json::Value::String(render_review(&tree, &view)))
+        };
+        let contents = match pending {
+            Some(_) => render().await?,
+            None => {
+                crate::step_cache::cached(server.cache_identity(), "try-review-html", &key, render)
+                    .await?
+            }
+        };
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: TRY_REVIEW_MIME.to_string(),
             contents: contents.as_str().unwrap_or_default().to_string(),

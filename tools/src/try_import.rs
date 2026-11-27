@@ -32,6 +32,21 @@
 //! repo (REV being the hook's argument), so that a push is imported once that
 //! ref exists and the history has its head (see `imported_head`).
 //!
+//! An import is in two phases, if its hook takes them (`TRY_IMPORT_PHASE`;
+//! see `Phase`): its history (fetching the push, its stack, its rebase and
+//! its history's import), after which its review is there, and then its
+//! semantic analysis, which the hook leaves the state of (with the number of
+//! translation units it compiles, its predicted cost) for the semantic queue
+//! (see `next_semantic`), which runs few at a time (`semantic_workers`, by
+//! default one, with all of the cores but a few), the cheapest first, so that
+//! small pushes' analyses don't wait behind big ones' (but those which have
+//! waited `SEMANTIC_AGING`, the longest-waiting first), each with a time
+//! limit by its cost (`semantic_time_limit`).  Meanwhile its status is
+//! `ImportStatus::Analyzing`.  (On 2026-11-27, the cut-over gate's 19
+//! restored firefox-try pushes ran as whole imports, 4 at a time, each
+//! compiling with 24 jobs on 32 cores; the three of ~3,300 translation units
+//! each took an hour, and two of them were killed at `TIME_LIMIT`.)
+//!
 //! Imports start in the order they were asked for (people's before those
 //! restored from the previous index's web server; see `TryImports::restore`),
 //! on `threads` threads, each running the hook at a lower priority than the
@@ -120,8 +135,97 @@ pub const WORKERS: usize = 10;
 /// The most revisions an import processes (see import-try-push.sh), which
 /// includes those of its base which are newer than the tree's revision.
 pub const MAX_REVISIONS: usize = 2000;
-/// How long an import can take before it's killed.
+/// How long an import can take before it's killed (its history phase, or
+/// the whole import, for a hook without phases; see `Phase`).
 pub const TIME_LIMIT: Duration = Duration::from_secs(60 * 60);
+/// How long a semantic analysis waits at most before it goes before cheaper
+/// ones (see `next_semantic`).
+pub const SEMANTIC_AGING: Duration = Duration::from_secs(30 * 60);
+
+/// How long a semantic analysis of `tus` translation units (see
+/// `SemanticJob::tus`) can take before it's killed: 20 minutes and 2 s a
+/// translation unit, but at least `TIME_LIMIT`; or, if its cost is unknown, 3
+/// times that.  (On 2026-11-17, one at a time with 24 jobs, a push's 4,216
+/// translation units took 42 minutes; on 2026-11-27, 83 took 320 s with
+/// three others' builds beside it.)
+pub fn semantic_time_limit(tus: Option<u64>) -> Duration {
+    match tus {
+        Some(tus) => TIME_LIMIT.max(Duration::from_secs(20 * 60 + 2 * tus)),
+        None => TIME_LIMIT * 3,
+    }
+}
+
+/// An import's phase, which its hook gets as `TRY_IMPORT_PHASE` (see the
+/// module's comment): its history (`history`), after which, if it has a
+/// semantic analysis to run, the hook leaves that analysis's state in
+/// `semantic_state_path` (its `TUS=`, how many translation units it compiles,
+/// if it knows), for its semantic analysis (`semantic`).  A hook which
+/// doesn't take phases imports the whole push in its history phase.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Phase {
+    History,
+    Semantic,
+}
+
+impl Phase {
+    fn name(self) -> &'static str {
+        match self {
+            Phase::History => "history",
+            Phase::Semantic => "semantic",
+        }
+    }
+}
+
+/// Where the hook leaves the state of the try push `rev`'s semantic analysis
+/// for its semantic phase (see `Phase`).
+pub fn semantic_state_path(cfg: &Config, tree_name: &str, rev: &str) -> Option<PathBuf> {
+    let history = cfg.trees.get(tree_name)?.paths.history_path.as_ref()?;
+    Some(
+        Path::new(history)
+            .join("try-imports")
+            .join(format!("{}.semantic", rev)),
+    )
+}
+
+/// The predicted cost (`TUS=`) of the semantic analysis whose state is
+/// `state` (see `semantic_state_path`), if it says.
+fn parse_semantic_tus(state: &str) -> Option<u64> {
+    state.lines().find_map(|line| {
+        line.strip_prefix("TUS=")?
+            .trim()
+            .trim_matches('\'')
+            .parse()
+            .ok()
+    })
+}
+/// The line a semantic phase leaves in its state (see `semantic_state_path`)
+/// when it defers its analysis, rather than running it: having found the
+/// costs (`TUS=`) of its own and its tree's other waiting analyses, which it
+/// wrote in their states (ex: those which their history phases couldn't
+/// predict, before the analysis's base was prepared, as after a new index,
+/// which the first analysis prepares), it found another cheaper.  It's then
+/// queued again, as it was, with its tree's waiting analyses' costs read
+/// again, so that the cheapest runs first.  Only an analysis whose cost
+/// wasn't known when it started can defer itself (once, then); another's
+/// deferral fails it.
+pub const DEFERRED: &str = "DEFERRED=1";
+
+/// A deferred semantic analysis's state without its `DEFERRED` line, if it
+/// has one.
+fn undeferred_state(state: &str) -> Option<String> {
+    let lines: Vec<&str> = state.lines().collect();
+    if !lines.iter().any(|line| line.trim() == DEFERRED) {
+        return None;
+    }
+    Some(
+        lines
+            .into_iter()
+            .filter(|line| line.trim() != DEFERRED)
+            .map(|line| format!("{}\n", line))
+            .collect(),
+    )
+}
+
 /// How long after an import failed it can be asked for again.
 pub const RETRY_AFTER: Duration = Duration::from_secs(10 * 60);
 
@@ -717,6 +821,21 @@ pub enum ImportStatus {
     Imported {
         head: String,
     },
+    /// Its history is imported (at `head`), and its semantic analysis (of
+    /// `tus` translation units, if known) is waiting, after `ahead` others,
+    /// or running, for `seconds`, its output's last line being `step` (see
+    /// `Phase`).
+    Analyzing {
+        head: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tus: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ahead: Option<usize>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        seconds: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        step: Option<String>,
+    },
     /// It failed `seconds` ago, with its output's last lines as `message`; it
     /// can be asked for again after `RETRY_AFTER`.
     Failed {
@@ -732,6 +851,16 @@ struct Job {
     rev: String,
 }
 
+/// A try push's semantic analysis (its import's semantic phase; see `Phase`):
+/// the job, how many translation units it compiles (`TUS=`), if known, and
+/// when its history phase queued it.
+#[derive(Clone, Debug)]
+struct SemanticJob {
+    job: Job,
+    tus: Option<u64>,
+    queued: Instant,
+}
+
 #[derive(Default)]
 struct State {
     queue: VecDeque<Job>,
@@ -741,6 +870,75 @@ struct State {
     /// The running jobs, when each started, and its step.
     running: Vec<(Job, Instant, String)>,
     failed: HashMap<Job, (String, Instant)>,
+    /// The semantic analyses waiting (see `next_semantic`), and running, with
+    /// when each started and its step.
+    semantic_queue: Vec<SemanticJob>,
+    semantic_running: Vec<(SemanticJob, Instant, String)>,
+    /// Whether the pushes' semantic analyses which an earlier server left
+    /// waiting are queued again (see `TryImports::resume_semantic`).
+    resumed: bool,
+}
+
+/// How many of the tree `tree_name`'s try pushes' semantic analyses can run
+/// at a time (see `TreeConfigPaths::try_semantic_workers`): at least 1.
+pub fn semantic_workers(cfg: &Config, tree_name: &str) -> usize {
+    cfg.trees
+        .get(tree_name)
+        .and_then(|tree| tree.paths.try_semantic_workers)
+        .unwrap_or(1)
+        .max(1)
+}
+
+/// The order in which `queue`'s semantic analyses start (see `next_semantic`):
+/// those which have waited `SEMANTIC_AGING`, the longest-waiting first, then
+/// the cheapest (by `SemanticJob::tus`, unknown costs last), each the
+/// longest-waiting first among equals.
+fn semantic_order(queue: &[SemanticJob]) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..queue.len()).collect();
+    order.sort_by_key(|&index| {
+        let job = &queue[index];
+        let aged = job.queued.elapsed() >= SEMANTIC_AGING;
+        (
+            !aged,
+            if aged { 0 } else { job.tus.unwrap_or(u64::MAX) },
+            std::cmp::Reverse(job.queued.elapsed()),
+        )
+    });
+    order
+}
+
+/// Which of `queue`'s semantic analyses starts next beside the `running`
+/// ones (their trees': fewer than `workers_of` theirs): the first, in
+/// `semantic_order`'s order, whose tree has room.
+fn next_semantic(
+    queue: &[SemanticJob],
+    running: &[&SemanticJob],
+    workers_of: &dyn Fn(&str) -> usize,
+) -> Option<usize> {
+    semantic_order(queue).into_iter().find(|&index| {
+        let tree = &queue[index].job.tree;
+        running.iter().filter(|job| &job.job.tree == tree).count() < workers_of(tree)
+    })
+}
+
+/// How many semantic analyses are ahead of the waiting `job` (its tree's,
+/// running or before it in `semantic_order`), if it's waiting.
+fn semantic_ahead(state: &State, job: &Job) -> Option<usize> {
+    let position = state
+        .semantic_queue
+        .iter()
+        .position(|queued| &queued.job == job)?;
+    let before = semantic_order(&state.semantic_queue)
+        .into_iter()
+        .take_while(|&index| index != position)
+        .filter(|&index| state.semantic_queue[index].job.tree == job.tree)
+        .count();
+    let running = state
+        .semantic_running
+        .iter()
+        .filter(|(running, _, _)| running.job.tree == job.tree)
+        .count();
+    Some(before + running)
 }
 
 /// Whether the import of `rev` can start beside the imports of `running` into
@@ -774,14 +972,16 @@ pub fn try_workers(cfg: &Config, tree_name: &str) -> usize {
 /// 123, while firefox-try's try push requested at the start waited behind all
 /// of them; a firefox-try import uses up to 24 cores and 19 GB.)
 pub fn threads(cfg: &Config) -> usize {
-    let try_workers = cfg
-        .trees
-        .keys()
-        .filter(|tree| hook(cfg, tree).is_some())
-        .map(|tree| try_workers(cfg, tree))
-        .max()
-        .unwrap_or(1);
-    WORKERS + try_workers
+    let most = |workers: fn(&Config, &str) -> usize| {
+        cfg.trees
+            .keys()
+            .filter(|tree| hook(cfg, tree).is_some())
+            .map(|tree| workers(cfg, tree))
+            .max()
+            .unwrap_or(1)
+    };
+    // (And as many as the most semantic analyses a tree runs at a time.)
+    WORKERS + most(try_workers) + most(semantic_workers)
 }
 
 /// The history the imports into the tree `tree_name` write (its history
@@ -800,15 +1000,22 @@ fn history_key(cfg: &Config, tree_name: &str) -> String {
 /// `can_start`) beside those running into its history, but not after one into
 /// its history which can't (into a history, imports start in the order they
 /// were asked for: a try push's waits for the running ones, and those after it
-/// for it).
+/// for it).  Nor one whose push's semantic analysis is running (`analyzing`;
+/// ex: a pull request's newer commits), which waits for it, as its history
+/// phase would replace the state that analysis is of (see `Phase`), without
+/// keeping the others waiting.
 fn next_job(
     queue: &VecDeque<Job>,
     running: &[&Job],
+    analyzing: &[&Job],
     history_of: &dyn Fn(&str) -> String,
     try_workers_of: &dyn Fn(&str) -> usize,
 ) -> Option<usize> {
     let mut waiting: HashSet<String> = HashSet::new();
     for (index, job) in queue.iter().enumerate() {
+        if analyzing.contains(&job) {
+            continue;
+        }
         let history = history_of(&job.tree);
         if waiting.contains(&history) {
             continue;
@@ -882,12 +1089,58 @@ impl TryImports {
                     retry: at.elapsed() >= RETRY_AFTER,
                 };
             }
+            // (Its history imported, its semantic analysis waiting or
+            // running; see `Phase`.)
+            let head = || {
+                imported_head(cfg, tree_name, rev)
+                    .map(|head| head.to_string())
+                    .unwrap_or_default()
+            };
+            if let Some((semantic, started, step)) = state
+                .semantic_running
+                .iter()
+                .find(|(running, _, _)| running.job == job)
+            {
+                return ImportStatus::Analyzing {
+                    head: head(),
+                    tus: semantic.tus,
+                    ahead: None,
+                    seconds: Some(started.elapsed().as_secs()),
+                    step: Some(step.clone()),
+                };
+            }
+            if let Some(ahead) = semantic_ahead(&state, &job) {
+                let tus = state
+                    .semantic_queue
+                    .iter()
+                    .find(|queued| queued.job == job)
+                    .and_then(|queued| queued.tus);
+                return ImportStatus::Analyzing {
+                    head: head(),
+                    tus,
+                    ahead: Some(ahead),
+                    seconds: None,
+                    step: None,
+                };
+            }
         }
-        match imported_head(cfg, tree_name, rev) {
-            Some(head) => ImportStatus::Imported {
+        // (Or with its semantic analysis's state still there: one an earlier
+        // server left waiting, or this server's, from another process, ex:
+        // the pipeline-server's, whose `IMPORTS` doesn't run them.)
+        let state =
+            semantic_state_path(cfg, tree_name, rev).and_then(|path| fs::read_to_string(path).ok());
+        match (imported_head(cfg, tree_name, rev), state) {
+            (Some(head), Some(state)) => ImportStatus::Analyzing {
+                head: head.to_string(),
+                tus: parse_semantic_tus(&state),
+                ahead: None,
+                seconds: None,
+                step: None,
+            },
+            (Some(head), None) => ImportStatus::Imported {
                 head: head.to_string(),
             },
-            None => ImportStatus::NotImported,
+            (None, _) => ImportStatus::NotImported,
         }
     }
 
@@ -1080,15 +1333,79 @@ impl TryImports {
 
     /// Set the step of the running `job`.
     fn set_step(&self, job: &Job, step: String) {
-        if let Some((_, _, running)) = self
-            .state
-            .lock()
-            .unwrap()
+        let mut state = self.state.lock().unwrap();
+        if let Some((_, _, running)) = state
             .running
             .iter_mut()
             .find(|(running, _, _)| running == job)
         {
             *running = step;
+        } else if let Some((_, _, running)) = state
+            .semantic_running
+            .iter_mut()
+            .find(|(running, _, _)| &running.job == job)
+        {
+            *running = step;
+        }
+    }
+
+    /// Queue again the semantic analyses which an earlier server (ex: before
+    /// a restart) left waiting, by their states' files (see
+    /// `semantic_state_path`), in the trees which import try pushes; once.
+    fn resume_semantic(&self, cfg: &Config) {
+        let mut found: Vec<SemanticJob> = vec![];
+        for tree in cfg.trees.keys().filter(|tree| hook(cfg, tree).is_some()) {
+            let Some(history) = cfg.trees[tree].paths.history_path.as_ref() else {
+                continue;
+            };
+            let root = Path::new(history).join("try-imports");
+            // (`try-imports/REV.semantic`, or `try-imports/KIND/NUMBER.semantic`.)
+            let mut dirs = vec![root.clone()];
+            while let Some(dir) = dirs.pop() {
+                let Ok(entries) = fs::read_dir(&dir) else {
+                    continue;
+                };
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        dirs.push(path);
+                        continue;
+                    }
+                    let Some(rev) = path
+                        .strip_prefix(&root)
+                        .ok()
+                        .and_then(|rel| rel.to_str())
+                        .and_then(|rel| rel.strip_suffix(".semantic"))
+                    else {
+                        continue;
+                    };
+                    if normalize_push(rev).as_deref() != Some(rev)
+                        || imported_head(cfg, tree, rev).is_none()
+                    {
+                        continue;
+                    }
+                    found.push(SemanticJob {
+                        job: Job {
+                            tree: tree.clone(),
+                            rev: rev.to_string(),
+                        },
+                        tus: fs::read_to_string(&path)
+                            .ok()
+                            .and_then(|state| parse_semantic_tus(&state)),
+                        queued: Instant::now(),
+                    });
+                }
+            }
+        }
+        let mut state = self.state.lock().unwrap();
+        for job in found {
+            if !state
+                .semantic_queue
+                .iter()
+                .any(|queued| queued.job == job.job)
+            {
+                state.semantic_queue.push(job);
+            }
         }
     }
 
@@ -1101,8 +1418,18 @@ impl TryImports {
     /// `PRECOMPUTING`).  Failing to precompute only means its pages compute
     /// it when asked.
     pub fn run(&self, cfg: &Config, precompute: &dyn Fn(&str, &str)) {
+        // (Once, those an earlier server left waiting.)
+        let resume = {
+            let mut state = self.state.lock().unwrap();
+            !std::mem::replace(&mut state.resumed, true)
+        };
+        if resume {
+            self.resume_semantic(cfg);
+        }
         loop {
-            let job = {
+            // (A history phase's job, or else a semantic analysis; see
+            // `Phase`.)
+            let (job, semantic) = {
                 let mut state = self.state.lock().unwrap();
                 loop {
                     // (Into a history, in the order they were asked for; see
@@ -1110,24 +1437,104 @@ impl TryImports {
                     let next = {
                         let running: Vec<&Job> =
                             state.running.iter().map(|(job, _, _)| job).collect();
+                        let analyzing: Vec<&Job> = state
+                            .semantic_running
+                            .iter()
+                            .map(|(semantic, _, _)| &semantic.job)
+                            .collect();
                         next_job(
                             &state.queue,
                             &running,
+                            &analyzing,
                             &|tree| history_key(cfg, tree),
                             &|tree| try_workers(cfg, tree),
                         )
                     };
                     if let Some(job) = next.and_then(|index| state.queue.remove(index)) {
                         state.restored.remove(&job);
+                        // (Its semantic analysis waiting, if any, is of the
+                        // head this import replaces; its history phase leaves
+                        // its own.)
+                        state.semantic_queue.retain(|semantic| semantic.job != job);
                         state
                             .running
                             .push((job.clone(), Instant::now(), String::new()));
-                        break job;
+                        break (job, None);
+                    }
+                    let next = {
+                        let running: Vec<&SemanticJob> = state
+                            .semantic_running
+                            .iter()
+                            .map(|(job, _, _)| job)
+                            .collect();
+                        next_semantic(&state.semantic_queue, &running, &|tree| {
+                            semantic_workers(cfg, tree)
+                        })
+                    };
+                    if let Some(index) = next {
+                        let semantic = state.semantic_queue.remove(index);
+                        state.semantic_running.push((
+                            semantic.clone(),
+                            Instant::now(),
+                            String::new(),
+                        ));
+                        break (semantic.job.clone(), Some(semantic));
                     }
                     state = self.queued.wait(state).unwrap();
                 }
             };
-            let result = self.import(cfg, &job);
+            let (result, deferred) = match &semantic {
+                Some(semantic) => match self.analyze(cfg, semantic) {
+                    Ok(deferred) => (Ok(()), deferred),
+                    Err(message) => (Err(message), false),
+                },
+                None => (self.import(cfg, &job), false),
+            };
+            // (A semantic analysis which deferred itself, having found the
+            // costs: queued again, as it was, with its tree's waiting ones'
+            // costs read again; see `DEFERRED`.)
+            if let (Some(semantic), true) = (&semantic, deferred) {
+                let mut state = self.state.lock().unwrap();
+                state
+                    .semantic_running
+                    .retain(|(running, _, _)| running.job != job);
+                state.semantic_queue.push(semantic.clone());
+                for queued in state
+                    .semantic_queue
+                    .iter_mut()
+                    .filter(|queued| queued.job.tree == job.tree)
+                {
+                    if let Some(tus) = semantic_state_path(cfg, &queued.job.tree, &queued.job.rev)
+                        .and_then(|path| fs::read_to_string(path).ok())
+                        .map(|state| parse_semantic_tus(&state))
+                    {
+                        queued.tus = tus;
+                    }
+                }
+                drop(state);
+                self.queued.notify_all();
+                continue;
+            }
+            // (A history phase which left its semantic analysis for later:
+            // queued, and its pages precomputed after it.)
+            let left = match (&semantic, &result) {
+                (None, Ok(())) => semantic_state_path(cfg, &job.tree, &job.rev)
+                    .and_then(|path| fs::read_to_string(path).ok())
+                    .map(|state| parse_semantic_tus(&state)),
+                _ => None,
+            };
+            if let Some(tus) = left {
+                let mut state = self.state.lock().unwrap();
+                state.running.retain(|(running, _, _)| *running != job);
+                state.semantic_queue.push(SemanticJob {
+                    job: job.clone(),
+                    tus,
+                    queued: Instant::now(),
+                });
+                drop(state);
+                self.queued.notify_all();
+                continue;
+            }
             if result.is_ok() {
                 self.set_step(&job, PRECOMPUTING.to_string());
                 let started = Instant::now();
@@ -1145,12 +1552,24 @@ impl TryImports {
             {
                 let mut state = self.state.lock().unwrap();
                 state.running.retain(|(running, _, _)| *running != job);
-                if let Err(message) = result {
-                    eprintln!(
-                        "Importing try push {} into {} failed: {}",
+                state
+                    .semantic_running
+                    .retain(|(running, _, _)| running.job != job);
+                match (result, semantic.is_some()) {
+                    (Ok(()), _) => {}
+                    // (A semantic analysis's failure leaves the push imported,
+                    // its log saying why; see `semantic_failure`.)
+                    (Err(message), true) => eprintln!(
+                        "The semantic analysis of try push {} in {} failed: {}",
                         job.rev, job.tree, message
-                    );
-                    state.failed.insert(job, (message, Instant::now()));
+                    ),
+                    (Err(message), false) => {
+                        eprintln!(
+                            "Importing try push {} into {} failed: {}",
+                            job.rev, job.tree, message
+                        );
+                        state.failed.insert(job, (message, Instant::now()));
+                    }
                 }
             }
             // (The next ones may start now.)
@@ -1158,9 +1577,67 @@ impl TryImports {
         }
     }
 
-    /// Run the tree's hook for the job, until it's done or `TIME_LIMIT`.
-    /// (`run` precomputes its pages' data after it.)
+    /// Run the tree's hook for the job's history phase (see `Phase`), or the
+    /// whole import if it doesn't take phases, until it's done or
+    /// `TIME_LIMIT`.  (`run` precomputes its pages' data after it, or after
+    /// its semantic phase, if it left one.)
     fn import(&self, cfg: &Config, job: &Job) -> Result<(), String> {
+        // (The state its previous import left, if its semantic analysis
+        // didn't run, isn't this import's, whose history phase may leave
+        // none, ex: if its stack no longer rebases.)
+        if let Some(path) = semantic_state_path(cfg, &job.tree, &job.rev) {
+            let _ = fs::remove_file(path);
+        }
+        self.run_phase(cfg, job, Phase::History, TIME_LIMIT)?;
+        if imported_head(cfg, &job.tree, &job.rev).is_none() {
+            return Err("The import finished, but the history doesn't have the push".to_string());
+        }
+        Ok(())
+    }
+
+    /// Run the tree's hook for the `semantic` job's semantic phase (see
+    /// `Phase`), its output after the history phase's in the import's log,
+    /// until it's done or its `semantic_time_limit`, after which its state is
+    /// gone, and if it failed, the log says why (see `semantic_failure`);
+    /// or, if it deferred itself (see `DEFERRED`), true, its state kept.
+    fn analyze(&self, cfg: &Config, semantic: &SemanticJob) -> Result<bool, String> {
+        let job = &semantic.job;
+        let result = self.run_phase(cfg, job, Phase::Semantic, semantic_time_limit(semantic.tus));
+        if let Some(path) = semantic_state_path(cfg, &job.tree, &job.rev) {
+            // (Kept, without its `DEFERRED=`, if it deferred itself, which
+            // only one whose cost wasn't known can, once.)
+            if let (Ok(()), Ok(state)) = (&result, fs::read_to_string(&path)) {
+                if let Some(kept) = undeferred_state(&state) {
+                    if semantic.tus.is_none() && fs::write(&path, &kept).is_ok() {
+                        return Ok(true);
+                    }
+                    let _ = fs::remove_file(&path);
+                    let message =
+                        "It deferred its semantic analysis, whose cost was known".to_string();
+                    if let Some(log_path) = import_log_path(cfg, &job.tree, &job.rev) {
+                        append_to_log(&log_path, &format!("ERROR: {}", message));
+                    }
+                    return Err(message);
+                }
+            }
+            let _ = fs::remove_file(path);
+        }
+        if let (Err(message), Some(log_path)) = (&result, import_log_path(cfg, &job.tree, &job.rev))
+        {
+            append_to_log(&log_path, &format!("ERROR: {}", message));
+        }
+        result.map(|()| false)
+    }
+
+    /// Run the tree's hook for `phase` of the job's import, until it's done or
+    /// `time_limit`.
+    fn run_phase(
+        &self,
+        cfg: &Config,
+        job: &Job,
+        phase: Phase,
+        time_limit: Duration,
+    ) -> Result<(), String> {
         let tree_config = cfg.trees.get(&job.tree).ok_or("No such tree")?;
         let hook = hook(cfg, &job.tree).ok_or("The tree can't import try pushes")?;
         let history_root = tree_config
@@ -1174,7 +1651,13 @@ impl TryImports {
             .join(format!("{}.log", job.rev));
         fs::create_dir_all(log_path.parent().unwrap()).map_err(|e| e.to_string())?;
         let max_revisions = MAX_REVISIONS.to_string();
-        let workers = try_workers(cfg, &job.tree).to_string();
+        // (As many workspaces for semantic analyses as run at a time: the
+        // semantic queue's, or whole imports' for hooks without phases.)
+        let workers = match phase {
+            Phase::History => try_workers(cfg, &job.tree),
+            Phase::Semantic => semantic_workers(cfg, &job.tree),
+        }
+        .to_string();
         let lock_path = Path::new(history_root)
             .join("try-imports")
             .join("history.lock");
@@ -1203,37 +1686,45 @@ impl TryImports {
             // (How many of the tree's try pushes' imports run at a time, ex:
             // for as many semantic analyses' workspaces; see `try_workers`.)
             ("TRY_IMPORT_WORKERS", &workers),
+            // (Which phase; see `Phase`.)
+            ("TRY_IMPORT_PHASE", phase.name()),
         ];
         run_hook(
             &hook,
             &[&job.rev],
             &envs,
             &log_path,
-            TIME_LIMIT,
+            time_limit,
+            phase == Phase::Semantic,
             &mut |step| self.set_step(job, step),
-        )?;
-        if imported_head(cfg, &job.tree, &job.rev).is_none() {
-            return Err("The import finished, but the history doesn't have the push".to_string());
-        }
-        Ok(())
+        )
     }
 }
 
 /// Run a tree's hook (ex: `import-try`) with `args` and `envs`, at a lower
 /// priority than the server's (`nice`) and in its own process group, with
-/// its output in `log_path`, until it's done or `time_limit` (when it and
-/// what it runs are killed), telling `step` its output's last line every
-/// second.  Its error is its output's last lines, if it fails.  Its log ends
-/// with how long it took and what it used (see `HookUsage`).
+/// its output in `log_path` (after what's there, if `append`), until it's
+/// done or `time_limit` (when it and what it runs are killed), telling `step`
+/// its output's last line every second.  Its error is its output's last
+/// lines, if it fails.  Its log ends with how long it took and what it used
+/// (see `HookUsage`).
 pub fn run_hook(
     hook: &Path,
     args: &[&str],
     envs: &[(&str, &str)],
     log_path: &Path,
     time_limit: Duration,
+    append: bool,
     step: &mut dyn FnMut(String),
 ) -> Result<(), String> {
-    let log = fs::File::create(log_path).map_err(|e| e.to_string())?;
+    let log = match append {
+        true => fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_path),
+        false => fs::File::create(log_path),
+    }
+    .map_err(|e| e.to_string())?;
     let mut command = Command::new("nice");
     command.arg("-n10").arg(hook).args(args);
     for (name, value) in envs {
@@ -1523,7 +2014,7 @@ mod tests {
         .unwrap();
         fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
         for code in ["0", "1"] {
-            let result = run_hook(&hook, &[code], &[], &log, TIME_LIMIT, &mut |_| {});
+            let result = run_hook(&hook, &[code], &[], &log, TIME_LIMIT, false, &mut |_| {});
             let text = fs::read_to_string(&log).unwrap();
             let last = text.lines().last().unwrap();
             assert!(last.starts_with("try-import: the hook took "), "{}", last);
@@ -1591,6 +2082,81 @@ mod tests {
     /// Each history takes its own writers: imports into other histories run
     /// beside each other, and into a history, they start in the order they
     /// were asked for.  (firefox-disco and firefox-try share a history.)
+    /// Semantic analyses start the cheapest first (unknown costs last), but
+    /// those which have waited `SEMANTIC_AGING` first, and as many at a time
+    /// as their trees allow; and their time limits by their costs.
+    #[test]
+    fn test_next_semantic() {
+        let now = Instant::now();
+        let semantic = |tree: &str, rev: &str, tus: Option<u64>, waited: u64| SemanticJob {
+            job: Job {
+                tree: tree.to_string(),
+                rev: rev.to_string(),
+            },
+            tus,
+            queued: now - Duration::from_secs(waited),
+        };
+        let queue = vec![
+            semantic("try", "big", Some(3300), 60),
+            semantic("try", "unknown", None, 120),
+            semantic("try", "small", Some(14), 10),
+            semantic("try", "mid", Some(83), 30),
+        ];
+        let order: Vec<&str> = semantic_order(&queue)
+            .into_iter()
+            .map(|index| queue[index].job.rev.as_str())
+            .collect();
+        assert_eq!(order, vec!["small", "mid", "big", "unknown"]);
+        let one = |_: &str| 1;
+        assert_eq!(next_semantic(&queue, &[], &one), Some(2));
+        // (One at a time in a tree, by default.)
+        let running = semantic("try", "running", Some(1), 0);
+        assert_eq!(next_semantic(&queue, &[&running], &one), None);
+        let other = semantic("other", "running", Some(1), 0);
+        assert_eq!(next_semantic(&queue, &[&other], &one), Some(2));
+        // (One which has waited `SEMANTIC_AGING` goes first, the
+        // longest-waiting first.)
+        let aged = vec![
+            semantic("try", "small", Some(14), 10),
+            semantic("try", "big", Some(3300), SEMANTIC_AGING.as_secs() + 60),
+            semantic("try", "bigger", Some(9000), SEMANTIC_AGING.as_secs() + 600),
+        ];
+        assert_eq!(semantic_order(&aged), vec![2, 1, 0]);
+
+        let mut state = State::default();
+        state.semantic_queue = queue;
+        state.semantic_running.push((running, now, String::new()));
+        let job = |rev: &str| Job {
+            tree: "try".to_string(),
+            rev: rev.to_string(),
+        };
+        assert_eq!(
+            semantic_ahead(&state, &job("small")),
+            Some(1),
+            "(the running one)"
+        );
+        assert_eq!(semantic_ahead(&state, &job("big")), Some(3));
+        assert_eq!(semantic_ahead(&state, &job("nothing")), None);
+
+        assert_eq!(semantic_time_limit(Some(14)), TIME_LIMIT);
+        assert_eq!(
+            semantic_time_limit(Some(3300)),
+            Duration::from_secs(20 * 60 + 6600)
+        );
+        assert_eq!(semantic_time_limit(None), TIME_LIMIT * 3);
+        assert_eq!(
+            parse_semantic_tus("REBASED=abc\nALSO_REBASED=''\nTUS=3271\n"),
+            Some(3271)
+        );
+        assert_eq!(parse_semantic_tus("REBASED=abc\nTUS=''\n"), None);
+        // A deferred analysis's state, kept without its `DEFERRED` line.
+        assert_eq!(
+            undeferred_state("REBASED=abc\nTUS=12\nDEFERRED=1\n").as_deref(),
+            Some("REBASED=abc\nTUS=12\n")
+        );
+        assert_eq!(undeferred_state("REBASED=abc\nTUS=12\n"), None);
+    }
+
     #[test]
     fn test_next_job() {
         let history_of = |tree: &str| match tree {
@@ -1601,7 +2167,7 @@ mod tests {
         // (One try push's import at a time; see test_next_job_try_workers.)
         let next = |queued: &[Job], running: &[Job]| {
             let running: Vec<&Job> = running.iter().collect();
-            next_job(&queue(queued), &running, &history_of, &|_| 1)
+            next_job(&queue(queued), &running, &[], &history_of, &|_| 1)
         };
         let push = job("firefox-try", "0123456789ab");
         let specs: Vec<Job> = (0..WORKERS)
@@ -1633,6 +2199,19 @@ mod tests {
             None
         );
         assert_eq!(next(&[], &[]), None);
+        // Not one whose push's semantic analysis is running, which the others
+        // don't wait for.
+        let analyzed = job("mozsearch-disco", "github/7");
+        let after = job("mozsearch-disco", "github/8");
+        let queued = queue(&[analyzed.clone(), after.clone()]);
+        assert_eq!(
+            next_job(&queued, &[], &[&analyzed], &history_of, &|_| 1),
+            Some(1)
+        );
+        assert_eq!(
+            next_job(&queued, &[], &[&after], &history_of, &|_| 1),
+            Some(0)
+        );
     }
 
     /// A tree whose `try_import_workers` allows it runs several of its try
@@ -1645,6 +2224,7 @@ mod tests {
             next_job(
                 &queue(queued),
                 &running,
+                &[],
                 &|tree: &str| tree.to_string(),
                 &|tree: &str| {
                     if tree == "firefox-try" { 3 } else { 1 }
