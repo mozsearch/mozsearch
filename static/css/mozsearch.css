@@ -8245,9 +8245,10 @@ textarea.monospace {
   background: linear-gradient(to left, var(--tr-later-color) 3px, transparent 3px);
 }
 
-/* (A line its patch moved here (see try_review.rs's `add_moved_lines`): a
-   bar between its number and its code, as Phabricator has, and the popup
-   saying where it moved from, on hover.  Gold rather than Phabricator's
+/* (A line its patch moved here (see try_review.rs's `add_moved_lines`), or
+   one it moved elsewhere, as it was: a bar between its number and its code,
+   as Phabricator has, and its blame popup saying where it moved from, or
+   to.  Gold rather than Phabricator's
    yellow, which has 2:1 on white, so that it keeps WCAG's 3:1 for non-text
    contrast: 3.4:1 on the added lines' tint, 3:1 hovered over; the dark
    theme's yellow, 7.4:1 there.) */
@@ -8277,11 +8278,19 @@ textarea.monospace {
 .tr-moved-group + .tr-moved-group {
   margin-top: 0.4em;
 }
-.tr-moved-head {
+.tr-moved-head,
+.tr-moved-to {
   padding: 0.2em 0.5em;
   border-inline-start: 3px solid var(--tr-moved-color);
   color: var(--page-subtle-foreground);
   font-size: 0.9em;
+}
+
+/* Where a hunk's removed lines moved to (see try_review.rs's
+   `moved_to_html`), whose lines have the moved lines' bar too, as they
+   were: links to each place's hunk, in each of the view's modes. */
+.tr-moved-to {
+  margin-top: 0.4em;
 }
 
 /* A hunk's lines which later patches change, again, as each changes them

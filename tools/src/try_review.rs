@@ -97,6 +97,11 @@ pub struct HunkLine {
     /// its index in the view's `moved`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub moved: Option<usize>,
+    /// If its patch moved it elsewhere (it's removed, and its tokens are
+    /// mostly a moved line's; see `add_moved_lines`), where to: its index in
+    /// the view's `moved_to`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moved_to: Option<usize>,
     /// Whether all of its words (but whitespace) are marked as changed (see
     /// `mark_word_changes`), whose marks then aren't underlined, as the
     /// line's tint says as much (see mozsearch.css's `tr-all-marked`).
@@ -135,6 +140,22 @@ pub struct TokenRun {
 /// try-review.js's `addLineNotes`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MovedFrom {
+    pub path: String,
+    pub first: u32,
+    pub last: u32,
+    pub element: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub def: Option<String>,
+    pub lines: Vec<String>,
+}
+
+/// Where a patch moved lines to (see `add_moved_lines`), as `MovedFrom` is
+/// where from: its added lines (the first and last, in `path` as it is),
+/// in the hunk whose element is `element` (in the definition `def`, if any),
+/// and their code (the first `MOVED_LINES`), for the removed lines' notes in
+/// their blame popups and their hunk's summary of where they went.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct MovedTo {
     pub path: String,
     pub first: u32,
     pub last: u32,
@@ -782,6 +803,10 @@ pub struct ReviewView {
     /// in the view's cache).
     #[serde(skip)]
     pub moved: Vec<MovedFrom>,
+    /// Where the patches moved lines to (see `add_moved_lines`; not kept in
+    /// the view's cache).
+    #[serde(skip)]
+    pub moved_to: Vec<MovedTo>,
     /// The SYM_INFO of its block diagrams' nodes (see `GroupSlicing::block`),
     /// as the page's script's JSON (not kept in the view's cache).
     #[serde(skip)]
@@ -868,6 +893,11 @@ pub struct ReviewHunk {
     /// kept in the view's cache).
     #[serde(skip)]
     pub moved: Vec<MovedGroup>,
+    /// Where its patch moved its removed lines to (see `add_moved_lines`;
+    /// not kept in the view's cache), each place once, in the order of its
+    /// lines, for its summary below it (see `moved_to_html`).
+    #[serde(skip)]
+    pub moved_to: Vec<MovedTo>,
     /// The index of its file's diff hunk it's (part of; see `split_hunk`).
     #[serde(default)]
     pub diff_hunk: usize,
@@ -1271,6 +1301,7 @@ fn review_file(
             removed: hunk.count("-"),
             lines,
             moved: vec![],
+            moved_to: vec![],
             diff_hunk: *diff_hunk,
             expand_before: vec![],
             expand_after: vec![],
@@ -1486,6 +1517,7 @@ pub async fn review_view(
         blame_infos: vec![],
         later: vec![],
         moved: vec![],
+        moved_to: vec![],
         block_sym_info: None,
         landed_of,
         semantic_pending: None,
@@ -1915,7 +1947,7 @@ pub async fn add_line_html(server: &(dyn AbstractServer + Send + Sync), view: &m
         }
         // (And the lines it moved, now that its files' lines have their
         // tokens.)
-        add_moved_lines(&mut view.moved, patch);
+        add_moved_lines(&mut view.moved, &mut view.moved_to, patch);
     }
     // (The symbols' SYM_INFO, now by the indexed revision's server, and
     // patched by the push's.)
@@ -1965,8 +1997,15 @@ const MOVED_LINES: usize = 6;
 /// they were there (the removed lines it got its tokens from, and those
 /// between them) and as they are here, their words' changes marked (see
 /// `mark_word_changes`), for the hunk's code against where it moved from
-/// (see `moved_html`).
-fn add_moved_lines(moved: &mut Vec<MovedFrom>, patch: &mut ReviewPatch) {
+/// (see `moved_html`).  And the removed lines they got their tokens from,
+/// where they moved to (`HunkLine::moved_to`, into `moved_to`), whose hunk
+/// sums up where its lines went (`ReviewHunk::moved_to`; see
+/// `moved_to_html`).
+fn add_moved_lines(
+    moved: &mut Vec<MovedFrom>,
+    moved_to: &mut Vec<MovedTo>,
+    patch: &mut ReviewPatch,
+) {
     type At = (usize, usize, usize);
     // The removed lines' tokens, by their commit and path: each run's first
     // and last token, and its line.
@@ -2095,6 +2134,8 @@ fn add_moved_lines(moved: &mut Vec<MovedFrom>, patch: &mut ReviewPatch) {
     groups.retain(|group| group.tokens >= MOVED_MIN_TOKENS);
     // Their lines, as they were and are, and where they moved from.
     let mut added: Vec<((usize, usize), MovedGroup, Vec<usize>)> = vec![];
+    // (And the lines they moved from: their hunk, their lines, and where to.)
+    let mut sources_moved: Vec<((usize, usize), Vec<usize>, usize)> = vec![];
     for group in groups {
         let from_file = &patch.files[group.from.0];
         let from_hunk = &from_file.hunks[group.from.1];
@@ -2155,12 +2196,41 @@ fn add_moved_lines(moved: &mut Vec<MovedFrom>, patch: &mut ReviewPatch) {
                 .map(|line| note_line_html(line.then_html.as_ref(), line))
                 .collect(),
         };
+        // (Where to: its moved lines here, for the lines it moved from.)
+        let to_file = &patch.files[group.at.0];
+        let here: Vec<&HunkLine> = is.iter().filter(|line| line.moved.is_some()).collect();
+        let to = MovedTo {
+            path: to_file.path.clone(),
+            first: here.iter().filter_map(|line| line.new).min().unwrap_or(0),
+            last: here.iter().filter_map(|line| line.new).max().unwrap_or(0),
+            element: element_id(&hunk.id, hunk.section),
+            def: hunk.def.as_deref().and_then(|id| {
+                to_file
+                    .defs
+                    .iter()
+                    .find(|def| def.id == id)
+                    .map(|def| def.pretty.clone())
+            }),
+            lines: here
+                .iter()
+                .take(MOVED_LINES)
+                .map(|line| note_line_html(line.now_html.as_ref(), line))
+                .collect(),
+        };
         let mut lines = was;
         lines.extend(is);
         mark_word_changes(&mut lines);
         let moved_lines: Vec<usize> = (group.first..=group.last)
             .filter(|l| is_moved(*l))
             .collect();
+        let from_lines: Vec<usize> = group
+            .sources
+            .iter()
+            .copied()
+            .filter(|&l| from_hunk.lines[l].kind == "-")
+            .collect();
+        sources_moved.push((group.from, from_lines, moved_to.len()));
+        moved_to.push(to);
         moved.push(from.clone());
         let group_lines = MovedGroup {
             from,
@@ -2176,6 +2246,18 @@ fn add_moved_lines(moved: &mut Vec<MovedFrom>, patch: &mut ReviewPatch) {
             hunk.lines[l].moved = Some(group.from_index);
         }
         hunk.moved.push(group);
+    }
+    // (A line moved to several places says the first; its hunk, all of
+    // them, in its lines' order.)
+    sources_moved.sort_by_key(|(at, lines, _)| (*at, lines.first().copied()));
+    for ((f, h), lines, index) in sources_moved {
+        let hunk = &mut patch.files[f].hunks[h];
+        for l in lines {
+            hunk.lines[l].moved_to.get_or_insert(index);
+        }
+        if !hunk.moved_to.contains(&moved_to[index]) {
+            hunk.moved_to.push(moved_to[index].clone());
+        }
     }
 }
 
@@ -3754,10 +3836,11 @@ fn side_html(lines: &[HunkLine], then: bool, key: &str) -> String {
             (false, Some(index)) => format!(r#" tr-later" data-later="{}"#, index),
             _ => String::new(),
         };
-        // (And a line its patch moved here, where from; see
-        // `add_moved_lines`.)
-        let moved = match (then, line.moved) {
-            (false, Some(index)) => format!(r#" tr-moved" data-moved="{}"#, index),
+        // (And a line its patch moved here, where from, or one it moved
+        // elsewhere, where to, as it was; see `add_moved_lines`.)
+        let moved = match (then, line.moved, line.moved_to) {
+            (false, Some(index), _) => format!(r#" tr-moved" data-moved="{}"#, index),
+            (true, _, Some(index)) => format!(r#" tr-moved" data-moved-to="{}"#, index),
             _ => String::new(),
         };
         let data_line = match number {
@@ -4036,6 +4119,45 @@ fn moved_html(tree: &str, patch: usize, file: &ReviewFile, hunk: &ReviewHunk) ->
     html
 }
 
+/// Where a hunk's removed lines moved to (see `add_moved_lines`), below it:
+/// a line linking to each place's hunk (its lines there, and its
+/// definition), beside the moved lines' bar's color, in each of the view's
+/// modes (whose Now, without its removed lines, has only this of them).
+fn moved_to_html(hunk: &ReviewHunk) -> String {
+    if hunk.moved_to.is_empty() {
+        return String::new();
+    }
+    let places: Vec<String> = hunk
+        .moved_to
+        .iter()
+        .map(|to| {
+            let lines = match to.first == to.last {
+                true => format!("line {}", to.first),
+                false => format!("lines {}&ndash;{}", to.first, to.last),
+            };
+            let def = to
+                .def
+                .as_deref()
+                .map(|def| format!(" (in <code>{}</code>)", escape(def)))
+                .unwrap_or_default();
+            format!(
+                r##"<a href="#{element}">{path} {lines}</a>{def}"##,
+                element = escape(&to.element),
+                path = escape(&to.path),
+                lines = lines,
+                def = def,
+            )
+        })
+        .collect();
+    format!(
+        r#"<div class="tr-moved-to">Moved to {}.</div>"#,
+        match places.len() {
+            1 => places[0].clone(),
+            n => format!("{} and {}", places[..n - 1].join(", "), places[n - 1]),
+        }
+    )
+}
+
 /// A hunk's lines which later patches change (see `add_later_changes`),
 /// again, as each later hunk changes them: its lines changing them, as the
 /// file was before it and as it has it, each group headed by a link to the
@@ -4102,7 +4224,7 @@ fn hunk_html(
         element = element,
         head = head,
         code = hunk_code_html(tree, rev, stack, patch, file, hunk),
-        moved = moved_html(tree, patch, file, hunk),
+        moved = moved_html(tree, patch, file, hunk) + &moved_to_html(hunk),
         later = later_html(tree, hunk),
     )
 }
@@ -4777,8 +4899,10 @@ pub fn render_review(tree: &str, view: &ReviewView) -> String {
             "slicing": view.slicing,
             // (The later patches' changes of lines; see `add_later_changes`.)
             "later": view.later,
-            // (Where the patches moved lines from; see `add_moved_lines`.)
+            // (Where the patches moved lines from, and to; see
+            // `add_moved_lines`.)
             "moved": view.moved,
+            "moved_to": view.moved_to,
         }),
     ));
     // (Its code's symbols' SYM_INFO by side, and its blames; see
@@ -5193,6 +5317,7 @@ Binary files img.png and img.png differ
                         added: lines / files.len() as u32,
                         removed: 0,
                         moved: vec![],
+                        moved_to: vec![],
                         diff_hunk: 0,
                         expand_before: vec![],
                         expand_after: vec![],
@@ -5239,6 +5364,7 @@ Binary files img.png and img.png differ
             blame_infos: vec![],
             later: vec![],
             moved: vec![],
+            moved_to: vec![],
             block_sym_info: None,
             landed_of: None,
             semantic_pending: None,
@@ -5370,6 +5496,7 @@ Binary files img.png and img.png differ
             added: 1,
             removed: 0,
             moved: vec![],
+            moved_to: vec![],
             diff_hunk: 0,
             expand_before: vec![],
             expand_after: vec![],
@@ -5415,6 +5542,7 @@ Binary files img.png and img.png differ
             blame_infos: vec![],
             later: vec![],
             moved: vec![],
+            moved_to: vec![],
             block_sym_info: None,
             landed_of: None,
             semantic_pending: None,
@@ -5595,6 +5723,7 @@ Binary files img.png and img.png differ
             added: 0,
             removed: 0,
             moved: vec![],
+            moved_to: vec![],
             diff_hunk: 0,
             expand_before: vec![],
             expand_after: vec![],
@@ -5697,7 +5826,8 @@ Binary files img.png and img.png differ
         moving.files[1].hunks[2].diff_hunk = 2;
         moving.files[1].hunks[3].diff_hunk = 2;
         let mut moved = vec![];
-        add_moved_lines(&mut moved, &mut moving);
+        let mut moved_to = vec![];
+        add_moved_lines(&mut moved, &mut moved_to, &mut moving);
         let lines = |f: usize, h: usize| -> Vec<Option<usize>> {
             moving.files[f].hunks[h]
                 .lines
@@ -5766,6 +5896,49 @@ Binary files img.png and img.png differ
             )
         );
         assert_eq!(group.lines[4].now_html, None, "(Use(uri) is as it was)");
+        // (And where they moved to, from the lines they were.)
+        assert_eq!(
+            moving.files[0].hunks[0]
+                .lines
+                .iter()
+                .map(|line| line.moved_to)
+                .collect::<Vec<_>>(),
+            vec![None, Some(0), Some(0), None, None, None],
+            "A::f's removed lines moved to B::g, but not its edited Log()"
+        );
+        assert_eq!(moved_to.len(), 1);
+        assert_eq!(
+            (
+                moved_to[0].path.as_str(),
+                moved_to[0].first,
+                moved_to[0].last
+            ),
+            ("b.cpp", 2, 4)
+        );
+        assert_eq!(moved_to[0].element, element_id("hb", Section::Uses));
+        assert_eq!(
+            moved_to[0].lines,
+            vec![
+                "  nsCOMPtr&lt;nsIURI&gt; uri = Make(aSpec);".to_string(),
+                "  Use(uri);".to_string(),
+            ]
+        );
+        assert_eq!(
+            moving.files[0].hunks[0].moved_to, moved_to,
+            "its hunk sums up where to"
+        );
+        assert!(
+            moving.files[0].hunks[1].moved_to.is_empty(),
+            "(a lone `}}` isn't a move)"
+        );
+        let summary = moved_to_html(&moving.files[0].hunks[0]);
+        assert_eq!(
+            summary,
+            format!(
+                r##"<div class="tr-moved-to">Moved to <a href="#{}">b.cpp lines 2&ndash;4</a>.</div>"##,
+                element_id("hb", Section::Uses)
+            )
+        );
     }
 
     /// The lines around a file's hunks which its page can show: up to

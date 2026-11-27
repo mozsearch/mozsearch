@@ -592,16 +592,18 @@ var TryReview = new (class TryReview {
 
   // The lines a later patch of the push changes (see the tools'
   // `add_later_changes`), which are marked beside their blame strips, and
-  // those their patch moved there (see the tools' `add_moved_lines`), marked
-  // between their numbers and their code: their blame strips' popups say, at
-  // their tops (see hyperblame.js's `TokenBlamePopup.lineNotes`), where they
-  // moved from (the lines they were, in their hunk), and that later patch's
+  // those their patch moved there, or elsewhere (see the tools'
+  // `add_moved_lines`), marked between their numbers and their code: their
+  // blame strips' popups say, at their tops (see hyperblame.js's
+  // `TokenBlamePopup.lineNotes`), where they moved from (the lines they
+  // were, in their hunk), or to (the lines they are), and that later patch's
   // change (the lines its hunk adds), each a link to its hunk (a history
   // entry, so that Back returns to the line).  (Their hunks have them again
   // below them; see the tools' `moved_html` and `later_html`.)
   addLineNotes() {
     const changes = TRY_REVIEW.later || [];
     const moves = TRY_REVIEW.moved || [];
+    const movesTo = TRY_REVIEW.moved_to || [];
     if ((!changes.length && !moves.length) || typeof TokenBlamePopup == "undefined") {
       return;
     }
@@ -654,6 +656,14 @@ var TryReview = new (class TryReview {
         const where = move.def ? ` (in ${move.def})` : "";
         notes.push(note("moved", `Moved here from ${move.path} ${lines}${where}:`, move.lines, "",
                         move.element, "Go to where it moved from"));
+      }
+      // (A removed line its patch moved elsewhere, where to.)
+      const to = row.dataset.movedTo !== undefined ? movesTo[Number(row.dataset.movedTo)] : null;
+      if (to) {
+        const lines = to.first == to.last ? `line ${to.first}` : `lines ${to.first}\u2013${to.last}`;
+        const where = to.def ? ` (in ${to.def})` : "";
+        notes.push(note("moved", `Moved to ${to.path} ${lines}${where}:`, to.lines, "",
+                        to.element, "Go to where it moved to"));
       }
       const change = row.dataset.later !== undefined ? changes[Number(row.dataset.later)] : null;
       if (change) {

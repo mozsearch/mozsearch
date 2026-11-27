@@ -525,8 +525,34 @@ add_task(async function test_TryReviewMovedLines() {
   ok(doc().querySelector('.tr-file[data-path="user.cpp"] .then-code .tr-line.tr-hover'),
      "whose row in user.cpp's hunk is highlighted with it");
 
+  // (And where they moved from, as they were there: marked, a note in their
+  // blame popups of where to, and below their hunk, a link to each place.)
+  const user = doc().querySelector('.tr-file[data-path="user.cpp"]');
+  const source = [...user.querySelectorAll(":scope .tr-hunk > .then-now .then-code .tr-line.tr-removed")]
+    .find(each => each.textContent.includes("FrobTwice(widget)"));
+  ok(source?.classList.contains("tr-moved") && source.dataset.movedTo !== undefined,
+     "The line where it moved from is marked as moved too");
+  const summary = source?.closest(".tr-hunk")?.querySelector(":scope > .tr-moved-to");
+  const link = summary?.querySelector("a");
+  ok(summary?.textContent.includes("Moved to frobbed.cpp"), `and its hunk says where to (${summary?.textContent})`);
+  ok(doc().getElementById(link?.getAttribute("href")?.slice(1) ?? "")?.closest('.tr-file[data-path="frobbed.cpp"]'),
+     "linking to frobbed.cpp's hunk");
+  // (Its popup's content, for its strip: its block's popup, which a
+  // synthetic mouseenter, without the pointer's position, builds but doesn't
+  // necessarily show here; see hyperblame.js.)
+  const win2 = frame.contentWindow;
+  win2.BlamePopup.triggerElement = null;
+  TestUtils.dispatchMouseEvent("mouseenter", source.querySelector(".blame-strip"));
+  const popup = doc().querySelector("#blame-popup");
+  const sourceNotes = () => popup.querySelector(".hb-popup > .hb-line-notes");
+  await waitForCondition(() => sourceNotes()?.textContent.includes("Moved to frobbed.cpp"),
+                         "Its blame strip's popup says where it moved to", 100, 100);
+  ok(sourceNotes()?.textContent.includes("FrobTwice(widget)"), `with its code there (${sourceNotes()?.textContent})`);
+  frame.contentWindow.BlamePopup.hide();
+
   TestUtils.click(doc().querySelector('.tr-head .then-now-modes button[data-mode="now"]'));
   ok(!group.checkVisibility(), "Otherwise, they aren't shown again");
+  ok(summary.checkVisibility(), "but where the lines moved to is, in each mode");
 });
 
 // (A hunk's lines around it, which its page has, shown when asked: in
