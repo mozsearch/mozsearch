@@ -156,6 +156,8 @@ add_task(async function test_TryReview() {
   }
   is(win.getComputedStyle(doc().querySelector(".try-review .now-code")).borderTopStyle, "none",
      "(The code has no border)");
+  ok(parseFloat(win.getComputedStyle(doc().querySelector(".try-review .now-code")).paddingBottom) >= 2,
+     "but room below its last line for its marks' underlines, which its scrolling box would clip");
   ok(doc().querySelector(".tr-def > .tr-hunk-folded") &&
      doc().querySelector(".tr-def-head > .tr-hunk-lines"),
      "and a definition with one hunk has its lines on its heading");

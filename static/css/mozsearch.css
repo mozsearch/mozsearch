@@ -8193,10 +8193,17 @@ textarea.monospace {
   min-width: 0;
 }
 
-/* (Without borders, which ran into the last line's marks' underlines.) */
+/* (Without borders, which ran into the last line's marks' underlines.  And
+   with room below the last line for its marks' underlines, which are under
+   its text, below its line's box, where the scrolling box would clip them
+   (its overflow-x makes its overflow-y clip too): ex: a moved hunk's last
+   line's changed word, which has no context lines below it.  2px rather than
+   1px, as underlines are drawn on whole device pixels, a pixel lower at some
+   zooms.) */
 .try-review .then-code,
 .try-review .now-code {
   overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .tr-line {
@@ -8598,8 +8605,46 @@ mark.tr-word-added {
   scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--tr-patch-head-height) + var(--tr-section-head-height) + var(--tr-file-head-height) + 0.5em);
 }
 
-.tr-flash {
+/* (And the part a URL's fragment names, ex: a heading's link's, or a link
+   someone shared.) */
+.tr-flash,
+.tr-file:target,
+.tr-def:target,
+.tr-hunk:target {
   animation: tr-flash 1.5s ease-out;
+}
+
+/* A heading's link to its part (see try_review.rs's `anchor_html`), first in
+   the heading: a `#` to the left of its text, out of its flow (at its start,
+   by its static position, moved back by its own width, into the margin), so
+   that the heading's text doesn't move; shown on hovering over the heading
+   (or the `#`, which is the heading's), or focusing it; on a touch screen,
+   faintly. */
+.tr-hash {
+  position: absolute;
+  transform: translateX(-100%);
+  padding-inline-end: 0.3em;
+  opacity: 0;
+  color: var(--link-color);
+  font-weight: normal;
+  text-decoration: none;
+}
+
+.tr-hunk-head:hover > .tr-hash,
+.tr-def-head:hover > .tr-hash,
+.tr-file-head:hover > .tr-hash,
+.tr-hash:focus-visible {
+  opacity: 1;
+}
+
+.tr-hash:hover {
+  text-decoration: underline;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .tr-hash {
+    opacity: 0.4;
+  }
 }
 
 @keyframes tr-flash {

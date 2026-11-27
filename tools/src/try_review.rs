@@ -3371,6 +3371,21 @@ fn element_id(part: &str, section: Section) -> String {
     format!("tr-{:012x}", hash & 0xffff_ffff_ffff)
 }
 
+/// A heading's link to its part's element (`#` its id; see `element_id`),
+/// first in the heading, which the page shows to the left of its text, on
+/// hovering over the heading or focusing the link (see mozsearch.css's
+/// `.tr-hash`; not `.tr-anchor`, the sections' jumps' targets): to copy (ex:
+/// a hunk's, to share it),
+/// or to go to it, a history entry, after which the page's URL is the
+/// link's (for Back and Forward, or to copy it from the URL bar).
+fn anchor_html(element: &str, what: &str) -> String {
+    format!(
+        r##"<a class="tr-hash" href="#{element}" title="A link to this {what}" aria-label="Link to this {what}">#</a>"##,
+        element = escape(element),
+        what = what,
+    )
+}
+
 /// The classes of the marks of a change's words which the other side doesn't
 /// have (see `mark_word_changes`): its removed lines', and its added lines'.
 pub const WORD_REMOVED_CLASS: &str = "tr-word-removed";
@@ -4070,10 +4085,12 @@ fn hunk_html(
     hunk: &ReviewHunk,
     folded: bool,
 ) -> String {
+    let element = element_id(&hunk.id, hunk.section);
     let head = match folded {
         true => String::new(),
         false => format!(
-            r#"<div class="tr-hunk-head">{} {}</div>"#,
+            r#"<div class="tr-hunk-head">{}{} {}</div>"#,
+            anchor_html(&element, "hunk"),
             hunk_lines_html(tree, rev, stack, file, hunk),
             strip_slot(&hunk.id)
         ),
@@ -4082,7 +4099,7 @@ fn hunk_html(
         r#"<div class="tr-hunk{folded}" data-part="{id}" id="{element}">{head}{code}{moved}{later}</div>"#,
         folded = if folded { " tr-hunk-folded" } else { "" },
         id = escape(&hunk.id),
-        element = element_id(&hunk.id, hunk.section),
+        element = element,
         head = head,
         code = hunk_code_html(tree, rev, stack, patch, file, hunk),
         moved = moved_html(tree, patch, file, hunk),
@@ -4198,10 +4215,12 @@ fn file_html(
             items.push((
                 first,
                 format!(
-                    r#"<div class="tr-def tr-def-{level}" data-part="{id}" id="{element}"><div class="tr-def-head"><span class="tr-def-kind">{kind}</span> <code class="tr-def-name" title="{pretty}">{name}</code>{decl}{status}{lines} {strip}</div>{children}</div>"#,
+                    r#"<div class="tr-def tr-def-{level}" data-part="{id}" id="{element}"><div class="tr-def-head">{anchor}<span class="tr-def-kind">{kind}</span> <code class="tr-def-name" title="{pretty}">{name}</code>{decl}{status}{lines} {strip}</div>{children}</div>"#,
                     level = escape(&def.level),
                     id = escape(&def.id),
                     element = element_id(&def.id, section),
+                    // (A folded hunk's too, whose heading this is.)
+                    anchor = anchor_html(&element_id(&def.id, section), "definition"),
                     strip = strip_slot(&def.id),
                     kind = escape(&def.kind),
                     pretty = escape(&def.pretty),
@@ -4243,9 +4262,10 @@ fn file_html(
         _ => String::new(),
     };
     format!(
-        r#"<section class="tr-file" data-part="{id}" id="{element}" data-path="{path}" data-facets="{facets}"><h5 class="tr-file-head"><a href="/{tree}/rev/{rev}/{link}?stack={stack}">{path}</a>{status} {strip}</h5>{children}{truncated}</section>"#,
+        r#"<section class="tr-file" data-part="{id}" id="{element}" data-path="{path}" data-facets="{facets}"><h5 class="tr-file-head">{anchor}<a href="/{tree}/rev/{rev}/{link}?stack={stack}">{path}</a>{status} {strip}</h5>{children}{truncated}</section>"#,
         id = escape(&file.id),
         element = element_id(&file.id, section),
+        anchor = anchor_html(&element_id(&file.id, section), "file's changes"),
         path = escape(&file.path),
         facets = escape(&serde_json::to_string(&facets).unwrap_or_default()),
         strip = strip_slot(&file.id),

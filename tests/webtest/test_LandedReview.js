@@ -56,3 +56,43 @@ add_task(async function test_LandedReview() {
   ok(doc().body.textContent.includes("No commit of this tree's mentions 9999999"),
      "A bug no commit mentions says so");
 });
+
+// A heading's `#` (see the tools' try_review.rs's `anchor_html`), shown on
+// hovering over the heading: a link to its part (its hunk's, definition's or
+// file's), to copy, or to go to, a history entry, after which the page's URL
+// is the link's, and Back returns to where the page was.
+add_task(async function test_ReviewAnchors() {
+  await TestUtils.loadPath("/searchfox/explore/bug/1975601");
+  await waitForCondition(() => doc()?.querySelector("#try-review[data-review-ready]"),
+                         "The bug's review is there", 500, 120);
+  const hunk = doc().querySelector(".tr-hunk:not(.tr-hunk-folded)");
+  const anchor = hunk?.querySelector(":scope > .tr-hunk-head > a.tr-hash");
+  is(anchor?.getAttribute("href"), `#${hunk?.id}`, "A hunk's heading has a link to the hunk");
+  is(anchor?.textContent, "#", "a #");
+  ok(parseFloat(frame.contentWindow.getComputedStyle(anchor).opacity) < 1,
+     "which isn't shown (or, on a touch screen, faintly) until its heading is hovered over");
+  // (To the left of the heading's text, on its line, out of its flow.)
+  const lines = hunk.querySelector(":scope > .tr-hunk-head > .tr-hunk-lines");
+  const at = anchor.getBoundingClientRect();
+  const text = lines.getBoundingClientRect();
+  ok(at.right <= text.left + 1 && at.width > 0, `left of the heading's text (${at.right} <= ${text.left})`);
+  ok(Math.abs(at.top - text.top) < text.height, `on its line (${at.top} by ${text.top})`);
+  is(frame.contentWindow.getComputedStyle(anchor).position, "absolute", "out of its flow");
+  for (const [part, head] of [["tr-def", "tr-def-head"], ["tr-file", "tr-file-head"]]) {
+    const element = doc().querySelector(`.${part}[id]`);
+    is(element?.querySelector(`:scope > .${head} > a.tr-hash`)?.getAttribute("href"), `#${element?.id}`,
+       `and so does a .${part}'s heading`);
+  }
+  // (A folded hunk's heading is its definition's.)
+  const folded = doc().querySelector(".tr-hunk-folded");
+  const def = folded?.closest(".tr-def");
+  ok(def?.querySelector(":scope > .tr-def-head > a.tr-hash")?.getAttribute("href") == `#${def?.id}`,
+     "A folded hunk's link is its definition's");
+
+  const before = doc().location.href;
+  anchor.click();
+  is(doc().location.hash, `#${hunk.id}`, "Clicking it makes the page's URL the hunk's");
+  ok(hunk.matches(":target"), "and goes to it");
+  frame.contentWindow.history.back();
+  await waitForCondition(() => doc().location.href == before, "Back returns to where the page was", 100, 50);
+});
