@@ -35,6 +35,13 @@ if [ -z "$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].scip_subtrees.python // 
     exit 0
 fi
 
+# (Its version, which scip-python takes from git by default: of a checkout
+# which isn't git's (ex: an archive of the push's head; see mozsearch's own
+# trees' config's analyze-try.sh), it failed reading it ("Cannot read
+# properties of undefined"), on 2026-11-27.  Not in the symbols, which have
+# the project's name.)
+PROJECT_VERSION=$(git -C "$FILES_ROOT" rev-parse HEAD 2>/dev/null || echo HEAD)
+
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"; rm -f "$FILES_ROOT"/.try-pyright-*.json' EXIT
 N=0
@@ -65,7 +72,7 @@ PY
     fi
     echo "Analyzing the push's $(wc -l < "$WORK/files-$N") Python files of $CONFIG."
     (cd "$FILES_ROOT" && NODE_OPTIONS="--max-old-space-size=10240" scip-python index --cwd "$FILES_ROOT" \
-         --show-progress-rate-limit 0 --project-name python \
+         --show-progress-rate-limit 0 --project-name python --project-version "$PROJECT_VERSION" \
          --config "$FILES_ROOT/.try-pyright-$$-$N.json" --output "$WORK/$N.scip") > "$WORK/$N.log" 2>&1 ||
         { tail -5 "$WORK/$N.log"; echo "WARNING: scip-python failed for the push's files of $CONFIG."; continue; }
     scip-indexer "$CONFIG_FILE" "$TREE_NAME" --subtree-name python --subtree-root "$SUBTREE_ROOT" \

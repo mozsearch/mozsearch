@@ -167,6 +167,12 @@
           # (For try imports' Java and Kotlin analysis, from their Android
           # builds' per-file SCIP; see scripts/try-analyze-java.sh.)
           scip-java
+          # (For try imports' C++ analysis by the indexer's plugin, as the
+          # indexer's is, where a tree's hook compiles it on the web server
+          # (ex: mozsearch's own trees' pull requests, whose clang plugin's
+          # C++ the tree indexes), as /nix/var/nix/profiles/default/lib's, as
+          # on the indexer; see infrastructure/indexer-provision.sh.)
+          mozsearch-clang-plugin
         ];
       in {
         packages = {
