@@ -1,0 +1,39 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/dirs/tests_test_results__html
+---
+<td class="test-results-rate"></td>
+<td class="test-results-cell"></td>
+<td class="test-results-rate"></td>
+<td class="test-results-cell"></td>
+<td class="test-results-rate"></td>
+<td class="test-results-cell"></td>
+<td class="test-results-rate"></td>
+<td class="test-results-cell"></td>
+<td class="test-results-rate"></td>
+<td class="test-results-cell"></td>
+<td class="test-results-rate"></td>
+<td class="test-results-cell"></td>
+<td class="test-results-rate"><a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html" title="Flaky in CI over the last 21 days
+3 failures in 161 runs
+6 skips, skip-if:
+os == &#39;mac&#39; &amp;&amp; debug">2%</a></td>
+<td class="test-results-cell"><a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html" title="Flaky in CI over the last 21 days
+3 failures in 161 runs
+6 skips, skip-if:
+os == &#39;mac&#39; &amp;&amp; debug"><svg class="test-results-sparkline" width="84" height="16" viewBox="0 0 84 16" aria-hidden="true">
+  <rect class="test-results-baseline" x="0" y="15" width="84" height="1"/>
+  <rect class="test-results-flaky" x="20" y="0" width="3" height="16"/>
+  <rect class="test-results-skipped" x="48" y="0" width="3" height="16"/>
+  <rect class="test-results-flaky" x="60" y="8" width="3" height="8"/>
+</svg>
+</a></td>
+<td class="test-results-rate"><a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_something.html" title="Stable in CI over the last 21 days
+1 failure in 201 runs">&lt;1%</a></td>
+<td class="test-results-cell"><a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_something.html" title="Stable in CI over the last 21 days
+1 failure in 201 runs"><svg class="test-results-sparkline" width="84" height="16" viewBox="0 0 84 16" aria-hidden="true">
+  <rect class="test-results-baseline" x="0" y="15" width="84" height="1"/>
+  <rect class="test-results-flaky" x="48" y="0" width="3" height="16"/>
+</svg>
+</a></td>

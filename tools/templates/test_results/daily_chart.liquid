@@ -37,14 +37,14 @@ Parameters:
 {{ counts.runs[day] | thousands }} runs
     {%- endif -%}
   {%- endcapture %}
-  <a href="{{ day_url }}{{ date }}&amp;to={{ date }}"><g><title>{{ tooltip | escape }}</title><rect class="test-results-hit" x="{{ x }}" y="0" width="{{ bar_pitch }}" height="{{ height }}"/>
+  <a href="{{ day_url | escape }}{{ date | escape }}&amp;to={{ date | escape }}"><g><title>{{ tooltip | escape }}</title><rect class="test-results-hit" x="{{ x }}" y="0" width="{{ bar_pitch }}" height="{{ height }}"/>
   {%- assign bottom = height -%}
   {%- for name in series_names -%}
     {%- assign value = values[name][day] -%}
     {%- if value > 0 -%}
       {%- assign bar_height = value | times: scale | at_least: 1 | round: 1 -%}
       {%- assign y = bottom | minus: bar_height | round: 1 %}
-    <rect class="test-results-{{ name }}" x="{{ x }}" y="{{ y }}" width="{{ bar_width }}" height="{{ bar_height }}" rx="1.5"/>
+    <rect class="test-results-{{ name | escape }}" x="{{ x }}" y="{{ y }}" width="{{ bar_width }}" height="{{ bar_height }}" rx="1.5"/>
       {%- comment -%} Leave a 1px gap between stacked segments. {%- endcomment -%}
       {%- assign bottom = y | minus: 1 -%}
     {%- endif -%}

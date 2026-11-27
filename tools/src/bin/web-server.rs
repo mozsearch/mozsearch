@@ -92,6 +92,78 @@ impl WebResponse {
             ..WebResponse::default()
         }
     }
+
+    /// A redirect which isn't permanent (ex: a ref name's, whose commit
+    /// changes).
+    fn redirect_temporarily(url: String) -> WebResponse {
+        WebResponse {
+            status: StatusCode::FOUND,
+            redirect_location: Some(url),
+            ..WebResponse::default()
+        }
+    }
+}
+
+/// A `/rev/`, `/diff/` or `/commit/` URL whose revision is a ref name rather
+/// than a commit id (see `git_ops::is_ref_name`), as a redirect to the same
+/// URL with the ref's commit's id, so that the page is a permalink.  As a ref
+/// name can have slashes (ex: `release/esr128`), it's the fewest of the URL's
+/// segments after its kind (up to 4) which are a ref's name.
+fn redirect_ref_name(
+    cfg: &config::Config,
+    tree_name: &str,
+    kind: &str,
+    raw_path: &str,
+) -> WebResponse {
+    let bad_revision = || WebResponse::internal_error("Bad revision".to_owned());
+    let Some(git) = cfg
+        .trees
+        .get(tree_name)
+        .and_then(|tree| tree.get_git().ok())
+    else {
+        return bad_revision();
+    };
+    // (Still percent-encoded, as the redirect's are.)
+    let segments = raw_path[1..].split('/').skip(2).collect::<Vec<_>>();
+    for count in 1..=segments.len().min(4) {
+        let name = url_decode_path(&segments[..count].join("/"));
+        if let Some(id) = git_ops::resolve_ref_name(&git.repo, &name) {
+            let mut location = format!("/{}/{}/{}", tree_name, kind, id);
+            for segment in &segments[count..] {
+                location.push('/');
+                location.push_str(segment);
+            }
+            return WebResponse::redirect_temporarily(location);
+        }
+    }
+    bad_revision()
+}
+
+/// The most bytes of Content-Security-Policy violation reports the
+/// web-server's log of them has (see `append_csp_report`).
+const CSP_REPORT_LOG_LIMIT: u64 = 3 << 30;
+
+/// Append a Content-Security-Policy violation report (which nginx passes on;
+/// see nginx-setup.py's `/csp-report`) to the log at `path` (web-server-run.sh's
+/// `$CSP_REPORT_LOG`), as its time and its JSON on one line, unless the log
+/// has `limit` bytes already, as anyone can send them; returning whether it
+/// did.
+fn append_csp_report(path: &Path, limit: u64, body: &[u8]) -> bool {
+    if std::fs::metadata(path).is_ok_and(|metadata| metadata.len() >= limit) {
+        return false;
+    }
+    let body = String::from_utf8_lossy(body).replace(['\r', '\n'], " ");
+    let line = format!(
+        "{} {}\n",
+        chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        body.trim()
+    );
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .and_then(|mut file| file.write_all(line.as_bytes()))
+        .is_ok()
 }
 
 fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
@@ -164,6 +236,9 @@ fn handle(
             }
 
             let rev = &path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(cfg, tree_name, kind, req.path);
+            }
             let path = path.clone().split_off(3);
             let path = path.join("/");
 
@@ -186,6 +261,10 @@ fn handle(
             };
 
             let hg_rev = path[2];
+            // (Mercurial's revisions are hex.)
+            if !git_ops::is_hex_rev(hg_rev) {
+                return WebResponse::not_found();
+            }
             let output_result = Command::new("git")
                 .arg("cinnabar")
                 .arg("hg2git")
@@ -241,6 +320,9 @@ fn handle(
             }
 
             let rev = &path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(cfg, tree_name, kind, req.path);
+            }
             let path = path.clone().split_off(3);
             let path = path.join("/");
 
@@ -278,6 +360,9 @@ fn handle(
             }
 
             let rev = &path[2];
+            if !git_ops::is_hex_rev(rev) {
+                return redirect_ref_name(cfg, tree_name, kind, req.path);
+            }
 
             let mut writer = Vec::new();
             match format::format_commit(cfg, tree_name, rev, &mut writer) {
@@ -369,6 +454,23 @@ async fn main() {
         let ident_map = ident_map.clone();
         tokio::spawn(async move {
             let handler = async |req: http::Request<_>| {
+                // (Content-Security-Policy violation reports, at most 64 KiB
+                // each, as nginx's.)
+                if req.method() == Method::POST && req.uri().path() == "/csp-report" {
+                    let body =
+                        axum::body::to_bytes(axum::body::Body::new(req.into_body()), 64 << 10)
+                            .await
+                            .unwrap_or_default();
+                    if let Some(path) = env::var_os("CSP_REPORT_LOG") {
+                        let _ = tokio::task::spawn_blocking(move || {
+                            append_csp_report(Path::new(&path), CSP_REPORT_LOG_LIMIT, &body)
+                        })
+                        .await;
+                    }
+                    return http::Response::builder()
+                        .status(StatusCode::NO_CONTENT)
+                        .body(String::new());
+                }
                 if req.method() != Method::GET {
                     return http::Response::builder()
                         .status(StatusCode::METHOD_NOT_ALLOWED)
@@ -420,5 +522,25 @@ async fn main() {
                 println!("Error serving connection: {:?}", err);
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Reports are appended, a line each, until the log has the limit's bytes.
+    #[test]
+    fn test_append_csp_report() {
+        let path = env::temp_dir().join(format!("csp-reports-test-{}.log", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        assert!(append_csp_report(&path, 100, b"{\"a\":\n1}"));
+        let log = std::fs::read_to_string(&path).unwrap();
+        assert!(log.ends_with(" {\"a\": 1}\n"), "{}", log);
+        assert_eq!(log.lines().count(), 1);
+        while append_csp_report(&path, 100, b"{}") {}
+        let size = std::fs::metadata(&path).unwrap().len();
+        assert!((100..140).contains(&size), "{}", size);
+        let _ = std::fs::remove_file(&path);
     }
 }
